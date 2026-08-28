@@ -1,15 +1,18 @@
 import { Component, OnInit } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { AuthService } from '../../../core/services/auth.service';
+import { ApiService } from '../../../core/services/api.service';
 import { ToastService } from '../../../core/services/toast.service';
-import { MaterialesApiService, Notificacion } from '../../../core/services/materiales/materiales-api.service';
+import { Notificacion } from '../../../layout/navbar/notificaciones-campana.component';
 
 /**
- * Notificaciones propias de Materiales (distintas del sistema de
- * notificaciones general del ERP que ya existe en la barra superior) —
- * se generan solo como efecto secundario de Solicitudes/Traslados
- * (creación, aprobación, rechazo). Acá no hay alta manual, solo lectura
- * y "marcar como leída".
+ * Notificaciones propias de Materiales — hasta la Fase 3 del plan de fusión
+ * de notificaciones esta pantalla leía de un endpoint propio de Materiales
+ * (`/api2/notificaciones`), separado del feed que ya usa la campana del
+ * navbar. Desde la Fase 4, ambos leen de la MISMA fuente (`/api/notificaciones`,
+ * backend-erp) — acá solo se filtra client-side por `tipo` con prefijo
+ * `materiales_` para mantener el recorte ("solo lo mío de Materiales") sin
+ * tener una fuente de datos aparte. Solo lectura y "marcar como leída", sin
+ * alta manual (se generan como efecto secundario de Solicitudes/Traslados).
  */
 @Component({
   selector: 'app-materiales-notificaciones',
@@ -27,13 +30,13 @@ import { MaterialesApiService, Notificacion } from '../../../core/services/mater
         <p class="text-center text-gray-400 text-sm py-10">No tenés notificaciones</p>
       } @else {
         <div class="space-y-2">
-          @for (n of notificaciones; track n.id_notificacion) {
+          @for (n of notificaciones; track n.id) {
             <div class="flex items-start justify-between gap-4 p-4 rounded-xl border transition-colors"
               [class.border-gray-100]="n.leida" [class.bg-white]="n.leida"
               [class.border-[#39A900]/30]="!n.leida" [class.bg-[#39A900]/5]="!n.leida">
               <div>
                 <p class="text-sm text-gray-700">{{ n.mensaje }}</p>
-                <p class="text-xs text-gray-400 mt-1">{{ n.fecha | date: 'short' }}</p>
+                <p class="text-xs text-gray-400 mt-1">{{ n.createdAt | date: 'short' }}</p>
               </div>
               @if (!n.leida) {
                 <button (click)="marcarLeida(n)"
@@ -53,9 +56,8 @@ export class MaterialesNotificacionesComponent implements OnInit {
   loading = false;
 
   constructor(
-    private api: MaterialesApiService,
+    private api: ApiService,
     private toast: ToastService,
-    private auth: AuthService,
   ) {}
 
   ngOnInit(): void {
@@ -63,11 +65,10 @@ export class MaterialesNotificacionesComponent implements OnInit {
   }
 
   private async cargar(): Promise<void> {
-    const idUsuario = this.auth.user()?.id;
-    if (!idUsuario) return;
     this.loading = true;
     try {
-      this.notificaciones = await this.api.listarNotificaciones(idUsuario);
+      const todas: Notificacion[] = await this.api.listarNotificaciones();
+      this.notificaciones = todas.filter((n) => n.tipo?.startsWith('materiales_'));
     } catch (e) {
       this.toast.httpError(e, 'No se pudieron cargar las notificaciones.');
     } finally {
@@ -77,7 +78,7 @@ export class MaterialesNotificacionesComponent implements OnInit {
 
   async marcarLeida(n: Notificacion): Promise<void> {
     try {
-      await this.api.marcarNotificacionLeida(n.id_notificacion);
+      await this.api.marcarNotificacionLeida(n.id);
       n.leida = true;
     } catch (e) {
       this.toast.httpError(e, 'No se pudo marcar como leída.');

@@ -1,11 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
 import { OpcionSelect } from '../services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
-import { MaterialesApiService, Producto, Solicitud } from '../../../core/services/materiales/materiales-api.service';
+import { MaterialesApiService, Producto, Sitio, Solicitud } from '../../../core/services/materiales/materiales-api.service';
 
 /**
  * El flujo central de Materiales: préstamo de un producto con doble
@@ -14,17 +13,28 @@ import { MaterialesApiService, Producto, Solicitud } from '../../../core/service
  * que lo recibió)→ ENTREGADA. Tabla a medida por el mismo motivo que
  * Novedades/Traslados: el botón de fila depende del estado.
  *
- * Gating de botones: solo admin por ahora (ver nota en Novedades/Traslados
- * — responsable-de-sitio y "soy el solicitante" quedan pendientes). El
- * backend igual re-valida cada paso — incluida la doble confirmación real
- * (nadie puede aprobar su propia solicitud, y solo quien la pidió puede
- * confirmar la recepción), así que un admin que se autogestiona una
- * solicitud de punta a punta chocará con esos bloqueos — esperado.
+ * Gating de botones (Ronda 4, Fase 5): Aprobar/Rechazar exigen además ser
+ * responsable real del sitio del producto (vía `producto.id_sitio` →
+ * `sitios`) y no ser quien pidió la solicitud —
+ * `SolicitudesService.cambiarEstadoSolicitud` bloquea auto-aprobación
+ * siempre, y si el sitio no tiene responsable asignado deja pasar SOLO a
+ * admin (a diferencia de Traslados, acá sí hay bypass de admin en ese
+ * caso). Confirmar recepción exige ser el propio solicitante
+ * (`confirmarRecepcionSolicitud` lo bloquea con una excepción dedicada).
+ * Entregar no tiene ningún chequeo de dueño en el backend, queda solo con
+ * el gate de servicio.
+ *
+ * Crear (Ronda 4, Fase 7): flujo de 2 pasos Bodega → Producto (antes era un
+ * único `<select>` con TODOS los productos del tenant, sin importar en qué
+ * sitio están) — elegir bodega primero filtra `productos` por
+ * `id_sitio === bodega elegida`. La fecha de devolución solo se pide cuando
+ * el producto elegido es de un tipo que realmente vuelve (`tipo_material`
+ * distinto de `CONSUMO`/`PERECEDERO`), mismo criterio que SGM.
  */
 @Component({
   selector: 'app-materiales-solicitudes',
   standalone: true,
-  imports: [FormsModule, DatePipe, AdminModalComponent],
+  imports: [FormsModule, DatePipe],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -73,7 +83,8 @@ import { MaterialesApiService, Producto, Solicitud } from '../../../core/service
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ s.fecha | date: 'short' }}</td>
                   <td class="px-4 py-3">
                     <div class="flex justify-end gap-1.5">
-                      @if (s.estado === 'PENDIENTE') {
+                      <button (click)="verDetalle(s)" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-50 text-gray-500 hover:bg-gray-100 transition-colors">Ver</button>
+                      @if (s.estado === 'PENDIENTE' && puedeGestionar(s)) {
                         @if (puedeAprobar) {
                           <button (click)="aprobar(s)" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-50 text-green-600 hover:bg-green-100 transition-colors">Aprobar</button>
                         }
@@ -84,7 +95,7 @@ import { MaterialesApiService, Producto, Solicitud } from '../../../core/service
                       @if (s.estado === 'APROBADA' && puedeEntregar) {
                         <button (click)="entregar(s)" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">Marcar en entrega</button>
                       }
-                      @if (s.estado === 'EN_ENTREGA' && puedeConfirmar) {
+                      @if (s.estado === 'EN_ENTREGA' && puedeConfirmar && esSolicitantePropio(s)) {
                         <button (click)="confirmarRecepcion(s)" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-50 text-green-600 hover:bg-green-100 transition-colors">Confirmar recepción</button>
                       }
                     </div>
@@ -97,24 +108,133 @@ import { MaterialesApiService, Producto, Solicitud } from '../../../core/service
       }
     </div>
 
-    <app-admin-modal
-      [open]="modalOpen"
-      [editando]="null"
-      labelSingular="solicitud"
-      [columns]="['id_producto', 'cantidad', 'observacion', 'fecha_devolucion']"
-      [form]="form"
-      [opciones]="opciones"
-      [tiposCampo]="tiposCampo"
-      [columnLabels]="columnLabels"
-      [saving]="saving"
-      [error]="error"
-      (closed)="cerrarModal()"
-      (saved)="guardar($event)" />
+    @if (modalOpen) {
+      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarModal()">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
+          <div class="flex items-center justify-between mb-5">
+            <h2 class="text-lg font-bold text-gray-800">Nueva solicitud</h2>
+            <button (click)="cerrarModal()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Bodega</label>
+              <select [(ngModel)]="idSitioSeleccionado" (ngModelChange)="onSitioChange($event)"
+                class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
+                <option [ngValue]="null">— Selecciona una bodega —</option>
+                @for (s of sitios; track s.id_sitio) {
+                  <option [value]="s.id_sitio">{{ s.nombre }} ({{ s.tipo }})</option>
+                }
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Producto</label>
+              <select [(ngModel)]="form['id_producto']" (ngModelChange)="onProductoChange($event)"
+                [disabled]="!idSitioSeleccionado"
+                class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] disabled:bg-gray-50 disabled:text-gray-400">
+                @if (!idSitioSeleccionado) {
+                  <option value="">Elegí primero una bodega</option>
+                } @else if (productosFiltrados().length === 0) {
+                  <option value="">Sin productos en esta bodega</option>
+                } @else {
+                  <option value="">— Selecciona —</option>
+                  @for (p of productosFiltrados(); track p.id_producto) {
+                    <option [value]="p.id_producto">{{ p.nombre }}</option>
+                  }
+                }
+              </select>
+            </div>
+
+            @if (form['id_producto']) {
+            <!-- Panel de stock: mismo criterio que el módulo hermano SGM (frontend-proyecto) -->
+            <div class="rounded-lg border px-3 py-2 text-xs"
+              [class.border-gray-100]="stock.cargando"
+              [class.bg-gray-50]="stock.cargando"
+              [class.border-red-200]="!stock.cargando && stock.disponibles === 0"
+              [class.bg-red-50]="!stock.cargando && stock.disponibles === 0"
+              [class.border-green-200]="!stock.cargando && stock.disponibles > 0"
+              [class.bg-green-50]="!stock.cargando && stock.disponibles > 0">
+              @if (stock.cargando) {
+                <span class="text-gray-400">Consultando stock...</span>
+              } @else if (stock.disponibles === 0) {
+                <span class="text-red-600 font-medium">Sin unidades disponibles ({{ stock.total }} en total, todas prestadas/de baja)</span>
+              } @else {
+                <span class="text-green-700 font-medium">{{ stock.disponibles }} disponible(s)</span>
+                <span class="text-gray-500"> de {{ stock.total }} unidad(es) totales</span>
+              }
+            </div>
+            @if (!stock.cargando && form['cantidad'] > stock.disponibles) {
+              <p class="text-red-500 text-xs -mt-1">No podés pedir más de las {{ stock.disponibles }} unidad(es) disponibles.</p>
+            }
+
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Cantidad</label>
+              <input type="number" [(ngModel)]="form['cantidad']" min="1" [max]="stock.disponibles || 1"
+                class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Observación (opcional)</label>
+              <input type="text" [(ngModel)]="form['observacion']"
+                class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+            </div>
+
+            @if (requiereFechaDevolucion()) {
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Fecha de devolución <span class="text-red-500">*</span></label>
+                <input type="date" [(ngModel)]="form['fecha_devolucion']"
+                  class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+              </div>
+            }
+            }
+          </div>
+
+          @if (error) {
+            <p class="text-red-500 text-xs mt-3 p-2 bg-red-50 rounded-lg">{{ error }}</p>
+          }
+
+          <div class="flex justify-end gap-2 mt-6">
+            <button (click)="cerrarModal()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
+            <button (click)="guardar()" [disabled]="saving || !puedeGuardar()"
+              class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
+              style="background-color: #39A900">
+              {{ saving ? 'Guardando...' : 'Guardar' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (detalleAbierto && detalle) {
+      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="detalleAbierto = false">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
+          <div class="flex items-center justify-between mb-5">
+            <h2 class="text-lg font-bold text-gray-800">Detalle de la solicitud</h2>
+            <button (click)="detalleAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+          </div>
+          <dl class="space-y-2.5 text-sm">
+            <div class="flex justify-between gap-4"><dt class="text-gray-500">Producto</dt><dd class="text-gray-800 font-medium text-right">{{ detalle.producto?.nombre ?? '—' }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-gray-500">Cantidad</dt><dd class="text-gray-800 text-right">{{ detalle.cantidad }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-gray-500">Estado</dt><dd class="text-gray-800 text-right">{{ detalle.estado }}</dd></div>
+            <div><dt class="text-gray-500 mb-1">Observación</dt><dd class="text-gray-800">{{ detalle.observacion || '—' }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-gray-500">Fecha</dt><dd class="text-gray-800 text-right">{{ detalle.fecha | date: 'medium' }}</dd></div>
+            @if (detalle.fecha_devolucion) {
+              <div class="flex justify-between gap-4"><dt class="text-gray-500">Fecha de devolución</dt><dd class="text-gray-800 text-right">{{ detalle.fecha_devolucion | date: 'mediumDate' }}</dd></div>
+            }
+          </dl>
+          <div class="flex justify-end mt-6">
+            <button (click)="detalleAbierto = false" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    }
   `,
 })
 export class MaterialesSolicitudesComponent implements OnInit {
   solicitudes: Solicitud[] = [];
   productos: Producto[] = [];
+  sitios: Sitio[] = [];
   loading = false;
   saving = false;
   error: string | null = null;
@@ -122,8 +242,15 @@ export class MaterialesSolicitudesComponent implements OnInit {
   modalOpen = false;
   form: Record<string, any> = {};
 
-  tiposCampo: Record<string, string> = { cantidad: 'number', fecha_devolucion: 'date' };
-  columnLabels: Record<string, string> = { id_producto: 'Producto', fecha_devolucion: 'Fecha de devolución (opcional)' };
+  /** "Ver detalles" (Fase 9). */
+  detalleAbierto = false;
+  detalle: Solicitud | null = null;
+
+  /** Bodega elegida en el paso 1 del modal — filtra `productos` antes de mostrar el paso 2 (Fase 7). */
+  idSitioSeleccionado: string | null = null;
+
+  /** Stock del producto elegido — consultado en vivo, mismo endpoint que ya usa el módulo hermano SGM. */
+  stock: { disponibles: number; total: number; cargando: boolean } = { disponibles: 0, total: 0, cargando: false };
 
   constructor(
     private api: MaterialesApiService,
@@ -150,20 +277,83 @@ export class MaterialesSolicitudesComponent implements OnInit {
     return this.auth.tieneServicio('materiales.solicitudes.confirmar');
   }
 
-  get opciones(): Record<string, OpcionSelect[]> {
-    return { id_producto: this.productos.map((p) => ({ label: p.nombre, value: p.id_producto })) };
+  /** Solo el propio solicitante puede confirmar recepción — el backend lo bloquea si no. */
+  esSolicitantePropio(s: Solicitud): boolean {
+    return s.id_usuario === this.auth.user()?.id;
+  }
+
+  /**
+   * Nunca puede gestionar su propia solicitud. Con responsable asignado en
+   * el sitio del producto, solo esa persona (ni siquiera admin). Sin
+   * responsable asignado, solo admin — replica exactamente
+   * `SolicitudesService.cambiarEstadoSolicitud`.
+   */
+  puedeGestionar(s: Solicitud): boolean {
+    if (this.esSolicitantePropio(s)) return false;
+    const idSitio = s.producto?.id_sitio;
+    const sitio = idSitio ? this.sitios.find((x) => x.id_sitio === idSitio) : undefined;
+    if (sitio?.id_responsable) return sitio.id_responsable === this.auth.user()?.id;
+    return this.auth.isAdmin();
   }
 
   ngOnInit(): void {
     this.cargar();
   }
 
+  /** Productos disponibles en la bodega elegida — paso 2 del modal (Fase 7). */
+  productosFiltrados(): Producto[] {
+    if (!this.idSitioSeleccionado) return [];
+    return this.productos.filter((p) => p.id_sitio === this.idSitioSeleccionado);
+  }
+
+  onSitioChange(idSitio: string | null): void {
+    this.idSitioSeleccionado = idSitio;
+    this.form['id_producto'] = '';
+    this.form['fecha_devolucion'] = '';
+    this.stock = { disponibles: 0, total: 0, cargando: false };
+  }
+
+  productoSeleccionado(): Producto | undefined {
+    return this.productos.find((p) => p.id_producto === this.form['id_producto']);
+  }
+
+  /** Solo los materiales que realmente vuelven piden fecha de devolución — mismo criterio que SGM. */
+  requiereFechaDevolucion(): boolean {
+    const tipo = this.productoSeleccionado()?.tipo_material;
+    return !!tipo && tipo !== 'CONSUMO' && tipo !== 'PERECEDERO';
+  }
+
+  async onProductoChange(idProducto: string): Promise<void> {
+    const id = idProducto;
+    if (!id) { this.stock = { disponibles: 0, total: 0, cargando: false }; return; }
+    this.stock = { disponibles: 0, total: 0, cargando: true };
+    try {
+      const { disponibles, total } = await this.api.stockProducto(id);
+      this.stock = { disponibles, total, cargando: false };
+    } catch {
+      this.stock = { disponibles: 0, total: 0, cargando: false };
+    }
+  }
+
+  puedeGuardar(): boolean {
+    const cantidad = Number(this.form['cantidad']) || 0;
+    const stockOk = !!this.form['id_producto'] && cantidad >= 1 && !this.stock.cargando &&
+      this.stock.disponibles > 0 && cantidad <= this.stock.disponibles;
+    if (!stockOk) return false;
+    return !this.requiereFechaDevolucion() || !!this.form['fecha_devolucion'];
+  }
+
   private async cargar(): Promise<void> {
     this.loading = true;
     try {
-      const [solicitudes, productos] = await Promise.all([this.api.listarSolicitudes(), this.api.listarProductos()]);
+      const [solicitudes, productos, sitios] = await Promise.all([
+        this.api.listarSolicitudes(),
+        this.api.listarProductos(),
+        this.api.listarSitios(),
+      ]);
       this.solicitudes = solicitudes;
       this.productos = productos;
+      this.sitios = sitios;
     } catch (e) {
       this.toast.httpError(e, 'No se pudieron cargar las solicitudes.');
     } finally {
@@ -172,11 +362,13 @@ export class MaterialesSolicitudesComponent implements OnInit {
   }
 
   nuevo(): void {
-    if (this.productos.length === 0) {
-      this.toast.warn('Faltan datos', 'Necesitás al menos un producto para crear una solicitud.');
+    if (this.productos.length === 0 || this.sitios.length === 0) {
+      this.toast.warn('Faltan datos', 'Necesitás al menos un producto y un sitio para crear una solicitud.');
       return;
     }
-    this.form = { id_producto: this.productos[0].id_producto, cantidad: 1, observacion: '', fecha_devolucion: '' };
+    this.idSitioSeleccionado = null;
+    this.form = { id_producto: '', cantidad: 1, observacion: '', fecha_devolucion: '' };
+    this.stock = { disponibles: 0, total: 0, cargando: false };
     this.error = null;
     this.modalOpen = true;
   }
@@ -185,16 +377,34 @@ export class MaterialesSolicitudesComponent implements OnInit {
     this.modalOpen = false;
   }
 
-  async guardar(form: Record<string, any>): Promise<void> {
+  verDetalle(s: Solicitud): void {
+    this.detalle = s;
+    this.detalleAbierto = true;
+  }
+
+  async guardar(): Promise<void> {
+    // Doble chequeo — no alcanza con deshabilitar el botón, ver Fase 1 del plan.
+    if (!this.puedeGuardar()) {
+      if (this.stock.disponibles === 0) {
+        this.error = 'Ese producto no tiene unidades disponibles.';
+      } else if (Number(this.form['cantidad']) > this.stock.disponibles) {
+        this.error = 'La cantidad supera el stock disponible.';
+      } else if (this.requiereFechaDevolucion() && !this.form['fecha_devolucion']) {
+        this.error = 'Este producto requiere fecha de devolución.';
+      } else {
+        this.error = 'Completá los datos requeridos.';
+      }
+      return;
+    }
     this.saving = true;
     this.error = null;
     try {
       await this.api.crearSolicitud({
         tipo: 'PRESTAMO',
-        id_producto: Number(form['id_producto']),
-        cantidad: Number(form['cantidad']) || 1,
-        observacion: form['observacion'] || undefined,
-        fecha_devolucion: form['fecha_devolucion'] || undefined,
+        id_producto: this.form['id_producto'],
+        cantidad: Number(this.form['cantidad']) || 1,
+        observacion: this.form['observacion'] || undefined,
+        fecha_devolucion: this.form['fecha_devolucion'] || undefined,
       });
       this.toast.ok('Solicitud creada');
       this.modalOpen = false;

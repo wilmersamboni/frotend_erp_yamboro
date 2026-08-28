@@ -5,7 +5,7 @@ import { AdminModalComponent } from '../../../shared/components/admin-modal.comp
 import { OpcionSelect } from '../../admin/services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
-import { Item, MaterialesApiService, Sitio } from '../../../core/services/materiales/materiales-api.service';
+import { Item, MaterialesApiService, Producto, Sitio } from '../../../core/services/materiales/materiales-api.service';
 
 const OPCIONES_ESTADO: OpcionSelect[] = [
   { label: 'Disponible', value: 'DISPONIBLE' },
@@ -36,6 +36,12 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
             style="background-color: #39A900">
             Buscar
           </button>
+          @if (puedeCrear()) {
+            <button (click)="abrirAgregar()"
+              class="px-4 py-2 border border-[#39A900] text-[#39A900] text-sm font-medium rounded-lg hover:bg-[#39A900]/10 transition-colors">
+              + Agregar ítem
+            </button>
+          }
         </div>
       </div>
 
@@ -81,11 +87,25 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
       [error]="error"
       (closed)="cerrarModal()"
       (saved)="guardar($event)" />
+
+    <app-admin-modal
+      [open]="agregarOpen"
+      [editando]="null"
+      labelSingular="ítem al lote"
+      [columns]="['id_producto', 'placa_sena']"
+      [form]="agregarForm"
+      [opciones]="opcionesAgregar"
+      [columnLabels]="columnLabels"
+      [saving]="agregarSaving"
+      [error]="agregarError"
+      (closed)="cerrarAgregar()"
+      (saved)="guardarNuevoItem($event)" />
   `,
 })
 export class AprendizMaterialesItemsComponent implements OnInit {
   items: Item[] = [];
   sitios: Sitio[] = [];
+  productos: Producto[] = [];
   loading = false;
   saving = false;
   error: string | null = null;
@@ -97,11 +117,18 @@ export class AprendizMaterialesItemsComponent implements OnInit {
   editando: Item | null = null;
   form: Record<string, any> = {};
 
+  /** "Agregar ítem al lote" (Fase 3, Ronda 4) — modal aparte, siempre en modo creación. */
+  agregarOpen = false;
+  agregarForm: Record<string, any> = {};
+  agregarSaving = false;
+  agregarError: string | null = null;
+
   columnLabels: Record<string, string> = {
-    codigo_sku: 'SKU', placa_sena: 'Placa SENA', producto_nombre: 'Producto', sitio_nombre: 'Sitio', id_sitio: 'Sitio',
+    codigo_sku: 'SKU', placa_sena: 'Placa SENA', producto_nombre: 'Producto', sitio_nombre: 'Sitio', id_sitio: 'Sitio', id_producto: 'Producto',
   };
 
   puedeEditar = computed(() => this.auth.tieneServicio('materiales.items.editar'));
+  puedeCrear = computed(() => this.auth.tieneServicio('materiales.items.crear'));
 
   constructor(private api: MaterialesApiService, private toast: ToastService, private auth: AuthService) {}
 
@@ -111,6 +138,10 @@ export class AprendizMaterialesItemsComponent implements OnInit {
 
   get opciones(): Record<string, OpcionSelect[]> {
     return { id_sitio: this.sitios.map((s) => ({ label: s.nombre, value: s.id_sitio })), estado: OPCIONES_ESTADO };
+  }
+
+  get opcionesAgregar(): Record<string, OpcionSelect[]> {
+    return { id_producto: this.productos.map((p) => ({ label: p.SKU ? `${p.nombre} (${p.SKU})` : p.nombre, value: p.id_producto })) };
   }
 
   get filas(): any[] {
@@ -124,9 +155,14 @@ export class AprendizMaterialesItemsComponent implements OnInit {
   private async cargar(): Promise<void> {
     this.loading = true;
     try {
-      const [items, sitios] = await Promise.all([this.api.listarItems(), this.api.listarSitios()]);
+      const [items, sitios, productos] = await Promise.all([
+        this.api.listarItems(),
+        this.api.listarSitios(),
+        this.api.listarProductos(),
+      ]);
       this.items = items;
       this.sitios = sitios;
+      this.productos = productos;
     } catch (e) {
       this.toast.httpError(e, 'No se pudieron cargar los ítems.');
     } finally {
@@ -163,7 +199,7 @@ export class AprendizMaterialesItemsComponent implements OnInit {
     try {
       await this.api.actualizarItem(this.editando.id_item, {
         placa_sena: form['placa_sena'] || undefined,
-        id_sitio: form['id_sitio'] ? Number(form['id_sitio']) : undefined,
+        id_sitio: form['id_sitio'] || undefined,
       });
       if (form['estado'] !== this.editando.estado) {
         await this.api.actualizarEstadoItem(this.editando.id_item, form['estado']);
@@ -175,6 +211,41 @@ export class AprendizMaterialesItemsComponent implements OnInit {
       this.error = e?.error?.message ?? 'No se pudo actualizar el ítem.';
     } finally {
       this.saving = false;
+    }
+  }
+
+  abrirAgregar(): void {
+    if (!this.puedeCrear()) return;
+    if (this.productos.length === 0) {
+      this.toast.warn('Faltan datos', 'Necesitás al menos un producto para agregar un ítem.');
+      return;
+    }
+    this.agregarForm = { id_producto: this.productos[0].id_producto, placa_sena: '' };
+    this.agregarError = null;
+    this.agregarOpen = true;
+  }
+
+  cerrarAgregar(): void {
+    this.agregarOpen = false;
+  }
+
+  async guardarNuevoItem(form: Record<string, any>): Promise<void> {
+    if (!this.puedeCrear()) return;
+    if (!form['id_producto']) {
+      this.agregarError = 'Elegí un producto.';
+      return;
+    }
+    this.agregarSaving = true;
+    this.agregarError = null;
+    try {
+      await this.api.agregarItemAProducto(form['id_producto'], form['placa_sena'] || undefined);
+      this.toast.ok('Ítem agregado al lote');
+      this.agregarOpen = false;
+      await this.cargar();
+    } catch (e: any) {
+      this.agregarError = e?.error?.message ?? 'No se pudo agregar el ítem.';
+    } finally {
+      this.agregarSaving = false;
     }
   }
 }

@@ -15,12 +15,12 @@ export type TipoNovedad = 'DAÑO' | 'PERDIDA' | 'MANTENIMIENTO' | 'DISCREPANCIA'
 export type EstadoNovedad = 'PENDIENTE' | 'EN_PROCESO' | 'RESUELTA';
 
 export interface Categoria {
-  id_categoria: number;
+  id_categoria: string;
   nombre: string;
 }
 
 export interface Sitio {
-  id_sitio: number;
+  id_sitio: string;
   nombre: string;
   tipo: TipoSitio;
   tipo_personalizado?: string | null;
@@ -31,7 +31,7 @@ export interface Sitio {
 }
 
 export interface Producto {
-  id_producto: number;
+  id_producto: string;
   nombre: string;
   descripcion?: string | null;
   codigo_unspsc?: string | null;
@@ -39,30 +39,30 @@ export interface Producto {
   tipo_material: TipoMaterial;
   unidad_medida: string;
   es_psd: boolean;
-  id_categoria: number;
+  id_categoria: string;
   categoria?: Categoria;
   stock_minimo: number;
   fecha_vencimiento?: string | null;
   unidad_peso_bulto?: string | null;
   peso_por_bulto?: number | null;
-  id_sitio?: number | null;
+  id_sitio?: string | null;
 }
 
 export interface Item {
-  id_item: number;
+  id_item: string;
   codigo_sku: string;
   estado: EstadoItem;
-  id_producto: number;
+  id_producto: string;
   placa_sena?: string | null;
-  id_sitio?: number | null;
+  id_sitio?: string | null;
   producto?: Producto;
 }
 
 export interface Inventario {
-  id_inventario: number;
+  id_inventario: string;
   estado: EstadoItem;
-  id_item: number;
-  id_sitio: number;
+  id_item: string;
+  id_sitio: string;
   item?: Item;
   sitio?: Sitio;
 }
@@ -90,74 +90,74 @@ export interface CreateProductoDto {
   unidad_medida: string;
   es_psd: boolean;
   fecha_vencimiento?: string;
-  id_categoria: number;
+  id_categoria: string;
   cantidad: number;
   placas_sena?: string[];
   stock_minimo: number;
   unidad_peso_bulto?: string;
   peso_por_bulto?: number;
-  id_sitio: number;
+  id_sitio: string;
 }
 
 export interface CreateInventarioDto {
   estado: EstadoItem;
-  id_item: number;
-  id_sitio: number;
+  id_item: string;
+  id_sitio: string;
 }
 
 export interface UpdateItemDto {
   placa_sena?: string;
-  id_sitio?: number | null;
+  id_sitio?: string | null;
 }
 
 export interface Novedad {
-  id_novedad: number;
+  id_novedad: string;
   tipo: TipoNovedad;
   descripcion: string;
   estado: EstadoNovedad;
   fecha: string;
   id_usuario: string;
-  id_item: number | null;
+  id_item: string | null;
   item?: Item;
 }
 
 export interface CreateNovedadDto {
   tipo: TipoNovedad;
   descripcion: string;
-  id_item?: number | null;
+  id_item?: string | null;
 }
 
 export type EstadoTraslado = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO';
 export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'EN_ENTREGA' | 'ENTREGADA' | 'DEVUELTA';
 
 export interface Solicitud {
-  id_solicitud: number;
+  id_solicitud: string;
   fecha: string;
   estado: EstadoSolicitud;
   tipo: 'PRESTAMO';
   observacion: string | null;
   id_usuario: string;
-  id_producto: number | null;
+  id_producto: string | null;
   cantidad: number;
   id_usuario_aprueba?: string | null;
   id_curso?: string | null;
   fecha_devolucion?: string | null;
-  producto?: { id_producto: number; nombre: string; SKU: string | null; id_sitio: number | null; tipo_material: string };
+  producto?: { id_producto: string; nombre: string; SKU: string | null; id_sitio: string | null; tipo_material: string };
 }
 
 export interface CreateSolicitudDto {
   tipo: 'PRESTAMO';
-  id_producto: number;
+  id_producto: string;
   cantidad: number;
   observacion?: string;
   fecha_devolucion?: string;
 }
 
 export interface Traslado {
-  id_traslado: number;
-  id_item: number;
-  id_sitio_origen: number;
-  id_sitio_destino: number;
+  id_traslado: string;
+  id_item: string;
+  id_sitio_origen: string;
+  id_sitio_destino: string;
   id_usuario_solicita: string;
   estado: EstadoTraslado;
   fecha_solicitud: string;
@@ -171,36 +171,55 @@ export interface Traslado {
 }
 
 export interface CreateTrasladoDto {
-  id_item: number;
-  id_sitio_destino: number;
+  id_item: string;
+  id_sitio_destino: string;
   justificacion?: string;
 }
 
 export type EstadoDevolucion = 'BUENO' | 'REGULAR' | 'DAÑADO' | 'PERDIDO';
 
 export interface Devolucion {
-  id_devolucion: number;
+  id_devolucion: string;
   fecha: string;
   estado: EstadoDevolucion;
   observacion: string | null;
-  id_solicitud: number;
-  id_item: number;
+  id_solicitud: string;
+  id_item: string;
   solicitud?: Solicitud;
 }
 
 export interface CreateDevolucionDto {
-  id_solicitud: number;
-  id_item: number;
+  id_solicitud: string;
+  id_item: string;
   estado: EstadoDevolucion;
   observacion?: string;
+}
+
+/**
+ * Registro de "se hizo la inspección" tras una devolución — el estado
+ * físico real ya vive en `Devolucion.estado` (Fase 6), esto es solo el
+ * marcador de auditoría (quién y cuándo revisó), mismo criterio que SGM
+ * (`crearChequeo` allá tampoco manda un estado — ver Ronda 4, Fase 8). El
+ * detalle por ítem (`item_chequeo`, con su propio booleano pasa/no pasa)
+ * queda fuera de alcance: ni SGM ni esta fase lo pueblan.
+ */
+export interface Chequeo {
+  id_chequeo: string;
+  fecha: string;
+  id_usuario: string;
+  id_solicitud: string;
+}
+
+export interface CreateChequeoDto {
+  id_solicitud: string;
 }
 
 export type EstadoAsignacion = 'ACTIVA' | 'ANULADA';
 
 export interface Asignacion {
-  id_asignacion: number;
+  id_asignacion: string;
   id_curso: string;
-  id_producto: number;
+  id_producto: string;
   cantidad: number;
   fecha_asignacion: string;
   id_usuario_asigna: string;
@@ -212,32 +231,21 @@ export interface Asignacion {
 
 export interface CreateAsignacionDto {
   id_curso: string;
-  id_producto: number;
+  id_producto: string;
   cantidad: number;
   observacion?: string;
   fecha_devolucion?: string;
 }
 
-export interface Notificacion {
-  id_notificacion: number;
-  tipo: string;
-  titulo: string;
-  mensaje: string;
-  data: Record<string, any> | null;
-  leida: boolean;
-  fecha: string;
-  id_usuario: string;
-}
-
 export interface Kardex {
-  id_kardex: number;
+  id_kardex: string;
   tipo: 'ENTRADA' | 'SALIDA';
   cantidad: number;
   saldo_anterior: number;
   saldo_actual: number;
   fecha: string;
   observacion: string | null;
-  id_item: number;
+  id_item: string;
   id_usuario: string;
   item?: Item;
 }
@@ -264,10 +272,10 @@ export class MaterialesApiService {
   crearCategoria(dto: CreateCategoriaDto) {
     return this.unwrap(this.http.post<Envelope<Categoria>>(`${BASE}/categorias`, dto));
   }
-  actualizarCategoria(id: number, dto: Partial<CreateCategoriaDto>) {
+  actualizarCategoria(id: string, dto: Partial<CreateCategoriaDto>) {
     return this.unwrap(this.http.patch<Envelope<Categoria>>(`${BASE}/categorias/${id}`, dto));
   }
-  eliminarCategoria(id: number) {
+  eliminarCategoria(id: string) {
     return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/categorias/${id}`));
   }
 
@@ -278,10 +286,10 @@ export class MaterialesApiService {
   crearSitio(dto: CreateSitioDto) {
     return this.unwrap(this.http.post<Envelope<Sitio>>(`${BASE}/sitios`, dto));
   }
-  actualizarSitio(id: number, dto: Partial<CreateSitioDto>) {
+  actualizarSitio(id: string, dto: Partial<CreateSitioDto>) {
     return this.unwrap(this.http.patch<Envelope<Sitio>>(`${BASE}/sitios/${id}`, dto));
   }
-  eliminarSitio(id: number) {
+  eliminarSitio(id: string) {
     return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/sitios/${id}`));
   }
 
@@ -294,16 +302,24 @@ export class MaterialesApiService {
       this.http.post<Envelope<{ producto: Producto; items_generados: Item[] }>>(`${BASE}/productos`, dto),
     );
   }
-  actualizarProducto(id: number, dto: Partial<CreateProductoDto>) {
+  actualizarProducto(id: string, dto: Partial<CreateProductoDto>) {
     return this.unwrap(this.http.patch<Envelope<Producto>>(`${BASE}/productos/${id}`, dto));
   }
-  eliminarProducto(id: number) {
+  eliminarProducto(id: string) {
     return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/productos/${id}`));
+  }
+  /** Agrega un ítem suelto al lote de un producto existente (mismo SKU, estado DISPONIBLE). */
+  agregarItemAProducto(idProducto: string, placaSena?: string) {
+    return this.unwrap(
+      this.http.post<Envelope<Item>>(`${BASE}/productos/${idProducto}/items`, {
+        placa_sena: placaSena || undefined,
+      }),
+    );
   }
 
   // ── Items ──────────────────────────────────────────────────────────
-  listarItems(idProducto?: number) {
-    const params = idProducto != null ? { id_producto: String(idProducto) } : undefined;
+  listarItems(idProducto?: string) {
+    const params = idProducto != null ? { id_producto: idProducto } : undefined;
     return this.unwrap(this.http.get<Envelope<Item[]>>(`${BASE}/items`, { params }));
   }
   buscarItemPorPlaca(placa: string) {
@@ -313,10 +329,10 @@ export class MaterialesApiService {
       ),
     );
   }
-  actualizarItem(id: number, dto: UpdateItemDto) {
+  actualizarItem(id: string, dto: UpdateItemDto) {
     return this.unwrap(this.http.patch<Envelope<Item>>(`${BASE}/items/${id}`, dto));
   }
-  actualizarEstadoItem(id: number, estado: EstadoItem) {
+  actualizarEstadoItem(id: string, estado: EstadoItem) {
     return this.unwrap(this.http.patch<Envelope<Item>>(`${BASE}/items/${id}/estado`, { estado }));
   }
 
@@ -327,7 +343,13 @@ export class MaterialesApiService {
   crearInventario(dto: CreateInventarioDto) {
     return this.unwrap(this.http.post<Envelope<Inventario>>(`${BASE}/inventario`, dto));
   }
-  stockProducto(idProducto: number) {
+  actualizarInventario(id: string, dto: Partial<CreateInventarioDto>) {
+    return this.unwrap(this.http.patch<Envelope<Inventario>>(`${BASE}/inventario/${id}`, dto));
+  }
+  eliminarInventario(id: string) {
+    return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/inventario/${id}`));
+  }
+  stockProducto(idProducto: string) {
     return this.unwrap(
       this.http.get<Envelope<{ disponibles: number; total: number }>>(`${BASE}/inventario/producto/${idProducto}/stock`),
     );
@@ -345,10 +367,10 @@ export class MaterialesApiService {
   crearNovedad(dto: CreateNovedadDto) {
     return this.unwrap(this.http.post<Envelope<Novedad>>(`${BASE}/novedades`, dto));
   }
-  actualizarNovedad(id: number, estado: EstadoNovedad) {
+  actualizarNovedad(id: string, estado: EstadoNovedad) {
     return this.unwrap(this.http.patch<Envelope<Novedad>>(`${BASE}/novedades/${id}`, { estado }));
   }
-  eliminarNovedad(id: number) {
+  eliminarNovedad(id: string) {
     return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/novedades/${id}`));
   }
 
@@ -359,10 +381,10 @@ export class MaterialesApiService {
   crearTraslado(dto: CreateTrasladoDto) {
     return this.unwrap(this.http.post<Envelope<Traslado>>(`${BASE}/traslados`, dto));
   }
-  aprobarTraslado(id: number) {
+  aprobarTraslado(id: string) {
     return this.unwrap(this.http.patch<Envelope<Traslado>>(`${BASE}/traslados/${id}/aprobar`, {}));
   }
-  rechazarTraslado(id: number, observacion_resolucion?: string) {
+  rechazarTraslado(id: string, observacion_resolucion?: string) {
     return this.unwrap(this.http.patch<Envelope<Traslado>>(`${BASE}/traslados/${id}/rechazar`, { observacion_resolucion }));
   }
 
@@ -373,16 +395,16 @@ export class MaterialesApiService {
   crearSolicitud(dto: CreateSolicitudDto) {
     return this.unwrap(this.http.post<Envelope<Solicitud>>(`${BASE}/solicitudes`, dto));
   }
-  aprobarSolicitud(id: number) {
+  aprobarSolicitud(id: string) {
     return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/aprobar`, {}));
   }
-  rechazarSolicitud(id: number) {
+  rechazarSolicitud(id: string) {
     return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/rechazar`, {}));
   }
-  entregarSolicitud(id: number) {
+  entregarSolicitud(id: string) {
     return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/entregar`, {}));
   }
-  confirmarRecepcionSolicitud(id: number) {
+  confirmarRecepcionSolicitud(id: string) {
     return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/confirmar-recepcion`, {}));
   }
 
@@ -392,6 +414,12 @@ export class MaterialesApiService {
   }
   crearDevolucion(dto: CreateDevolucionDto) {
     return this.unwrap(this.http.post<Envelope<Devolucion>>(`${BASE}/devoluciones`, dto));
+  }
+
+  // ── Chequeos ───────────────────────────────────────────────────────
+  /** Marca que se inspeccionó la devolución de una solicitud — ver docblock de `Chequeo`. */
+  crearChequeo(dto: CreateChequeoDto) {
+    return this.unwrap(this.http.post<Envelope<Chequeo>>(`${BASE}/chequeos`, dto));
   }
 
   // ── Asignaciones ───────────────────────────────────────────────────
@@ -404,21 +432,19 @@ export class MaterialesApiService {
   crearAsignacion(dto: CreateAsignacionDto) {
     return this.unwrap(this.http.post<Envelope<Asignacion>>(`${BASE}/materiales/asignaciones`, dto));
   }
-  anularAsignacion(id: number) {
+  anularAsignacion(id: string) {
     return this.unwrap(this.http.patch<Envelope<Asignacion>>(`${BASE}/materiales/asignaciones/${id}/anular`, {}));
   }
-  eliminarAsignacion(id: number) {
+  eliminarAsignacion(id: string) {
     return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/materiales/asignaciones/${id}`));
   }
 
-  // ── Notificaciones ─────────────────────────────────────────────────
-  listarNotificaciones(idUsuario: string) {
-    return this.unwrap(this.http.get<Envelope<Notificacion[]>>(`${BASE}/notificaciones`, { params: { id_usuario: idUsuario } }));
-  }
-  marcarNotificacionLeida(id: number) {
-    return this.unwrap(this.http.patch<Envelope<Notificacion>>(`${BASE}/notificaciones/${id}/marcar-leida`, {}));
-  }
-  marcarTodasNotificacionesLeidas(idUsuario: string) {
-    return this.unwrap(this.http.patch<Envelope<null>>(`${BASE}/notificaciones/leer-todas`, {}, { params: { id_usuario: idUsuario } }));
-  }
+  // Notificaciones: retiradas en la Fase 4 del plan de fusión de
+  // notificaciones — desde la Fase 1, Materiales escribe en la tabla única
+  // del ERP (backend-erp, `notificaciones`) en vez de en su propia tabla
+  // local; la campana y las 3 pantallas dedicadas de Materiales
+  // (features/{admin,instructor,aprendiz}/materiales/notificaciones.component.ts)
+  // ahora leen todas de `ApiService.listarNotificaciones()` (backend-erp),
+  // filtrando client-side por `tipo` con prefijo `materiales_` — este
+  // cliente hacia `/api2/notificaciones` ya no lo llama nadie.
 }

@@ -4,6 +4,13 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
  * Tabla genérica reutilizable para el panel administrativo.
  * Recibe columnas, filas y emite eventos de editar/eliminar.
  * El campo 'id' se excluye de la vista pero se incluye en los eventos.
+ *
+ * Los clics de Editar/Eliminar cortan la propagación (Ronda 4, Fase 9) para
+ * no disparar también `rowSelected` cuando un consumidor usa `selectable`
+ * junto con edit/delete a la vez (ej. Sitios de Materiales, "Ver ítems" al
+ * hacer clic en la fila) — antes de esto solo `admin-panel.component.ts`
+ * usaba `selectable`, y ahí sin botones de fila, así que no había conflicto
+ * que notar; sigue sin cambiar nada para ese caso.
  */
 @Component({
   selector: 'app-admin-table',
@@ -40,7 +47,7 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
                 <td class="px-4 py-3">
                   <div class="flex justify-end gap-1">
                     @if (canEdit) {
-                      <button (click)="edit.emit(row)"
+                      <button (click)="edit.emit(row); $event.stopPropagation()"
                         class="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 transition-colors"
                         title="Editar">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -51,7 +58,7 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
                       </button>
                     }
                     @if (canDelete) {
-                      <button (click)="delete.emit(row)"
+                      <button (click)="delete.emit(row); $event.stopPropagation()"
                         class="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors"
                         title="Eliminar">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -52,6 +52,35 @@ export class PersonaService {
 
   // ── Usuarios y Credenciales ───────────────────────────────────────────────
 
+  /**
+   * Todos los usuarios del tenant con su persona resuelta (nombre, cargo,
+   * correo — la `cargo` vive en `Persona`, no en `Usuario`). Sin selector de
+   * cargo propio en el backend — se filtra client-side (ver `listarResponsablesBodega`).
+   */
+  async listarUsuarios(): Promise<any[]> {
+    const resp: any = await firstValueFrom(
+      this.http.get(`${BASE}/usuarios`, { withCredentials: true })
+    );
+    return Array.isArray(resp) ? resp : (resp?.data ?? []);
+  }
+
+  /** Usuarios elegibles como responsable de un sitio de Materiales: administrador/administrador_erp/instructor, activos. */
+  async listarResponsablesBodega(): Promise<any[]> {
+    const todos = await this.listarUsuarios();
+    const cargosPermitidos = ['administrador', 'administrador_erp', 'instructor'];
+    return todos.filter((u: any) =>
+      cargosPermitidos.includes(u.persona?.cargo) && u.persona?.estado !== 'inactivo'
+    );
+  }
+
+  /** Centros de formación del tenant (una BD de tenant puede tener más de uno). */
+  async listarCentros(): Promise<any[]> {
+    const resp: any = await firstValueFrom(
+      this.http.get(`${BASE}/centro-formacion`, { withCredentials: true })
+    );
+    return Array.isArray(resp) ? resp : (resp?.data ?? []);
+  }
+
   async crearUsuario(data: { fk_persona: number; fk_aplicativo: number }): Promise<any> {
     return firstValueFrom(this.http.post(`${BASE}/usuario/registrar_jwsv`, data));
   }
