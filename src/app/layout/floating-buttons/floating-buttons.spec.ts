@@ -26,4 +26,20 @@ describe('FloatingButtons', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('escapa HTML/JS embebido en la respuesta del asistente en vez de ejecutarlo (XSS)', () => {
+    const payload = '<img src=x onerror="window.__xss=1">';
+    const safeHtml = component.formatearMensaje(payload) as any;
+    const html: string = safeHtml.changingThisBreaksApplicationSecurity ?? String(safeHtml);
+
+    expect(html).not.toContain('<img');
+    expect(html).toContain('&lt;img');
+  });
+
+  it('sigue aplicando el formato markdown propio (negrita) sobre texto normal', () => {
+    const safeHtml = component.formatearMensaje('**Atlas**') as any;
+    const html: string = safeHtml.changingThisBreaksApplicationSecurity ?? String(safeHtml);
+
+    expect(html).toContain('<strong>Atlas</strong>');
+  });
 });
