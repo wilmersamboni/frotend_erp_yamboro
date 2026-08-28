@@ -1,0 +1,85 @@
+import { Component, OnInit } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { AdminTableComponent } from '../../../shared/components/admin-table.component';
+import { ToastService } from '../../../core/services/toast.service';
+import { Kardex, MaterialesApiService } from '../../../core/services/materiales/materiales-api.service';
+
+/**
+ * Log de movimientos de inventario para instructor — solo lectura, mismo
+ * comportamiento que la versión admin.
+ */
+@Component({
+  selector: 'app-instructor-materiales-kardex',
+  standalone: true,
+  imports: [FormsModule, AdminTableComponent],
+  template: `
+    <div class="p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h1 class="text-xl font-bold text-gray-800">Kardex</h1>
+        <div class="flex gap-2">
+          <select [(ngModel)]="filtroTipo"
+            class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
+            <option value="">Todos los tipos</option>
+            <option value="ENTRADA">Entrada</option>
+            <option value="SALIDA">Salida</option>
+          </select>
+          <input [(ngModel)]="filtroTexto" placeholder="Buscar por SKU o placa..."
+            class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+        </div>
+      </div>
+
+      <app-admin-table
+        [rows]="filas"
+        [columns]="['fecha', 'tipo', 'item_sku', 'cantidad', 'saldo_anterior', 'saldo_actual', 'observacion']"
+        [columnLabels]="columnLabels"
+        [loading]="loading"
+        [canEdit]="false"
+        [canDelete]="false" />
+    </div>
+  `,
+})
+export class InstructorMaterialesKardexComponent implements OnInit {
+  kardex: Kardex[] = [];
+  loading = false;
+
+  filtroTipo = '';
+  filtroTexto = '';
+
+  columnLabels: Record<string, string> = {
+    item_sku: 'Ítem',
+    cantidad: 'Cantidad',
+    saldo_anterior: 'Saldo anterior',
+    saldo_actual: 'Saldo actual',
+    observacion: 'Observación',
+  };
+
+  constructor(private api: MaterialesApiService, private toast: ToastService) {}
+
+  ngOnInit(): void {
+    this.cargar();
+  }
+
+  get filas(): any[] {
+    const texto = this.filtroTexto.trim().toLowerCase();
+    return this.kardex
+      .filter((k) => !this.filtroTipo || k.tipo === this.filtroTipo)
+      .filter((k) => !texto || k.item?.codigo_sku?.toLowerCase().includes(texto) || k.item?.placa_sena?.toLowerCase().includes(texto))
+      .map((k) => ({
+        ...k,
+        fecha: new Date(k.fecha).toLocaleString('es-CO'),
+        item_sku: k.item?.codigo_sku ?? k.id_item,
+        observacion: k.observacion ?? '—',
+      }));
+  }
+
+  private async cargar(): Promise<void> {
+    this.loading = true;
+    try {
+      this.kardex = await this.api.listarKardex();
+    } catch (e) {
+      this.toast.httpError(e, 'No se pudo cargar el kardex.');
+    } finally {
+      this.loading = false;
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "/api": {
+    "target": "http://localhost:3000",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
+
+  "/api2": {
+    "target": "http://localhost:3001",
+    "secure": false,
+    "changeOrigin": true,
+    "cookieDomainRewrite": "localhost",
+    "logLevel": "debug"
+  },
+  "/webhook": {
+    "target": "https://danin8n.duckdns.org",
+    "secure": false,
+    "changeOrigin": false,
+    "logLevel": "debug"
+  }
+}

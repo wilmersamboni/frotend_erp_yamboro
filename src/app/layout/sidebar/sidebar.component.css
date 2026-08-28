@@ -1,0 +1,185 @@
+/* ── Links ───────────────────────────────────────────────── */
+.nav-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px 9px 11px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #2B2F38;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  border-left: 3px solid transparent;
+}
+.nav-link:hover {
+  background: #f8fafc;
+  color: #1e293b;
+}
+/* Estado activo — ThemeService sobreescribe los colores via !important */
+.nav-link-active {
+  background: rgba(0, 120, 50, .08);
+  color: #007832;
+  border-left-color: #007832;
+  font-weight: 600;
+}
+
+/* ── Encabezados de sección ─────────────────────────────── */
+.nav-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: #656E85;
+  padding: 0 13px;
+  margin: 14px 0 3px;
+}
+.nav-section-label.mt-0 { margin-top: 4px; }
+
+/* ── Encabezados de sección desplegables (>4 submódulos) ─── */
+.nav-section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 13px;
+  margin: 14px 0 3px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+.nav-section-toggle.mt-0 { margin-top: 4px; }
+.nav-section-toggle:hover .nav-section-label { color: #007832; }
+.nav-section-chevron {
+  color: #94a3b8;
+  flex-shrink: 0;
+  transition: transform .18s ease-in-out, color .15s;
+}
+.nav-section-chevron.expanded { transform: rotate(90deg); }
+.nav-section-toggle:hover .nav-section-chevron { color: #007832; }
+
+/* ── Tooltip (modo colapsado) ────────────────────────────── */
+.nav-tooltip {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: #1e293b;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 10px;
+  border-radius: 7px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s;
+  z-index: 9999;
+  box-shadow: 0 4px 12px rgba(0,0,0,.15);
+}
+/* Flecha del tooltip */
+.nav-tooltip::before {
+  content: '';
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 5px solid transparent;
+  border-right-color: #1e293b;
+}
+.nav-link:hover .nav-tooltip { opacity: 1; }
+
+/* ── Botón cerrar sesión ─────────────────────────────────── */
+.nav-logout {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: none;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  font-family: inherit;
+}
+.nav-logout:hover { background: #fef2f2; color: #dc2626; }
+
+/* ── Versión ─────────────────────────────────────────────── */
+.nav-version {
+  font-size: 10px;
+  color: #e2e8f0;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-align: center;
+  margin-top: 6px;
+}
+
+/* ── Popover "Contáctanos" ───────────────────────────────── */
+/* Abre hacia arriba porque el botón vive al fondo del sidebar. */
+.contacto-popover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 8px;
+  width: 200px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  border: 1px solid #f1f5f9;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 50;
+}
+/* Sidebar colapsado: el botón queda centrado angosto, el popover se
+   corre un poco a la derecha para no quedar pegado al borde. */
+.contacto-popover.collapsed {
+  left: 60px;
+  bottom: 0;
+}
+.contacto-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: none;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: #2B2F38;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+.contacto-opt:hover { background: #f8fafc; }
+.contacto-opt.wa:hover { color: #25D366; }
+.contacto-opt.bot:hover { color: #1a73e8; }
+
+/* ── Drawer táctil (<1024px) ─────────────────────────────── */
+/* En hover no hay táctil: por debajo de 1024px el aside deja de "empujar"
+   el contenido en flujo y pasa a un drawer fijo con overlay, controlado
+   por el botón hamburguesa del navbar (ver main-layout.component.ts). */
+@media (max-width: 1023.98px) {
+  aside {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 70;
+    width: 224px !important;
+    transform: translateX(-100%);
+    transition: transform .25s ease-in-out;
+    box-shadow: 4px 0 24px rgba(0,0,0,.18);
+  }
+  aside.mobile-open {
+    transform: translateX(0);
+  }
+}

@@ -1,0 +1,161 @@
+<div class="login-page">
+  <div class="login-stage">
+    <div class="login-card">
+
+    <!-- ══════════════ PANEL IZQUIERDO — carrusel ══════════════ -->
+    <div class="login-left">
+
+      @for (img of carouselImagenes; track img; let i = $index) {
+        <div class="slide" [class.is-active]="slideActivo() === i" [style.background-image]="'url(' + img + ')'"></div>
+      }
+      <div class="left-scrim"></div>
+
+      <!-- Rótulo superior -->
+      <div class="left-eyebrow">Centro Yamboró</div>
+
+      <!-- Firma inferior izquierda -->
+      <div class="left-signature">
+        <div class="signature-mark">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <div class="signature-text">
+          <div class="signature-name">EPSAS</div>
+          <div class="signature-sub">SENA · Plataforma Académica</div>
+        </div>
+      </div>
+
+      <!-- Flechas de navegación -->
+      <div class="left-arrows">
+        <button type="button" class="arrow-btn" (click)="onFlechaAnterior()" aria-label="Foto anterior">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+            <path d="M15 18l-6-6 6-6"/>
+          </svg>
+        </button>
+        <button type="button" class="arrow-btn" (click)="onFlechaSiguiente()" aria-label="Foto siguiente">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+            <path d="M9 18l6-6-6-6"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Puntos indicadores -->
+      <div class="left-dots">
+        @for (img of carouselImagenes; track img; let i = $index) {
+          <button type="button" class="dot" [class.is-active]="slideActivo() === i"
+            (click)="irASlide(i)" [attr.aria-label]="'Ir a la foto ' + (i + 1)"></button>
+        }
+      </div>
+    </div>
+
+    <!-- ══════════════ PANEL DERECHO — formulario ══════════════ -->
+    <div class="login-right">
+
+      <h1 class="right-title">Hola de nuevo</h1>
+      <p class="right-sub">Ingresa tus credenciales para continuar</p>
+
+      <!-- Error -->
+      @if (error()) {
+        <div class="error-box">{{ error() }}</div>
+      }
+
+      <!-- Sin subdominio: bloquear acceso -->
+      @if (!slugFromUrl) {
+        <div class="blocked-box">
+          <div class="blocked-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <p class="blocked-title">Acceso no permitido</p>
+          <p class="blocked-text">
+            Debes acceder usando el subdominio de tu centro.<br>
+            Ejemplo:
+          </p>
+          <code class="blocked-code">tu-centro.sistema.com</code>
+        </div>
+      }
+
+      @if (slugFromUrl) {
+        <form (ngSubmit)="onSubmit()" class="login-form">
+
+          <!-- Usuario -->
+          <div class="form-group">
+            <label class="form-label">Usuario</label>
+            <div class="input-wrap">
+              <span class="input-icon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              </span>
+              <input type="text" [(ngModel)]="credentials.login" name="login"
+                placeholder="usuario1" required class="form-input" />
+            </div>
+          </div>
+
+          <!-- Contraseña -->
+          <div class="form-group">
+            <label class="form-label">Contraseña</label>
+            <div class="input-wrap">
+              <span class="input-icon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              </span>
+              <input [type]="showPassword() ? 'text' : 'password'" [(ngModel)]="credentials.password"
+                name="password" placeholder="••••••••" required class="form-input form-input-pw" />
+              <button type="button" (click)="showPassword.set(!showPassword())" class="toggle-pw">
+                @if (showPassword()) {
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                    <line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                } @else {
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                }
+              </button>
+            </div>
+          </div>
+
+          <!-- Olvidé contraseña -->
+          <!-- <div class="forgot-row">
+            <a routerLink="/ForgotPassword" class="forgot-link">¿Olvidaste tu contraseña?</a>
+          </div> -->
+
+          <!-- Botón ingresar -->
+          <button type="submit" [disabled]="loading()" class="submit-btn"
+            [class.is-loading]="loading()">
+            @if (loading()) {
+              <svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="white" stroke-width="3" opacity=".3"/>
+                <path d="M12 2a10 10 0 0 1 10 10" stroke="white" stroke-width="3" stroke-linecap="round"/>
+              </svg>
+              Ingresando…
+            } @else {
+              Ingresar
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            }
+          </button>
+
+        </form>
+      }
+
+      <!-- Copyright -->
+      <p class="right-footer">© {{ year }} EPSAS · Centro Yamboró</p>
+    </div>
+    </div>
+  </div>
+</div>

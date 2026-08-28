@@ -1,0 +1,222 @@
+[
+  {
+    "id": "admin",
+    "title": "Admin",
+    "type": "module",
+    "route": "/admin",
+    "description": "Módulo administrativo del sistema EPSAS.",
+    "features": [
+      "Administración",
+      "Ventanas modales",
+      "Tablas de información",
+      "Configuraciones",
+      "Servicios internos"
+    ],
+    "files": [
+      "admin-panel\\admin-panel.component.ts",
+      "components\\admin-modal.component.ts",
+      "components\\admin-table.component.ts",
+      "config\\admin.config.ts",
+      "services\\admin.service.ts"
+    ]
+  },
+  {
+    "id": "auth",
+    "title": "Auth",
+    "type": "module",
+    "route": "/auth",
+    "description": "Módulo de autenticación e inicio de sesión.",
+    "features": [
+      "Inicio de sesión"
+    ],
+    "files": [
+      "forgot-password\\forgot-password.component.ts",
+      "login\\login.component.ts"
+    ]
+  },
+  {
+    "id": "chat",
+    "title": "Chat",
+    "type": "module",
+    "route": "/chat",
+    "description": "Asistente virtual y mensajería.",
+    "features": [
+      "Chat asistente"
+    ],
+    "files": [
+      "chat.component.ts"
+    ]
+  },
+  {
+    "id": "formatos",
+    "title": "Formatos",
+    "type": "module",
+    "route": "/formatos",
+    "description": "Gestión y visualización de formatos.",
+    "features": [],
+    "files": [
+      "formatos.component.ts"
+    ]
+  },
+  {
+    "id": "historial",
+    "title": "Historial",
+    "type": "module",
+    "route": "/historial",
+    "description": "Consulta de historial y registros.",
+    "features": [
+      "Historial"
+    ],
+    "files": [
+      "historial.component.ts"
+    ]
+  },
+  {
+    "id": "home",
+    "title": "Home",
+    "type": "module",
+    "route": "/home",
+    "description": "Página principal del sistema.",
+    "features": [],
+    "files": [
+      "home.component.css",
+      "home.component.html",
+      "home.component.ts"
+    ]
+  },
+  {
+    "id": "migracion",
+    "title": "Migracion",
+    "type": "module",
+    "route": "/migracion",
+    "description": "Herramientas de migración de datos.",
+    "features": [],
+    "files": [
+      "migration.component.ts",
+      "models\\migration.models.ts"
+    ]
+  },
+  {
+    "id": "not-found",
+    "title": "Not found",
+    "type": "module",
+    "route": "/not-found",
+    "description": "Módulo not-found del sistema EPSAS.",
+    "features": [],
+    "files": [
+      "not-found.component.css",
+      "not-found.component.html",
+      "not-found.component.ts"
+    ]
+  },
+  {
+    "id": "seguimiento",
+    "title": "Seguimiento",
+    "type": "module",
+    "route": "/seguimiento",
+    "description": "Gestión de aprendices, prácticas, observaciones y seguimiento.",
+    "features": [
+      "Ventanas modales",
+      "Prácticas",
+      "Observaciones",
+      "Tablas de información",
+      "Seguimiento de aprendices"
+    ],
+    "files": [
+      "components\\bitacoras-modal.component.ts",
+      "components\\crear-practica-modal.component.ts",
+      "components\\filters\\area-filter.component.ts",
+      "components\\filters\\estado-filter.component.ts",
+      "components\\observacion-modal.component.ts",
+      "components\\pagination\\table-pagination.component.ts",
+      "components\\seguimientos-modal.component.ts",
+      "components\\table\\aprendices-row.component.ts",
+      "components\\table\\aprendices-table.component.ts",
+      "components\\table-info\\table-body.component.ts",
+      "components\\table-info\\table-header.component.ts",
+      "components\\table-info\\table-info.component.ts",
+      "components\\table-info\\table-info.types.ts",
+      "components\\table-info\\table-pagination.component.ts",
+      "components\\table-info\\table-toolbar.component.ts",
+      "components\\table-info.component.ts",
+      "components\\toolbar\\aprendices-toolbar.component.ts",
+      "components\\toolbar\\column-selector.component.ts",
+      "components\\toolbar\\search-input.component.ts",
+      "modals\\crear-practica-modal.component.ts",
+      "modals\\editar-practica-modal.component.ts",
+      "modals\\gestionar-asignaciones-modal.component.ts",
+      "modals\\observacion-modal.component.ts",
+      "modals\\seguimientos-modal.component.ts",
+      "models\\aprendiz.model.ts",
+      "page-course\\page-course.component.ts",
+      "page-table\\aprendices.page.ts.ts",
+      "seguimiento.component.ts",
+      "utils\\table.constants.ts"
+    ]
+  },
+  {
+    "id": "settings",
+    "title": "Settings",
+    "type": "module",
+    "route": "/settings",
+    "description": "Configuración general del sistema.",
+    "features": [],
+    "files": [
+      "settings.component.ts"
+    ]
+  },
+  {
+    "id": "floating-buttons",
+    "title": "Floating buttons",
+    "type": "layout",
+    "description": "Módulo floating-buttons del sistema EPSAS.",
+    "features": [],
+    "files": [
+      "floating-buttons.css",
+      "floating-buttons.html",
+      "floating-buttons.spec.ts",
+      "floating-buttons.ts"
+    ]
+  },
+  {
+    "id": "footer",
+    "title": "Footer",
+    "type": "layout",
+    "description": "Pie de página institucional.",
+    "features": [],
+    "files": [
+      "footer.component.ts"
+    ]
+  },
+  {
+    "id": "main-layout",
+    "title": "Main layout",
+    "type": "layout",
+    "description": "Módulo main-layout del sistema EPSAS.",
+    "features": [],
+    "files": [
+      "main-layout.component.ts"
+    ]
+  },
+  {
+    "id": "navbar",
+    "title": "Navbar",
+    "type": "layout",
+    "description": "Barra superior de navegación.",
+    "features": [],
+    "files": [
+      "navbar.component.ts",
+      "notificaciones-campana.component.ts"
+    ]
+  },
+  {
+    "id": "sidebar",
+    "title": "Sidebar",
+    "type": "layout",
+    "description": "Menú lateral de navegación.",
+    "features": [],
+    "files": [
+      "sidebar.component.ts"
+    ]
+  }
+]

@@ -1,0 +1,62 @@
+.page-header { display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px }
+/* Tamaño/negrita del título vienen de las clases Tailwind en el <h2>
+   (text-2xl font-bold text-gray-900), igual que Seguimiento/Formatos/Historial/Horarios. */
+
+/* ── Event type colors — usados en el badge de la tabla; el calendario y el
+   modal tienen su propia copia encapsulada de estas mismas reglas ── */
+.ev-tipo-formativo     { background: #dbeafe; color: #1d4ed8; }
+.ev-tipo-institucional { background: #dcfce7; color: #166534; }
+.ev-tipo-evaluacion    { background: #fed7aa; color: #92400e; }
+.ev-tipo-festivo       { background: #fee2e2; color: #991b1b; }
+
+.tipo-badge-formativo     { background: #dbeafe; color: #1d4ed8; }
+.tipo-badge-institucional { background: #dcfce7; color: #166534; }
+.tipo-badge-evaluacion    { background: #fed7aa; color: #92400e; }
+.tipo-badge-festivo       { background: #fee2e2; color: #991b1b; }
+
+.ev-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 8px; border-radius: 6px; font-size: 13px;
+  max-width: 220px;
+}
+/* Sin esto el nombre del evento (texto libre, puede ser largo) empujaba el
+   ancho de toda la tabla mucho más allá de min-width, forzando un scroll
+   horizontal desproporcionado — sobre todo en mobile. */
+.ev-badge strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ev-desc-cell {
+  display: block; max-width: 220px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── Tabla de eventos: sin estilos globales de tabla en esta app — se define aquí ── */
+.table-wrap { overflow-x: auto; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 780px; }
+.data-table thead tr { background: #f9fafb; border-bottom: 2px solid var(--border); }
+.data-table th {
+  padding: 10px 14px; color: #374151; font-size: 11px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .05em; text-align: left; white-space: nowrap;
+}
+.data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.data-table tbody tr:hover td { background: var(--surface2); }
+
+/* En mobile, Descripción y Fichas invitadas son las columnas menos
+   prioritarias y las que más ancho piden — se ocultan para que la tabla
+   necesite mucho menos scroll horizontal; siguen visibles desde sm: (640px). */
+@media (max-width: 639.98px) {
+  .data-table .col-desc, .data-table .col-fichas { display: none; }
+}
+
+/* ── Date badge in header ── */
+.ev-date-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 3px 9px; font-size: 12px;
+  color: var(--text-muted); font-weight: 600;
+}
+
+.fichas-count-chip {
+  font-size: 11px; font-weight: 700;
+  background: #dcfce7; color: #15803d;
+  border-radius: 20px; padding: 2px 8px;
+}

@@ -1,0 +1,455 @@
+@if (esAprendiz() && aprendizTieneEtapa() === false) {
+  <!-- Aprendiz sin etapa práctica → su horario de clase/ficha, automático -->
+  <app-horarios-home />
+} @else if (esAdmin() && esHorariosOnly()) {
+  <app-horarios-home />
+} @else {
+<div class="dashboard">
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <div class="dash-header">
+    <div>
+      <h2 class="dash-title">
+        @if (esAprendiz()) { Mi Panel }
+        @else if (esInstructor()) { Panel del Instructor }
+        @else { Vista General de Datos }
+      </h2>
+      <p class="dash-date">{{ fecha }}</p>
+    </div>
+
+    @if (!esAprendiz()) {
+      <div class="export-buttons">
+        <p-splitButton
+          [label]="exportando ? 'Exportando...' : 'Exportar'"
+          icon="pi pi-file-pdf"
+          severity="success"
+          [model]="exportMenuItems"
+          [disabled]="exportando || cargando"
+          (onClick)="exportarPDF()"
+        />
+      </div>
+    }
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       VISTA APRENDIZ
+  ══════════════════════════════════════════════════════════════════════════ -->
+  @if (esAprendiz()) {
+    <div class="dash-body">
+
+      @if (cargando || aprendizTieneEtapa() === null) {
+        <div class="dash-left">
+          <p-skeleton height="130px" borderRadius="16px" styleClass="mb-5"/>
+          <p-skeleton height="12px" borderRadius="8px" styleClass="mb-5"/>
+          <div class="cards-row">
+            <p-skeleton height="100px" borderRadius="16px"/>
+            <p-skeleton height="100px" borderRadius="16px"/>
+            <p-skeleton height="100px" borderRadius="16px"/>
+            <p-skeleton height="100px" borderRadius="16px"/>
+          </div>
+        </div>
+        <div class="dash-right">
+          <p-skeleton height="360px" borderRadius="20px"/>
+        </div>
+
+      } @else if (!miPractica) {
+        <div class="empty-state">
+          <i class="pi pi-clipboard empty-icon"></i>
+          <h3>No tienes una etapa práctica asignada aún</h3>
+          <p>Tu instructor o administrador la creará cuando estés listo.</p>
+        </div>
+
+      } @else {
+        <div class="dash-left">
+          <p-card styleClass="hero-card">
+            <div class="hero-content">
+              <div class="hero-info">
+                <p class="personal-label">Tu etapa práctica</p>
+                <h2 class="personal-empresa">{{ miPractica.empresaNombre }}</h2>
+                <p-tag [value]="miPractica.estado" [severity]="estadoSeverity(miPractica.estado)" styleClass="mt-2"/>
+              </div>
+              <div class="avance-box">
+                <span class="avance-number">{{ miPractica.avance ?? 0 }}%</span>
+                <span class="avance-label">de avance</span>
+              </div>
+            </div>
+          </p-card>
+
+          <div class="progress-wrap">
+            <div class="progress-header">
+              <span class="progress-label">Progreso general</span>
+              <span class="progress-pct">{{ miPractica.avance ?? 0 }}%</span>
+            </div>
+            <p-progressbar [value]="miPractica.avance ?? 0" [showValue]="false" styleClass="sena-progress"/>
+          </div>
+
+          <div class="cards-row">
+            <p-card styleClass="detail-card">
+              <div class="detail-icon icon-green"><i class="pi pi-calendar"></i></div>
+              <div class="card-value-sm">{{ miPractica.fecha_inicio ?? '—' }}</div>
+              <div class="card-label">Fecha de inicio</div>
+            </p-card>
+            <p-card styleClass="detail-card">
+              <div class="detail-icon icon-blue"><i class="pi pi-calendar-times"></i></div>
+              <div class="card-value-sm">{{ miPractica.fecha_fin ?? '—' }}</div>
+              <div class="card-label">Fecha finalización</div>
+            </p-card>
+            <p-card styleClass="detail-card">
+              <div class="detail-icon icon-orange"><i class="pi pi-book"></i></div>
+              <div class="card-value-sm">{{ miPractica.programa || '—' }}</div>
+              <div class="card-label">Programa</div>
+            </p-card>
+            <p-card styleClass="detail-card">
+              <div class="detail-icon icon-purple"><i class="pi pi-hashtag"></i></div>
+              <div class="card-value-sm">{{ miPractica.ficha || '—' }}</div>
+              <div class="card-label">Ficha</div>
+            </p-card>
+          </div>
+        </div>
+
+        <div class="dash-right">
+          <p-card styleClass="donut-card">
+            <div class="donut-header">
+              <h3 class="donut-title">Mi Progreso</h3>
+              <p class="donut-sub">Avance de tu etapa práctica</p>
+            </div>
+            <div class="chart-container">
+              @if (tieneAccesoPractica()) {
+                <p-chart type="doughnut" [data]="chartDataPersonal" [options]="chartOptions"
+                  width="100%" height="220px"/>
+                <div class="chart-center">
+                  <span class="donut-number">{{ miPractica.avance ?? 0 }}</span>
+                  <span class="donut-pct-label">%</span>
+                </div>
+              }
+            </div>
+            <div class="donut-legend">
+              <div class="legend-item">
+                <span class="legend-dot dot-green"></span>
+                <span class="legend-text">Completado</span>
+                <span class="legend-val">{{ miPractica.avance ?? 0 }}%</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot dot-gray"></span>
+                <span class="legend-text">Pendiente</span>
+                <span class="legend-val">{{ 100 - (miPractica.avance ?? 0) }}%</span>
+              </div>
+            </div>
+          </p-card>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       VISTA ADMIN / INSTRUCTOR
+  ══════════════════════════════════════════════════════════════════════════ -->
+  @if (!esAprendiz()) {
+
+    <!-- ── KPI Grid ───────────────────────────────────────────────────── -->
+    <div class="kpi-grid">
+
+      <!-- Aprendices -->
+      <div class="kpi-card">
+        <div class="kpi-head">
+          <div class="kpi-icon-box box-green"><i class="pi pi-users"></i></div>
+          <span class="kpi-badge badge-green">Activos</span>
+        </div>
+        <p class="kpi-label">{{ esInstructor() ? 'Mis Aprendices' : 'Total Aprendices' }}</p>
+        @if (cargando) {
+          <p-skeleton height="38px" width="80px" styleClass="mb-2"/>
+        } @else {
+          <h3 class="kpi-num">{{ stats.aprendices | number }}</h3>
+        }
+        <div class="kpi-ctx kpi-ctx-green">
+          <i class="pi pi-arrow-right-arrow-left"></i>
+          <span>en formación activa</span>
+        </div>
+        <div class="sparkline">
+          <div class="s-bar s-green" style="height:40%"></div>
+          <div class="s-bar s-green" style="height:60%"></div>
+          <div class="s-bar s-green" style="height:35%"></div>
+          <div class="s-bar s-green" style="height:80%"></div>
+          <div class="s-bar s-green" style="height:55%"></div>
+          <div class="s-bar s-green" style="height:90%"></div>
+          <div class="s-bar s-green-solid" style="height:100%"></div>
+        </div>
+      </div>
+
+      <!-- Etapas Activas -->
+      <div class="kpi-card">
+        <div class="kpi-head">
+          <div class="kpi-icon-box box-blue"><i class="pi pi-clipboard"></i></div>
+          <span class="kpi-badge badge-blue">En curso</span>
+        </div>
+        <p class="kpi-label">Etapas Activas</p>
+        @if (cargando) {
+          <p-skeleton height="38px" width="70px" styleClass="mb-2"/>
+        } @else {
+          <h3 class="kpi-num">{{ stats.activas | number }}</h3>
+        }
+        <div class="kpi-ctx kpi-ctx-blue">
+          <i class="pi pi-chart-pie"></i>
+          <span>{{ stats.aprendices > 0 ? ((stats.activas / stats.aprendices) * 100 | number:'1.0-0') : 0 }}% del total</span>
+        </div>
+        <div class="sparkline">
+          <div class="s-bar s-blue" style="height:60%"></div>
+          <div class="s-bar s-blue" style="height:40%"></div>
+          <div class="s-bar s-blue" style="height:75%"></div>
+          <div class="s-bar s-blue" style="height:50%"></div>
+          <div class="s-bar s-blue" style="height:85%"></div>
+          <div class="s-bar s-blue" style="height:65%"></div>
+          <div class="s-bar s-blue-solid" style="height:80%"></div>
+        </div>
+      </div>
+
+      <!-- Etapas Desertadas -->
+      <div class="kpi-card">
+        <div class="kpi-head">
+          <div class="kpi-icon-box box-orange"><i class="pi pi-times-circle"></i></div>
+          <span class="kpi-badge badge-orange">Retirados</span>
+        </div>
+        <p class="kpi-label">Etapas Desertadas</p>
+        @if (cargando) {
+          <p-skeleton height="38px" width="60px" styleClass="mb-2"/>
+        } @else {
+          <h3 class="kpi-num">{{ stats.desertadas | number }}</h3>
+        }
+        <div class="kpi-ctx kpi-ctx-orange">
+          <i class="pi pi-chart-pie"></i>
+          <span>{{ stats.aprendices > 0 ? ((stats.desertadas / stats.aprendices) * 100 | number:'1.0-0') : 0 }}% del total</span>
+        </div>
+        <div class="sparkline">
+          <div class="s-bar s-orange" style="height:30%"></div>
+          <div class="s-bar s-orange" style="height:45%"></div>
+          <div class="s-bar s-orange" style="height:55%"></div>
+          <div class="s-bar s-orange" style="height:40%"></div>
+          <div class="s-bar s-orange" style="height:35%"></div>
+          <div class="s-bar s-orange" style="height:25%"></div>
+          <div class="s-bar s-orange-solid" style="height:30%"></div>
+        </div>
+      </div>
+
+      <!-- Etapas Certificadas -->
+      <div class="kpi-card">
+        <div class="kpi-head">
+          <div class="kpi-icon-box box-purple"><i class="pi pi-check-circle"></i></div>
+          <span class="kpi-badge badge-purple">Éxito</span>
+        </div>
+        <p class="kpi-label">Etapas Certificadas</p>
+        @if (cargando) {
+          <p-skeleton height="38px" width="60px" styleClass="mb-2"/>
+        } @else {
+          <h3 class="kpi-num">{{ stats.certificadas | number }}</h3>
+        }
+        <div class="kpi-ctx kpi-ctx-purple">
+          <i class="pi pi-chart-pie"></i>
+          <span>{{ stats.aprendices > 0 ? ((stats.certificadas / stats.aprendices) * 100 | number:'1.0-0') : 0 }}% del total</span>
+        </div>
+        <div class="sparkline">
+          <div class="s-bar s-purple" style="height:50%"></div>
+          <div class="s-bar s-purple" style="height:70%"></div>
+          <div class="s-bar s-purple" style="height:60%"></div>
+          <div class="s-bar s-purple" style="height:80%"></div>
+          <div class="s-bar s-purple" style="height:75%"></div>
+          <div class="s-bar s-purple" style="height:95%"></div>
+          <div class="s-bar s-purple-solid" style="height:90%"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── Charts area: barras por estado + circular target ────────────── -->
+    <div class="charts-area">
+
+      <!-- Izquierda: evolución mensual comparativa (como referencia Evolución Mensual de Etapas) -->
+      <div class="chart-panel">
+        <div class="chart-panel-header">
+          <div>
+            <h4 class="chart-panel-title">Evolución Mensual de Etapas</h4>
+            <p class="chart-panel-sub">Etapas activas vs certificadas durante el año</p>
+          </div>
+          <div class="chart-chips">
+            <span class="chip chip-green">● Activas</span>
+            <span class="chip chip-blue">● Certificadas</span>
+          </div>
+        </div>
+        @if (!tieneAccesoPractica()) {
+          <div class="chart-sin-acceso">Sin acceso a este módulo</div>
+        } @else if (cargando || !chartDataEvolucion) {
+          <p-skeleton height="240px" borderRadius="12px"/>
+        } @else {
+          <div class="bar-chart-wrap">
+            <p-chart #chartEvolucionRef type="line" [data]="chartDataEvolucion" [options]="chartOptionsLine"
+                     width="100%" height="240px"/>
+          </div>
+        }
+      </div>
+
+      <!-- Derecha: circular target + barras -->
+      <div class="target-panel">
+        <div class="target-header">
+          <h4 class="target-title">Cumplimiento de Objetivos</h4>
+          <p class="target-sub">Etapas activas vs total aprendices</p>
+        </div>
+
+        <div class="circular-wrap">
+          <svg class="circle-svg" viewBox="0 0 200 200">
+            <circle cx="100" cy="100" r="88" fill="none" stroke="#e2e8f0" stroke-width="12"/>
+            <circle cx="100" cy="100" r="88" fill="none" stroke="#39A900" stroke-width="12"
+                    stroke-linecap="round"
+                    stroke-dasharray="552.92"
+                    [attr.stroke-dashoffset]="552.92 * (1 - etapaActiva.porcentaje / 100)"
+                    transform="rotate(-90 100 100)"/>
+          </svg>
+          <div class="circle-center">
+            <span class="circle-pct">{{ etapaActiva.porcentaje }}%</span>
+            <span class="circle-label">Objetivo</span>
+          </div>
+        </div>
+
+        <div class="target-bars">
+          <div class="t-bar-row">
+            <div class="t-bar-info">
+              <span class="t-dot dot-green"></span>
+              <span class="t-label">Etapa Productiva</span>
+              <span class="t-val">{{ etapaActiva.porcentaje }}%</span>
+            </div>
+            <div class="t-track">
+              <div class="t-fill fill-green" [style.width.%]="etapaActiva.porcentaje"></div>
+            </div>
+          </div>
+          <div class="t-bar-row">
+            <div class="t-bar-info">
+              <span class="t-dot dot-blue"></span>
+              <span class="t-label">Etapas Certificadas</span>
+              <span class="t-val">{{ etapaCertificada.porcentaje }}%</span>
+            </div>
+            <div class="t-track">
+              <div class="t-fill fill-blue" [style.width.%]="etapaCertificada.porcentaje"></div>
+            </div>
+          </div>
+          @if (!esInstructor()) {
+            <div class="t-bar-row">
+              <div class="t-bar-info">
+                <span class="t-dot dot-orange"></span>
+                <span class="t-label">Tasa de Deserción</span>
+                <span class="t-val">
+                  {{ stats.aprendices > 0 ? ((stats.desertadas / stats.aprendices) * 100 | number:'1.0-0') : 0 }}%
+                </span>
+              </div>
+              <div class="t-track">
+                <div class="t-fill fill-orange"
+                     [style.width.%]="stats.aprendices > 0 ? (stats.desertadas / stats.aprendices) * 100 : 0">
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── Donut panels (fila independiente) ────────────────────────── -->
+    <div class="donuts-row">
+
+      <div class="donut-panel">
+        <div class="donut-header">
+          <h4 class="donut-title">Distribución por Estado</h4>
+          <p class="donut-sub">{{ esInstructor() ? 'Estado actual de tus aprendices' : 'Composición actual de las etapas prácticas' }}</p>
+        </div>
+        @if (!tieneAccesoPractica()) {
+          <div class="chart-sin-acceso">Sin acceso a este módulo</div>
+        } @else if (cargando) {
+          <div class="skel-center"><p-skeleton shape="circle" size="160px"/></div>
+        } @else {
+          <div class="gauge-container">
+            <p-chart #chartEstadosRef type="doughnut" [data]="chartDataEstadosGauge" [options]="chartOptionsGauge"
+              width="100%" height="150px"/>
+            <div class="gauge-center">
+              <span class="donut-number">{{ stats.aprendices | number }}</span>
+              <span class="donut-pct-label">Total</span>
+            </div>
+          </div>
+          <div class="gauge-legend">
+            @for (item of estadosResumen; track item.key) {
+              <div class="gauge-legend-row">
+                <div class="gauge-legend-icon" [style.background]="item.bg" [style.color]="item.color">
+                  <i class="pi" [class]="item.icon"></i>
+                </div>
+                <div class="gauge-legend-info">
+                  <span class="gauge-legend-label">{{ item.label }}</span>
+                  <span class="gauge-legend-sub">{{ item.total }} {{ item.total === 1 ? 'aprendiz' : 'aprendices' }}</span>
+                </div>
+                <span class="gauge-legend-value">{{ item.porcentaje }}%</span>
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+    </div>
+
+    <!-- ── Tabla de etapas prácticas ─────────────────────────────────── -->
+    @if (practicas.length > 0) {
+      <div class="data-card">
+        <div class="data-card-header">
+          <h4 class="data-card-title">Etapas Prácticas Recientes</h4>
+          <span class="data-card-count">{{ practicas.length }} registros</span>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Aprendiz</th>
+                <th>Empresa</th>
+                <th>Programa</th>
+                <th>Ficha</th>
+                <th>Estado</th>
+                <th>Avance</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of practicas; track $index) {
+                <tr>
+                  <td>
+                    <div class="user-cell">
+                      <div class="user-avatar">{{ getInitials(p.nombre) }}</div>
+                      <span class="user-name">{{ p.nombre }}</span>
+                    </div>
+                  </td>
+                  <td class="td-main">{{ p.empresaNombre }}</td>
+                  <td class="td-trunc">{{ p.programa }}</td>
+                  <td class="td-secondary">{{ p.ficha }}</td>
+                  <td>
+                    <span class="estado-tag" [ngClass]="estadoClass(p.estado)">{{ p.estado }}</span>
+                  </td>
+                  <td>
+                    <div class="avance-cell">
+                      <span class="avance-num">{{ p.avance ?? 0 }}%</span>
+                      <div class="avance-track">
+                        <div class="avance-fill" [style.width.%]="p.avance ?? 0"></div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+  }
+
+</div>
+
+@if (esInstructor()) {
+  <!-- Home combinado: el instructor ve sus seguimientos (arriba) y su
+       módulo de Horarios (abajo) siempre, sin depender del aplicativo. -->
+  <div class="dashboard-section-divider">
+    <span>Mis Horarios</span>
+  </div>
+  <app-horarios-home />
+}
+}

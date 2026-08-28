@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 — Not Found</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./not-found.component.css">
+    
+</head>
+<body>
+
+<div class="cursor" id="cursor"></div>
+<div class="noise"></div>
+
+<nav class="topbar">
+    <span class="logo">SYS://ERROR</span>
+    <span>STATUS: 404</span>
+    <span id="clock">--:--:--</span>
+</nav>
+
+<div class="container">
+    <div class="left">
+        <p class="label">Error / Page not found</p>
+
+        <div class="error-number">
+            <span class="glitch">404</span>
+        </div>
+
+        <p class="message">
+            The coordinates you entered don't map to any known location.<br>
+            The page may have been <span>deleted</span>, <span>moved</span>, or never existed in this dimension.
+        </p>
+
+        <div class="actions">
+            <a href="/" class="btn btn-primary">← Go Home</a>
+            <a href="javascript:history.back()" class="btn btn-ghost">Go Back</a>
+        </div>
+
+        <div class="terminal">
+            <div><span class="prompt">$ </span>ping page.not.found</div>
+            <div><span class="prompt">» </span><span class="typing">Request timeout for host 404</span></div>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="right">
+        <div class="visual">
+            <div class="ring ring-1"></div>
+            <div class="ring ring-2"></div>
+            <div class="ring ring-3"></div>
+            <div class="center-visual">
+                <span class="icon">✦</span>
+                <p class="sublabel">Lost in space</p>
+            </div>
+        </div>
+
+        <div class="coords">
+            <div>LAT 40.7128° N</div>
+            <div>LNG 74.0060° W</div>
+            <div style="margin-top:0.5rem; color: rgba(240,236,227,0.1)">NULL ISLAND</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Custom cursor
+    const cursor = document.getElementById('cursor');
+    document.addEventListener('mousemove', e => {
+        cursor.style.left = e.clientX + 'px';
+        cursor.style.top = e.clientY + 'px';
+    });
+
+    document.querySelectorAll('a, button').forEach(el => {
+        el.addEventListener('mouseenter', () => {
+            cursor.style.width = '24px';
+            cursor.style.height = '24px';
+        });
+        el.addEventListener('mouseleave', () => {
+            cursor.style.width = '12px';
+            cursor.style.height = '12px';
+        });
+    });
+
+    // Clock
+    const clock = document.getElementById('clock');
+    function updateClock() {
+        const now = new Date();
+        clock.textContent = now.toTimeString().slice(0,8);
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+</script>
+</body>
+</html>

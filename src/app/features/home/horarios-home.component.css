@@ -1,0 +1,12 @@
+/* Estilos propios del home de Horarios — el resto de clases (kpi-grid,
+   charts-area, donut-panel, data-card, hero-card, etc.) vienen de
+   home.component.css, incluido vía styleUrls para mantener el mismo
+   lenguaje visual entre los dos dashboards. */
+
+/* Al quitar el módulo de solicitudes de cambio, la vista admin quedó con 3
+   tarjetas KPI y la de instructor con 2 — el repeat(4, 1fr) fijo de
+   home.component.css dejaba columnas vacías. auto-fit se ajusta solo al
+   número real de tarjetas sin tocar esa regla global (esta hoja de estilos
+   ya queda scoped a este componente por Angular, así que no afecta a
+   home.component.ts). */
+.kpi-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }

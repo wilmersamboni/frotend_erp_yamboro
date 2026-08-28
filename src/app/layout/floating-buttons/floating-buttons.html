@@ -1,0 +1,28 @@
+<div class="chat-box" *ngIf="chatAbierto">
+  <div class="chat-header">
+    <span class="chat-header-titulo">
+      <span class="chat-header-nombre">Atlas</span>
+      <span class="chat-header-subtitulo">Asistente virtual</span>
+    </span>
+    <button (click)="cerrarChat()">✕</button>
+  </div>
+
+  <div class="chat-messages" #mensajesContainer>
+    <div *ngFor="let msg of mensajes" [class]="'mensaje ' + msg.rol">
+      <div [innerHTML]="formatearMensaje(msg.texto)"></div>
+    </div>
+    <div *ngIf="cargando" class="mensaje asistente">Escribiendo...</div>
+  </div>
+
+  <div class="chat-input">
+    <textarea
+      #textareaMensaje
+      [(ngModel)]="mensajeUsuario"
+      (input)="ajustarAlturaTextarea(textareaMensaje)"
+      (keydown.enter)="onEnter($event, textareaMensaje)"
+      rows="1"
+      placeholder="Escribe tu pregunta..."
+    ></textarea>
+    <button (click)="enviar()">Enviar</button>
+  </div>
+</div>

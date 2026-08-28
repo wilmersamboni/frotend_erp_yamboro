@@ -1,0 +1,146 @@
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.error-msg { background: #fee2e2; color: #991b1b; border-radius: 8px; padding: 10px 14px; font-size: 13px; }
+
+.wizard-modal {
+  background: var(--surface);
+  border-radius: 16px;
+  width: 95vw;
+  max-width: 1020px;
+  max-height: 92vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  display: flex;
+  flex-direction: column;
+}
+.wiz-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 24px 28px 16px; border-bottom: 1px solid var(--border);
+  gap: 12px; flex-shrink: 0;
+}
+.wiz-title { font-size: 1.25rem; font-weight: 800; color: var(--text); margin-bottom: 2px; }
+.wiz-subtitle { font-size: 12px; color: var(--text-muted); }
+
+/* Fila global: jornada + horas */
+.wiz-top-bar {
+  display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap;
+  padding: 20px 28px; border-bottom: 1px solid var(--border);
+  background: var(--surface2); flex-shrink: 0;
+}
+.wiz-top-field { display: flex; flex-direction: column; gap: 5px; }
+
+/* Indicador jornada detectada por horas */
+.jornada-det-badge {
+  display: flex; align-items: flex-start; gap: 6px;
+  padding: 7px 11px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  align-self: flex-end; margin-bottom: 1px;
+}
+.jornada-det-ok   { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+.jornada-det-span { background: #fff7ed; color: #92400e; border: 1px solid #fcd34d; }
+.wiz-sel-count {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: #39A900; color: #fff;
+  border-radius: 20px; padding: 3px 12px; font-size: 12px; font-weight: 700;
+}
+.wiz-sel-hint { font-size: 12px; color: var(--text-muted); font-style: italic; }
+
+/* Tabla de días */
+/* min-width:0 es necesario porque este wrap es hijo de un flex column
+   (.wizard-modal) — un flex item nunca se encoge bajo el ancho de su
+   contenido por defecto, así que sin esto overflow-x:auto nunca se activaba
+   y la tabla se salía del modal en vez de scrollear (roto en mobile). */
+.wiz-table-wrap {
+  flex: 1; overflow-y: auto; overflow-x: auto; min-width: 0;
+  -webkit-overflow-scrolling: touch;
+}
+.wiz-table {
+  /* min-width evita que table-layout:fixed comprima las columnas auto
+     (ficha/instructor/ambiente) a un ancho ilegible en pantallas angostas —
+     mismo patrón que .data-table en programador-eventos.component.css. */
+  width: 100%; min-width: 720px; border-collapse: collapse; table-layout: fixed;
+}
+.wiz-table thead tr {
+  background: #f9fafb; position: sticky; top: 0; z-index: 2;
+  border-bottom: 2px solid var(--border);
+}
+.wiz-table th {
+  padding: 11px 14px; font-size: 11px; font-weight: 800; color: #374151;
+  text-transform: uppercase; letter-spacing: .06em; text-align: left;
+  white-space: nowrap;
+}
+.wt-th-dia  { width: 100px; }
+.wt-th-area { width: 160px; }
+.wt-th-ficha, .wt-th-inst, .wt-th-amb { width: auto; }
+.wt-th-hint { font-weight: 400; opacity: .7; text-transform: none; }
+
+/* Checkbox "Aplicar a todos" en cabecera */
+.wt-th-area, .wt-th-ficha, .wt-th-inst, .wt-th-amb {
+  white-space: normal;
+  vertical-align: top;
+}
+.wt-apply-all {
+  display: flex; align-items: center; gap: 5px;
+  margin-top: 6px; cursor: pointer;
+  font-size: 10px; font-weight: 500;
+  text-transform: none; letter-spacing: 0;
+  opacity: .8; color: #9ca3af;
+  transition: opacity .15s, color .15s;
+}
+.wt-apply-all:hover { opacity: 1; color: #374151; }
+.wt-apply-all input[type="checkbox"] {
+  width: 13px; height: 13px; cursor: pointer;
+  accent-color: #39A900; flex-shrink: 0;
+}
+.wt-apply-all input[type="checkbox"]:checked + span {
+  color: #111827; font-weight: 700;
+}
+
+/* Filas de datos */
+.wt-row { transition: background .12s; }
+.wt-row-on  { background: var(--surface); }
+.wt-row-off { background: var(--surface2); }
+.wt-row + .wt-row { border-top: 1px solid var(--border); }
+
+/* Celda Día */
+.wt-td-dia {
+  padding: 12px 14px; vertical-align: middle;
+  border-right: 2px solid var(--border);
+}
+.wt-day-label {
+  display: flex; align-items: center; gap: 9px;
+  cursor: pointer; user-select: none;
+}
+.wt-checkbox {
+  width: 16px; height: 16px; cursor: pointer; accent-color: #39A900; flex-shrink: 0;
+}
+.wt-day-name {
+  font-size: 13px; font-weight: 700; color: var(--text-muted);
+  text-transform: capitalize;
+}
+.wt-day-on .wt-day-name { color: #39A900; }
+
+/* Celdas con select */
+.wt-td { padding: 8px 10px; vertical-align: middle; }
+
+/* Celda desactivada */
+.wt-td-off {
+  padding: 12px 14px; vertical-align: middle;
+}
+.wt-off-hint {
+  font-size: 12px; color: var(--text-muted); font-style: italic;
+}
+
+/* Badge transversal */
+.wt-transversal-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; color: #d97706;
+  background: #fffbeb; border: 1px solid #fcd34d;
+  border-radius: 6px; padding: 5px 10px; font-weight: 600; white-space: nowrap;
+}
+
+/* Footer del modal */
+.wiz-footer {
+  display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+  padding: 16px 28px; border-top: 1px solid var(--border);
+  background: var(--surface2); flex-shrink: 0;
+}

@@ -1,0 +1,67 @@
+[
+  {
+    "id": "admin",
+    "type": "module",
+    "text": "Módulo: Admin (Administración)\n\nDescripción:\nPanel de administración del sistema EPSAS. Desde aquí los administradores pueden gestionar configuraciones generales, ver tablas de información, administrar usuarios y acceder a servicios internos del sistema.\n\nRuta: /admin\n\nPreguntas frecuentes:\n- ¿Cómo accedo al panel de administración? → Ve a la ruta /admin. Solo usuarios con rol administrador pueden acceder.\n- ¿Dónde configuro el sistema? → En el módulo Admin encontrarás todas las configuraciones disponibles.\n- ¿Cómo veo la información del sistema? → El módulo Admin tiene tablas de información con todos los datos del sistema."
+  },
+  {
+    "id": "auth",
+    "type": "module",
+    "text": "Módulo: Auth (Autenticación)\n\nDescripción:\nMódulo de inicio de sesión y recuperación de contraseña del sistema EPSAS.\n\nRuta: /auth\n\nPreguntas frecuentes:\n- ¿Cómo inicio sesión? → Ingresa a /auth o a la pantalla de login con tu usuario y contraseña.\n- ¿Olvidé mi contraseña, qué hago? → En la pantalla de login hay una opción 'Olvidé mi contraseña' (forgot password) para recuperar el acceso.\n- ¿Cómo entro al sistema? → Dirígete a la página de inicio de sesión en /auth e ingresa tus credenciales."
+  },
+  {
+    "id": "chat",
+    "type": "module",
+    "text": "Módulo: Chat (Asistente Virtual)\n\nDescripción:\nAsistente virtual integrado en el sistema EPSAS para resolver dudas y consultas.\n\nRuta: /chat\n\nPreguntas frecuentes:\n- ¿Cómo uso el asistente virtual? → Ve a la sección Chat en /chat y escribe tu pregunta.\n- ¿Dónde puedo hacer consultas? → El módulo Chat está disponible para resolver tus dudas sobre el sistema."
+  },
+  {
+    "id": "formatos",
+    "type": "module",
+    "text": "Módulo: Formatos\n\nDescripción:\nSección para gestionar, ver y descargar formatos y documentos del sistema EPSAS.\n\nRuta: /formatos\n\nPreguntas frecuentes:\n- ¿Dónde encuentro los formatos? → En la sección Formatos disponible en /formatos.\n- ¿Cómo descargo un formato? → Ingresa al módulo Formatos, busca el formato que necesitas y descárgalo.\n- ¿Dónde están los documentos del sistema? → Los documentos y formatos están en el módulo Formatos en /formatos."
+  },
+  {
+    "id": "historial",
+    "type": "module",
+    "text": "Módulo: Historial\n\nDescripción:\nConsulta el historial de actividades, registros y acciones realizadas en el sistema EPSAS.\n\nRuta: /historial\n\nPreguntas frecuentes:\n- ¿Cómo veo mi historial? → Ve a la sección Historial en /historial para ver todos tus registros.\n- ¿Dónde están mis registros anteriores? → En el módulo Historial puedes consultar todas las actividades pasadas.\n- ¿Cómo consulto actividades anteriores? → Ingresa a /historial para ver el registro completo de actividades."
+  },
+  {
+    "id": "home",
+    "type": "module",
+    "text": "Módulo: Home (Página Principal)\n\nDescripción:\nPágina de inicio del sistema EPSAS. Es la pantalla principal que ves al ingresar al sistema.\n\nRuta: /home\n\nPreguntas frecuentes:\n- ¿Cómo regreso al inicio? → Haz clic en el logo o navega a /home.\n- ¿Qué es la página principal? → La página Home en /home es el punto de partida del sistema con acceso a todos los módulos."
+  },
+  {
+    "id": "migracion",
+    "type": "module",
+    "text": "Módulo: Migración de Datos\n\nDescripción:\nHerramientas para migrar e importar datos al sistema EPSAS.\n\nRuta: /migracion\n\nPreguntas frecuentes:\n- ¿Cómo migro datos al sistema? → Usa el módulo Migración en /migracion para importar y transferir datos.\n- ¿Cómo importo información? → El módulo de Migración en /migracion permite cargar datos al sistema."
+  },
+  {
+    "id": "seguimiento",
+    "type": "module",
+    "text": "Módulo: Seguimiento de Aprendices\n\nDescripción:\nGestión completa de aprendices, prácticas, observaciones y seguimiento de formación en el sistema EPSAS.\n\nRuta: /seguimiento\n\nPreguntas frecuentes:\n- ¿Cómo veo la lista de aprendices? → Ve al módulo Seguimiento en /seguimiento para ver la tabla de aprendices.\n- ¿Cómo registro una práctica? → En Seguimiento, usa el botón 'Crear práctica' para registrar una nueva práctica.\n- ¿Cómo agrego una observación a un aprendiz? → En el módulo Seguimiento, selecciona el aprendiz y usa la opción de observaciones.\n- ¿Cómo hago seguimiento a un aprendiz? → Ingresa a /seguimiento, busca al aprendiz en la tabla y revisa su información de seguimiento.\n- ¿Cómo filtro los aprendices? → En Seguimiento hay filtros por área y estado disponibles en la barra de herramientas.\n- ¿Cómo edito una práctica? → En el módulo Seguimiento selecciona la práctica y usa la opción de editar.\n- ¿Cómo gestiono las asignaciones? → En Seguimiento usa la opción 'Gestionar asignaciones' disponible en el módulo."
+  },
+  {
+    "id": "settings",
+    "type": "module",
+    "text": "Módulo: Settings (Configuración)\n\nDescripción:\nConfiguración general y personal del sistema EPSAS. Aquí puedes actualizar tus datos personales, cambiar preferencias y ajustar la configuración de tu cuenta.\n\nRuta: /settings\n\nPreguntas frecuentes:\n- ¿Cómo actualizo mis datos? → Ve a Settings en /settings para actualizar tu información personal.\n- ¿Cómo cambio mi contraseña? → En la sección Settings (/settings) puedes cambiar tu contraseña.\n- ¿Cómo configuro mi perfil? → Ingresa a /settings para editar tu perfil y preferencias.\n- ¿Cómo cambio mi información personal? → En el módulo Settings encontrarás las opciones para actualizar tus datos.\n- ¿Cómo cambio mi foto de perfil? → Ve a Settings en /settings y busca la opción de foto de perfil."
+  },
+  {
+    "id": "navbar",
+    "type": "layout",
+    "text": "Navbar (Barra de navegación superior)\n\nDescripción:\nBarra superior del sistema EPSAS con acceso rápido a notificaciones y opciones principales.\n\nPreguntas frecuentes:\n- ¿Cómo veo mis notificaciones? → Las notificaciones aparecen en el ícono de campana en la barra superior (navbar).\n- ¿Dónde están las notificaciones? → En la parte superior de la pantalla hay un ícono de campana con tus notificaciones."
+  },
+  {
+    "id": "sidebar",
+    "type": "layout",
+    "text": "Sidebar (Menú lateral)\n\nDescripción:\nMenú lateral de navegación del sistema EPSAS con acceso a todos los módulos disponibles.\n\nPreguntas frecuentes:\n- ¿Cómo navego entre secciones? → Usa el menú lateral (sidebar) para acceder a los diferentes módulos del sistema.\n- ¿Dónde está el menú principal? → El menú principal está en el panel lateral izquierdo de la pantalla.\n- ¿Cómo accedo a los módulos? → Haz clic en el menú lateral para ver y acceder a todos los módulos disponibles."
+  },
+  {
+    "id": "footer",
+    "type": "layout",
+    "text": "Footer (Pie de página)\n\nDescripción:\nPie de página institucional del sistema EPSAS con información de contacto y enlaces importantes.\n\nPreguntas frecuentes:\n- ¿Cómo contacto al soporte? → En la parte inferior de la página (footer) encontrarás información de contacto.\n- ¿Dónde está la información de contacto? → Revisa el pie de página (footer) al final de cualquier pantalla del sistema."
+  },
+  {
+    "id": "not-found",
+    "type": "module",
+    "text": "Página Not Found (Error 404)\n\nDescripción:\nPágina de error que aparece cuando intentas acceder a una ruta que no existe en el sistema EPSAS.\n\nPreguntas frecuentes:\n- ¿Por qué veo una página de error? → Aparece cuando la URL ingresada no existe. Regresa al inicio desde /home.\n- ¿Qué hago si veo un error 404? → La página no existe o la URL está mal escrita. Ve a /home para regresar al sistema."
+  }
+]

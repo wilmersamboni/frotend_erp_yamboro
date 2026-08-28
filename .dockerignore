@@ -1,0 +1,16 @@
+node_modules
+dist
+.angular
+.git
+.gitignore
+.vscode
+.idea
+coverage
+*.log
+.env
+.env.*
+knowledge-base.json
+semantic-docs.json
+README.md
+Dockerfile
+.dockerignore

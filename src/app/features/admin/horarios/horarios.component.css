@@ -1,0 +1,264 @@
+.page-header {
+  display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+/* Tamaño/negrita del título ahora vienen de las clases Tailwind en el <h2>
+   (text-2xl font-bold text-gray-900), igual que Seguimiento/Formatos/Historial —
+   ver conversación sobre consistencia tipográfica entre módulos. */
+.animate-fade-in { animation: fadeIn 0.3s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Barra de búsqueda integrada en la tabla */
+.matrix-search-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 14px; border-bottom: 1px solid var(--border);
+  background: var(--surface2); gap: 12px; flex-wrap: wrap;
+}
+.tbl-search-wrap { position: relative; flex: 1; max-width: 380px; }
+
+/* Filtro de jornada — chips */
+.jornada-filter-chips {
+  display: flex; gap: 4px; flex-wrap: wrap;
+}
+.jornada-chip {
+  padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700;
+  border: 1.5px solid var(--border); background: var(--surface);
+  color: var(--text-muted); cursor: pointer; transition: all .15s;
+  white-space: nowrap;
+}
+.jornada-chip:hover { border-color: #39A900; color: #39A900; }
+.jornada-chip.active { background: #39A900; color: #fff; border-color: #39A900; }
+.tbl-search-icon {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  color: var(--text-muted); pointer-events: none;
+}
+.tbl-search-input {
+  width: 100%; padding: 6px 10px 6px 32px;
+  border: 1px solid var(--border); border-radius: 6px;
+  font-size: 13px; background: var(--surface2); color: var(--text);
+  outline: none; transition: border-color .15s;
+}
+.tbl-search-input:focus { border-color: #39A900; }
+.tbl-results-count { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+
+/* Estilos Matriciales Fullscreen sin scroll horizontal */
+.matrix-wrap { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow-x: auto; overflow-y: visible; display:flex; flex-direction:column; }
+.matrix-grid {
+  display: grid;
+  /* min-width por columna en vez de minmax(0,1fr): en pantallas angostas el
+     grid crece más que el viewport y .matrix-wrap lo scrollea horizontalmente
+     en vez de aplastar cada día a un ancho ilegible. */
+  grid-template-columns: 130px repeat(6, minmax(150px, 1fr));
+  width: 100%; border: none; background: transparent;
+}
+.matrix-header-col {
+  background: var(--surface2); padding: 12px; font-weight: 800; font-size: 13px; color: var(--text); border-bottom: 2px solid var(--border); border-right: 1px solid var(--border); text-align: center;
+}
+.matrix-header-col:first-child { text-align: left; }
+.matrix-header-col:last-child { border-right: none; }
+/* Fila de días y columna de instructor/ficha/ambiente quedan visibles al
+   hacer scroll horizontal — la celda superior izquierda combina ambas. */
+.sticky-header { position: sticky; top: 0; z-index: 2; }
+.sticky-col     { position: sticky; left: 0; z-index: 1; background: var(--surface); }
+.matrix-header-col.sticky-header:first-child { left: 0; z-index: 3; }
+/* Hoy: resaltado en verde SENA */
+.matrix-header-col.is-today {
+  background: rgba(57,169,0,.15); border-bottom: 3px solid #39A900; color: #2d8500;
+}
+.matrix-cell.is-today { background: rgba(57,169,0,.04); }
+.matrix-row-item {
+  padding: 12px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; justify-content: center;
+  word-break: break-word; min-width: 0;
+}
+.matrix-cell {
+  padding: 8px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
+  display: flex; align-items: stretch; position: relative;
+  min-width: 0; word-break: break-word;
+}
+.matrix-cell:last-child { border-right: none; }
+.matrix-empty {
+  grid-column: 1 / -1; padding: 32px; text-align: center; color: var(--text-muted); font-size: 14px;
+}
+
+/* Carrusel de jornadas múltiples */
+/* slot-wrapper llena toda la celda para que la card también lo haga */
+.slot-wrapper { width: 100%; height: 100%; display: flex; flex-direction: column; }
+
+/* La card se estira para llenar el wrapper y empuja la sección inferior al fondo */
+.horario-card {
+  width: 100%; min-width: 0; flex: 1;
+  display: flex; flex-direction: column;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 6px; padding: 10px; font-size: 13px; color: var(--text);
+}
+/* Layout de dos columnas dentro de la card */
+.card-layout {
+  display: flex; flex: 1; gap: 0; min-width: 0; height: 100%;
+}
+.card-main {
+  flex: 1; min-width: 0; display: flex; flex-direction: column;
+}
+.card-actions-col {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 2px 0 2px 6px;
+  margin-left: 6px;
+  border-left: 1px solid var(--border);
+  min-width: 26px; flex-shrink: 0;
+}
+.card-top { display: flex; flex-direction: column; gap: 0; flex: 1; }
+.card-bottom { display: flex; flex-direction: column; margin-top: 8px; }
+
+/* ── Filas etiqueta-valor dentro de la card ── */
+.info-row {
+  margin-top: 3px; line-height: 1.4;
+}
+.info-label {
+  color: var(--text-muted); font-weight: 500;
+  font-size: 11px; font-family: inherit;
+  white-space: nowrap;
+}
+.info-label::after { content: ': '; }
+.info-val {
+  color: var(--text); font-weight: 600;
+  font-size: 11px; font-family: inherit;
+}
+.info-time { font-weight: 700; }
+
+/* Badge horario finalizado */
+.status-pill { display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; padding: 3px 8px; font-size: 10px; font-weight: 700; width: fit-content; }
+.status-finalizado { background: #e0e7ff; color: #312e81; }
+
+/* Trigger + tooltip de ubicación temporal */
+.amb-temp-wrap {
+  position: relative; display: inline-flex; align-items: center;
+  gap: 3px; cursor: help;
+}
+.amb-temp-tooltip {
+  display: none; position: absolute; z-index: 9999;
+  left: 0; top: calc(100% + 5px);
+  background: #1e293b; color: #f1f5f9;
+  border-radius: 8px; padding: 9px 12px;
+  font-size: 11px; white-space: nowrap;
+  box-shadow: 0 6px 16px rgba(0,0,0,.3);
+  pointer-events: none;
+}
+.amb-temp-wrap:hover .amb-temp-tooltip { display: block; }
+.amb-temp-lbl {
+  color: #94a3b8; font-size: 9px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em;
+  display: block; margin-bottom: 2px;
+}
+.amb-temp-row { display: flex; flex-direction: column; }
+.amb-temp-row + .amb-temp-row { margin-top: 7px; }
+
+/* Chip de retraso */
+.retraso-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: #fee2e2; color: #dc2626; border-radius: 4px;
+  padding: 2px 6px; font-size: 10px; font-weight: 700;
+  border: 1px solid #fca5a5; margin-bottom: 2px;
+}
+
+/* Fila: dots + flecha de alternado */
+.slot-nav-row {
+  display: flex; align-items: center; justify-content: flex-start; gap: 8px;
+  margin: 5px 0 3px;
+}
+.slot-dots { display: flex; align-items: center; gap: 4px; }
+.slot-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); transition: background .2s; }
+.slot-dot.active { background: #39A900; }
+/* En-curso pero NO visualizado: anillo outline para distinguirlo del activo */
+.slot-dot.current { background: transparent; border: 2px solid #39A900; }
+
+/* Botón flecha pequeño junto a los dots */
+.slot-arrow-btn {
+  background: none; border: 1px solid var(--border); border-radius: 4px;
+  padding: 1px 4px; cursor: pointer; display: flex; align-items: center;
+  color: var(--text-muted); transition: border-color .15s, color .15s;
+  line-height: 1;
+}
+.slot-arrow-btn:hover { border-color: #39A900; color: #39A900; }
+
+/* Card activa según hora actual */
+.horario-card.en-curso { border-color: #39A900 !important; box-shadow: 0 0 0 2px rgba(57,169,0,0.13) !important; }
+.horario-card.en-curso .time-range { color: #39A900; }
+
+/* Badge de ambiente para instructor transversal activo */
+.transversal-env-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: #fffbeb; color: #d97706; border: 1px solid #fcd34d;
+  border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 700;
+}
+
+/* ── Columna derecha de acciones — estilos compartidos con card-actions-col ── */
+.card-help-btn {
+  color: var(--text-muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  transition: color .15s, background .15s;
+}
+.card-help-btn:hover { color: #39A900; background: rgba(57,169,0,.12); }
+.card-help-active { color: #39A900 !important; background: rgba(57,169,0,.12) !important; }
+
+/* Botón de notificación de evento */
+.ev-notif-btn {
+  width: 22px; height: 22px; border-radius: 6px; border: none;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: transform .15s, opacity .2s, filter .2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,.12);
+}
+.ev-notif-btn:hover { transform: scale(1.18); }
+.ev-notif-pasado { opacity: 0.3; filter: grayscale(1); }
+.ev-notif-formativo     { background: #dbeafe; color: #1d4ed8; }
+.ev-notif-institucional { background: #dcfce7; color: #166534; }
+.ev-notif-evaluacion    { background: #fed7aa; color: #92400e; }
+.ev-notif-festivo       { background: #fee2e2; color: #991b1b; }
+
+.ev-tipo-formativo     { background: #dbeafe; color: #1d4ed8; }
+.ev-tipo-institucional { background: #dcfce7; color: #166534; }
+.ev-tipo-evaluacion    { background: #fed7aa; color: #92400e; }
+.ev-tipo-festivo       { background: #fee2e2; color: #991b1b; }
+
+/* ── Tooltip flotante de Evento ── */
+.ev-tooltip-box {
+  position: fixed; z-index: 9999;
+  width: 240px; padding: 12px 14px;
+  border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.15);
+  font-size: 13px; pointer-events: none;
+  border: 1.5px solid;
+}
+.ev-tooltip-formativo     { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+.ev-tooltip-institucional { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+.ev-tooltip-evaluacion    { background: #fff7ed; border-color: #fed7aa; color: #92400e; }
+.ev-tooltip-festivo       { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+.ev-tt-tipo {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 10px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .5px; opacity: .7; margin-bottom: 4px;
+}
+.ev-tt-nombre { font-weight: 700; font-size: 14px; margin: 0; color: inherit; }
+.ev-tt-time {
+  display: flex; align-items: center; gap: 5px;
+  margin-top: 6px; font-size: 12px; font-weight: 600; opacity: .85;
+}
+.ev-tt-desc {
+  margin-top: 6px; font-size: 12px; opacity: .75;
+  border-top: 1px solid currentColor; padding-top: 6px;
+}
+
+/* ── Selector de día (mobile/tablet <1024px) — idéntico en instructor/mis-horarios
+   y aprendiz/mis-horarios, salvo que aquí se conserva la columna de
+   etiqueta (instructor/ficha/ambiente) en el grid-template-columns. ── */
+.day-tabs-mobile { display: none; }
+@media (max-width: 1023.98px) {
+  .day-tabs-mobile { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .day-tabs-mobile button {
+    padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;
+    border: 1.5px solid var(--border); background: var(--surface); color: var(--text-muted); cursor: pointer;
+  }
+  .day-tabs-mobile button.active { background: #39A900; color: #fff; border-color: #39A900; }
+  .day-tabs-mobile button.is-today:not(.active) { border-color: #39A900; color: #39A900; }
+  .matrix-grid { grid-template-columns: 130px 1fr !important; min-width: 0; }
+  .day-col:not(.day-col-selected) { display: none; }
+}

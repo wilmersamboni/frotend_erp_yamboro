@@ -1,0 +1,468 @@
+<div class="dashboard">
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <div class="dash-header">
+    <div>
+      <h2 class="dash-title">
+        @if (esAprendiz()) { Mi Horario }
+        @else if (esInstructor()) { Mi Panel de Horarios }
+        @else { Vista General de Horarios }
+      </h2>
+      <p class="dash-date">{{ fecha }}</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       VISTA ADMIN
+  ══════════════════════════════════════════════════════════════════════════ -->
+  @if (esAdmin()) {
+
+    <div class="kpi-grid">
+
+      <div class="kpi-card">
+        <div class="kpi-head">
+          <div class="kpi-icon-box box-green"><i class="pi pi-calendar"></i></div>
+          <span class="kpi-badge badge-green">Activos</span>
+        </div>
+        <p class="kpi-label">Horarios Activos</p>
+        @if (cargando) {
+          <p-skeleton height="38px" width="80px" styleClass="mb-2"/>
+        } @else {
+          <h3 class="kpi-num">{{ statsHorarios.activos | number }}</h3>
+        }
+        <div class="kpi-ctx kpi-ctx-green">
+          <i class="pi pi-list"></i>
+          <span>de {{ statsHorarios.total | number }} horarios</span>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-head">
+          <div class="kpi-icon-box box-blue"><i class="pi pi-play-circle"></i></div>
+          <span class="kpi-badge badge-blue">En vivo</span>
+        </div>
+        <p class="kpi-label">En Curso Ahora</p>
+        @if (cargando) {
+          <p-skeleton height="38px" width="70px" styleClass="mb-2"/>
+        } @else {
+          <h3 class="kpi-num">{{ enCursoAhora | number }}</h3>
+        }
+        <div class="kpi-ctx kpi-ctx-blue">
+          <i class="pi pi-clock"></i>
+          <span>clases en este momento</span>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-head">
+          <div class="kpi-icon-box box-purple"><i class="pi pi-calendar-plus"></i></div>
+          <span class="kpi-badge badge-purple">Agenda</span>
+        </div>
+        <p class="kpi-label">Eventos Próximos</p>
+        @if (cargando) {
+          <p-skeleton height="38px" width="60px" styleClass="mb-2"/>
+        } @else {
+          <h3 class="kpi-num">{{ eventosProximos | number }}</h3>
+        }
+        <div class="kpi-ctx kpi-ctx-purple">
+          <i class="pi pi-map-marker"></i>
+          <span>programados</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="charts-area">
+
+      <div class="chart-panel">
+        <div class="chart-panel-header">
+          <div>
+            <h4 class="chart-panel-title">Horarios por Día</h4>
+            <p class="chart-panel-sub">Cantidad de horarios asignados según el día de la semana</p>
+          </div>
+        </div>
+        @if (cargando || !chartDataDias) {
+          <p-skeleton height="240px" borderRadius="12px"/>
+        } @else {
+          <div class="bar-chart-wrap">
+            <p-chart type="bar" [data]="chartDataDias" [options]="chartOptionsBar"
+                     width="100%" height="240px"/>
+          </div>
+        }
+      </div>
+
+      <div class="target-panel">
+        <div class="target-header">
+          <h4 class="target-title">Cobertura de Horarios</h4>
+          <p class="target-sub">Horarios activos sobre el total</p>
+        </div>
+
+        <div class="circular-wrap">
+          <svg class="circle-svg" viewBox="0 0 200 200">
+            <circle cx="100" cy="100" r="88" fill="none" stroke="#e2e8f0" stroke-width="12"/>
+            <circle cx="100" cy="100" r="88" fill="none" stroke="#39A900" stroke-width="12"
+                    stroke-linecap="round"
+                    stroke-dasharray="552.92"
+                    [attr.stroke-dashoffset]="552.92 * (1 - porcentajeActivos / 100)"
+                    transform="rotate(-90 100 100)"/>
+          </svg>
+          <div class="circle-center">
+            <span class="circle-pct">{{ porcentajeActivos }}%</span>
+            <span class="circle-label">Activos</span>
+          </div>
+        </div>
+
+        <div class="target-bars">
+          <div class="t-bar-row">
+            <div class="t-bar-info">
+              <span class="t-dot dot-blue"></span>
+              <span class="t-label">Con ambiente asignado</span>
+              <span class="t-val">{{ porcentajeConAmbiente }}%</span>
+            </div>
+            <div class="t-track">
+              <div class="t-fill fill-blue" [style.width.%]="porcentajeConAmbiente"></div>
+            </div>
+          </div>
+          <div class="t-bar-row">
+            <div class="t-bar-info">
+              <span class="t-dot dot-orange"></span>
+              <span class="t-label">Con instructor asignado</span>
+              <span class="t-val">{{ porcentajeConInstructor }}%</span>
+            </div>
+            <div class="t-track">
+              <div class="t-fill fill-orange" [style.width.%]="porcentajeConInstructor"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="donuts-row">
+
+      <div class="donut-panel">
+        <div class="donut-header">
+          <h4 class="donut-title">Horarios por Jornada</h4>
+          <p class="donut-sub">Distribución mañana / tarde / noche</p>
+        </div>
+        @if (cargando) {
+          <div class="skel-center"><p-skeleton shape="circle" size="160px"/></div>
+        } @else {
+          <div class="chart-container">
+            <p-chart type="doughnut" [data]="chartDataJornada" [options]="chartOptions"
+              width="100%" height="200px"/>
+          </div>
+        }
+        <div class="donut-legend">
+          <div class="legend-item">
+            <span class="legend-dot dot-green"></span>
+            <span class="legend-text">Mañana</span>
+            <span class="legend-val">{{ chartDataJornada?.datasets?.[0]?.data?.[0] ?? 0 }}</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot dot-blue"></span>
+            <span class="legend-text">Tarde</span>
+            <span class="legend-val">{{ chartDataJornada?.datasets?.[0]?.data?.[1] ?? 0 }}</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background:#a855f7"></span>
+            <span class="legend-text">Noche</span>
+            <span class="legend-val">{{ chartDataJornada?.datasets?.[0]?.data?.[2] ?? 0 }}</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  }
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       VISTA INSTRUCTOR
+  ══════════════════════════════════════════════════════════════════════════ -->
+  @if (esInstructor()) {
+
+    <div class="kpi-grid">
+
+      <div class="kpi-card">
+        <div class="kpi-head">
+          <div class="kpi-icon-box box-green"><i class="pi pi-calendar"></i></div>
+          <span class="kpi-badge badge-green">Activos</span>
+        </div>
+        <p class="kpi-label">Mis Horarios Activos</p>
+        @if (cargando) {
+          <p-skeleton height="38px" width="70px" styleClass="mb-2"/>
+        } @else {
+          <h3 class="kpi-num">{{ misHorariosActivos | number }}</h3>
+        }
+        <div class="kpi-ctx kpi-ctx-green">
+          <i class="pi pi-book"></i>
+          <span>fichas a cargo</span>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-head">
+          <div class="kpi-icon-box box-blue"><i class="pi pi-clock"></i></div>
+          <span class="kpi-badge badge-blue">Hoy</span>
+        </div>
+        <p class="kpi-label">Clases Hoy</p>
+        @if (cargando) {
+          <p-skeleton height="38px" width="60px" styleClass="mb-2"/>
+        } @else {
+          <h3 class="kpi-num">{{ misHorariosHoy.length | number }}</h3>
+        }
+        <div class="kpi-ctx kpi-ctx-blue">
+          <i class="pi pi-calendar"></i>
+          <span>en tu agenda de hoy</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="donuts-row">
+
+      <div class="data-card" style="grid-column: span 1;">
+        <div class="data-card-header">
+          <h4 class="data-card-title">Mi Horario de Hoy</h4>
+          <span class="data-card-count">{{ misHorariosHoy.length }} clases</span>
+        </div>
+        @if (cargando) {
+          <div style="padding: 22px;"><p-skeleton height="120px" borderRadius="12px"/></div>
+        } @else if (misHorariosHoy.length === 0) {
+          <div class="empty-state" style="padding: 40px 24px;">
+            <i class="pi pi-calendar-times empty-icon"></i>
+            <h3>No tienes clases hoy</h3>
+          </div>
+        } @else {
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Hora</th>
+                  <th>Jornada</th>
+                  <th>Ficha</th>
+                  <th>Ambiente</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (h of misHorariosHoy; track h.id) {
+                  <tr>
+                    <td class="td-main">{{ h.horaInicio }} – {{ h.horaFin }}</td>
+                    <td class="td-secondary">{{ jornadaLabel(h.jornada) }}</td>
+                    <td>{{ h.fichaId ? fichaCodigo(h.fichaId) : '—' }}</td>
+                    <td class="td-secondary">{{ h.ambienteId ? ambienteNombre(h.ambienteId) : '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+
+      <div class="donut-panel">
+        <div class="donut-header">
+          <h4 class="donut-title">Mis Horarios por Jornada</h4>
+          <p class="donut-sub">Distribución de tu carga semanal</p>
+        </div>
+        @if (cargando) {
+          <div class="skel-center"><p-skeleton shape="circle" size="160px"/></div>
+        } @else {
+          <div class="chart-container">
+            <p-chart type="doughnut" [data]="chartDataJornada" [options]="chartOptions"
+              width="100%" height="200px"/>
+          </div>
+        }
+        <div class="donut-legend">
+          <div class="legend-item">
+            <span class="legend-dot dot-green"></span>
+            <span class="legend-text">Mañana</span>
+            <span class="legend-val">{{ chartDataJornada?.datasets?.[0]?.data?.[0] ?? 0 }}</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot dot-blue"></span>
+            <span class="legend-text">Tarde</span>
+            <span class="legend-val">{{ chartDataJornada?.datasets?.[0]?.data?.[1] ?? 0 }}</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background:#a855f7"></span>
+            <span class="legend-text">Noche</span>
+            <span class="legend-val">{{ chartDataJornada?.datasets?.[0]?.data?.[2] ?? 0 }}</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  }
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       VISTA APRENDIZ
+  ══════════════════════════════════════════════════════════════════════════ -->
+  @if (esAprendiz()) {
+
+    @if (cargando) {
+      <div class="dash-body">
+        <div class="dash-left">
+          <p-skeleton height="130px" borderRadius="16px" styleClass="mb-5"/>
+          <div class="cards-row">
+            <p-skeleton height="100px" borderRadius="16px"/>
+            <p-skeleton height="100px" borderRadius="16px"/>
+          </div>
+        </div>
+        <div class="dash-right">
+          <p-skeleton height="360px" borderRadius="20px"/>
+        </div>
+      </div>
+
+    } @else if (!miFicha) {
+      <div class="empty-state">
+        <i class="pi pi-calendar-times empty-icon"></i>
+        <h3>No tienes un horario asignado aún</h3>
+        <p>Tu ficha aún no tiene horarios programados.</p>
+      </div>
+
+    } @else {
+
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-head">
+            <div class="kpi-icon-box box-green"><i class="pi pi-calendar"></i></div>
+            <span class="kpi-badge badge-green">{{ miFicha.codigo }}</span>
+          </div>
+          <p class="kpi-label">Horarios en tu Ficha</p>
+          <h3 class="kpi-num">{{ horarioSemanal.length | number }}</h3>
+          <div class="kpi-ctx kpi-ctx-green">
+            <i class="pi pi-book"></i>
+            <span>{{ miFicha.programa || '—' }}</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-head">
+            <div class="kpi-icon-box box-blue"><i class="pi pi-clock"></i></div>
+            <span class="kpi-badge badge-blue">Hoy</span>
+          </div>
+          <p class="kpi-label">Clases Hoy</p>
+          <h3 class="kpi-num">{{ clasesHoyCount | number }}</h3>
+          <div class="kpi-ctx kpi-ctx-blue">
+            @if (miProximaClase) {
+              <i class="pi pi-play"></i>
+              <span>próxima: {{ miProximaClase.horaInicio }}</span>
+            } @else {
+              <i class="pi pi-check"></i>
+              <span>sin clases pendientes</span>
+            }
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-head">
+            <div class="kpi-icon-box box-orange"><i class="pi pi-user"></i></div>
+            <span class="kpi-badge badge-orange">Docentes</span>
+          </div>
+          <p class="kpi-label">Instructores Asignados</p>
+          <h3 class="kpi-num">{{ instructoresUnicos | number }}</h3>
+          <div class="kpi-ctx kpi-ctx-orange">
+            <i class="pi pi-users"></i>
+            <span>a cargo de tu ficha</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-head">
+            <div class="kpi-icon-box box-purple"><i class="pi pi-map-marker"></i></div>
+            <span class="kpi-badge badge-purple">Espacios</span>
+          </div>
+          <p class="kpi-label">Ambientes Usados</p>
+          <h3 class="kpi-num">{{ ambientesUnicos | number }}</h3>
+          <div class="kpi-ctx kpi-ctx-purple">
+            <i class="pi pi-building"></i>
+            <span>diferentes salones</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="donuts-row">
+        <div class="donut-panel">
+          <div class="donut-header">
+            <h4 class="donut-title">Mi Horario por Jornada</h4>
+            <p class="donut-sub">Distribución mañana / tarde / noche</p>
+          </div>
+          <div class="chart-container">
+            <p-chart type="doughnut" [data]="chartDataJornada" [options]="chartOptions"
+              width="100%" height="200px"/>
+          </div>
+          <div class="donut-legend">
+            <div class="legend-item">
+              <span class="legend-dot dot-green"></span>
+              <span class="legend-text">Mañana</span>
+              <span class="legend-val">{{ chartDataJornada?.datasets?.[0]?.data?.[0] ?? 0 }}</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot dot-blue"></span>
+              <span class="legend-text">Tarde</span>
+              <span class="legend-val">{{ chartDataJornada?.datasets?.[0]?.data?.[1] ?? 0 }}</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot" style="background:#a855f7"></span>
+              <span class="legend-text">Noche</span>
+              <span class="legend-val">{{ chartDataJornada?.datasets?.[0]?.data?.[2] ?? 0 }}</span>
+            </div>
+          </div>
+        </div>
+
+        @if (miProximaClase) {
+          <p-card styleClass="hero-card">
+            <div class="hero-content">
+              <div class="hero-info">
+                <p class="personal-label">Próxima clase</p>
+                <h2 class="personal-empresa">{{ diaLabel(miProximaClase.diaSemana) }}</h2>
+                <span class="estado-tag badge-info" style="width: fit-content;">
+                  {{ ambienteNombre(miProximaClase.ambienteId) }}
+                </span>
+              </div>
+              <div class="avance-box">
+                <span class="avance-number" style="font-size: 28px;">{{ miProximaClase.horaInicio }}</span>
+                <span class="avance-label">hasta {{ miProximaClase.horaFin }}</span>
+              </div>
+            </div>
+          </p-card>
+        }
+      </div>
+
+      <div class="data-card">
+        <div class="data-card-header">
+          <h4 class="data-card-title">Mi Horario Semanal</h4>
+          <span class="data-card-count">{{ horarioSemanal.length }} registros</span>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Día</th>
+                <th>Jornada</th>
+                <th>Hora</th>
+                <th>Instructor</th>
+                <th>Ambiente</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (h of horarioSemanal; track h.id) {
+                <tr>
+                  <td class="td-main">{{ diaLabel(h.diaSemana) }}</td>
+                  <td class="td-secondary">{{ jornadaLabel(h.jornada) }}</td>
+                  <td>{{ h.horaInicio }} – {{ h.horaFin }}</td>
+                  <td>{{ h.instructorId ? instructorNombre(h.instructorId) : '—' }}</td>
+                  <td class="td-secondary">{{ h.ambienteId ? ambienteNombre(h.ambienteId) : '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    }
+
+  }
+
+</div>

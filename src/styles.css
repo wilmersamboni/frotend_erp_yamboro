@@ -1,0 +1,238 @@
+@import "tailwindcss";
+@import 'primeicons/primeicons.css';
+
+/* ─── Login animations ───────────────────────────────────────────── */
+@keyframes twinkle {
+  0%   { opacity: 0.15; }
+  100% { opacity: 0.85; }
+}
+@keyframes floatP {
+  0%   { transform: translateY(0) scale(1); }
+  100% { transform: translateY(-22px) scale(1.08); }
+}
+
+body, * {
+  font-family: 'Sora', sans-serif;
+}
+
+/* ─── Taiga UI – tokens globales requeridos ─────────────────────── */
+:root {
+  /* Colores SENA */
+  --tui-primary:                    #39A900;
+  --tui-primary-hover:              #5cd600;
+  --tui-primary-active:             #2d8200;
+  --tui-background-accent-1:        #39A900;
+  --tui-background-accent-1-hover:  #5cd600;
+  --tui-border-focus:               #39A900;
+
+  /* Tokens que TuiCalendar necesita */
+  --tui-text-primary:               #1b1f26;
+  --tui-text-secondary:             #6b7280;
+  --tui-text-negative:              #ef4444;
+  --tui-text-primary-on-accent-1:   #ffffff;
+
+  --tui-background-base:            #ffffff;
+  --tui-background-neutral-1:       #e5e7eb;
+  --tui-background-neutral-1-hover: #d1d5db;
+
+  --tui-disabled-opacity:           0.4;
+
+  --tui-radius-m:                   0.5rem;
+  --tui-radius-l:                   0.75rem;
+
+  /* Tipografía */
+  --tui-typography-body-s:          400 0.75rem/1rem sans-serif;
+  --tui-typography-body-m:          400 0.875rem/1.25rem sans-serif;
+  /* ─── Tokens para TuiSpinButton (flechas del calendario) ────────── */
+  --tui-background-neutral-2:         #f3f4f6;
+  --tui-background-neutral-2-hover:   #e5e7eb;
+  --tui-text-action:                  #39A900;
+  --tui-text-action-hover:            #2d8200;
+  --tui-border-normal:                #d1d5db;
+  --tui-border-hover:                 #9ca3af;
+
+  --tui-radius-s:                     0.25rem;
+  --tui-radius-xs:                    0.125rem;
+
+  --tui-typography-body-l:            400 1rem/1.5rem sans-serif;
+  --tui-typography-label-m:           500 0.875rem/1.25rem sans-serif;
+
+  /* Íconos SVG internos de TuiSpinButton */
+  --tui-height-m:                     2.25rem;
+  --tui-padding-m:                    0.75rem;
+  --tui-stroke-width: 1.5px;
+
+  /* ─── Tokens genéricos usados por las pantallas de horarios ─────── */
+  /* (portadas de ChronoGest — mismo esquema de color light-only que ahí) */
+  --surface:      #ffffff;
+  --surface2:     #f9fafb;
+  --text:         #111827;
+  --text-muted:   #6b7280;
+  --border:       #e5e7eb;
+  --blue:         #2563eb;
+  --gray-300:     #d1d5db;
+}
+
+@layer components {
+  .bg-sena-gradient {
+    background: linear-gradient(to right, #39A900, #5cd600) !important;
+  }
+}
+
+
+/* ─── Tokens faltantes usados por horarios.component.ts ──────────── */
+:root {
+  --navy: #1e3a5f;
+  --red:  #dc2626;
+}
+
+/* ─── Botones base ─────────────────────────────────────────────────
+   Usados en: horarios.component.ts, searchable-select y probablemente
+   el resto del admin. No existían en el proyecto nuevo (venían de
+   ChronoGest) — se recrean acá con los mismos tokens del proyecto.
+*/
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s, opacity .15s;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+.btn:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.btn-blue {
+  background: var(--blue);
+  color: #fff;
+  border-color: var(--blue);
+}
+.btn-blue:hover:not(:disabled) {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.btn-outline {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+.btn-outline:hover:not(:disabled) {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+/* Botón solo-ícono (ej. cerrar modal, eliminar fila) */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.btn-icon:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+.btn-sm {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+}
+
+/* ─── Badges / pills de estado ─────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  text-transform: lowercase;
+}
+.badge.active {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+.badge.inactive {
+  background: var(--surface2);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+/* ─── Formularios ───────────────────────────────────────────────────── */
+.form-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+.form-control {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.form-control:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+}
+
+/* ─── Modal genérico ────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, .45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+.modal {
+  background: var(--surface);
+  border-radius: 14px;
+  width: 95vw;
+  max-width: 640px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .25);
+  display: flex;
+  flex-direction: column;
+}
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ─── Texto utilitario (por si Tailwind no cubre alguno) ──────────── */
+.text-muted { color: var(--text-muted); }

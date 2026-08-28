@@ -1,0 +1,128 @@
+<div class="login-page">
+  <div class="login-stage">
+    <div class="login-card">
+
+      <!-- ══════════════ PANEL IZQUIERDO — carrusel ══════════════ -->
+      <div class="login-left">
+
+        @for (img of carouselImagenes; track img; let i = $index) {
+          <div class="slide" [class.is-active]="slideActivo() === i" [style.background-image]="'url(' + img + ')'"></div>
+        }
+        <div class="left-scrim"></div>
+
+        <div class="left-eyebrow">Panel administrativo</div>
+
+        <div class="left-signature">
+          <div class="signature-mark">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+              <path d="M2 17l10 5 10-5"/>
+              <path d="M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <div class="signature-text">
+            <div class="signature-name">EPSAS</div>
+            <div class="signature-sub">SENA · Panel de Tenants</div>
+          </div>
+        </div>
+
+        <div class="left-arrows">
+          <button type="button" class="arrow-btn" (click)="onFlechaAnterior()" aria-label="Foto anterior">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+              <path d="M15 18l-6-6 6-6"/>
+            </svg>
+          </button>
+          <button type="button" class="arrow-btn" (click)="onFlechaSiguiente()" aria-label="Foto siguiente">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+              <path d="M9 18l6-6-6-6"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="left-dots">
+          @for (img of carouselImagenes; track img; let i = $index) {
+            <button type="button" class="dot" [class.is-active]="slideActivo() === i"
+              (click)="irASlide(i)" [attr.aria-label]="'Ir a la foto ' + (i + 1)"></button>
+          }
+        </div>
+      </div>
+
+      <!-- ══════════════ PANEL DERECHO — formulario ══════════════ -->
+      <div class="login-right">
+
+        <h1 class="right-title">Panel administrativo</h1>
+        <p class="right-sub">Ingresa tus credenciales de administrador para continuar</p>
+
+        <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="login-form">
+
+          <!-- Usuario -->
+          <div class="form-group">
+            <label class="form-label">Usuario</label>
+            <div class="input-wrap">
+              <span class="input-icon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="8" r="4"/>
+                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                </svg>
+              </span>
+              <input type="text" formControlName="correo" placeholder="usuario o correo" autocomplete="username"
+                class="form-input" [class.has-error]="form.controls.correo.invalid && form.controls.correo.touched" />
+            </div>
+            @if (form.controls.correo.invalid && form.controls.correo.touched) {
+              <p class="field-error">El usuario es obligatorio.</p>
+            }
+          </div>
+
+          <!-- Contraseña -->
+          <div class="form-group">
+            <label class="form-label">Contraseña</label>
+            <div class="input-wrap">
+              <span class="input-icon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              </span>
+              <input [type]="mostrarPassword() ? 'text' : 'password'" formControlName="password"
+                placeholder="••••••••" autocomplete="current-password"
+                class="form-input form-input-pw" [class.has-error]="form.controls.password.invalid && form.controls.password.touched" />
+              <button type="button" (click)="toggleMostrarPassword()" class="toggle-pw">
+                @if (mostrarPassword()) {
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                    <line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                } @else {
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                }
+              </button>
+            </div>
+            @if (form.controls.password.invalid && form.controls.password.touched) {
+              <p class="field-error">La contraseña es obligatoria.</p>
+            }
+          </div>
+
+          <button type="submit" [disabled]="cargando()" class="submit-btn" [class.is-loading]="cargando()">
+            @if (cargando()) {
+              <svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="white" stroke-width="3" opacity=".3"/>
+                <path d="M12 2a10 10 0 0 1 10 10" stroke="white" stroke-width="3" stroke-linecap="round"/>
+              </svg>
+              Ingresando…
+            } @else {
+              Iniciar sesión
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            }
+          </button>
+        </form>
+
+        <p class="right-footer">© {{ year }} EPSAS · Panel de Tenants</p>
+      </div>
+    </div>
+  </div>
+</div>
