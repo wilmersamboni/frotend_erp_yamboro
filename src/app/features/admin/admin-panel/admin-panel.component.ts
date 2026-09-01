@@ -212,7 +212,7 @@ import { PermisosPanelComponent } from '../permisos/permisos-panel.component';
               </div>
 
               <!-- Botón Agregar -->
-              @if (config[admin.activeTab()].crear) {
+              @if (puedeEscribir(admin.activeTab())) {
                 <button (click)="admin.abrirModal()"
                   class="group flex items-center gap-2 px-5 py-2 text-white text-sm font-bold rounded-xl
                          shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
@@ -233,8 +233,8 @@ import { PermisosPanelComponent } from '../permisos/permisos-panel.component';
               [rows]="admin.activeData()"
               [columns]="admin.activeColumns()"
               [loading]="admin.loading()"
-              [canEdit]="!!config[admin.activeTab()].actualizar"
-              [canDelete]="!!config[admin.activeTab()].eliminar"
+              [canEdit]="puedeEscribir(admin.activeTab())"
+              [canDelete]="puedeEliminar(admin.activeTab())"
               [columnLabels]="config[admin.activeTab()].columnLabels ?? {}"
               [selectable]="admin.activeTab() === 'roles' || admin.activeTab() === 'usuarios'"
               [selectedRow]="admin.activeTab() === 'roles' ? rolSeleccionado() : usuarioSeleccionado()"
@@ -371,15 +371,40 @@ export class AdminPanelComponent implements OnInit {
     return MODULOS_ADMIN.filter(m => {
       const servicio = this.config[m].servicio;
       const tieneServicioDelModulo = !!(servicio && this.auth.tieneServicio(servicio));
-      if (m === 'ambientes') {
-        return !AdminPanelComponent.APLICATIVOS_PRODUCTO.includes(aplicativo) || tieneServicioDelModulo;
-      }
+      // 'ambientes' siempre exige su propio servicio — antes, cualquiera
+      // cuya cuenta NO fuera de un aplicativo "producto" (Horarios/Etapa
+      // Práctica) lo veía sin tener 'ambientes.gestionar', dando acceso de
+      // más a un admin scoped al aplicativo propio del tenant.
+      if (m === 'ambientes') return tieneServicioDelModulo;
       if (MODULOS_PRACTICA.includes(m)) {
         return (aplicativo === 'Etapa Práctica' || tieneServicioDelModulo) && (!servicio || tieneServicioDelModulo);
       }
       return !servicio || tieneServicioDelModulo;
     });
   });
+
+  /**
+   * true si la pestaña `m` tiene URL de crear/editar Y el usuario tiene el
+   * servicio real que las gatea — `servicioEscritura` si el módulo lo
+   * define (ver/escribir son niveles distintos, ej. Empresas/Formatos), si
+   * no cae a `servicio` (mismo nivel para ver y escribir), y si el módulo
+   * no tiene ningún servicio (catálogo básico compartido) se deja pasar,
+   * igual que ya hace `modulosVista()` para esos mismos módulos.
+   */
+  puedeEscribir(m: Modulo): boolean {
+    const cfg = this.config[m];
+    if (!cfg.crear && !cfg.actualizar) return false;
+    const requerido = cfg.servicioEscritura ?? cfg.servicio;
+    return !requerido || this.auth.tieneServicio(requerido);
+  }
+
+  /** Igual que `puedeEscribir` pero para "Eliminar" — cae a `servicioEliminar`, luego `servicioEscritura`, luego `servicio`. */
+  puedeEliminar(m: Modulo): boolean {
+    const cfg = this.config[m];
+    if (!cfg.eliminar) return false;
+    const requerido = cfg.servicioEliminar ?? cfg.servicioEscritura ?? cfg.servicio;
+    return !requerido || this.auth.tieneServicio(requerido);
+  }
 
   setVista(v: 'epsas' | 'practica'): void {
     this.vista.set(v);

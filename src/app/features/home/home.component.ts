@@ -311,7 +311,12 @@ export class HomeComponent implements OnInit {
       error: () => { this.cargando = false; }
     });
 
-    const puedeVerEmpresas = this.auth.hasRole(['administrador', 'instructor']);
+    // Por SERVICIO, no por cargo: 'findAll' en empresa.controller.ts exige
+    // 'practica.empresas.gestionar' — un administrador/instructor sin ese
+    // nivel (ej. solo "Ver detalle") recibía 403 igual, y como esta llamada
+    // vive dentro de un Promise.all, tumbaba la carga de TODO el panel
+    // (prácticas y matrículas incluidas), no solo empresas.
+    const puedeVerEmpresas = this.auth.tieneServicio('practica.empresas.gestionar');
 
     Promise.all([
       this.apiService.listarPracticas(),

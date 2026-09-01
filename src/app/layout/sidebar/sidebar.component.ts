@@ -4,6 +4,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { AprendizContextService } from '../../core/services/aprendiz-context.service';
 import { ContactWidgetService } from '../../core/services/contact-widget.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { SERVICIOS_ADMIN_PANEL } from '../../features/admin/config/admin.config';
 
 interface NavLink  {
   label: string; href: string; safeIcon: SafeHtml; roles?: string[]; aplicativo?: string;
@@ -287,10 +288,13 @@ export class SidebarComponent implements OnChanges {
           },
           {
             label: 'Admin', href: '/admin',
-            // Sin 'roles': 100% por 'permisos.gestionar' (el servicio de
-            // RBAC) — misma lista que la ruta en app.routes.ts, mantener en
-            // sync. Un solo servicio a propósito, ver comentario en la ruta.
-            servicio: 'permisos.gestionar',
+            // Sin 'roles': 100% por permiso, vía SERVICIOS_ADMIN_PANEL
+            // (admin.config.ts) — misma lista que la ruta en app.routes.ts,
+            // mantener en sync. NO es solo 'permisos.gestionar': ver el
+            // comentario largo en SERVICIOS_ADMIN_PANEL sobre por qué la
+            // lista está curada a mano (excluye lo que instructor/aprendiz
+            // ya reciben por defecto, ej. Formatos).
+            servicios: SERVICIOS_ADMIN_PANEL,
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>`),
           },
         ],
