@@ -121,7 +121,7 @@ const TIPOS = [
             @for (f of formatosFiltrados(); track f.id) {
               <app-formato-card
                 [formato]="f"
-                [esAdmin]="puedeAdministrar()"
+                [esAdmin]="puedeGestionar()"
                 (eliminar)="handleEliminar($event)"
               />
             }
@@ -147,14 +147,13 @@ export class FormatosComponent implements OnInit {
   filtroTipo  = signal('');
 
   /**
-   * Gateados por servicio (`practica.formatos.gestionar`/`.administrar`),
-   * no por cargo — antes `esAdmin()` (cargo puro) ocultaba "Subir formato"
-   * a cualquiera que no fuera admin sin importar el permiso otorgado. Ver
-   * plan "Ronda 3": el backend ya exigía estos servicios exactos, el
-   * frontend nunca los consultaba.
+   * Gateado por servicio (`practica.formatos.gestionar`), no por cargo —
+   * antes `esAdmin()` (cargo puro) ocultaba "Subir formato" a cualquiera
+   * que no fuera admin sin importar el permiso otorgado. `.gestionar` cubre
+   * subir/editar/eliminar — ya no existe `.administrar` como nivel aparte
+   * solo para borrar (ver migrate-formatos-permisos.ts).
    */
-  puedeGestionar    = computed(() => this.auth.tieneServicio('practica.formatos.gestionar'));
-  puedeAdministrar  = computed(() => this.auth.tieneServicio('practica.formatos.administrar'));
+  puedeGestionar = computed(() => this.auth.tieneServicio('practica.formatos.gestionar'));
 
   formatosFiltrados() {
     const tipo = this.filtroTipo();
@@ -198,7 +197,7 @@ export class FormatosComponent implements OnInit {
   }
 
   handleEliminar(id: string): void {
-    if (!this.puedeAdministrar()) return;
+    if (!this.puedeGestionar()) return;
 
     // Guarda el nombre del formato antes de eliminar
     const formato = this.formatos().find(f => f.id === id);
