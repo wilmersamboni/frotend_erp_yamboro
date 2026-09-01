@@ -81,6 +81,15 @@ export class PersonaService {
     return Array.isArray(resp) ? resp : (resp?.data ?? []);
   }
 
+  /** Programas de formación del tenant (TIC, Gastronomía, …). Usado para
+   *  clasificar los sitios de Materiales por programa (Ronda 7). */
+  async listarProgramas(): Promise<any[]> {
+    const resp: any = await firstValueFrom(
+      this.http.get(`${BASE}/programas`, { withCredentials: true })
+    );
+    return Array.isArray(resp) ? resp : (resp?.data ?? []);
+  }
+
   async crearUsuario(data: { fk_persona: number; fk_aplicativo: number }): Promise<any> {
     return firstValueFrom(this.http.post(`${BASE}/usuario/registrar_jwsv`, data));
   }

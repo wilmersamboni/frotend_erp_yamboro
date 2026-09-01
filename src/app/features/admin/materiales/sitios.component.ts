@@ -1,9 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AdminTableComponent } from '../../../shared/components/admin-table.component';
 import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
 import { OpcionSelect } from '../services/admin.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { ConfirmService } from '../../../core/services/confirm.service';
 import { Item, MaterialesApiService, Sitio } from '../../../core/services/materiales/materiales-api.service';
 import { PersonaService } from '../../../core/services/persona.service';
 
@@ -35,18 +36,15 @@ const OPCIONES_TIPO: OpcionSelect[] = [
   imports: [FormsModule, AdminTableComponent, AdminModalComponent],
   template: `
     <div class="p-6">
-      <div class="flex items-center justify-between mb-5">
-        <h1 class="text-xl font-bold text-gray-800">Sitios de almacenamiento</h1>
-        <button (click)="nuevo()"
-          class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-          style="background-color: #39A900">
-          + Nuevo sitio
-        </button>
-      </div>
+      <h1 class="text-xl font-bold text-gray-800 mb-5">Sitios de almacenamiento</h1>
 
       <app-admin-table
+        [addLabel]="'Nuevo sitio'"
+        (add)="nuevo()"
         [rows]="filas"
-        [columns]="['nombre', 'tipo', 'responsable_nombre', 'items_count', 'estado']"
+        [searchable]="true"
+        [searchPlaceholder]="'Buscar por nombre, tipo, programa…'"
+        [columns]="['nombre', 'tipo', 'programa_nombre', 'responsable_nombre', 'items_count', 'estado']"
         [columnLabels]="columnLabels"
         [loading]="loading"
         [selectable]="true"
@@ -95,6 +93,7 @@ const OPCIONES_TIPO: OpcionSelect[] = [
       [opciones]="opciones"
       [tiposCampo]="tiposCampo"
       [columnLabels]="columnLabels"
+      [placeholders]="placeholders"
       [saving]="saving"
       [error]="error"
       (closed)="cerrarModal()"
@@ -102,9 +101,12 @@ const OPCIONES_TIPO: OpcionSelect[] = [
   `,
 })
 export class MaterialesSitiosComponent implements OnInit {
+  private readonly confirm = inject(ConfirmService);
+
   sitios: Sitio[] = [];
   responsables: any[] = [];
   centros: any[] = [];
+  programas: any[] = [];
   loading = false;
   saving = false;
   error: string | null = null;
@@ -113,14 +115,23 @@ export class MaterialesSitiosComponent implements OnInit {
   editando: Sitio | null = null;
   form: Record<string, any> = {};
 
-  tiposCampo: Record<string, string> = { estado: 'boolean' };
+  // `estado` ya no es checkbox: se ofrece como <select> Activo/Inactivo al
+  // editar (Ronda 6) — ver `opciones.estado`.
+  tiposCampo: Record<string, string> = {};
   columnLabels: Record<string, string> = {
     id_responsable: 'Responsable',
     id_centro: 'Centro',
+    id_programa: 'Programa',
     codigo_lugar: 'Código de lugar',
     tipo_personalizado: 'Tipo personalizado',
     responsable_nombre: 'Responsable',
+    programa_nombre: 'Programa',
     items_count: 'Ítems',
+  };
+  placeholders: Record<string, string> = {
+    nombre: 'Ej: Bodega Central, Laboratorio de Redes…',
+    codigo_lugar: 'Ej: ADSW-01, Y-14',
+    tipo_personalizado: 'Ej: Auditorio, Taller',
   };
 
   /** "Ver ítems" (Fase 9) — diálogo aparte, sin backend nuevo. */
@@ -148,13 +159,28 @@ export class MaterialesSitiosComponent implements OnInit {
       // Solo se ofrece como select cuando el tenant tiene más de un centro
       // registrado — con uno solo no tiene sentido preguntar (ver `camposCrear`).
       id_centro: this.centros.map((c) => ({ label: c.nombre, value: c.idCentro })),
+      // Programa al que pertenece el sitio (Ronda 7). "Sin programa" = sitio
+      // compartido: lo ven todos los instructores y el admin, pero ningún
+      // aprendiz. Con >10 programas el modal lo muestra como buscador.
+      id_programa: [
+        { label: '— Sin programa (compartido) —', value: '' },
+        ...this.programas.map((p) => ({ label: p.nombre, value: p.idPrograma ?? p.id_programa })),
+      ],
+      // Estado como <select> (Ronda 6) en vez de checkbox — solo aparece al editar.
+      estado: [
+        { label: 'Activo', value: true },
+        { label: 'Inactivo', value: false },
+      ],
     };
   }
 
-  /** Campos al crear: sin `estado` (nace activo) y sin `id_centro` si el tenant tiene un único centro. */
+  /** Campos al crear: sin `estado` (nace activo), sin `id_centro` si el tenant
+   *  tiene un único centro, y sin `tipo_personalizado` salvo que tipo = OTRO. */
   get camposCrear(): string[] {
-    const base = ['nombre', 'tipo', 'tipo_personalizado', 'codigo_lugar', 'id_responsable'];
-    return this.centros.length > 1 ? [...base, 'id_centro'] : base;
+    const base = ['nombre', 'tipo', 'tipo_personalizado', 'codigo_lugar', 'id_responsable', 'id_programa'];
+    let cols = base.filter((c) => c !== 'tipo_personalizado' || this.form['tipo'] === 'OTRO');
+    if (this.centros.length > 1) cols = [...cols, 'id_centro'];
+    return cols;
   }
 
   /** Al editar sí se puede ver/cambiar `estado` y, si aplica, el centro. */
@@ -175,8 +201,15 @@ export class MaterialesSitiosComponent implements OnInit {
       ...s,
       estado: s.estado ? 'Activo' : 'Inactivo',
       responsable_nombre: this.nombreResponsable(s.id_responsable) ?? '—',
+      programa_nombre: this.nombrePrograma(s.id_programa) ?? '— compartido —',
       items_count: this.items.filter((i) => i.id_sitio === s.id_sitio).length,
     }));
+  }
+
+  private nombrePrograma(idPrograma?: string | null): string | null {
+    if (!idPrograma) return null;
+    const p = this.programas.find((x) => (x.idPrograma ?? x.id_programa) === idPrograma);
+    return p?.nombre ?? null;
   }
 
   itemsDelSitioSeleccionado(): Item[] {
@@ -198,15 +231,17 @@ export class MaterialesSitiosComponent implements OnInit {
   private async cargar(): Promise<void> {
     this.loading = true;
     try {
-      const [sitios, responsables, centros, items] = await Promise.all([
+      const [sitios, responsables, centros, programas, items] = await Promise.all([
         this.api.listarSitios(),
         this.personaApi.listarResponsablesBodega(),
         this.personaApi.listarCentros(),
+        this.personaApi.listarProgramas().catch(() => [] as any[]),
         this.api.listarItems(),
       ]);
       this.sitios = sitios;
       this.responsables = responsables;
       this.centros = centros;
+      this.programas = programas;
       this.items = items;
     } catch (e) {
       this.toast.httpError(e, 'No se pudieron cargar los sitios.');
@@ -220,6 +255,7 @@ export class MaterialesSitiosComponent implements OnInit {
     this.form = {
       nombre: '', tipo: 'BODEGA', tipo_personalizado: '', codigo_lugar: '',
       id_responsable: '',
+      id_programa: '',
       // Con un único centro en el tenant, se asigna solo sin preguntar.
       id_centro: this.centros.length === 1 ? this.centros[0].idCentro : '',
       estado: true,
@@ -237,6 +273,7 @@ export class MaterialesSitiosComponent implements OnInit {
       tipo_personalizado: sitio.tipo_personalizado ?? '',
       codigo_lugar: sitio.codigo_lugar ?? '',
       id_responsable: sitio.id_responsable ?? '',
+      id_programa: sitio.id_programa ?? '',
       id_centro: sitio.id_centro ?? (this.centros.length === 1 ? this.centros[0].idCentro : ''),
       estado: sitio.estado,
     };
@@ -256,10 +293,15 @@ export class MaterialesSitiosComponent implements OnInit {
     const dto = {
       nombre: form['nombre'],
       tipo: form['tipo'],
-      tipo_personalizado: form['tipo_personalizado'] || undefined,
+      // Solo se guarda el tipo personalizado cuando tipo = OTRO; en cualquier
+      // otro caso se limpia (null explícito) por si venía de un OTRO anterior.
+      tipo_personalizado: form['tipo'] === 'OTRO' ? (form['tipo_personalizado'] || undefined) : null,
       codigo_lugar: form['codigo_lugar'] || undefined,
       id_responsable: form['id_responsable'] || undefined,
       id_centro: form['id_centro'] || undefined,
+      // null explícito (no undefined) para permitir "des-clasificar" un sitio
+      // a compartido al editar — undefined haría que el PATCH lo omita.
+      id_programa: form['id_programa'] || null,
       estado: this.editando ? form['estado'] : true,
     };
     this.saving = true;
@@ -282,7 +324,7 @@ export class MaterialesSitiosComponent implements OnInit {
   }
 
   async eliminar(fila: any): Promise<void> {
-    if (!confirm(`¿Eliminar el sitio "${fila.nombre}"?`)) return;
+    if (!(await this.confirm.ask(`¿Eliminar el sitio "${fila.nombre}"?`))) return;
     try {
       await this.api.eliminarSitio(fila.id_sitio);
       this.toast.ok('Sitio eliminado');

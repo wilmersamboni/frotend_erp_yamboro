@@ -27,6 +27,9 @@ export interface Sitio {
   codigo_lugar?: string | null;
   id_responsable?: string | null;
   id_centro?: string | null;
+  // Programa de formación (ERP) al que pertenece el sitio. null = compartido /
+  // sin clasificar. Recorta la visibilidad de Materiales por programa (Ronda 7).
+  id_programa?: string | null;
   estado: boolean;
 }
 
@@ -74,10 +77,11 @@ export interface CreateCategoriaDto {
 export interface CreateSitioDto {
   nombre: string;
   tipo: TipoSitio;
-  tipo_personalizado?: string;
+  tipo_personalizado?: string | null;
   codigo_lugar?: string;
   id_responsable?: string;
   id_centro?: string;
+  id_programa?: string | null;
   estado?: boolean;
 }
 
@@ -442,9 +446,12 @@ export class MaterialesApiService {
   // Notificaciones: retiradas en la Fase 4 del plan de fusión de
   // notificaciones — desde la Fase 1, Materiales escribe en la tabla única
   // del ERP (backend-erp, `notificaciones`) en vez de en su propia tabla
-  // local; la campana y las 3 pantallas dedicadas de Materiales
-  // (features/{admin,instructor,aprendiz}/materiales/notificaciones.component.ts)
-  // ahora leen todas de `ApiService.listarNotificaciones()` (backend-erp),
-  // filtrando client-side por `tipo` con prefijo `materiales_` — este
-  // cliente hacia `/api2/notificaciones` ya no lo llama nadie.
+  // local. La campana del navbar (`ApiService.listarNotificaciones()`,
+  // backend-erp) ya muestra las de Materiales con tipo/ícono propio.
+  // Las 3 pantallas dedicadas (`/materiales/notificaciones` y variantes
+  // instructor/aprendiz) se eliminaron en la Ronda 6, Fase 10 — no
+  // aportaban nada sobre la campana. El servicio `materiales.notificaciones.ver`
+  // queda huérfano en el catálogo (documentado, sin borrar filas) y el
+  // controller `/api2/notificaciones` del backend sigue en pie pero sin
+  // clientes (su retiro es la Fase 5, aún en pausa, del plan de fusión).
 }
