@@ -1,10 +1,11 @@
-import { Component, OnInit, computed } from '@angular/core';
+import { Component, OnInit, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AdminTableComponent } from '../../../shared/components/admin-table.component';
 import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
 import { OpcionSelect } from '../../admin/services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { ConfirmService } from '../../../core/services/confirm.service';
 import { Inventario, Item, MaterialesApiService, Sitio } from '../../../core/services/materiales/materiales-api.service';
 
 const OPCIONES_ESTADO: OpcionSelect[] = [
@@ -26,19 +27,14 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
   imports: [FormsModule, AdminTableComponent, AdminModalComponent],
   template: `
     <div class="p-6">
-      <div class="flex items-center justify-between mb-5">
-        <h1 class="text-xl font-bold text-gray-800">Inventario</h1>
-        @if (puedeCrear()) {
-          <button (click)="nuevo()"
-            class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-            style="background-color: #39A900">
-            + Registrar entrada
-          </button>
-        }
-      </div>
+      <h1 class="text-xl font-bold text-gray-800 mb-5">Inventario</h1>
 
       <app-admin-table
+        [addLabel]="puedeCrear() ? 'Registrar entrada' : null"
+        (add)="nuevo()"
         [rows]="filas"
+        [searchable]="true"
+        [searchPlaceholder]="'Buscar por SKU, producto, sitio, estado…'"
         [columns]="['item_sku', 'producto_nombre', 'sitio_nombre', 'estado']"
         [columnLabels]="columnLabels"
         [loading]="loading"
@@ -63,6 +59,8 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
   `,
 })
 export class InstructorMaterialesInventarioComponent implements OnInit {
+  private readonly confirm = inject(ConfirmService);
+
   inventario: Inventario[] = [];
   items: Item[] = [];
   sitios: Sitio[] = [];
@@ -179,7 +177,7 @@ export class InstructorMaterialesInventarioComponent implements OnInit {
 
   async eliminar(fila: any): Promise<void> {
     if (!this.puedeEliminar()) return;
-    if (!confirm(`¿Eliminar esta entrada de inventario (${fila.item_sku} en ${fila.sitio_nombre})?`)) return;
+    if (!(await this.confirm.ask(`¿Eliminar esta entrada de inventario (${fila.item_sku} en ${fila.sitio_nombre})?`))) return;
     try {
       await this.api.eliminarInventario(fila.id_inventario);
       this.toast.ok('Entrada eliminada');

@@ -47,6 +47,8 @@ import { Kardex, MaterialesApiService } from '../../../core/services/materiales/
 
       <app-admin-table
         [rows]="filas"
+        [searchable]="true"
+        [searchPlaceholder]="'Buscar por ítem, tipo, observación…'"
         [columns]="['fecha', 'tipo', 'item_sku', 'cantidad', 'saldo_anterior', 'saldo_actual', 'observacion']"
         [columnLabels]="columnLabels"
         [loading]="loading"

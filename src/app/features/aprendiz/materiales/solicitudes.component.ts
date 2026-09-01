@@ -95,26 +95,28 @@ import { MaterialesApiService, Producto, Sitio, Solicitud } from '../../../core/
           </div>
 
           <div class="space-y-3">
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Bodega</label>
-              <select [(ngModel)]="idSitioSeleccionado" (ngModelChange)="onSitioChange($event)"
-                class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
-                <option [ngValue]="null">— Selecciona una bodega —</option>
-                @for (s of sitios; track s.id_sitio) {
-                  <option [value]="s.id_sitio">{{ s.nombre }} ({{ s.tipo }})</option>
-                }
-              </select>
-            </div>
+            @if (pasoBodega) {
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Bodega</label>
+                <select [(ngModel)]="idSitioSeleccionado" (ngModelChange)="onSitioChange($event)"
+                  class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
+                  <option [ngValue]="null">— Selecciona una bodega —</option>
+                  @for (s of sitios; track s.id_sitio) {
+                    <option [value]="s.id_sitio">{{ s.nombre }} ({{ s.tipo }})</option>
+                  }
+                </select>
+              </div>
+            }
 
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Producto</label>
               <select [(ngModel)]="form['id_producto']" (ngModelChange)="onProductoChange($event)"
-                [disabled]="!idSitioSeleccionado"
+                [disabled]="pasoBodega && !idSitioSeleccionado"
                 class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] disabled:bg-gray-50 disabled:text-gray-400">
-                @if (!idSitioSeleccionado) {
+                @if (pasoBodega && !idSitioSeleccionado) {
                   <option value="">Elegí primero una bodega</option>
                 } @else if (productosFiltrados().length === 0) {
-                  <option value="">Sin productos en esta bodega</option>
+                  <option value="">Sin productos disponibles</option>
                 } @else {
                   <option value="">— Selecciona —</option>
                   @for (p of productosFiltrados(); track p.id_producto) {
@@ -244,8 +246,18 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
     return s.id_usuario === this.auth.user()?.id;
   }
 
+  /**
+   * ¿Se muestra el paso "Bodega"? Solo si tenemos el catálogo de sitios. El
+   * aprendiz no tiene `materiales.sitios.ver`, así que elige el producto
+   * directo — el backend no exige `id_sitio` para crear la solicitud.
+   */
+  get pasoBodega(): boolean {
+    return this.sitios.length > 0;
+  }
+
   /** Productos disponibles en la bodega elegida — paso 2 del modal (Fase 7). */
   productosFiltrados(): Producto[] {
+    if (!this.pasoBodega) return this.productos;
     if (!this.idSitioSeleccionado) return [];
     return this.productos.filter((p) => p.id_sitio === this.idSitioSeleccionado);
   }
@@ -290,10 +302,14 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
   private async cargar(): Promise<void> {
     this.loading = true;
     try {
+      // Sitios solo si el rol tiene el servicio — el aprendiz no lo tiene y no
+      // lo necesita (elige producto directo). Antes el 403 de /sitios iba en
+      // Promise.all y tumbaba la lista entera de solicitudes.
+      const verSitios = this.auth.tieneServicio('materiales.sitios.ver');
       const [solicitudes, productos, sitios] = await Promise.all([
         this.api.listarSolicitudes(),
-        this.api.listarProductos(),
-        this.api.listarSitios(),
+        this.api.listarProductos().catch(() => [] as Producto[]),
+        verSitios ? this.api.listarSitios().catch(() => [] as Sitio[]) : Promise.resolve([] as Sitio[]),
       ]);
       this.solicitudes = solicitudes;
       this.productos = productos;
@@ -306,8 +322,8 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
   }
 
   nuevo(): void {
-    if (this.productos.length === 0 || this.sitios.length === 0) {
-      this.toast.warn('Faltan datos', 'Necesitás al menos un producto y un sitio para crear una solicitud.');
+    if (this.productos.length === 0) {
+      this.toast.warn('Faltan datos', 'Necesitás al menos un producto para crear una solicitud.');
       return;
     }
     this.idSitioSeleccionado = null;

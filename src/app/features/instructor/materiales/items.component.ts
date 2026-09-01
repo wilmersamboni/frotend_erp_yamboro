@@ -1,5 +1,4 @@
 import { Component, OnInit, computed } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { AdminTableComponent } from '../../../shared/components/admin-table.component';
 import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
 import { OpcionSelect } from '../../admin/services/admin.service';
@@ -23,51 +22,17 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
 @Component({
   selector: 'app-instructor-materiales-items',
   standalone: true,
-  imports: [FormsModule, AdminTableComponent, AdminModalComponent],
+  imports: [AdminTableComponent, AdminModalComponent],
   template: `
     <div class="p-6">
-      <div class="flex items-center justify-between mb-5">
-        <h1 class="text-xl font-bold text-gray-800">Ítems</h1>
-        <div class="flex gap-2">
-          <input [(ngModel)]="placaBuscar" (keydown.enter)="buscarPorPlaca()"
-            placeholder="Buscar por placa SENA..."
-            class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
-          <button (click)="buscarPorPlaca()"
-            class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-            style="background-color: #39A900">
-            Buscar
-          </button>
-          @if (puedeCrear()) {
-            <button (click)="abrirAgregar()"
-              class="px-4 py-2 border border-[#39A900] text-[#39A900] text-sm font-medium rounded-lg hover:bg-[#39A900]/10 transition-colors">
-              + Agregar ítem
-            </button>
-          }
-        </div>
-      </div>
-
-      @if (resultadoBusqueda !== undefined) {
-        <div class="mb-5 p-4 rounded-xl border border-gray-100 bg-gray-50">
-          @if (resultadoBusqueda === null) {
-            <p class="text-sm text-gray-500">No se encontró ningún ítem con esa placa.</p>
-          } @else {
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="font-medium text-gray-800">{{ resultadoBusqueda.item.codigo_sku }} — {{ resultadoBusqueda.item.producto?.nombre ?? 'sin producto' }}</p>
-                <p class="text-xs text-gray-500 mt-1">Estado: {{ resultadoBusqueda.item.estado }}</p>
-              </div>
-              <div class="flex gap-1.5 text-xs">
-                @if (resultadoBusqueda.prestamo_activo) { <span class="px-2 py-1 rounded-full bg-amber-100 text-amber-700">Préstamo activo</span> }
-                @if (resultadoBusqueda.asignacion_activa) { <span class="px-2 py-1 rounded-full bg-blue-100 text-blue-700">Asignación activa</span> }
-                @if (resultadoBusqueda.novedad_activa) { <span class="px-2 py-1 rounded-full bg-red-100 text-red-700">Novedad activa</span> }
-              </div>
-            </div>
-          }
-        </div>
-      }
+      <h1 class="text-xl font-bold text-gray-800 mb-4">Ítems</h1>
 
       <app-admin-table
         [rows]="filas"
+        [searchable]="true"
+        [searchPlaceholder]="'Buscar por SKU, producto, sitio, estado…'"
+        [addLabel]="puedeCrear() ? 'Agregar ítem' : null"
+        (add)="abrirAgregar()"
         [columns]="['codigo_sku', 'placa_sena', 'producto_nombre', 'sitio_nombre', 'estado']"
         [columnLabels]="columnLabels"
         [loading]="loading"
@@ -84,6 +49,7 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
       [form]="form"
       [opciones]="opciones"
       [columnLabels]="columnLabels"
+      [placeholders]="placeholders"
       [saving]="saving"
       [error]="error"
       (closed)="cerrarModal()"
@@ -97,6 +63,7 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
       [form]="agregarForm"
       [opciones]="opcionesAgregar"
       [columnLabels]="columnLabels"
+      [placeholders]="placeholders"
       [saving]="agregarSaving"
       [error]="agregarError"
       (closed)="cerrarAgregar()"
@@ -111,8 +78,6 @@ export class InstructorMaterialesItemsComponent implements OnInit {
   saving = false;
   error: string | null = null;
 
-  placaBuscar = '';
-  resultadoBusqueda: { item: Item; prestamo_activo: any; asignacion_activa: any; novedad_activa: any } | null | undefined = undefined;
 
   modalOpen = false;
   editando: Item | null = null;
@@ -123,6 +88,8 @@ export class InstructorMaterialesItemsComponent implements OnInit {
   agregarForm: Record<string, any> = {};
   agregarSaving = false;
   agregarError: string | null = null;
+
+  placeholders: Record<string, string> = { placa_sena: 'Ej: SENA-00123 (opcional)' };
 
   columnLabels: Record<string, string> = {
     codigo_sku: 'SKU', placa_sena: 'Placa SENA', producto_nombre: 'Producto', sitio_nombre: 'Sitio', id_sitio: 'Sitio', id_producto: 'Producto',
@@ -171,14 +138,6 @@ export class InstructorMaterialesItemsComponent implements OnInit {
     }
   }
 
-  async buscarPorPlaca(): Promise<void> {
-    if (!this.placaBuscar.trim()) return;
-    try {
-      this.resultadoBusqueda = await this.api.buscarItemPorPlaca(this.placaBuscar.trim());
-    } catch (e) {
-      this.toast.httpError(e, 'No se pudo buscar el ítem.');
-    }
-  }
 
   editar(fila: any): void {
     if (!this.puedeEditar()) return;

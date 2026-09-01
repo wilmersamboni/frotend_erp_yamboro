@@ -1,8 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { ConfirmService } from '../../../core/services/confirm.service';
 import { ErpCatalogoService } from '../../../core/services/horarios/erp-catalogo.service';
 import { Asignacion, CreateAsignacionDto, MaterialesApiService, Producto } from '../../../core/services/materiales/materiales-api.service';
 
@@ -194,6 +195,8 @@ interface Ficha {
   `,
 })
 export class MaterialesAsignacionesComponent implements OnInit {
+  private readonly confirm = inject(ConfirmService);
+
   asignaciones: Asignacion[] = [];
   productos: Producto[] = [];
   fichas: Ficha[] = [];
@@ -321,7 +324,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
   }
 
   async anular(a: Asignacion): Promise<void> {
-    if (!confirm(`¿Anular la asignación #${a.id_asignacion}? El stock de los ítems prestados se restaurará.`)) return;
+    if (!(await this.confirm.ask(`¿Anular la asignación #${a.id_asignacion}? El stock de los ítems prestados se restaurará.`))) return;
     try {
       await this.api.anularAsignacion(a.id_asignacion);
       this.toast.ok('Asignación anulada');
@@ -336,7 +339,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
    * se permitiera sobre una ACTIVA, esos ítems quedarían atascados en
    * PRESTADO para siempre. */
   async eliminar(a: Asignacion): Promise<void> {
-    if (!confirm(`¿Eliminar la asignación #${a.id_asignacion}? Esta acción no se puede deshacer.`)) return;
+    if (!(await this.confirm.ask(`¿Eliminar la asignación #${a.id_asignacion}? Esta acción no se puede deshacer.`))) return;
     try {
       await this.api.eliminarAsignacion(a.id_asignacion);
       this.toast.ok('Asignación eliminada');

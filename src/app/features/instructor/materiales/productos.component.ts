@@ -1,11 +1,12 @@
-import { Component, DoCheck, OnInit, computed } from '@angular/core';
+import { Component, DoCheck, OnInit, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AdminTableComponent } from '../../../shared/components/admin-table.component';
 import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
 import { OpcionSelect } from '../../admin/services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
-import { Categoria, MaterialesApiService, Producto, Sitio } from '../../../core/services/materiales/materiales-api.service';
+import { ConfirmService } from '../../../core/services/confirm.service';
+import { Categoria, Item, MaterialesApiService, Producto, Sitio } from '../../../core/services/materiales/materiales-api.service';
 
 const OPCIONES_TIPO_MATERIAL: OpcionSelect[] = [
   { label: 'Consumo', value: 'CONSUMO' },
@@ -161,8 +162,10 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
 // SKU/fecha_vencimiento/unidad_peso_bulto/peso_por_bulto se agregan
 // condicionalmente en los getters camposCrear/camposEditar de abajo — ver
 // el comentario completo en la versión admin de este componente.
-const CAMPOS_CREAR_BASE  = ['nombre', 'descripcion', 'codigo_unspsc', 'SKU', 'tipo_material', 'unidad_medida', 'unidad_peso_bulto', 'peso_por_bulto', 'es_psd', 'fecha_vencimiento', 'id_categoria', 'id_sitio', 'cantidad', 'stock_minimo'];
-const CAMPOS_EDITAR_BASE = ['nombre', 'descripcion', 'codigo_unspsc', 'SKU', 'tipo_material', 'unidad_medida', 'unidad_peso_bulto', 'peso_por_bulto', 'es_psd', 'fecha_vencimiento', 'id_categoria', 'id_sitio', 'stock_minimo'];
+// `es_psd` NO es un campo del formulario (Ronda 6) — se deriva de
+// tipo_material === 'PERECEDERO' en `guardar()`, ver la versión admin.
+const CAMPOS_CREAR_BASE  = ['nombre', 'descripcion', 'codigo_unspsc', 'SKU', 'tipo_material', 'unidad_medida', 'unidad_peso_bulto', 'peso_por_bulto', 'fecha_vencimiento', 'id_categoria', 'id_sitio', 'cantidad', 'stock_minimo'];
+const CAMPOS_EDITAR_BASE = ['nombre', 'descripcion', 'codigo_unspsc', 'SKU', 'tipo_material', 'unidad_medida', 'unidad_peso_bulto', 'peso_por_bulto', 'fecha_vencimiento', 'id_categoria', 'id_sitio', 'stock_minimo'];
 
 /**
  * Catálogo de productos para instructor — crear/editar/eliminar gateado por
@@ -176,19 +179,14 @@ const CAMPOS_EDITAR_BASE = ['nombre', 'descripcion', 'codigo_unspsc', 'SKU', 'ti
   imports: [FormsModule, AdminTableComponent, AdminModalComponent],
   template: `
     <div class="p-6">
-      <div class="flex items-center justify-between mb-5">
-        <h1 class="text-xl font-bold text-gray-800">Productos</h1>
-        @if (puedeCrear()) {
-          <button (click)="nuevo()"
-            class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-            style="background-color: #39A900">
-            + Nuevo producto
-          </button>
-        }
-      </div>
+      <h1 class="text-xl font-bold text-gray-800 mb-5">Productos</h1>
 
       <app-admin-table
+        [addLabel]="puedeCrear() ? 'Nuevo producto' : null"
+        (add)="nuevo()"
         [rows]="filas"
+        [searchable]="true"
+        [searchPlaceholder]="'Buscar por nombre, SKU, categoría, placa…'"
         [columns]="['nombre', 'categoria_nombre', 'tipo_material', 'unidad_medida', 'stock_minimo']"
         [columnLabels]="columnLabels"
         [loading]="loading"
@@ -207,6 +205,8 @@ const CAMPOS_EDITAR_BASE = ['nombre', 'descripcion', 'codigo_unspsc', 'SKU', 'ti
       [opciones]="opciones"
       [tiposCampo]="tiposCampo"
       [columnLabels]="columnLabels"
+      [placeholders]="placeholders"
+      [forzarSelect]="['id_categoria', 'id_sitio']"
       [saving]="saving"
       [error]="error"
       (closed)="cerrarModal()"
@@ -214,9 +214,13 @@ const CAMPOS_EDITAR_BASE = ['nombre', 'descripcion', 'codigo_unspsc', 'SKU', 'ti
   `,
 })
 export class InstructorMaterialesProductosComponent implements OnInit, DoCheck {
+  private readonly confirm = inject(ConfirmService);
+
   productos: Producto[] = [];
   categorias: Categoria[] = [];
   sitios: Sitio[] = [];
+  /** Solo para que el buscador de la tabla alcance la placa SENA (vive en Item, no en Producto). */
+  items: Item[] = [];
   loading = false;
   saving = false;
   error: string | null = null;
@@ -250,9 +254,11 @@ export class InstructorMaterialesProductosComponent implements OnInit, DoCheck {
   form: Record<string, any> = {};
 
   tiposCampo: Record<string, string> = {
-    es_psd: 'boolean', cantidad: 'number', stock_minimo: 'number',
+    cantidad: 'number', stock_minimo: 'number',
     fecha_vencimiento: 'date', peso_por_bulto: 'number',
   };
+  placeholders: Record<string, string> = { nombre: 'Ej: Taladro percutor, Guantes de nitrilo…', descripcion: 'Ej: Uso exclusivo del taller de soldadura', SKU: 'Se autogenera si lo dejás vacío (ej. TAL-001)', stock_minimo: 'Ej: 5', cantidad: 'Ej: 10', peso_por_bulto: 'Ej: 25' };
+
   columnLabels: Record<string, string> = {
     categoria_nombre: 'Categoría',
     tipo_material: 'Tipo de material',
@@ -260,7 +266,6 @@ export class InstructorMaterialesProductosComponent implements OnInit, DoCheck {
     stock_minimo: 'Stock mínimo',
     codigo_unspsc: 'Código UNSPSC',
     SKU: 'SKU',
-    es_psd: 'Es PSD',
     id_categoria: 'Categoría',
     id_sitio: 'Sitio',
     cantidad: 'Cantidad a generar',
@@ -335,20 +340,24 @@ export class InstructorMaterialesProductosComponent implements OnInit, DoCheck {
     return this.productos.map((p) => ({
       ...p,
       categoria_nombre: p.categoria?.nombre ?? this.categorias.find((c) => c.id_categoria === p.id_categoria)?.nombre ?? '—',
+      // Campo oculto (no está en `columns`) — solo para que el buscador de la tabla matchee por placa SENA.
+      _placas: this.items.filter((i) => i.id_producto === p.id_producto).map((i) => i.placa_sena).filter(Boolean).join(' '),
     }));
   }
 
   private async cargar(): Promise<void> {
     this.loading = true;
     try {
-      const [productos, categorias, sitios] = await Promise.all([
+      const [productos, categorias, sitios, items] = await Promise.all([
         this.api.listarProductos(),
         this.api.listarCategorias(),
         this.api.listarSitios(),
+        this.api.listarItems().catch(() => [] as Item[]),
       ]);
       this.productos = productos;
       this.categorias = categorias;
       this.sitios = sitios;
+      this.items = items;
     } catch (e) {
       this.toast.httpError(e, 'No se pudieron cargar los productos.');
     } finally {
@@ -365,7 +374,7 @@ export class InstructorMaterialesProductosComponent implements OnInit, DoCheck {
     this.editando = null;
     this.form = {
       nombre: '', descripcion: '', codigo_unspsc: '', SKU: '',
-      tipo_material: 'CONSUMO', unidad_medida: '', es_psd: false,
+      tipo_material: 'CONSUMO', unidad_medida: '',
       fecha_vencimiento: '', unidad_peso_bulto: '', peso_por_bulto: '',
       id_categoria: this.categorias[0].id_categoria,
       id_sitio: this.sitios[0].id_sitio,
@@ -389,7 +398,6 @@ export class InstructorMaterialesProductosComponent implements OnInit, DoCheck {
       SKU: producto.SKU ?? '',
       tipo_material: producto.tipo_material,
       unidad_medida: producto.unidad_medida,
-      es_psd: producto.es_psd,
       fecha_vencimiento: producto.fecha_vencimiento ?? '',
       unidad_peso_bulto: producto.unidad_peso_bulto ?? '',
       peso_por_bulto: producto.peso_por_bulto ?? '',
@@ -425,6 +433,8 @@ export class InstructorMaterialesProductosComponent implements OnInit, DoCheck {
       unidad_peso_bulto: this.esBulto() ? (form['unidad_peso_bulto'] || undefined) : undefined,
       peso_por_bulto: this.esBulto() && form['peso_por_bulto'] ? Number(form['peso_por_bulto']) : undefined,
     };
+    // `es_psd` no lo llena el usuario — se deriva de tipo_material, igual que SGM (Ronda 6).
+    const esPsd = this.esPerecedero();
     try {
       if (this.editando) {
         await this.api.actualizarProducto(this.editando.id_producto, {
@@ -434,7 +444,7 @@ export class InstructorMaterialesProductosComponent implements OnInit, DoCheck {
           SKU: form['SKU'] || undefined,
           tipo_material: form['tipo_material'],
           unidad_medida: form['unidad_medida'],
-          es_psd: !!form['es_psd'],
+          es_psd: esPsd,
           id_categoria: form['id_categoria'],
           id_sitio: form['id_sitio'],
           stock_minimo: Number(form['stock_minimo']),
@@ -450,7 +460,7 @@ export class InstructorMaterialesProductosComponent implements OnInit, DoCheck {
           SKU: form['SKU'] || undefined,
           tipo_material: form['tipo_material'],
           unidad_medida: form['unidad_medida'],
-          es_psd: !!form['es_psd'],
+          es_psd: esPsd,
           id_categoria: form['id_categoria'],
           id_sitio: form['id_sitio'],
           cantidad,
@@ -470,7 +480,7 @@ export class InstructorMaterialesProductosComponent implements OnInit, DoCheck {
 
   async eliminar(fila: any): Promise<void> {
     if (!this.puedeEliminar()) return;
-    if (!confirm(`¿Eliminar el producto "${fila.nombre}"?`)) return;
+    if (!(await this.confirm.ask(`¿Eliminar el producto "${fila.nombre}"?`))) return;
     try {
       await this.api.eliminarProducto(fila.id_producto);
       this.toast.ok('Producto eliminado');

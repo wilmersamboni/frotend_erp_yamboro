@@ -1,10 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
 import { OpcionSelect } from '../services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { ConfirmService } from '../../../core/services/confirm.service';
 import { PersonaService } from '../../../core/services/persona.service';
 import { Item, MaterialesApiService, Novedad, Sitio, TipoNovedad } from '../../../core/services/materiales/materiales-api.service';
 
@@ -151,6 +152,7 @@ const OPCIONES_TIPO: OpcionSelect[] = [
       [form]="form"
       [opciones]="opciones"
       [columnLabels]="columnLabels"
+      [placeholders]="placeholders"
       [saving]="saving"
       [error]="error"
       (closed)="cerrarModal()"
@@ -180,6 +182,8 @@ const OPCIONES_TIPO: OpcionSelect[] = [
   `,
 })
 export class MaterialesNovedadesComponent implements OnInit {
+  private readonly confirm = inject(ConfirmService);
+
   novedades: Novedad[] = [];
   items: Item[] = [];
   sitios: Sitio[] = [];
@@ -194,6 +198,8 @@ export class MaterialesNovedadesComponent implements OnInit {
   /** "Ver detalles" (Fase 9). */
   detalleAbierto = false;
   detalle: Novedad | null = null;
+
+  placeholders: Record<string, string> = { descripcion: 'Ej: La carcasa llegó rajada / falta 1 unidad respecto al conteo' };
 
   columnLabels: Record<string, string> = { id_item: 'Ítem (opcional)' };
 
@@ -230,7 +236,13 @@ export class MaterialesNovedadesComponent implements OnInit {
   get opciones(): Record<string, OpcionSelect[]> {
     return {
       tipo: OPCIONES_TIPO,
-      id_item: this.items.map((i) => ({ label: `${i.codigo_sku}${i.placa_sena ? ' — ' + i.placa_sena : ''}`, value: i.id_item })),
+      // El ítem es opcional (ej. daño general al sitio, discrepancia de conteo):
+      // el backend acepta `id_item` nulo. La opción "— Sin ítem —" deja
+      // reportar sin ninguno y volver a quitarlo si se eligió por error.
+      id_item: [
+        { label: '— Sin ítem —', value: null },
+        ...this.items.map((i) => ({ label: `${i.codigo_sku}${i.placa_sena ? ' — ' + i.placa_sena : ''}`, value: i.id_item })),
+      ],
     };
   }
 
@@ -317,7 +329,7 @@ export class MaterialesNovedadesComponent implements OnInit {
   }
 
   async eliminar(n: Novedad): Promise<void> {
-    if (!confirm(`¿Eliminar la novedad "${n.descripcion}"?`)) return;
+    if (!(await this.confirm.ask(`¿Eliminar la novedad "${n.descripcion}"?`))) return;
     try {
       await this.api.eliminarNovedad(n.id_novedad);
       this.toast.ok('Novedad eliminada');
