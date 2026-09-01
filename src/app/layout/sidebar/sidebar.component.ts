@@ -255,14 +255,23 @@ export class SidebarComponent implements OnChanges {
           {
             label: 'Formatos', href: '/format',
             aplicativo: 'Etapa Práctica',
+            // Para aprendiz: los formatos son plantillas de la etapa práctica —
+            // no le sirven durante la lectiva. Solo visible cuando ya tiene una
+            // etapa práctica (mismo criterio que "Seguimiento"). No afecta a
+            // admin/instructor.
+            soloAprendizConEtapa: true,
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`),
           },
           {
             label: 'Historial', href: '/docs',
-            roles: ['administrador', 'administrador_erp'],
-            // OR con roles — misma lista de servicios que la ruta en
-            // app.routes.ts, mantener en sync.
-            servicios: ['personas.ver', 'matriculas.ver'],
+            // Herramienta de consulta por cédula ("Historial del aprendiz") —
+            // es para que el STAFF inspeccione a un aprendiz, no para que el
+            // aprendiz se vea a sí mismo. Se gatea por cargo (admin/instructor),
+            // NO por personas.ver/matriculas.ver: esos son servicios baseline
+            // que TODO rol tiene (incluido aprendiz) para consultar su propio
+            // registro, así que como gate dejaban entrar al aprendiz a un
+            // módulo que no le sirve. Mantener en sync con app.routes.ts.
+            roles: ['administrador', 'administrador_erp', 'instructor'],
             aplicativo: 'Etapa Práctica',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`),
           },
@@ -403,12 +412,6 @@ export class SidebarComponent implements OnChanges {
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3m4 8l-4-4m0 0l4-4m-4 4h18"/></svg>`),
           },
           {
-            label: 'Notificaciones', href: '/materiales/notificaciones',
-            roles: ['administrador', 'administrador_erp'],
-            aplicativo: 'Materiales',
-            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>`),
-          },
-          {
             label: 'Solicitudes', href: '/materiales/solicitudes',
             roles: ['administrador', 'administrador_erp'],
             aplicativo: 'Materiales',
@@ -484,12 +487,6 @@ export class SidebarComponent implements OnChanges {
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3m4 8l-4-4m0 0l4-4m-4 4h18"/></svg>`),
           },
           {
-            label: 'Notificaciones', href: '/instructor/materiales/notificaciones',
-            roles: ['instructor'],
-            servicioEstricto: 'materiales.notificaciones.ver',
-            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>`),
-          },
-          {
             label: 'Solicitudes', href: '/instructor/materiales/solicitudes',
             roles: ['instructor'],
             servicioEstricto: 'materiales.solicitudes.ver',
@@ -529,12 +526,6 @@ export class SidebarComponent implements OnChanges {
             roles: ['aprendiz'],
             servicioEstricto: 'materiales.items.ver',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375C2.754 3.75 2.25 4.254 2.25 4.875v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>`),
-          },
-          {
-            label: 'Notificaciones', href: '/aprendiz/materiales/notificaciones',
-            roles: ['aprendiz'],
-            servicioEstricto: 'materiales.notificaciones.ver',
-            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>`),
           },
           {
             label: 'Solicitudes', href: '/aprendiz/materiales/solicitudes',

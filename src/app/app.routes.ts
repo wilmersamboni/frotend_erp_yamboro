@@ -54,13 +54,20 @@ export const routes: Routes = [
         loadComponent: () => import('./layout/main-layout/main-layout.component').then((m) => m.MainLayoutComponent),
         children: [
           { path: 'home', loadComponent: () => import('./features/home/home.component').then((m) => m.HomeComponent) },
-          { path: 'seguimiento', loadComponent: () => import('./features/seguimiento/seguimiento.component').then((m) => m.SeguimientoComponent) },
+          // Sin `roles`: admin/instructor entran libres; el aprendiz solo si ya
+          // tiene etapa práctica (deep-link — el link del sidebar ya se filtra).
+          { path: 'seguimiento', canActivate: [roleGuard], data: { soloAprendizConEtapa: true }, loadComponent: () => import('./features/seguimiento/seguimiento.component').then((m) => m.SeguimientoComponent) },
           // 'servicios' es alternativa OR a 'roles' (misma lógica que /admin):
           // quien no es admin por cargo pero tiene los servicios que esta
           // pantalla realmente consume (busca por cédula en personas +
           // matrículas) puede entrar igual.
-          { path: 'docs', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['personas.ver', 'matriculas.ver'] }, loadComponent: () => import('./features/historial/historial.component').then((m) => m.HistorialComponent) },
-          { path: 'format', loadComponent: () => import('./features/formatos/formatos.component').then((m) => m.FormatosComponent) },
+          // Herramienta de consulta por cédula ("Historial del aprendiz"): staff-only
+          // por cargo. NO se gatea por personas.ver/matriculas.ver — son baseline de
+          // todo rol (aprendiz incluido) y dejaban entrar al aprendiz. Sync con sidebar.
+          { path: 'docs', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp', 'instructor'] }, loadComponent: () => import('./features/historial/historial.component').then((m) => m.HistorialComponent) },
+          // Formatos = plantillas de la etapa práctica: admin/instructor libres;
+          // el aprendiz solo con etapa práctica (mismo criterio que el sidebar).
+          { path: 'format', canActivate: [roleGuard], data: { soloAprendizConEtapa: true }, loadComponent: () => import('./features/formatos/formatos.component').then((m) => m.FormatosComponent) },
           { path: 'blog', loadComponent: () => import('./features/chat/chat.component').then((m) => m.ChatComponent) },
           // Sin 'roles': el acceso a /admin es 100% por 'permisos.gestionar'
           // (el servicio de RBAC), no por cargo. OJO: antes esto era un OR de
@@ -110,7 +117,6 @@ export const routes: Routes = [
           { path: 'materiales/kardex', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/kardex.component').then((m) => m.MaterialesKardexComponent) },
           { path: 'materiales/novedades', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/novedades.component').then((m) => m.MaterialesNovedadesComponent) },
           { path: 'materiales/traslados', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/traslados.component').then((m) => m.MaterialesTrasladosComponent) },
-          { path: 'materiales/notificaciones', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/notificaciones.component').then((m) => m.MaterialesNotificacionesComponent) },
           { path: 'materiales/solicitudes', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/solicitudes.component').then((m) => m.MaterialesSolicitudesComponent) },
           { path: 'materiales/devoluciones', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/devoluciones.component').then((m) => m.MaterialesDevolucionesComponent) },
           { path: 'materiales/asignaciones', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/asignaciones.component').then((m) => m.MaterialesAsignacionesComponent) },
@@ -134,7 +140,6 @@ export const routes: Routes = [
           { path: 'instructor/materiales/items', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.items.ver'] }, loadComponent: () => import('./features/instructor/materiales/items.component').then((m) => m.InstructorMaterialesItemsComponent) },
           { path: 'instructor/materiales/inventario', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.inventario.ver'] }, loadComponent: () => import('./features/instructor/materiales/inventario.component').then((m) => m.InstructorMaterialesInventarioComponent) },
           { path: 'instructor/materiales/kardex', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.kardex.ver'] }, loadComponent: () => import('./features/instructor/materiales/kardex.component').then((m) => m.InstructorMaterialesKardexComponent) },
-          { path: 'instructor/materiales/notificaciones', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.notificaciones.ver'] }, loadComponent: () => import('./features/instructor/materiales/notificaciones.component').then((m) => m.InstructorMaterialesNotificacionesComponent) },
           { path: 'instructor/materiales/devoluciones', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.devoluciones.ver'] }, loadComponent: () => import('./features/instructor/materiales/devoluciones.component').then((m) => m.InstructorMaterialesDevolucionesComponent) },
           { path: 'instructor/materiales/solicitudes', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.solicitudes.ver'] }, loadComponent: () => import('./features/instructor/materiales/solicitudes.component').then((m) => m.InstructorMaterialesSolicitudesComponent) },
           { path: 'instructor/materiales/traslados', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.traslados.ver'] }, loadComponent: () => import('./features/instructor/materiales/traslados.component').then((m) => m.InstructorMaterialesTrasladosComponent) },
@@ -147,7 +152,6 @@ export const routes: Routes = [
           { path: 'aprendiz/materiales/inventario', canActivate: [roleGuard], data: { roles: ['aprendiz'], serviciosRequeridos: ['materiales.inventario.ver'] }, loadComponent: () => import('./features/aprendiz/materiales/inventario.component').then((m) => m.AprendizMaterialesInventarioComponent) },
           { path: 'aprendiz/materiales/productos', canActivate: [roleGuard], data: { roles: ['aprendiz'], serviciosRequeridos: ['materiales.productos.ver'] }, loadComponent: () => import('./features/aprendiz/materiales/productos.component').then((m) => m.AprendizMaterialesProductosComponent) },
           { path: 'aprendiz/materiales/items', canActivate: [roleGuard], data: { roles: ['aprendiz'], serviciosRequeridos: ['materiales.items.ver'] }, loadComponent: () => import('./features/aprendiz/materiales/items.component').then((m) => m.AprendizMaterialesItemsComponent) },
-          { path: 'aprendiz/materiales/notificaciones', canActivate: [roleGuard], data: { roles: ['aprendiz'], serviciosRequeridos: ['materiales.notificaciones.ver'] }, loadComponent: () => import('./features/aprendiz/materiales/notificaciones.component').then((m) => m.AprendizMaterialesNotificacionesComponent) },
           { path: 'aprendiz/materiales/solicitudes', canActivate: [roleGuard], data: { roles: ['aprendiz'], serviciosRequeridos: ['materiales.solicitudes.ver'] }, loadComponent: () => import('./features/aprendiz/materiales/solicitudes.component').then((m) => m.AprendizMaterialesSolicitudesComponent) },
         ],
       },
