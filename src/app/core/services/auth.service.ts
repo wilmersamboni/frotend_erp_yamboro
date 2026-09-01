@@ -143,8 +143,20 @@ export class AuthService {
   }
 
   // ── logout() ──────────────────────────────────────────────────────────────
-  /** Logout desde la UI: limpia la sesión y navega a la raíz (login). */
-  logout(): void {
+  /**
+   * Logout desde la UI: avisa al backend (marca fecha_salida en el registro
+   * de acceso — antes esto nunca se llamaba, así que esa columna nunca se
+   * llenaba), limpia la sesión local y navega a la raíz (login). Si la
+   * llamada al backend falla (red caída, sesión ya vencida, etc.) igual se
+   * limpia la sesión local — no queremos dejar a alguien atrapado sin poder
+   * salir solo porque el POST de auditoría no pudo completarse.
+   */
+  async logout(): Promise<void> {
+    try {
+      await firstValueFrom(this.http.post('/api/auth/logout', {}, { withCredentials: true }));
+    } catch {
+      // Ignorado a propósito — ver comentario arriba.
+    }
     this.clearSession();
     this.router.navigate(['/'], { replaceUrl: true });
   }
