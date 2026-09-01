@@ -1,5 +1,5 @@
 import { ApplicationConfig, provideZoneChangeDetection, LOCALE_ID } from '@angular/core';
-import { MessageService } from 'primeng/api';
+import { MessageService, ConfirmationService } from 'primeng/api';
 import { signal } from '@angular/core';  // ← agrega signal
 import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
@@ -158,5 +158,6 @@ export const appConfig: ApplicationConfig = {
     tuiAssetsPathProvider('assets/taiga-ui/icons'),
     provideLottieOptions({ player: () => player }),
     MessageService,   // ← proveedor global para ToastService
+    ConfirmationService,   // ← proveedor global; el <p-confirmDialog> vive en app.ts (Ronda 6)
   ],
 };
