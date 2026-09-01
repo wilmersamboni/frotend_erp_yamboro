@@ -103,22 +103,6 @@ export class FloatingButtons implements AfterViewChecked {
         // Silencioso a propósito — sin historial previo disponible, el saludo por defecto es una degradación aceptable.
       },
     });
-
-    // AuthService.logout() no recarga la página (solo router.navigate) y
-    // este componente está montado una sola vez en la raíz de la app — sin
-    // esto, la conversación (y el sessionId que se manda al backend)
-    // sobrevivía al cierre de sesión y se mezclaba visualmente con la del
-    // siguiente usuario que iniciara sesión en la misma pestaña. Además se
-    // cierra el panel (no solo se limpia): si quedaba abierto, se veía
-    // flotando sobre la propia pantalla de login tras cerrar sesión.
-    effect(() => {
-      const usuarioActual = this.auth.user()?.id ?? null;
-      if (this.usuarioAnterior !== undefined && this.usuarioAnterior !== usuarioActual) {
-        this.reiniciarConversacion('cambio-usuario');
-        this.contactWidget.cerrarChat();
-      }
-      this.usuarioAnterior = usuarioActual;
-    });
   }
 
   // /** Clic fuera de la ventana del chat (y fuera del botón que lo abre, ver sidebar.component.ts) la cierra. */

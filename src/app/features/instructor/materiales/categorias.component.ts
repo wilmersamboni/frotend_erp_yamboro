@@ -1,9 +1,10 @@
-import { Component, OnInit, computed } from '@angular/core';
+import { Component, OnInit, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AdminTableComponent } from '../../../shared/components/admin-table.component';
 import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { ConfirmService } from '../../../core/services/confirm.service';
 import { Categoria, MaterialesApiService } from '../../../core/services/materiales/materiales-api.service';
 
 /**
@@ -21,19 +22,14 @@ import { Categoria, MaterialesApiService } from '../../../core/services/material
   imports: [FormsModule, AdminTableComponent, AdminModalComponent],
   template: `
     <div class="p-6">
-      <div class="flex items-center justify-between mb-5">
-        <h1 class="text-xl font-bold text-gray-800">Categorías de Materiales</h1>
-        @if (puedeCrear()) {
-          <button (click)="nuevo()"
-            class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-            style="background-color: #39A900">
-            + Nueva categoría
-          </button>
-        }
-      </div>
+      <h1 class="text-xl font-bold text-gray-800 mb-5">Categorías de Materiales</h1>
 
       <app-admin-table
+        [addLabel]="puedeCrear() ? 'Nueva categoría' : null"
+        (add)="nuevo()"
         [rows]="categorias"
+        [searchable]="true"
+        [searchPlaceholder]="'Buscar categoría…'"
         [columns]="['nombre']"
         [loading]="loading"
         [canEdit]="puedeEditar()"
@@ -48,6 +44,7 @@ import { Categoria, MaterialesApiService } from '../../../core/services/material
       labelSingular="categoría"
       [columns]="['nombre']"
       [form]="form"
+      [placeholders]="{ nombre: 'Ej: Herramientas manuales, Insumos de aseo…' }"
       [saving]="saving"
       [error]="error"
       (closed)="cerrarModal()"
@@ -55,6 +52,8 @@ import { Categoria, MaterialesApiService } from '../../../core/services/material
   `,
 })
 export class InstructorMaterialesCategoriasComponent implements OnInit {
+  private readonly confirm = inject(ConfirmService);
+
   categorias: Categoria[] = [];
   loading = false;
   saving = false;
@@ -131,7 +130,7 @@ export class InstructorMaterialesCategoriasComponent implements OnInit {
 
   async eliminar(cat: Categoria): Promise<void> {
     if (!this.puedeEliminar()) return;
-    if (!confirm(`¿Eliminar la categoría "${cat.nombre}"?`)) return;
+    if (!(await this.confirm.ask(`¿Eliminar la categoría "${cat.nombre}"?`))) return;
     try {
       await this.api.eliminarCategoria(cat.id_categoria);
       this.toast.ok('Categoría eliminada');

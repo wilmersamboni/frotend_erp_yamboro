@@ -1,16 +1,14 @@
 import { Component, OnInit } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
-import { OpcionSelect } from '../services/admin.service';
 import { ToastService } from '../../../core/services/toast.service';
-import { CreateDevolucionDto, Devolucion, Item, MaterialesApiService, Solicitud } from '../../../core/services/materiales/materiales-api.service';
+import { CreateDevolucionDto, Devolucion, EstadoDevolucion, Item, MaterialesApiService, Solicitud } from '../../../core/services/materiales/materiales-api.service';
 
-const OPCIONES_ESTADO: OpcionSelect[] = [
-  { label: 'Bueno', value: 'BUENO' },
-  { label: 'Regular', value: 'REGULAR' },
-  { label: 'Dañado', value: 'DAÑADO' },
-  { label: 'Perdido', value: 'PERDIDO' },
+const ESTADOS_DEVOLUCION: { value: EstadoDevolucion; label: string; desc: string }[] = [
+  { value: 'BUENO', label: 'Bueno', desc: 'Sin daños visibles' },
+  { value: 'REGULAR', label: 'Regular', desc: 'Desgaste normal de uso' },
+  { value: 'DAÑADO', label: 'Dañado', desc: 'Requiere reparación' },
+  { value: 'PERDIDO', label: 'Perdido', desc: 'No fue devuelto' },
 ];
 
 /**
@@ -21,18 +19,32 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
  * estado", no un flujo con aprobación. Por eso no hay botones de fila,
  * solo alta + listado.
  *
- * Solo se puede devolver una solicitud en estado ENTREGADA (filtro de
- * UI — el backend no lo valida, pero no tiene sentido ofrecer otras).
+ * Crear (Ronda 4, Fase 6): búsqueda por placa SENA en vez de dos `<select>`
+ * planos — mismo flujo que SGM (`devoluciones.component.ts` en
+ * frontend-proyecto). La solicitud a devolver se auto-detecta cruzando
+ * `item.id_producto` contra las solicitudes ENTREGADA ya cargadas (sin
+ * filtrar por usuario — a diferencia de SGM, acá es una pantalla de
+ * administración/bodega, no de autoservicio del solicitante). El backend
+ * no valida el estado del ítem ni la relación producto↔solicitud (ver
+ * `DevolucionesService.crearDevolucion` — solo persiste), así que ambos
+ * chequeos son de UX, igual que ya documentaba el componente anterior.
+ *
+ * Chequeos (Ronda 4, Fase 8): tras registrar la devolución, se crea además
+ * un `Chequeo` (`{id_solicitud}`, marcador de auditoría de "se inspeccionó
+ * esto" — el estado físico real ya vive en `Devolucion.estado` de arriba,
+ * mismo criterio que SGM, que tampoco le manda un estado al chequeo). Si
+ * falla, no revierte ni bloquea la devolución ya registrada — mismo
+ * criterio de "no interrumpir" que ya usa el backend en sus notificaciones.
  */
 @Component({
   selector: 'app-materiales-devoluciones',
   standalone: true,
-  imports: [FormsModule, DatePipe, AdminModalComponent],
+  imports: [FormsModule, DatePipe],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
         <h1 class="text-xl font-bold text-gray-800">Devoluciones</h1>
-        <button (click)="nuevo()"
+        <button (click)="abrirCrear()"
           class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
           style="background-color: #39A900">
           + Registrar devolución
@@ -80,18 +92,122 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
       }
     </div>
 
-    <app-admin-modal
-      [open]="modalOpen"
-      [editando]="null"
-      labelSingular="devolución"
-      [columns]="['id_solicitud', 'id_item', 'estado', 'observacion']"
-      [form]="form"
-      [opciones]="opciones"
-      [columnLabels]="columnLabels"
-      [saving]="saving"
-      [error]="error"
-      (closed)="cerrarModal()"
-      (saved)="guardar($event)" />
+    @if (crearOpen) {
+      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarCrear()">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
+          <div class="flex items-center justify-between mb-5">
+            <h2 class="text-lg font-bold text-gray-800">Registrar devolución</h2>
+            <button (click)="cerrarCrear()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Placa SENA del ítem</label>
+              <div class="flex gap-2">
+                <input type="text" [(ngModel)]="placaBuscar" (keydown.enter)="buscarPorPlaca()"
+                  placeholder="Ej: PS-2024-001" [disabled]="buscando"
+                  class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm uppercase focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                <button (click)="buscarPorPlaca()" [disabled]="!placaBuscar.trim() || buscando"
+                  class="px-4 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
+                  style="background-color: #39A900">
+                  {{ buscando ? 'Buscando...' : 'Buscar' }}
+                </button>
+              </div>
+              @if (errorBusqueda) {
+                <p class="text-red-500 text-xs mt-1.5">{{ errorBusqueda }}</p>
+              }
+            </div>
+
+            @if (itemEncontrado) {
+              <div class="rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-xs space-y-1.5">
+                <p class="text-green-700 font-medium uppercase tracking-wide text-[11px]">Ítem encontrado</p>
+                <div class="grid grid-cols-2 gap-x-3 gap-y-1">
+                  <div>
+                    <p class="text-gray-500">Producto</p>
+                    <p class="font-semibold text-gray-800">{{ itemEncontrado.item.producto?.nombre ?? '—' }}</p>
+                  </div>
+                  <div>
+                    <p class="text-gray-500">SKU / Placa</p>
+                    <p class="font-mono font-semibold text-gray-800">{{ itemEncontrado.item.placa_sena || itemEncontrado.item.codigo_sku }}</p>
+                  </div>
+                  <div>
+                    <p class="text-gray-500">Estado actual</p>
+                    <p class="font-semibold" [class.text-amber-700]="itemEncontrado.item.estado === 'PRESTADO'" [class.text-gray-700]="itemEncontrado.item.estado !== 'PRESTADO'">
+                      {{ itemEncontrado.item.estado }}
+                    </p>
+                  </div>
+                </div>
+                @if (itemEncontrado.item.estado !== 'PRESTADO') {
+                  <p class="mt-1.5 rounded-md bg-amber-100 text-amber-800 px-2 py-1">
+                    Este ítem no figura como PRESTADO — revisá que corresponda antes de registrar la devolución.
+                  </p>
+                }
+              </div>
+
+              @if (solicitudesMatcheadas.length === 0) {
+                <p class="rounded-lg border border-orange-200 bg-orange-50 text-orange-700 text-xs px-3 py-2">
+                  No se encontró una solicitud ENTREGADA pendiente de devolución para este producto.
+                </p>
+              } @else if (solicitudesMatcheadas.length === 1) {
+                <div class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs">
+                  <p class="text-blue-700 font-medium uppercase tracking-wide text-[10px] mb-0.5">Solicitud asociada</p>
+                  <p class="text-gray-800 font-semibold">Cant. {{ solicitudesMatcheadas[0].cantidad }} — {{ solicitudesMatcheadas[0].fecha | date: 'short' }}</p>
+                </div>
+              } @else {
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Seleccionar solicitud</label>
+                  <select [(ngModel)]="idSolicitudSeleccionada"
+                    class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
+                    <option [ngValue]="null">— Selecciona —</option>
+                    @for (s of solicitudesMatcheadas; track s.id_solicitud) {
+                      <option [value]="s.id_solicitud">Cant. {{ s.cantidad }} — {{ s.fecha | date: 'short' }}</option>
+                    }
+                  </select>
+                </div>
+              }
+
+              @if (solicitudParaDevolucion()) {
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Estado del ítem al devolver</label>
+                  <div class="grid grid-cols-2 gap-2">
+                    @for (op of estadosDevolucion; track op.value) {
+                      <button type="button" (click)="estadoSeleccionado = op.value"
+                        class="text-left rounded-lg border-2 px-3 py-2 transition-colors"
+                        [class.border-gray-200]="estadoSeleccionado !== op.value"
+                        [class.border-[#39A900]]="estadoSeleccionado === op.value"
+                        [class.bg-[#39A900]/5]="estadoSeleccionado === op.value">
+                        <p class="text-xs font-semibold text-gray-800">{{ op.label }}</p>
+                        <p class="text-[11px] text-gray-500">{{ op.desc }}</p>
+                      </button>
+                    }
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Observación (opcional)</label>
+                  <input type="text" [(ngModel)]="observacion"
+                    placeholder="Estado físico, daños, detalles del chequeo..."
+                    class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                </div>
+              }
+            }
+          </div>
+
+          @if (error) {
+            <p class="text-red-500 text-xs mt-3 p-2 bg-red-50 rounded-lg">{{ error }}</p>
+          }
+
+          <div class="flex justify-end gap-2 mt-6">
+            <button (click)="cerrarCrear()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
+            <button (click)="guardarDevolucion()" [disabled]="saving || !solicitudParaDevolucion() || !estadoSeleccionado"
+              class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
+              style="background-color: #39A900">
+              {{ saving ? 'Guardando...' : 'Registrar devolución' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
   `,
 })
 export class MaterialesDevolucionesComponent implements OnInit {
@@ -102,48 +218,44 @@ export class MaterialesDevolucionesComponent implements OnInit {
   saving = false;
   error: string | null = null;
 
-  modalOpen = false;
-  form: Record<string, any> = {};
+  readonly estadosDevolucion = ESTADOS_DEVOLUCION;
 
-  columnLabels: Record<string, string> = {
-    id_solicitud: 'Solicitud a devolver',
-    id_item: 'Ítem devuelto',
-    estado: 'Estado del ítem',
-    observacion: 'Observación (opcional)',
-  };
+  /** Flujo de creación por placa SENA (Fase 6). */
+  crearOpen = false;
+  placaBuscar = '';
+  buscando = false;
+  errorBusqueda: string | null = null;
+  itemEncontrado: { item: Item; prestamo_activo: any; asignacion_activa: any; novedad_activa: any } | null = null;
+  solicitudesMatcheadas: Solicitud[] = [];
+  idSolicitudSeleccionada: string | null = null;
+  estadoSeleccionado: EstadoDevolucion | null = null;
+  observacion = '';
 
   constructor(
     private api: MaterialesApiService,
     private toast: ToastService,
   ) {}
 
-  /** Solo se puede registrar devolución de solicitudes ya entregadas. */
+  /**
+   * Solo se puede registrar devolución de solicitudes ya entregadas Y que
+   * todavía no tengan una devolución registrada — `devolucion` tiene un
+   * `UNIQUE(id_solicitud)` real en la base (una sola devolución por
+   * solicitud), y a diferencia de SGM, acá crear una devolución nunca
+   * cambia el estado de la solicitud (se queda en ENTREGADA para siempre),
+   * así que sin este filtro una solicitud ya devuelta seguía apareciendo
+   * como candidata y el intento de repetirla chocaba con un 400 genérico
+   * ("Error al crear la devolución") sin ninguna pista de la causa real.
+   */
   get solicitudesEntregadas(): Solicitud[] {
-    return this.solicitudes.filter((s) => s.estado === 'ENTREGADA');
-  }
-
-  get opciones(): Record<string, OpcionSelect[]> {
-    const idProductoSeleccionado = this.solicitudes.find(
-      (s) => s.id_solicitud === this.form['id_solicitud'],
-    )?.id_producto;
-    const itemsFiltrados = idProductoSeleccionado
-      ? this.items.filter((i) => i.id_producto === idProductoSeleccionado)
-      : this.items;
-    return {
-      id_solicitud: this.solicitudesEntregadas.map((s) => ({
-        label: `${s.producto?.nombre ?? 'Producto #' + s.id_producto} — cant. ${s.cantidad}`,
-        value: s.id_solicitud,
-      })),
-      id_item: itemsFiltrados.map((i) => ({ label: `${i.codigo_sku}${i.placa_sena ? ' — ' + i.placa_sena : ''}`, value: i.id_item })),
-      estado: OPCIONES_ESTADO,
-    };
+    const yaDevueltas = new Set(this.devoluciones.map((d) => d.id_solicitud));
+    return this.solicitudes.filter((s) => s.estado === 'ENTREGADA' && !yaDevueltas.has(s.id_solicitud));
   }
 
   ngOnInit(): void {
     this.cargar();
   }
 
-  nombreItem(id: number): string {
+  nombreItem(id: string): string {
     const item = this.items.find((i) => i.id_item === id);
     return item ? `${item.codigo_sku}${item.placa_sena ? ' — ' + item.placa_sena : ''}` : '—';
   }
@@ -155,6 +267,15 @@ export class MaterialesDevolucionesComponent implements OnInit {
    */
   nombreProducto(d: Devolucion): string {
     return this.solicitudes.find((s) => s.id_solicitud === d.id_solicitud)?.producto?.nombre ?? '—';
+  }
+
+  /** Única coincidencia → auto-seleccionada; varias → la que el usuario eligió en el `<select>`. */
+  solicitudParaDevolucion(): Solicitud | null {
+    if (this.solicitudesMatcheadas.length === 1) return this.solicitudesMatcheadas[0];
+    if (this.idSolicitudSeleccionada) {
+      return this.solicitudesMatcheadas.find((s) => s.id_solicitud === this.idSolicitudSeleccionada) ?? null;
+    }
+    return null;
   }
 
   private async cargar(): Promise<void> {
@@ -175,42 +296,73 @@ export class MaterialesDevolucionesComponent implements OnInit {
     }
   }
 
-  nuevo(): void {
+  abrirCrear(): void {
     if (this.solicitudesEntregadas.length === 0) {
       this.toast.warn('Nada que devolver', 'No hay solicitudes en estado ENTREGADA pendientes de devolución.');
       return;
     }
-    if (this.items.length === 0) {
-      this.toast.warn('Faltan datos', 'Necesitás al menos un ítem para registrar una devolución.');
-      return;
-    }
-    this.form = {
-      id_solicitud: this.solicitudesEntregadas[0].id_solicitud,
-      id_item: this.items[0].id_item,
-      estado: 'BUENO',
-      observacion: '',
-    };
+    this.placaBuscar = '';
+    this.buscando = false;
+    this.errorBusqueda = null;
+    this.itemEncontrado = null;
+    this.solicitudesMatcheadas = [];
+    this.idSolicitudSeleccionada = null;
+    this.estadoSeleccionado = null;
+    this.observacion = '';
     this.error = null;
-    this.modalOpen = true;
+    this.crearOpen = true;
   }
 
-  cerrarModal(): void {
-    this.modalOpen = false;
+  cerrarCrear(): void {
+    this.crearOpen = false;
   }
 
-  async guardar(form: Record<string, any>): Promise<void> {
+  async buscarPorPlaca(): Promise<void> {
+    const placa = this.placaBuscar.trim();
+    if (!placa) return;
+    this.buscando = true;
+    this.errorBusqueda = null;
+    this.itemEncontrado = null;
+    this.solicitudesMatcheadas = [];
+    this.idSolicitudSeleccionada = null;
+    this.estadoSeleccionado = null;
+    try {
+      const detalle = await this.api.buscarItemPorPlaca(placa);
+      if (!detalle) {
+        this.errorBusqueda = `No se encontró ningún ítem con la placa "${placa}".`;
+        return;
+      }
+      this.itemEncontrado = detalle;
+      this.solicitudesMatcheadas = this.solicitudesEntregadas.filter(
+        (s) => s.id_producto === detalle.item.id_producto,
+      );
+    } catch (e: any) {
+      this.errorBusqueda = e?.error?.message ?? `No se encontró ningún ítem con la placa "${placa}".`;
+    } finally {
+      this.buscando = false;
+    }
+  }
+
+  async guardarDevolucion(): Promise<void> {
+    const sol = this.solicitudParaDevolucion();
+    if (!sol || !this.itemEncontrado || !this.estadoSeleccionado) return;
     this.saving = true;
     this.error = null;
     try {
       const dto: CreateDevolucionDto = {
-        id_solicitud: Number(form['id_solicitud']),
-        id_item: Number(form['id_item']),
-        estado: form['estado'],
-        observacion: form['observacion'] || undefined,
+        id_solicitud: sol.id_solicitud,
+        id_item: this.itemEncontrado.item.id_item,
+        estado: this.estadoSeleccionado,
+        observacion: this.observacion.trim() || undefined,
       };
       await this.api.crearDevolucion(dto);
+      try {
+        await this.api.crearChequeo({ id_solicitud: sol.id_solicitud });
+      } catch {
+        // No interrumpir — la devolución ya quedó registrada, mismo criterio que el backend.
+      }
       this.toast.ok('Devolución registrada');
-      this.modalOpen = false;
+      this.crearOpen = false;
       await this.cargar();
     } catch (e: any) {
       this.error = e?.error?.message ?? 'No se pudo registrar la devolución.';

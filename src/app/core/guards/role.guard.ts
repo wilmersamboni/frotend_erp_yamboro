@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router, ActivatedRouteSnapshot } from '@angular/router';
 import { AuthService } from '../services/auth.service';
+import { AprendizContextService } from '../services/aprendiz-context.service';
 
 /**
  * Guard de roles: combina `route.data['roles']` (cargo) y
@@ -29,9 +30,15 @@ import { AuthService } from '../services/auth.service';
  *   { path: 'encuestas', data: { roles: ['administrador', 'administrador_erp'], servicios: ['encuestas.gestionar'] } }
  *   { path: 'instructor/materiales/sitios', data: { roles: ['instructor'], serviciosRequeridos: ['materiales.sitios.ver'] } }
  *
+ * - `soloAprendizConEtapa` (opcional, bool) → AND extra SOLO para cargo
+ *   'aprendiz': la ruta solo se deja entrar si el aprendiz ya tiene una
+ *   etapa práctica creada (`AprendizContextService`). No afecta a
+ *   admin/instructor. Espeja el filtro `soloAprendizConEtapa` del sidebar,
+ *   para que el deep-link a `/format` o `/seguimiento` tampoco entre.
+ *
  * Si el usuario no cumple las condiciones, redirige al Home (/).
  */
-export const roleGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
+export const roleGuard: CanActivateFn = async (route: ActivatedRouteSnapshot) => {
   const auth   = inject(AuthService);
   const router = inject(Router);
 
@@ -47,10 +54,19 @@ export const roleGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
 
   const pasaServiciosRequeridos = serviciosRequeridos.every((s) => auth.tieneServicio(s));
 
-  if (pasaPorRolOServicio && pasaServiciosRequeridos) {
-    return true;
+  if (!pasaPorRolOServicio || !pasaServiciosRequeridos) {
+    return router.createUrlTree(['/']);
   }
 
-  // Sin permiso → redirige al home silenciosamente
-  return router.createUrlTree(['/']);
+  // Recorte extra: rutas de etapa práctica que un aprendiz solo puede abrir
+  // si YA tiene una etapa (deep-link — el link del sidebar ya se filtra aparte).
+  if (route.data['soloAprendizConEtapa'] && auth.cargo() === 'aprendiz') {
+    const aprendizCtx = inject(AprendizContextService);
+    await aprendizCtx.cargar(); // idempotente y cacheado por usuario
+    if (aprendizCtx.tieneEtapa() !== true) {
+      return router.createUrlTree(['/']);
+    }
+  }
+
+  return true;
 };
