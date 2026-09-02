@@ -2,7 +2,15 @@ import { Component, OnInit } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../../core/services/toast.service';
-import { CreateDevolucionDto, Devolucion, EstadoDevolucion, Item, MaterialesApiService, Solicitud } from '../../../core/services/materiales/materiales-api.service';
+import {
+  CreateDevolucionDto,
+  Devolucion,
+  EstadoDevolucion,
+  Item,
+  ItemPendienteDevolucion,
+  MaterialesApiService,
+  Solicitud,
+} from '../../../core/services/materiales/materiales-api.service';
 
 const ESTADOS_DEVOLUCION: { value: EstadoDevolucion; label: string; desc: string }[] = [
   { value: 'BUENO', label: 'Bueno', desc: 'Sin daños visibles' },
@@ -11,13 +19,16 @@ const ESTADOS_DEVOLUCION: { value: EstadoDevolucion; label: string; desc: string
   { value: 'PERDIDO', label: 'Perdido', desc: 'No fue devuelto' },
 ];
 
+interface FilaDevolucion extends ItemPendienteDevolucion {
+  estadoDev: EstadoDevolucion;
+}
+
 /**
  * Registro de devoluciones para instructor — copia casi literal de
- * `features/admin/materiales/devoluciones.component.ts` (ver + crear, sin
- * botones de fila: el backend no tiene máquina de estados propia). Crear
- * (Ronda 4, Fase 6): búsqueda por placa SENA — ver docblock de la versión
- * admin para el detalle del flujo. Chequeos (Fase 8): tras la devolución
- * se crea además un marcador `Chequeo` de auditoría — ver docblock admin.
+ * `features/admin/materiales/devoluciones.component.ts` (M10a — devolución por
+ * unidad: se elige un estado general para todas las unidades pendientes del
+ * préstamo y solo se toca fila por fila la placa de las que vuelven distinto).
+ * Ver docblock de la versión admin para el detalle del flujo.
  */
 @Component({
   selector: 'app-instructor-materiales-devoluciones',
@@ -83,91 +94,66 @@ const ESTADOS_DEVOLUCION: { value: EstadoDevolucion; label: string; desc: string
             <button (click)="cerrarCrear()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 
-          <div class="space-y-3">
+          <div class="space-y-4">
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Placa SENA del ítem</label>
-              <div class="flex gap-2">
-                <input type="text" [(ngModel)]="placaBuscar" (keydown.enter)="buscarPorPlaca()"
-                  placeholder="Ej: PS-2024-001" [disabled]="buscando"
-                  class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm uppercase focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
-                <button (click)="buscarPorPlaca()" [disabled]="!placaBuscar.trim() || buscando"
-                  class="px-4 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
-                  style="background-color: #39A900">
-                  {{ buscando ? 'Buscando...' : 'Buscar' }}
-                </button>
-              </div>
-              @if (errorBusqueda) {
-                <p class="text-red-500 text-xs mt-1.5">{{ errorBusqueda }}</p>
-              }
+              <label class="block text-xs font-medium text-gray-600 mb-1">Préstamo a devolver</label>
+              <select [(ngModel)]="idSolicitud" (ngModelChange)="onSolicitudChange()"
+                class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
+                <option [ngValue]="null">— Selecciona —</option>
+                @for (s of solicitudesEntregadas; track s.id_solicitud) {
+                  <option [ngValue]="s.id_solicitud">
+                    {{ s.producto?.nombre ?? 'Material' }} — Cant. {{ s.cantidad }} — {{ s.fecha | date: 'short' }}
+                  </option>
+                }
+              </select>
             </div>
 
-            @if (itemEncontrado) {
-              <div class="rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-xs space-y-1.5">
-                <p class="text-green-700 font-medium uppercase tracking-wide text-[11px]">Ítem encontrado</p>
-                <div class="grid grid-cols-2 gap-x-3 gap-y-1">
-                  <div>
-                    <p class="text-gray-500">Producto</p>
-                    <p class="font-semibold text-gray-800">{{ itemEncontrado.item.producto?.nombre ?? '—' }}</p>
-                  </div>
-                  <div>
-                    <p class="text-gray-500">SKU / Placa</p>
-                    <p class="font-mono font-semibold text-gray-800">{{ itemEncontrado.item.placa_sena || itemEncontrado.item.codigo_sku }}</p>
-                  </div>
-                  <div>
-                    <p class="text-gray-500">Estado actual</p>
-                    <p class="font-semibold" [class.text-amber-700]="itemEncontrado.item.estado === 'PRESTADO'" [class.text-gray-700]="itemEncontrado.item.estado !== 'PRESTADO'">
-                      {{ itemEncontrado.item.estado }}
-                    </p>
-                  </div>
-                </div>
-                @if (itemEncontrado.item.estado !== 'PRESTADO') {
-                  <p class="mt-1.5 rounded-md bg-amber-100 text-amber-800 px-2 py-1">
-                    Este ítem no figura como PRESTADO — revisá que corresponda antes de registrar la devolución.
-                  </p>
-                }
-              </div>
-
-              @if (solicitudesMatcheadas.length === 0) {
+            @if (idSolicitud) {
+              @if (cargandoPendientes) {
+                <p class="text-gray-400 text-xs">Cargando unidades…</p>
+              } @else if (filas.length === 0) {
                 <p class="rounded-lg border border-orange-200 bg-orange-50 text-orange-700 text-xs px-3 py-2">
-                  No se encontró una solicitud ENTREGADA pendiente de devolución para este producto.
+                  No quedan unidades pendientes de devolución para este préstamo.
                 </p>
-              } @else if (solicitudesMatcheadas.length === 1) {
-                <div class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs">
-                  <p class="text-blue-700 font-medium uppercase tracking-wide text-[10px] mb-0.5">Solicitud asociada</p>
-                  <p class="text-gray-800 font-semibold">Cant. {{ solicitudesMatcheadas[0].cantidad }} — {{ solicitudesMatcheadas[0].fecha | date: 'short' }}</p>
-                </div>
               } @else {
                 <div>
-                  <label class="block text-xs font-medium text-gray-600 mb-1">Seleccionar solicitud</label>
-                  <select [(ngModel)]="idSolicitudSeleccionada"
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Estado de todas las unidades</label>
+                  <select [(ngModel)]="estadoGeneral" (ngModelChange)="aplicarATodas()"
                     class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
-                    <option [ngValue]="null">— Selecciona —</option>
-                    @for (s of solicitudesMatcheadas; track s.id_solicitud) {
-                      <option [value]="s.id_solicitud">Cant. {{ s.cantidad }} — {{ s.fecha | date: 'short' }}</option>
+                    @for (op of estadosDevolucion; track op.value) {
+                      <option [ngValue]="op.value">{{ op.label }} — {{ op.desc }}</option>
                     }
                   </select>
-                </div>
-              }
-
-              @if (solicitudParaDevolucion()) {
-                <div>
-                  <label class="block text-xs font-medium text-gray-600 mb-1">Estado del ítem al devolver</label>
-                  <div class="grid grid-cols-2 gap-2">
-                    @for (op of estadosDevolucion; track op.value) {
-                      <button type="button" (click)="estadoSeleccionado = op.value"
-                        class="text-left rounded-lg border-2 px-3 py-2 transition-colors"
-                        [class.border-gray-200]="estadoSeleccionado !== op.value"
-                        [class.border-[#39A900]]="estadoSeleccionado === op.value"
-                        [class.bg-[#39A900]/5]="estadoSeleccionado === op.value">
-                        <p class="text-xs font-semibold text-gray-800">{{ op.label }}</p>
-                        <p class="text-[11px] text-gray-500">{{ op.desc }}</p>
-                      </button>
-                    }
-                  </div>
+                  <p class="text-[11px] text-gray-400 mt-1">
+                    Se aplica a las {{ filas.length }} unidad(es). Cambiá abajo solo las que vuelven distinto.
+                  </p>
                 </div>
 
+                <div class="rounded-lg border border-gray-100 divide-y divide-gray-50 max-h-56 overflow-y-auto">
+                  @for (f of filas; track f.id_item) {
+                    <div class="flex items-center gap-3 px-3 py-2">
+                      <div class="flex-1 min-w-0">
+                        <p class="font-mono text-xs font-semibold text-gray-800 truncate">
+                          {{ f.placa_sena || f.codigo_sku || 'Unidad' }}
+                        </p>
+                        @if (f.placa_sena && f.codigo_sku) {
+                          <p class="text-[11px] text-gray-400 truncate">{{ f.codigo_sku }}</p>
+                        }
+                      </div>
+                      <select [(ngModel)]="f.estadoDev"
+                        class="px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]"
+                        [class.border-red-300]="f.estadoDev === 'DAÑADO' || f.estadoDev === 'PERDIDO'"
+                        [class.border-amber-300]="f.estadoDev === 'REGULAR'">
+                        @for (op of estadosDevolucion; track op.value) {
+                          <option [ngValue]="op.value">{{ op.label }}</option>
+                        }
+                      </select>
+                    </div>
+                  }
+                </div>
+
                 <div>
-                  <label class="block text-xs font-medium text-gray-600 mb-1">Observación (opcional)</label>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Observación general (opcional)</label>
                   <input type="text" [(ngModel)]="observacion"
                     placeholder="Estado físico, daños, detalles del chequeo..."
                     class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
@@ -182,7 +168,7 @@ const ESTADOS_DEVOLUCION: { value: EstadoDevolucion; label: string; desc: string
 
           <div class="flex justify-end gap-2 mt-6">
             <button (click)="cerrarCrear()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
-            <button (click)="guardarDevolucion()" [disabled]="saving || !solicitudParaDevolucion() || !estadoSeleccionado"
+            <button (click)="guardarDevolucion()" [disabled]="saving || !idSolicitud || filas.length === 0"
               class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
               style="background-color: #39A900">
               {{ saving ? 'Guardando...' : 'Registrar devolución' }}
@@ -203,15 +189,11 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
 
   readonly estadosDevolucion = ESTADOS_DEVOLUCION;
 
-  /** Flujo de creación por placa SENA (Fase 6). */
   crearOpen = false;
-  placaBuscar = '';
-  buscando = false;
-  errorBusqueda: string | null = null;
-  itemEncontrado: { item: Item; prestamo_activo: any; asignacion_activa: any; novedad_activa: any } | null = null;
-  solicitudesMatcheadas: Solicitud[] = [];
-  idSolicitudSeleccionada: string | null = null;
-  estadoSeleccionado: EstadoDevolucion | null = null;
+  idSolicitud: string | null = null;
+  cargandoPendientes = false;
+  filas: FilaDevolucion[] = [];
+  estadoGeneral: EstadoDevolucion = 'BUENO';
   observacion = '';
 
   constructor(
@@ -219,19 +201,9 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
     private toast: ToastService,
   ) {}
 
-  /**
-   * Solo se puede registrar devolución de solicitudes ya entregadas Y que
-   * todavía no tengan una devolución registrada — `devolucion` tiene un
-   * `UNIQUE(id_solicitud)` real en la base (una sola devolución por
-   * solicitud), y crear una devolución nunca cambia el estado de la
-   * solicitud (se queda en ENTREGADA para siempre), así que sin este filtro
-   * una solicitud ya devuelta seguía apareciendo como candidata y el
-   * intento de repetirla chocaba con un 400 genérico sin ninguna pista de
-   * la causa real. Ver docblock de la versión admin.
-   */
+  /** Ver docblock de la versión admin. */
   get solicitudesEntregadas(): Solicitud[] {
-    const yaDevueltas = new Set(this.devoluciones.map((d) => d.id_solicitud));
-    return this.solicitudes.filter((s) => s.estado === 'ENTREGADA' && !yaDevueltas.has(s.id_solicitud));
+    return this.solicitudes.filter((s) => s.estado === 'ENTREGADA');
   }
 
   ngOnInit(): void {
@@ -243,22 +215,8 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
     return item ? `${item.codigo_sku}${item.placa_sena ? ' — ' + item.placa_sena : ''}` : '—';
   }
 
-  /**
-   * `GET /devoluciones` solo trae la relación `solicitud` a un nivel (sin
-   * su `producto` anidado), así que el nombre se resuelve contra la lista
-   * ya cargada por `listarSolicitudes()`, que sí lo trae completo.
-   */
   nombreProducto(d: Devolucion): string {
     return this.solicitudes.find((s) => s.id_solicitud === d.id_solicitud)?.producto?.nombre ?? '—';
-  }
-
-  /** Única coincidencia → auto-seleccionada; varias → la que el usuario eligió en el `<select>`. */
-  solicitudParaDevolucion(): Solicitud | null {
-    if (this.solicitudesMatcheadas.length === 1) return this.solicitudesMatcheadas[0];
-    if (this.idSolicitudSeleccionada) {
-      return this.solicitudesMatcheadas.find((s) => s.id_solicitud === this.idSolicitudSeleccionada) ?? null;
-    }
-    return null;
   }
 
   private async cargar(): Promise<void> {
@@ -281,16 +239,12 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
 
   abrirCrear(): void {
     if (this.solicitudesEntregadas.length === 0) {
-      this.toast.warn('Nada que devolver', 'No hay solicitudes en estado ENTREGADA pendientes de devolución.');
+      this.toast.warn('Nada que devolver', 'No hay préstamos en estado ENTREGADA pendientes de devolución.');
       return;
     }
-    this.placaBuscar = '';
-    this.buscando = false;
-    this.errorBusqueda = null;
-    this.itemEncontrado = null;
-    this.solicitudesMatcheadas = [];
-    this.idSolicitudSeleccionada = null;
-    this.estadoSeleccionado = null;
+    this.idSolicitud = null;
+    this.filas = [];
+    this.estadoGeneral = 'BUENO';
     this.observacion = '';
     this.error = null;
     this.crearOpen = true;
@@ -300,50 +254,40 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
     this.crearOpen = false;
   }
 
-  async buscarPorPlaca(): Promise<void> {
-    const placa = this.placaBuscar.trim();
-    if (!placa) return;
-    this.buscando = true;
-    this.errorBusqueda = null;
-    this.itemEncontrado = null;
-    this.solicitudesMatcheadas = [];
-    this.idSolicitudSeleccionada = null;
-    this.estadoSeleccionado = null;
+  async onSolicitudChange(): Promise<void> {
+    this.filas = [];
+    this.error = null;
+    if (!this.idSolicitud) return;
+    this.cargandoPendientes = true;
     try {
-      const detalle = await this.api.buscarItemPorPlaca(placa);
-      if (!detalle) {
-        this.errorBusqueda = `No se encontró ningún ítem con la placa "${placa}".`;
-        return;
-      }
-      this.itemEncontrado = detalle;
-      this.solicitudesMatcheadas = this.solicitudesEntregadas.filter(
-        (s) => s.id_producto === detalle.item.id_producto,
-      );
+      const pendientes = await this.api.itemsPendientesDevolucion(this.idSolicitud);
+      this.filas = pendientes.map((p) => ({ ...p, estadoDev: this.estadoGeneral }));
     } catch (e: any) {
-      this.errorBusqueda = e?.error?.message ?? `No se encontró ningún ítem con la placa "${placa}".`;
+      this.error = e?.error?.message ?? 'No se pudieron cargar las unidades del préstamo.';
     } finally {
-      this.buscando = false;
+      this.cargandoPendientes = false;
     }
   }
 
+  aplicarATodas(): void {
+    for (const f of this.filas) f.estadoDev = this.estadoGeneral;
+  }
+
   async guardarDevolucion(): Promise<void> {
-    const sol = this.solicitudParaDevolucion();
-    if (!sol || !this.itemEncontrado || !this.estadoSeleccionado) return;
+    if (!this.idSolicitud || this.filas.length === 0) return;
     this.saving = true;
     this.error = null;
     try {
+      const excepciones = this.filas
+        .filter((f) => f.estadoDev !== this.estadoGeneral)
+        .map((f) => ({ id_item: f.id_item, estado: f.estadoDev }));
       const dto: CreateDevolucionDto = {
-        id_solicitud: sol.id_solicitud,
-        id_item: this.itemEncontrado.item.id_item,
-        estado: this.estadoSeleccionado,
+        id_solicitud: this.idSolicitud,
+        estado_general: this.estadoGeneral,
         observacion: this.observacion.trim() || undefined,
+        items: excepciones.length > 0 ? excepciones : undefined,
       };
       await this.api.crearDevolucion(dto);
-      try {
-        await this.api.crearChequeo({ id_solicitud: sol.id_solicitud });
-      } catch {
-        // No interrumpir — la devolución ya quedó registrada, mismo criterio que el backend.
-      }
       this.toast.ok('Devolución registrada');
       this.crearOpen = false;
       await this.cargar();
