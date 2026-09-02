@@ -1,4 +1,4 @@
-import { Component, HostListener, Input, OnChanges, SimpleChanges, signal } from '@angular/core';
+import { Component, EventEmitter, HostListener, Input, OnChanges, Output, SimpleChanges, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { AprendizContextService } from '../../core/services/aprendiz-context.service';
@@ -44,19 +44,28 @@ interface NavGroup {
   imports: [RouterLink, RouterLinkActive],
   template: `
     <aside
-      class="h-screen flex flex-col bg-white border-r border-gray-100 transition-all duration-300 ease-in-out select-none"
+      class="sidebar-shell flex flex-col transition-all duration-300 ease-in-out select-none"
       [class.w-56]="open"
       [class.w-16]="!open"
+      [class.is-open]="open"
       [class.mobile-open]="mobileOpen"
-      style="box-shadow: 1px 0 10px 0 rgba(0,0,0,.04);"
     >
 
+      <!-- ── Hamburguesa: expande/colapsa 100% manual ──────────── -->
+      <div class="sb-top" [class.justify-center]="!open" [class.justify-start]="open">
+        <button type="button" class="sb-toggle" (click)="toggle.emit()"
+          [title]="open ? 'Colapsar' : 'Expandir'">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+      </div>
+
       <!-- ── Centro/sede actual ────────────────────────────────── -->
-      <div class="px-3 py-4 border-b border-gray-100">
-        <div class="flex items-center gap-2.5" [class.justify-center]="!open"
+      <div class="px-3 pb-3">
+        <div class="sb-centro" [class.justify-center]="!open"
           [title]="!open ? centroLabel : ''">
-          <div class="w-8 h-8 rounded-lg flex items-center justify-center
-                       bg-[#007832]/10 text-[#007832] flex-shrink-0">
+          <div class="sb-centro-ic">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round"
                 d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/>
@@ -64,8 +73,8 @@ interface NavGroup {
           </div>
           @if (open) {
             <div class="overflow-hidden">
-              <p class="text-gray-400 text-[10px] uppercase tracking-wide leading-tight">Centro</p>
-              <p class="text-[#007832] text-xs font-semibold truncate leading-tight mt-0.5">{{ centroLabel }}</p>
+              <p class="sb-centro-label">Centro</p>
+              <p class="sb-centro-value truncate">{{ centroLabel }}</p>
             </div>
           }
         </div>
@@ -74,7 +83,7 @@ interface NavGroup {
       <!-- ── Navegación ──────────────────────────────────────── -->
       <!-- overflow-y-auto solo cuando está abierto para que los tooltips
            del modo colapsado no queden cortados -->
-      <nav class="flex-1 px-2 py-2" [class.overflow-y-auto]="open">
+      <nav class="sb-nav flex-1 px-2 py-2" [class.overflow-y-auto]="open">
 
         @for (group of visibleGroups; track group.id; let first = $first) {
 
@@ -175,7 +184,7 @@ interface NavGroup {
         <hr class="border-gray-100 my-2" />
 
         <button
-          class="nav-logout"
+          class="nav-logout nav-logout-danger"
           [class.justify-center]="!open"
           (click)="auth.logout()"
           [title]="!open ? 'Cerrar sesión' : ''"
@@ -201,6 +210,9 @@ export class SidebarComponent implements OnChanges {
   /** Controla el drawer fijo en mobile (<1024px) — independiente de `open`,
    * que en mobile siempre viene en true junto con este (ver main-layout). */
   @Input() mobileOpen = false;
+  /** Clic en la hamburguesa — el padre (main-layout) decide qué hacer con
+   * `open`. El sidebar no guarda su propio estado de expansión. */
+  @Output() toggle = new EventEmitter<void>();
 
   contactoAbierto = signal(false);
 
