@@ -171,13 +171,25 @@ export class FloatingButtons implements AfterViewChecked {
     // en dos líneas. Los saltos de párrafo reales ya vienen como '\n' en el
     // texto del backend (ver el '\n' entre elementos de una lista), así que
     // no hace falta adivinarlos a partir de la puntuación.
-    let html = texto
+    //
+    // El texto puede venir de un LLM o de un webhook externo (ver CLAUDE.md
+    // raíz) — se escapa ANTES de aplicar el markdown propio para que
+    // cualquier etiqueta HTML/JS que traiga quede como texto literal en vez
+    // de ejecutarse al pasar por bypassSecurityTrustHtml().
+    let html = this.escaparHtml(texto)
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/(\d+)\.\s(.+)/g, '<li><span class="paso-num">$1</span> $2</li>')
       .replace(/(<li>.*<\/li>)/gs, '<ol>$1</ol>')
       .replace(/\n/g, '<br>');
 
     return this.sanitizer.bypassSecurityTrustHtml(html);
+  }
+
+  private escaparHtml(texto: string): string {
+    return texto
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
   }
 
   enviar() {

@@ -5,45 +5,33 @@ import { SidebarComponent } from '../sidebar/sidebar.component';
 import { AprendizContextService } from '../../core/services/aprendiz-context.service';
 
 /**
- * Equivalente al DefaultLayout de React:
- *
- *   export default function DefaultLayout({ children }) {
- *     const [open, setOpen] = useState(false);
- *     return (
- *       <div className="flex h-screen">
- *         <div onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
- *           <Sidebar open={open} />
- *         </div>
- *         <div className="flex flex-col flex-1 ...">
- *           <Navbar />
- *           <main>{children}</main>
- *         </div>
- *       </div>
- *     );
- *   }
- *
- * En Angular, {children} se reemplaza por <router-outlet>.
+ * sidebarOpen se controla 100% manual, vía el evento (toggle) que emite el
+ * propio botón hamburguesa dentro de SidebarComponent — antes se abría/
+ * cerraba solo con el mouse (mouseenter/mouseleave en este wrapper), pero
+ * eso chocaba con el diseño de sidebar flotante nuevo.
  */
 @Component({
   selector: 'app-main-layout',
   standalone: true,
   imports: [RouterOutlet, NavbarComponent, SidebarComponent],
   template: `
-    <div class="flex h-screen">
+    <div class="flex h-screen bg-[#F0F2F5]">
 
       <!-- Backdrop del drawer mobile -->
       @if (mobileMenuOpen()) {
         <div class="fixed inset-0 bg-black/40 z-[60] lg:hidden" (click)="mobileMenuOpen.set(false)"></div>
       }
 
-      <!-- SIDEBAR (expande/colapsa al hover en desktop; drawer en mobile) -->
+      <!-- SIDEBAR (expande/colapsa con la hamburguesa propia; drawer en mobile) -->
       <div
-        (mouseenter)="sidebarOpen.set(true)"
-        (mouseleave)="sidebarOpen.set(false)"
         (click)="onSidebarAreaClick($event)"
         class="h-screen"
       >
-        <app-sidebar [open]="sidebarOpen() || mobileMenuOpen()" [mobileOpen]="mobileMenuOpen()" />
+        <app-sidebar
+          [open]="sidebarOpen() || mobileMenuOpen()"
+          [mobileOpen]="mobileMenuOpen()"
+          (toggle)="sidebarOpen.update(v => !v)"
+        />
       </div>
 
       <!-- CONTENIDO DERECHO -->
