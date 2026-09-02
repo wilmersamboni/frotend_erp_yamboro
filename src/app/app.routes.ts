@@ -158,6 +158,8 @@ export const routes: Routes = [
           { path: 'aprendiz/materiales/productos', canActivate: [roleGuard], data: { roles: ['aprendiz'], serviciosRequeridos: ['materiales.productos.ver'] }, loadComponent: () => import('./features/aprendiz/materiales/productos.component').then((m) => m.AprendizMaterialesProductosComponent) },
           { path: 'aprendiz/materiales/items', canActivate: [roleGuard], data: { roles: ['aprendiz'], serviciosRequeridos: ['materiales.items.ver'] }, loadComponent: () => import('./features/aprendiz/materiales/items.component').then((m) => m.AprendizMaterialesItemsComponent) },
           { path: 'aprendiz/materiales/solicitudes', canActivate: [roleGuard], data: { roles: ['aprendiz'], serviciosRequeridos: ['materiales.solicitudes.ver'] }, loadComponent: () => import('./features/aprendiz/materiales/solicitudes.component').then((m) => m.AprendizMaterialesSolicitudesComponent) },
+          // Solo para aprendiz encargado de bodega: `materiales.devoluciones.ver` no está en MATERIALES_APRENDIZ por defecto, llega vía el bundle B3.
+          { path: 'aprendiz/materiales/devoluciones', canActivate: [roleGuard], data: { roles: ['aprendiz'], serviciosRequeridos: ['materiales.devoluciones.ver'] }, loadComponent: () => import('./features/aprendiz/materiales/devoluciones.component').then((m) => m.AprendizMaterialesDevolucionesComponent) },
         ],
       },
       // Responder encuesta: sin sidebar y sin sesión — el backend ya trata

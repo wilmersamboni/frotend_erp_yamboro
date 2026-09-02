@@ -554,6 +554,15 @@ export class SidebarComponent implements OnChanges, OnInit {
             servicioEstricto: 'materiales.solicitudes.ver',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-5 8l2 2 4-4"/></svg>`),
           },
+          {
+            // Solo aprendiz encargado de bodega: `materiales.devoluciones.ver`
+            // no está en MATERIALES_APRENDIZ, llega vía el bundle B3 →
+            // `servicioEstricto` (AND) oculta el link a un aprendiz normal.
+            label: 'Devoluciones', href: '/aprendiz/materiales/devoluciones',
+            roles: ['aprendiz'],
+            servicioEstricto: 'materiales.devoluciones.ver',
+            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l-4-4m0 0l4-4m-4 4h11a4 4 0 010 8h-1"/></svg>`),
+          },
         ],
       },
     ];
