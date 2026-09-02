@@ -1,8 +1,9 @@
-import { Component, HostListener, Input, OnChanges, SimpleChanges, signal } from '@angular/core';
+import { Component, HostListener, Input, OnChanges, OnInit, SimpleChanges, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { AprendizContextService } from '../../core/services/aprendiz-context.service';
 import { ContactWidgetService } from '../../core/services/contact-widget.service';
+import { MaterialesApiService } from '../../core/services/materiales/materiales-api.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 interface NavLink  {
@@ -11,6 +12,9 @@ interface NavLink  {
   soloAprendizConEtapa?: boolean;
   /** Solo para rol aprendiz: mostrar únicamente si NO tiene etapa práctica creada. */
   soloAprendizSinEtapa?: boolean;
+  /** Mostrar solo si el usuario es `id_responsable` de ≥1 bodega (cualquier
+   * cargo). El admin NO ve el link salvo que además sea responsable de una. */
+  soloResponsableBodega?: boolean;
   /** Servicio del sistema de permisos dinámico que también habilita este link,
    * aunque el cargo no esté en `roles` (ver AuthService.tieneServicio). OR con
    * `roles` — pensado para poblaciones DISTINTAS (ej. `roles` = admin,
@@ -195,7 +199,17 @@ interface NavGroup {
   `,
   styleUrls: ['./sidebar.component.css'],
 })
-export class SidebarComponent implements OnChanges {
+export class SidebarComponent implements OnChanges, OnInit {
+  /** ¿El usuario es responsable de ≥1 bodega? Gate del link "Mi Bodega". */
+  esResponsableBodega = signal(false);
+
+  ngOnInit(): void {
+    this.materialesApi
+      .sitiosACargo()
+      .then((bodegas) => this.esResponsableBodega.set(bodegas.length > 0))
+      .catch(() => this.esResponsableBodega.set(false));
+  }
+
   @Input() open = false;
   /** Controla el drawer fijo en mobile (<1024px) — independiente de `open`,
    * que en mobile siempre viene en true junto con este (ver main-layout). */
@@ -227,6 +241,7 @@ export class SidebarComponent implements OnChanges {
     private aprendizContext: AprendizContextService,
     private contactWidget: ContactWidgetService,
     private router: Router,
+    private materialesApi: MaterialesApiService,
   ) {
     this.allGroups = [
       {
@@ -364,6 +379,15 @@ export class SidebarComponent implements OnChanges {
         // administrador_erp), marcado individualmente en cada uno.
         links: [
           {
+            // Consola del encargado de bodega. Se muestra SOLO si el usuario es
+            // `id_responsable` de ≥1 bodega (cualquier cargo) — el admin no lo
+            // ve salvo que además sea responsable de una. El guard
+            // `miBodegaGuard` hace el mismo chequeo al navegar.
+            label: 'Mi Bodega', href: '/mi-bodega',
+            soloResponsableBodega: true,
+            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`),
+          },
+          {
             label: 'Categorías', href: '/materiales/categorias',
             roles: ['administrador', 'administrador_erp'],
             aplicativo: 'Materiales',
@@ -498,12 +522,9 @@ export class SidebarComponent implements OnChanges {
             servicioEstricto: 'materiales.devoluciones.ver',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l-4-4m0 0l4-4m-4 4h11a4 4 0 010 8h-1"/></svg>`),
           },
-          {
-            label: 'Asignaciones', href: '/instructor/materiales/asignaciones',
-            roles: ['instructor'],
-            servicioEstricto: 'materiales.asignaciones.ver',
-            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1a4 4 0 100-8 4 4 0 000 8zm6 3a4 4 0 00-3-3.87M9 13a4 4 0 00-3 3.87"/></svg>`),
-          },
+          // "Asignaciones" NO va para instructor: el rol no tiene ningún
+          // `materiales.asignaciones.*` en SERVICIOS_POR_ROL (es admin-only),
+          // así que la pantalla era inalcanzable. Ruta y componente retirados.
 
           // ── Aprendiz: solo lectura + solicitar/recibir préstamos propios —
           // sin `aplicativo`, mismo criterio que instructor arriba. Mismo
@@ -599,6 +620,7 @@ export class SidebarComponent implements OnChanges {
           // por un instante y luego cambiarlo.
           if (esAprendiz && l.soloAprendizConEtapa && tieneEtapa !== true) return false;
           if (esAprendiz && l.soloAprendizSinEtapa && tieneEtapa !== false) return false;
+          if (l.soloResponsableBodega && !this.esResponsableBodega()) return false;
           return true;
         }),
       }))

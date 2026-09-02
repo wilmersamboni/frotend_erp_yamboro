@@ -192,11 +192,30 @@ export interface Devolucion {
   solicitud?: Solicitud;
 }
 
-export interface CreateDevolucionDto {
-  id_solicitud: string;
+/** Unidad de un préstamo pendiente de devolver (M10a). */
+export interface ItemPendienteDevolucion {
+  id_item: string;
+  placa_sena: string | null;
+  codigo_sku: string | null;
+  estado: string;
+}
+
+/** Override del estado físico de una unidad puntual del lote (M10a). */
+export interface DevolucionItemInput {
   id_item: string;
   estado: EstadoDevolucion;
   observacion?: string;
+}
+
+/**
+ * Devolución por LOTE (M10a): `estado_general` se aplica a todas las unidades
+ * pendientes del préstamo; `items` lleva solo las excepciones.
+ */
+export interface CreateDevolucionDto {
+  id_solicitud: string;
+  estado_general: EstadoDevolucion;
+  observacion?: string;
+  items?: DevolucionItemInput[];
 }
 
 /**
@@ -286,6 +305,10 @@ export class MaterialesApiService {
   // ── Sitios ─────────────────────────────────────────────────────────
   listarSitios() {
     return this.unwrap(this.http.get<Envelope<Sitio[]>>(`${BASE}/sitios`));
+  }
+  /** Bodegas de las que el usuario logueado es responsable — pantalla "Mi Bodega". */
+  sitiosACargo() {
+    return this.unwrap(this.http.get<Envelope<Sitio[]>>(`${BASE}/sitios/a-cargo`));
   }
   crearSitio(dto: CreateSitioDto) {
     return this.unwrap(this.http.post<Envelope<Sitio>>(`${BASE}/sitios`, dto));
@@ -412,12 +435,19 @@ export class MaterialesApiService {
     return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/confirmar-recepcion`, {}));
   }
 
-  // ── Devoluciones (solo registro — sin máquina de estados propia) ─────
+  // ── Devoluciones (por lote / por unidad — M10a) ────────────────────
   listarDevoluciones() {
     return this.unwrap(this.http.get<Envelope<Devolucion[]>>(`${BASE}/devoluciones`));
   }
+  /** Unidades del préstamo que aún faltan devolver (con placa SENA / SKU). */
+  itemsPendientesDevolucion(idSolicitud: string) {
+    return this.unwrap(
+      this.http.get<Envelope<ItemPendienteDevolucion[]>>(`${BASE}/devoluciones/pendientes/${idSolicitud}`),
+    );
+  }
+  /** Registra la devolución de todas las unidades pendientes de un préstamo. */
   crearDevolucion(dto: CreateDevolucionDto) {
-    return this.unwrap(this.http.post<Envelope<Devolucion>>(`${BASE}/devoluciones`, dto));
+    return this.unwrap(this.http.post<Envelope<Devolucion[]>>(`${BASE}/devoluciones`, dto));
   }
 
   // ── Chequeos ───────────────────────────────────────────────────────
@@ -439,9 +469,7 @@ export class MaterialesApiService {
   anularAsignacion(id: string) {
     return this.unwrap(this.http.patch<Envelope<Asignacion>>(`${BASE}/materiales/asignaciones/${id}/anular`, {}));
   }
-  eliminarAsignacion(id: string) {
-    return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/materiales/asignaciones/${id}`));
-  }
+  // Sin eliminarAsignacion: una asignación no se borra, se anula (A3).
 
   // Notificaciones: retiradas en la Fase 4 del plan de fusión de
   // notificaciones — desde la Fase 1, Materiales escribe en la tabla única
