@@ -231,10 +231,12 @@ export class MaterialesDevolucionesComponent implements OnInit {
   private async cargar(): Promise<void> {
     this.loading = true;
     try {
+      // M9 — solo `listarDevoluciones()` es crítico; si una secundaria da 403
+      // (excepción personal) no debe tumbar la tabla entera.
       const [devoluciones, solicitudes, items] = await Promise.all([
         this.api.listarDevoluciones(),
-        this.api.listarSolicitudes(),
-        this.api.listarItems(),
+        this.api.listarSolicitudes().catch(() => [] as Solicitud[]),
+        this.api.listarItems().catch(() => [] as Item[]),
       ]);
       this.devoluciones = devoluciones;
       this.solicitudes = solicitudes;
