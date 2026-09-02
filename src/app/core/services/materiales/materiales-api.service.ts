@@ -132,7 +132,7 @@ export interface CreateNovedadDto {
 }
 
 export type EstadoTraslado = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO';
-export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'EN_ENTREGA' | 'ENTREGADA' | 'DEVUELTA';
+export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'EN_ENTREGA' | 'ENTREGADA' | 'DEVUELTA' | 'CANCELADA';
 
 export interface Solicitud {
   id_solicitud: string;
@@ -430,6 +430,10 @@ export class MaterialesApiService {
   }
   entregarSolicitud(id: string) {
     return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/entregar`, {}));
+  }
+  /** Cancela una solicitud APROBADA que no se va a entregar (no toca inventario). */
+  cancelarSolicitud(id: string) {
+    return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/cancelar`, {}));
   }
   confirmarRecepcionSolicitud(id: string) {
     return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/confirmar-recepcion`, {}));
