@@ -83,16 +83,6 @@ interface Ficha {
                           Anular
                         </button>
                       }
-                      @if (a.estado === 'ANULADA' && puedeEliminar) {
-                        <button (click)="eliminar(a)"
-                          class="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors" title="Eliminar">
-                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7
-                                 m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                          </svg>
-                        </button>
-                      }
                     </div>
                   </td>
                 </tr>
@@ -217,15 +207,9 @@ export class MaterialesAsignacionesComponent implements OnInit {
     private erpCatalogo: ErpCatalogoService,
   ) {}
 
-  /**
-   * Gateados por servicio (`materiales.asignaciones.anular`/`.eliminar`),
-   * no por cargo — ver plan "Ronda 3".
-   */
+  /** Gateado por servicio, no por cargo — ver plan "Ronda 3". */
   get puedeAnular(): boolean {
     return this.auth.tieneServicio('materiales.asignaciones.anular');
-  }
-  get puedeEliminar(): boolean {
-    return this.auth.tieneServicio('materiales.asignaciones.eliminar');
   }
 
   ngOnInit(): void {
@@ -334,18 +318,4 @@ export class MaterialesAsignacionesComponent implements OnInit {
     }
   }
 
-  /** Solo se ofrece para asignaciones ya ANULADAs: a diferencia de anular(),
-   * el DELETE del backend no restaura el stock de los ítems prestados — si
-   * se permitiera sobre una ACTIVA, esos ítems quedarían atascados en
-   * PRESTADO para siempre. */
-  async eliminar(a: Asignacion): Promise<void> {
-    if (!(await this.confirm.ask(`¿Eliminar la asignación #${a.id_asignacion}? Esta acción no se puede deshacer.`))) return;
-    try {
-      await this.api.eliminarAsignacion(a.id_asignacion);
-      this.toast.ok('Asignación eliminada');
-      await this.cargar();
-    } catch (e) {
-      this.toast.httpError(e, 'No se pudo eliminar la asignación.');
-    }
-  }
 }

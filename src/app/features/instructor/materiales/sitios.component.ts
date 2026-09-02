@@ -190,6 +190,7 @@ export class InstructorMaterialesSitiosComponent implements OnInit {
     if (cargo === 'administrador_erp') return 'Administrador ERP';
     if (cargo === 'administrador') return 'Administrador';
     if (cargo === 'instructor') return 'Instructor';
+    if (cargo === 'aprendiz') return 'Aprendiz';
     return cargo ?? '';
   }
 

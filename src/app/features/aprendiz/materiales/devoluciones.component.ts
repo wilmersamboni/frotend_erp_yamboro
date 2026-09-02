@@ -24,18 +24,17 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
 }
 
 /**
- * Registro de devoluciones de material prestado (M10a — devolución por unidad).
- *
- * Un préstamo entrega N unidades; esta pantalla cierra la devolución de TODAS
- * las unidades pendientes de una sola vez: se elige un "estado general" que se
- * aplica a todas, y solo se toca fila por fila la placa de las 1-2 unidades que
- * vuelven en otro estado. El backend crea una fila `devolucion` por unidad,
- * restaura el stock (BUENO/REGULAR → DISPONIBLE, DAÑADO/PERDIDO → ese estado),
- * cierra la solicitud (→ DEVUELTA) y crea el `Chequeo` de auditoría cuando ya
- * volvieron todas las unidades. No hay botones de fila: es alta + listado.
+ * Registro de devoluciones para aprendiz — copia casi literal de
+ * `features/instructor/materiales/devoluciones.component.ts` (M10a — devolución
+ * por unidad). La ruta `aprendiz/materiales/devoluciones` exige
+ * `serviciosRequeridos: ['materiales.devoluciones.ver']`, que NO está en
+ * `MATERIALES_APRENDIZ` por defecto → solo llega acá un **aprendiz encargado
+ * de bodega** (con el bundle B3 otorgado al hacerlo `sitio.id_responsable`).
+ * Ve los préstamos de SU bodega vía `findForResponsable`. Ver docblock de la
+ * versión admin para el detalle del flujo.
  */
 @Component({
-  selector: 'app-materiales-devoluciones',
+  selector: 'app-aprendiz-materiales-devoluciones',
   standalone: true,
   imports: [FormsModule, DatePipe],
   template: `
@@ -183,7 +182,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
     }
   `,
 })
-export class MaterialesDevolucionesComponent implements OnInit {
+export class AprendizMaterialesDevolucionesComponent implements OnInit {
   devoluciones: Devolucion[] = [];
   solicitudes: Solicitud[] = [];
   items: Item[] = [];
@@ -205,12 +204,7 @@ export class MaterialesDevolucionesComponent implements OnInit {
     private toast: ToastService,
   ) {}
 
-  /**
-   * Préstamos en estado ENTREGADA. El backend cierra la solicitud (→ DEVUELTA)
-   * cuando ya volvieron todas las unidades, así que basta con el estado; si
-   * quedan filas `devolucion` pero la solicitud sigue ENTREGADA (parciales /
-   * datos viejos), el endpoint de pendientes devuelve solo lo que falta.
-   */
+  /** Ver docblock de la versión admin. */
   get solicitudesEntregadas(): Solicitud[] {
     return this.solicitudes.filter((s) => s.estado === 'ENTREGADA');
   }
@@ -298,8 +292,6 @@ export class MaterialesDevolucionesComponent implements OnInit {
         observacion: this.observacion.trim() || undefined,
         items: excepciones.length > 0 ? excepciones : undefined,
       };
-      // El backend crea una fila por unidad, restaura el stock, cierra la
-      // solicitud (DEVUELTA) y crea el Chequeo de auditoría al completarse.
       await this.api.crearDevolucion(dto);
       this.toast.ok('Devolución registrada');
       this.crearOpen = false;

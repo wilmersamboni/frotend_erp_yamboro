@@ -178,7 +178,7 @@ export class NotificacionService {
     async obtenerIdsAdmins(): Promise<string[]> {
         try {
             const resp: any = await firstValueFrom(
-                this.http.get(`${BASE}/personas/por-cargo/administrador`)
+                this.http.get(`${BASE}/personas/cargo/administrador`)
             );
             const lista = Array.isArray(resp) ? resp : (resp?.data ?? []);
             return lista.map((p: any) => p.id ?? p.id_persona ?? p.usuarioId).filter(Boolean);
@@ -192,8 +192,8 @@ export class NotificacionService {
     }> {
         try {
             const [ri, ra] = await Promise.all([
-                firstValueFrom(this.http.get<any>(`${BASE}/personas/por-cargo/instructor`)),
-                firstValueFrom(this.http.get<any>(`${BASE}/personas/por-cargo/aprendiz`)),
+                firstValueFrom(this.http.get<any>(`${BASE}/personas/cargo/instructor`)),
+                firstValueFrom(this.http.get<any>(`${BASE}/personas/cargo/aprendiz`)),
             ]);
             const toIds = (r: any) => {
                 const l = Array.isArray(r) ? r : (r?.data ?? []);
