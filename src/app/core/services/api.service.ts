@@ -403,7 +403,14 @@ async subirEvidenciaObservacion(file: File): Promise<string> {
     return firstValueFrom(this.http.get<any[]>(`${BASE2}/modalidad`));
   }
   async listarEmpresas(): Promise<any[]> {
-    return firstValueFrom(this.http.get<any[]>(`${BASE2}/empresas`));
+    // Igual que listarPracticas/listarTodasMatriculas: quien no tenga
+    // 'practica.empresas.gestionar' recibe 403 acá — sin este catch, un solo
+    // 403 tumbaba el Promise.all completo del home (ver home.component.ts).
+    try {
+      return await firstValueFrom(this.http.get<any[]>(`${BASE2}/empresas`));
+    } catch {
+      return [];
+    }
   }
 
   // ── Usuarios y Credenciales ───────────────────────────────────────────────

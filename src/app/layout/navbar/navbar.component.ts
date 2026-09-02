@@ -8,8 +8,8 @@ import { NotificacionesCampanaComponent } from './notificaciones-campana.compone
   standalone: true,
   imports: [RouterLink, NotificacionesCampanaComponent],
   template: `
-    <header class="bg-white border-b border-gray-100 sticky top-0 z-50"
-            style="box-shadow: 0 1px 8px 0 rgba(0,0,0,.06);">
+    <header class="bg-white border border-gray-100 mx-4 mt-4 rounded-2xl sticky top-4 z-50"
+            style="box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 12px 28px rgba(15,23,42,.06);">
       <nav class="h-14 flex items-center justify-between px-5">
 
         <div class="flex items-center gap-2">

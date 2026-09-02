@@ -56,6 +56,18 @@ export interface ModuloConfig {
    * sin `servicio` para no imponer una restricción que el backend no aplica.
    */
   servicio?: string;
+  /**
+   * Servicio que habilita "Agregar" y "Editar" en la tabla genérica — si no
+   * se define, cae a `servicio` (el mismo que gatea ver la pestaña).
+   * Hace falta un campo aparte cuando ver y escribir NO son el mismo nivel
+   * — ej. Empresas: `servicio` es '.ver' (para que instructor la vea), pero
+   * crear/editar exige '.administrar' (solo admin). Sin esto, cualquiera
+   * que viera la pestaña veía también los botones de crear/editar, sin
+   * importar si de verdad tenía ese nivel.
+   */
+  servicioEscritura?: string;
+  /** Igual que `servicioEscritura` pero para "Eliminar" — cae a `servicioEscritura` (y de ahí a `servicio`) si no se define. */
+  servicioEliminar?: string;
   /** Opciones estáticas para dropdowns sin módulo externo */
   opcionesEstaticas?: Record<string, { label: string; value: string }[]>;
   /**
@@ -92,6 +104,10 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     actualizar: id => `${BASE}/sedes/${id}`,
     eliminar:   id => `${BASE}/sedes/${id}`,
     grupo: 'epsas', categoria: 'Organización',
+    // Lectura abierta (catálogo básico compartido); crear/editar/eliminar
+    // sí exige el servicio — antes sede.controller.ts no tenía ningún guard.
+    servicioEscritura: 'organizacion.gestionar',
+    servicioEliminar: 'organizacion.gestionar',
     campos: ['nombre', 'centroFormacionId'],
     selectores: {
       centroFormacionId: { modulo: 'centros', label: 'nombre', value: 'idCentro' },
@@ -125,6 +141,8 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     actualizar: id => `${BASE}/municipios/${id}`,
     eliminar:   id => `${BASE}/municipios/${id}`,
     grupo: 'epsas', categoria: 'Organización',
+    servicioEscritura: 'organizacion.gestionar',
+    servicioEliminar: 'organizacion.gestionar',
     columnas: ['nombre', 'departamento'],
     campos: ['nombre', 'departamentoId'],
     selectores: {
@@ -314,6 +332,10 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     actualizar: id => `${BASE}/cursos/${id}`,
     eliminar:   id => `${BASE}/cursos/${id}`,
     grupo: 'epsas', categoria: 'Académico',
+    // Lectura abierta (catálogo básico compartido); crear/editar/eliminar sí
+    // exige el servicio — antes cursos.controller.ts no tenía ningún guard.
+    servicioEscritura: 'academico.gestionar',
+    servicioEliminar: 'academico.gestionar',
     // area, programa y lider vienen como objetos anidados (eager); aplanarFila extrae 'nombre'
     columnas: ['codigo', 'area', 'programa', 'lider', 'fechaInicio', 'fechaFin'],
     campos: ['codigo', 'fechaInicio', 'fechaFin', 'finLectiva', 'areaId', 'programaId', 'liderId'],
@@ -335,6 +357,8 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     actualizar: id => `${BASE}/programas/${id}`,
     eliminar:   id => `${BASE}/programas/${id}`,
     grupo: 'epsas', categoria: 'Académico',
+    servicioEscritura: 'academico.gestionar',
+    servicioEliminar: 'academico.gestionar',
     usePatch: true,
     columnas: ['nombre', 'tipo'],
     campos: ['nombre', 'tipo'],
@@ -353,6 +377,8 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     actualizar: id => `${BASE}/areas/${id}`,
     eliminar:   id => `${BASE}/areas/${id}`,
     grupo: 'epsas', categoria: 'Organización',
+    servicioEscritura: 'organizacion.gestionar',
+    servicioEliminar: 'organizacion.gestionar',
     // sede viene como objeto anidado (eager); aplanarFila extrae 'nombre'
     columnas: ['nombre', 'sede'],
     campos: ['nombre', 'sedeId'],
@@ -361,26 +387,50 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     },
   },
 
+  // Usuario (persona + aplicativo) y Credencial (login + password + rol)
+  // fusionados en una sola pestaña/formulario — antes había que crear
+  // primero el Usuario, copiar su ID a mano y recién ahí crear la
+  // Credencial en una pestaña aparte. El backend (usuarios-credenciales,
+  // ver UsuarioCredencialService) crea/edita/borra ambos en una sola
+  // transacción. 'credenciales' como pestaña propia queda oculta (OCULTOS),
+  // el endpoint /credenciales viejo se mantiene por si algo más lo usa.
   usuarios: {
     label: 'Usuarios', idKey: 'idUsuario',
-    listar: `${BASE}/usuarios`, crear: `${BASE}/usuarios`,
-    actualizar: id => `${BASE}/usuarios/${id}`,
-    eliminar:   id => `${BASE}/usuarios/${id}`,
+    listar: `${BASE}/usuarios-credenciales`, crear: `${BASE}/usuarios-credenciales`,
+    actualizar: id => `${BASE}/usuarios-credenciales/${id}`,
+    eliminar:   id => `${BASE}/usuarios-credenciales/${id}`,
     grupo: 'epsas', categoria: 'Personas y Cuentas',
-    columnas: ['persona', 'aplicativo'],
-    campos: ['personaId', 'aplicativoId'],
+    // Gatea también la lectura, no solo escritura — ver un login/rol ya es
+    // sensible. Reservado a administrador_erp/administrador.
+    servicio: 'usuarios.gestionar',
+    usePatch: true,
+    columnas: ['persona', 'aplicativo', 'login', 'rol'],
+    campos: ['personaId', 'aplicativoId', 'login', 'password', 'rolId'],
     selectores: {
       personaId:    { modulo: 'personas',    label: 'nombre', value: 'idPersona'    },
       aplicativoId: { modulo: 'aplicativos', label: 'nombre', value: 'idAplicativo' },
+      rolId:        { modulo: 'roles',       label: 'nombre', value: 'idRol'        },
+    },
+    tiposCampo: {
+      password: 'password',
+    },
+    columnLabels: {
+      persona: 'Persona', aplicativo: 'Aplicativo', login: 'Login', rol: 'Rol',
+      personaId: 'Persona', aplicativoId: 'Aplicativo', rolId: 'Rol',
+      password: 'Contraseña (vacío = no cambiar)',
     },
   },
 
+  // Config heredada, ya no se usa como pestaña (ver 'usuarios' arriba) —
+  // se deja definida porque 'credenciales' sigue siendo parte del tipo
+  // Modulo y CONFIG debe cubrir todas sus claves.
   credenciales: {
     label: 'Credenciales', idKey: 'idCredencial',
     listar: `${BASE}/credenciales`, crear: `${BASE}/credenciales`,
     actualizar: id => `${BASE}/credenciales/${id}`,
     eliminar:   id => `${BASE}/credenciales/${id}`,
     grupo: 'epsas', categoria: 'Personas y Cuentas',
+    servicio: 'usuarios.gestionar',
     usePatch: true,
     columnas: ['login', 'rol', 'usuario'],
     campos: ['login', 'password', 'rolId', 'usuarioId'],
@@ -402,6 +452,12 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     eliminar:   id => `${BASE2}/empresas/${id}`,
     grupo: 'practica', categoria: 'Empresas y Modalidades',
     servicio: 'practica.empresas.ver',
+    // '.ver' basta para VER la pestaña (instructor la trae por defecto),
+    // pero crear/editar/eliminar en empresa.controller.ts exige
+    // '.administrar' completo — sin esto, cualquiera que viera Empresas
+    // veía también "Agregar"/editar/eliminar aunque no tuviera ese nivel.
+    servicioEscritura: 'practica.empresas.administrar',
+    servicioEliminar: 'practica.empresas.administrar',
     usePatch: true,
     columnas: ['nit', 'nombre', 'municipio', 'telefono', 'correo', 'estado'],
     campos: ['nit', 'nombre', 'direccion', 'telefono', 'correo', 'municipio', 'estado', 'tipo', 'longitud', 'latitud'],
@@ -432,6 +488,11 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     eliminar:   id => `${BASE2}/modalidad/${id}`,
     grupo: 'practica', categoria: 'Empresas y Modalidades',
     servicio: 'practica.etapas.ver',
+    // '.ver' basta para VER la pestaña; modalidad.controller.ts exige
+    // '.administrar' de Etapas (Modalidades no tiene servicio propio, usa
+    // el de Etapas) para crear/editar/eliminar.
+    servicioEscritura: 'practica.etapas.administrar',
+    servicioEliminar: 'practica.etapas.administrar',
     usePatch: true,
     campos: ['nombre'],
     opcionesEstaticas: {
@@ -599,6 +660,11 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     eliminar:   id => `${BASE2}/formatos/${id}`,
     grupo: 'practica', categoria: 'Seguimiento de Práctica',
     servicio: 'practica.formatos.ver',
+    // '.ver' basta para VER la pestaña; editar/eliminar exige '.gestionar'
+    // (único nivel de escritura de Formatos desde la fusión con
+    // '.administrar' — ver migrate-formatos-permisos.ts).
+    servicioEscritura: 'practica.formatos.gestionar',
+    servicioEliminar: 'practica.formatos.gestionar',
     usePatch: true,
     columnas: ['tipo', 'nombre_original', 'mime_type', 'estado'],
     campos: ['tipo', 'nombre'],
@@ -613,8 +679,20 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
  * Usuarios (<app-permisos-panel>, ver plan "Adaptar la interfaz de permisos
  * de SGM al ERP") — el endpoint /permisos se sigue usando, solo deja de
  * tener una pantalla CRUD dedicada con IDs crudos.
+ * 'credenciales': fusionada dentro de 'usuarios' — ver el módulo backend
+ * usuarios-credenciales y el comentario en CONFIG.usuarios.
+ * 'aplicativos'/'modulos'/'servicios': editor crudo del catálogo de
+ * permisos — crear una fila ahí no conecta con ningún @RequiereServicio
+ * real (eso solo se logra escribiendo código), y editar/eliminar una fila
+ * EXISTENTE sí puede romper algo real (ej. borrar el servicio que gatea
+ * Formatos lo tumba para todo el mundo, sin ningún mensaje que lo explique).
+ * Alto riesgo, cero beneficio de uso diario — decisión explícita de dejarlas
+ * ocultas. Los cambios reales al catálogo se hacen por código + script de
+ * migración (ver scripts/migrate-*.ts), no por esta UI. Sus CONFIG siguen
+ * definidos porque otros selectores (ej. usuarios.aplicativoId) siguen
+ * usando `admin.cargar(...)` sobre ellos para poblar dropdowns.
  */
-const OCULTOS: Modulo[] = ['permisos'];
+const OCULTOS: Modulo[] = ['permisos', 'credenciales', 'aplicativos', 'modulos', 'servicios'];
 
 /** Solo los módulos que aparecen como pestañas en el panel */
 export const MODULOS = (Object.keys(CONFIG) as Modulo[]).filter(
@@ -628,12 +706,44 @@ export const MODULOS_EPSAS = MODULOS.filter(m => CONFIG[m].grupo === 'epsas');
 export const MODULOS_PRACTICA = MODULOS.filter(m => CONFIG[m].grupo === 'practica');
 
 /**
+ * Servicios que sí justifican dejar ENTRAR a /admin (ver app.routes.ts,
+ * ruta 'admin') — a diferencia del filtro de pestañas de
+ * `AdminPanelComponent.modulosVista()` (que decide QUÉ ve alguien ya
+ * adentro), esta lista decide quién pasa la puerta.
+ *
+ * NO es "el servicio de cada pestaña de MODULOS_ADMIN" ni todos los
+ * `.administrar`/`.gestionar` — a propósito, deja afuera cualquier servicio
+ * que instructor o aprendiz ya reciban por defecto (ver SERVICIOS_POR_ROL /
+ * PRACTICA_INSTRUCTOR / PRACTICA_APRENDIZ en tenant-admin.service.ts del
+ * ERP), aunque ese servicio sí gatee una pestaña real:
+ *   - Formatos ('practica.formatos.gestionar') queda FUERA aposta: es
+ *     exactamente el nivel que un instructor normal ya tiene de fábrica —
+ *     incluirlo dejaría entrar a /admin a cualquier instructor, el mismo bug
+ *     que ya se corrigió una vez (ver comentario histórico en app.routes.ts).
+ *   - Los '.ver' de cualquier recurso quedan fuera por el mismo motivo.
+ * Solo entran acá servicios que NINGÚN rol recibe por defecto — el nivel
+ * '.administrar' de Etapa Práctica (admin-only, instructor nunca lo tiene) y
+ * los servicios "planos" que tampoco forman parte del set base de nadie.
+ */
+export const SERVICIOS_ADMIN_PANEL: string[] = [
+  'permisos.gestionar',
+  'ambientes.gestionar',
+  'practica.empresas.administrar',
+  'practica.etapas.administrar',
+  'practica.asignaciones.administrar',
+  'practica.seguimientos.administrar',
+  'practica.bitacoras.administrar',
+  'practica.observaciones.administrar',
+];
+
+/**
  * Vista del administrador de prácticas:
  * gestión académica básica (personas, matrículas, cursos, programas, usuarios, credenciales)
  * + todos los módulos de prácticas.
  */
 export const MODULOS_ADMIN: Modulo[] = [
-  'personas', 'matriculas', 'cursos', 'programas', 'usuarios', 'credenciales', 'ambientes',
+  // 'credenciales' fusionada dentro de 'usuarios' — ver CONFIG.usuarios.
+  'personas', 'matriculas', 'cursos', 'programas', 'usuarios', 'ambientes',
   // 'roles' con servicio propio ('permisos.gestionar', ver arriba) — a
   // diferencia de aplicativos/modulos/servicios (decisión tomada: quedan
   // admin_erp-exclusivos, es el catálogo que define TODO el sistema de

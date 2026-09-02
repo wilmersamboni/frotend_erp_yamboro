@@ -155,7 +155,6 @@ a[class*="bg-\\[#007832\\]"]
 .nav-link-active {
   background:        rgb(${r} ${g} ${b} / 0.08) !important;
   color:             rgb(${r} ${g} ${b}) !important;
-  border-left-color: rgb(${r} ${g} ${b}) !important;
 }
 
 /* SVG inline */

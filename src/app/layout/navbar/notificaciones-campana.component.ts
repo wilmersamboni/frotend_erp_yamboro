@@ -19,17 +19,15 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService }   from '../../core/services/api.service';
-import { AuthService }  from '../../core/services/auth.service';
-import { MaterialesApiService } from '../../core/services/materiales/materiales-api.service';
 import { NotificacionesRealtimeService } from '../../core/services/realtime/notificaciones-realtime.service';
 
-// 'erp' → tabla `notificaciones` de backend-erp (id uuid, PATCH /notificaciones/:id/leer).
-// 'materiales' → tabla `notificacion` de backend-epsas-horarios (id numérico,
-// namespaceado acá como 'mat-<id>' para no chocar con los uuid del ERP,
-// PATCH /api2/notificaciones/:id/marcar-leida). Ambas comparten estructura
-// (tipo/titulo/mensaje/data) — ver notificacion.orm-entity.ts de Materiales.
-export type OrigenNotificacion = 'erp' | 'materiales';
-
+// Fuente única: tabla `notificaciones` de backend-erp (id uuid, PATCH
+// /notificaciones/:id/leer). Hasta la Fase 2 del plan de fusión de
+// notificaciones esta campana también consultaba en paralelo la tabla
+// `notificacion` de Materiales (backend-epsas-horarios) y las intercalaba
+// client-side — desde la Fase 1, Materiales escribe en esta misma tabla vía
+// el canal interno del ERP (`notificarPersonas`), así que ese merge quedó
+// obsoleto y se retiró.
 export interface Notificacion {
   id:        string;
   tipo:      string;
@@ -38,7 +36,6 @@ export interface Notificacion {
   data:      Record<string, any> | null;
   leida:     boolean;
   createdAt: string;
-  origen:    OrigenNotificacion;
 }
 
 interface TipoMeta {
@@ -94,6 +91,25 @@ const TIPO_META: Record<string, TipoMeta> = {
   materiales_traslado_rechazado: {
     icon: '❌', bgUnread: 'bg-red-50', dotColor: 'bg-red-500',
     badgeBg: 'bg-red-100', badgeText: 'text-red-700', label: 'Traslado rechazado',
+  },
+  // Fase 2 del plan de fusión de notificaciones — antes caían al DEFAULT_META
+  // genérico porque los 4 sitios que las crean (solicitudes.repository.ts,
+  // devoluciones.repository.ts) nunca les asignaban un tipo propio.
+  materiales_solicitud_lista_entrega: {
+    icon: '📬', bgUnread: 'bg-cyan-50', dotColor: 'bg-cyan-500',
+    badgeBg: 'bg-cyan-100', badgeText: 'text-cyan-700', label: 'Listo para recoger',
+  },
+  materiales_stock_bajo: {
+    icon: '⚠️', bgUnread: 'bg-amber-50', dotColor: 'bg-amber-500',
+    badgeBg: 'bg-amber-100', badgeText: 'text-amber-700', label: 'Stock bajo',
+  },
+  materiales_solicitud_confirmada: {
+    icon: '✅', bgUnread: 'bg-green-50', dotColor: 'bg-green-500',
+    badgeBg: 'bg-green-100', badgeText: 'text-green-700', label: 'Recepción confirmada',
+  },
+  materiales_devolucion_registrada: {
+    icon: '📦', bgUnread: 'bg-teal-50', dotColor: 'bg-teal-500',
+    badgeBg: 'bg-teal-100', badgeText: 'text-teal-700', label: 'Devolución registrada',
   },
 };
 
@@ -334,7 +350,7 @@ export class NotificacionesCampanaComponent implements OnInit, OnDestroy {
   // ngOnDestroy sin cerrar el socket compartido (ver comentario en
   // NotificacionesRealtimeService.off).
   private onNotifNueva = (n: any) => {
-    this.notificaciones.update((list) => [{ ...n, origen: 'erp' as const }, ...list.filter((x) => x.id !== n.id)]);
+    this.notificaciones.update((list) => [n, ...list.filter((x) => x.id !== n.id)]);
   };
 
   // El backend borra una notificación 5 min después de marcarla leída — este
@@ -345,8 +361,6 @@ export class NotificacionesCampanaComponent implements OnInit, OnDestroy {
 
   constructor(
     private api: ApiService,
-    private materialesApi: MaterialesApiService,
-    private auth: AuthService,
     private realtime: NotificacionesRealtimeService,
   ) {}
 
@@ -381,35 +395,10 @@ export class NotificacionesCampanaComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Fusiona la campana del navbar (backend-erp, /api/notificaciones) con las
-  // notificaciones de Materiales (backend-epsas-horarios, /api2/notificaciones)
-  // — misma estructura tipo/titulo/mensaje/data en ambas tablas, ver
-  // notificacion.orm-entity.ts de Materiales. Sin id de usuario todavía
-  // (carga inicial antes de resolver sesión) se omite el lado Materiales.
   async cargar(): Promise<void> {
     this.cargando.set(true);
-    const idUsuario = this.auth.user()?.id;
-    const [erpList, materialesList] = await Promise.all([
-      this.api.listarNotificaciones(),
-      idUsuario ? this.materialesApi.listarNotificaciones(idUsuario).catch(() => []) : Promise.resolve([]),
-    ]);
-
-    const erp: Notificacion[] = erpList.map((n: any) => ({ ...n, origen: 'erp' as const }));
-    const materiales: Notificacion[] = materialesList.map((n) => ({
-      id:        `mat-${n.id_notificacion}`,
-      tipo:      n.tipo,
-      titulo:    n.titulo,
-      mensaje:   n.mensaje,
-      data:      n.data,
-      leida:     n.leida,
-      createdAt: n.fecha,
-      origen:    'materiales' as const,
-    }));
-
-    const merged = [...erp, ...materiales].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-    this.notificaciones.set(merged);
+    const lista = await this.api.listarNotificaciones();
+    this.notificaciones.set(lista);
     this.cargando.set(false);
   }
 
@@ -422,11 +411,7 @@ export class NotificacionesCampanaComponent implements OnInit, OnDestroy {
   async leer(n: Notificacion): Promise<void> {
     this.expandedId.update(id => id === n.id ? null : n.id);
     if (!n.leida) {
-      if (n.origen === 'materiales') {
-        await this.materialesApi.marcarNotificacionLeida(Number(n.id.slice('mat-'.length)));
-      } else {
-        await this.api.marcarNotificacionLeida(n.id);
-      }
+      await this.api.marcarNotificacionLeida(n.id);
       this.notificaciones.update(list =>
         list.map(x => x.id === n.id ? { ...x, leida: true } : x)
       );
@@ -434,11 +419,7 @@ export class NotificacionesCampanaComponent implements OnInit, OnDestroy {
   }
 
   async leerTodas(): Promise<void> {
-    const idUsuario = this.auth.user()?.id;
-    await Promise.all([
-      this.api.marcarTodasNotificacionesLeidas(),
-      idUsuario ? this.materialesApi.marcarTodasNotificacionesLeidas(idUsuario) : Promise.resolve(),
-    ]);
+    await this.api.marcarTodasNotificacionesLeidas();
     this.notificaciones.update(list => list.map(x => ({ ...x, leida: true })));
   }
 

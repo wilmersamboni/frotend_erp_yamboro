@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { OpcionSelect } from '../../features/admin/services/admin.service';
 import { CoordenadasMapComponent } from '../../features/admin/components/coordenadas-map.component';
@@ -6,13 +6,11 @@ import { SearchableSelectComponent } from './searchable-select.component';
 import { DateInputComponent } from './date-input.component';
 import { TuiDay } from '@taiga-ui/cdk';
 
-const AUTOCOMPLETE_THRESHOLD = 10; // más de este número → búsqueda en lugar de select
-
 /**
  * Modal genérico para crear/editar registros.
- * - Campos FK con ≤10 opciones  → <select>
- * - Campos FK con >10 opciones  → autocomplete con búsqueda por texto
- * - Resto                       → <input> con el tipo correcto (date, number, email, text)
+ * - Campos con `opciones`  → <app-ss> (select con buscador incorporado; sirve
+ *                            igual para listas cortas y largas)
+ * - Resto                  → <input> con el tipo correcto (date, number, email, text)
  */
 @Component({
   selector: 'app-admin-modal',
@@ -53,39 +51,10 @@ const AUTOCOMPLETE_THRESHOLD = 10; // más de este número → búsqueda en luga
                     (latChange)="form[parCoordenadas!.lat] = $event"
                     (lngChange)="form[parCoordenadas!.lng] = $event" />
 
-                } @else if (esAutocomplete(col)) {
-                  <!-- AUTOCOMPLETE: lista grande → búsqueda por texto -->
-                  <div class="relative">
-                    <input
-                      type="text"
-                      [value]="getLabelSeleccionado(col)"
-                      (input)="onBusqueda(col, $any($event.target).value)"
-                      (focus)="abrirLista(col)"
-                      [placeholder]="'Buscar ' + (columnLabels[col] ?? formatLabel(col)) + '...'"
-                      autocomplete="off"
-                      class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
-
-                    @if (listasAbiertas[col]) {
-                      <div class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                        @if (filtradas(col).length === 0) {
-                          <p class="px-3 py-2 text-sm text-gray-400">Sin resultados</p>
-                        }
-                        @for (opt of filtradas(col); track opt.value) {
-                          <button type="button"
-                            (click)="seleccionar(col, opt)"
-                            class="w-full text-left px-3 py-2 text-sm hover:bg-[#39A900]/10
-                                   hover:text-[#39A900] transition-colors"
-                            [class.bg-green-50]="form[col] === opt.value"
-                            [class.text-green-700]="form[col] === opt.value">
-                            {{ opt.label }}
-                          </button>
-                        }
-                      </div>
-                    }
-                  </div>
-
                 } @else if (opciones[col]?.length) {
-                  <!-- SELECT: lista pequeña -->
+                  <!-- SELECT con búsqueda incorporada (app-ss). Sirve igual para
+                       listas cortas y largas — el propio dropdown filtra por
+                       texto, así que no hace falta un autocomplete aparte. -->
                   <app-ss [options]="opciones[col]" placeholder="— Selecciona —"
                           [(ngModel)]="form[col]"></app-ss>
 
@@ -122,6 +91,7 @@ const AUTOCOMPLETE_THRESHOLD = 10; // más de este número → búsqueda en luga
                     [type]="tiposCampo[col] ?? 'text'"
                     [(ngModel)]="form[col]"
                     [name]="col"
+                    [placeholder]="placeholders[col] ?? ''"
                     class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
                 }
               </div>
@@ -157,7 +127,7 @@ const AUTOCOMPLETE_THRESHOLD = 10; // más de este número → búsqueda en luga
     </style>
   `,
 })
-export class AdminModalComponent implements OnChanges {
+export class AdminModalComponent {
   @Input() open          = false;
   @Input() editando:     any    = null;
   @Input() labelSingular = 'registro';
@@ -172,65 +142,21 @@ export class AdminModalComponent implements OnChanges {
   /** Etiqueta legible opcional por campo — si falta, se calcula con formatLabel(col). */
   @Input() columnLabels: Record<string, string> = {};
 
+  /**
+   * Placeholder de ejemplo opcional por campo, para el `<input>` normal
+   * (Ronda 6). Los `<select>` (`app-ss`) no lo necesitan.
+   */
+  @Input() placeholders: Record<string, string> = {};
+
+  /**
+   * @deprecated Ya no hace nada — todos los campos con `opciones` usan
+   * `<app-ss>` (select con buscador), sin importar cuántas opciones tengan.
+   * Se mantiene el Input para no romper a los que todavía lo pasan.
+   */
+  @Input() forzarSelect: string[] = [];
+
   @Output() closed = new EventEmitter<void>();
   @Output() saved  = new EventEmitter<Record<string, any>>();
-
-  // ── Estado interno del autocomplete ──────────────────────────
-  busquedas:     Record<string, string>  = {};  // texto escrito por campo
-  listasAbiertas: Record<string, boolean> = {}; // si el dropdown está visible
-
-  ngOnChanges(): void {
-    // Al abrir el modal, inicializar el texto del autocomplete con el label ya seleccionado
-    if (this.open) {
-      this.busquedas     = {};
-      this.listasAbiertas = {};
-    }
-  }
-
-  // ── Helpers autocomplete ──────────────────────────────────────
-
-  esAutocomplete(col: string): boolean {
-    return (this.opciones[col]?.length ?? 0) > AUTOCOMPLETE_THRESHOLD;
-  }
-
-  getLabelSeleccionado(col: string): string {
-    // Si el usuario está escribiendo, mostrar lo que escribe
-    if (this.busquedas[col] !== undefined) return this.busquedas[col];
-    // Si hay un valor seleccionado, mostrar su label
-    const valor = this.form[col];
-    if (!valor) return '';
-    const opt = this.opciones[col]?.find(o => o.value === valor);
-    return opt?.label ?? '';
-  }
-
-  onBusqueda(col: string, texto: string): void {
-    this.busquedas[col]      = texto;
-    this.listasAbiertas[col] = true;
-    // Si borra el texto, limpiar el valor del form
-    if (!texto.trim()) this.form[col] = '';
-  }
-
-  abrirLista(col: string): void {
-    this.listasAbiertas[col] = true;
-    // Mostrar el texto actual del label si hay valor
-    if (this.form[col] && this.busquedas[col] === undefined) {
-      const opt = this.opciones[col]?.find(o => o.value === this.form[col]);
-      this.busquedas[col] = opt?.label ?? '';
-    }
-  }
-
-  seleccionar(col: string, opt: OpcionSelect): void {
-    this.form[col]           = opt.value;
-    this.busquedas[col]      = opt.label;   // mostrar el nombre elegido
-    this.listasAbiertas[col] = false;
-  }
-
-  filtradas(col: string): OpcionSelect[] {
-    const texto = (this.busquedas[col] ?? '').toLowerCase().trim();
-    const lista = this.opciones[col] ?? [];
-    if (!texto) return lista;
-    return lista.filter(o => o.label.toLowerCase().includes(texto));
-  }
 
   // ── Helper de teléfono: solo dígitos, con un único "+" opcional al inicio ──
   sanitizeTelefono(valor: string): string {
@@ -240,9 +166,8 @@ export class AdminModalComponent implements OnChanges {
     return conPrefijo ? '+' + limpio : limpio;
   }
 
-  onBackdropClick(e: MouseEvent): void {
-    // Cerrar listas abiertas al hacer clic en el fondo
-    this.listasAbiertas = {};
+  onBackdropClick(_e: MouseEvent): void {
+    /* el backdrop cierra el modal desde el componente padre (output closed) */
   }
 
   // ── Helpers de fecha (form[col] guarda 'yyyy-MM-dd', igual que <input type="date">) ──
