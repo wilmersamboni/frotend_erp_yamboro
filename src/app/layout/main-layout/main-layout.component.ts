@@ -30,7 +30,7 @@ import { AprendizContextService } from '../../core/services/aprendiz-context.ser
         <app-sidebar
           [open]="sidebarOpen() || mobileMenuOpen()"
           [mobileOpen]="mobileMenuOpen()"
-          (toggle)="sidebarOpen.update(v => !v)"
+          (toggle)="onSidebarToggle()"
         />
       </div>
 
@@ -71,6 +71,21 @@ export class MainLayoutComponent implements OnInit {
   onSidebarAreaClick(event: MouseEvent): void {
     if ((event.target as HTMLElement).closest('a')) {
       this.mobileMenuOpen.set(false);
+    }
+  }
+
+  /**
+   * La hamburguesa DENTRO del sidebar hace dos cosas distintas según el
+   * contexto — antes siempre tocaba sidebarOpen, que en mobile no tiene
+   * ningún efecto visible porque `open` ya viene forzado a true por
+   * mobileMenuOpen() (ver el binding arriba), así que el botón parecía no
+   * responder cuando en realidad el usuario esperaba que cerrara el drawer.
+   */
+  onSidebarToggle(): void {
+    if (this.mobileMenuOpen()) {
+      this.mobileMenuOpen.set(false);
+    } else {
+      this.sidebarOpen.update(v => !v);
     }
   }
 }

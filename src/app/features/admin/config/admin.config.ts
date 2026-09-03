@@ -734,6 +734,17 @@ export const SERVICIOS_ADMIN_PANEL: string[] = [
   'practica.seguimientos.administrar',
   'practica.bitacoras.administrar',
   'practica.observaciones.administrar',
+  // Estos 3 los otorga el backend a CUALQUIER administrador sin importar su
+  // aplicativo (ver SERVICIOS_ADMIN_SIN_RESTRICCION_APLICATIVO en
+  // permisos.service.ts) — sin listarlos acá, un administrador de un
+  // aplicativo de producto (Horarios, Materiales) que solo tiene estos 3
+  // nunca veía el link "Admin" ni podía entrar a /admin. NO se agrega
+  // personas.ver/gestionar ni matriculas.ver/gestionar aquí a propósito:
+  // esos son baseline para instructor/aprendiz también (sinRestriccionAplicativo
+  // los incluye siempre), así que listarlos reabriría /admin para cualquiera.
+  'academico.gestionar',
+  'organizacion.gestionar',
+  'usuarios.gestionar',
 ];
 
 /**

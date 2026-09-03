@@ -16,6 +16,10 @@
   overflow: hidden;
 }
 
+.sidebar-shell:not(.is-open) {
+  overflow: visible;
+}
+
 /* ── Hamburguesa ─────────────────────────────────────────── */
 .sb-top {
   display: flex;
@@ -79,12 +83,29 @@
   line-height: 1.2;
 }
 
-/* ── Navegación: sin scrollbar visible (sigue con scroll funcional) ── */
+/* ── Navegación: scroll real, sin scrollbar visible ─────────── */
 .sb-nav {
+  overflow-y: auto;
+  overflow-x: hidden;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  /* Sin esto, un hijo flex:1 no se encoge por debajo del alto de su propio
+     contenido (min-height:auto por defecto) — con zoom o muchos módulos en
+     modo colapsado, el nav se negaba a encoger y empujaba el pie
+     (Contáctanos/Cerrar sesión) fuera de la tarjeta redondeada. Antes esto
+     tampoco tenía overflow-y:auto: el tooltip vivía DENTRO del link con
+     position:absolute, así que necesitaba que el nav se quedara en
+     overflow:visible para no cortarlo. Ahora el tooltip es un elemento
+     aparte con position:fixed (ver nav-tooltip-fixed), así que el nav ya
+     puede recortar/scrollear sin miedo a romper nada. */
+  min-height: 0;
 }
 .sb-nav::-webkit-scrollbar { display: none; }
+
+/* ── Pie: nunca se encoge, para que el nav sea quien cede espacio ── */
+.sb-bottom {
+  flex-shrink: 0;
+}
 
 /* ── Links ───────────────────────────────────────────────── */
 .nav-link {
@@ -151,10 +172,12 @@
 .nav-section-toggle:hover .nav-section-chevron { color: var(--epsas-accent, #007832); }
 
 /* ── Tooltip (modo colapsado) ────────────────────────────── */
-.nav-tooltip {
-  position: absolute;
-  left: calc(100% + 10px);
-  top: 50%;
+/* position:fixed + top/left puestos por JS (ver mostrarTooltip() en el
+   componente) — a propósito, NO position:absolute dentro del link: así no
+   depende de que el nav tenga overflow:visible, que es lo que antes le
+   impedía scrollear/encogerse de verdad (ver el comentario en .sb-nav). */
+.nav-tooltip-fixed {
+  position: fixed;
   transform: translateY(-50%);
   background: #1e293b;
   color: #fff;
@@ -163,14 +186,12 @@
   padding: 5px 10px;
   border-radius: 7px;
   white-space: nowrap;
-  opacity: 0;
   pointer-events: none;
-  transition: opacity .15s;
   z-index: 9999;
   box-shadow: 0 4px 12px rgba(0,0,0,.15);
 }
 /* Flecha del tooltip */
-.nav-tooltip::before {
+.nav-tooltip-fixed::before {
   content: '';
   position: absolute;
   right: 100%;
@@ -179,7 +200,6 @@
   border: 5px solid transparent;
   border-right-color: #1e293b;
 }
-.nav-link:hover .nav-tooltip { opacity: 1; }
 
 /* ── Botones del pie (Contáctanos / Cerrar sesión) ──────────── */
 .nav-logout {
@@ -193,7 +213,7 @@
   background: none;
   font-size: 13px;
   font-weight: 500;
-  color: #94a3b8;
+  color: #7b7b7b;
   cursor: pointer;
   transition: background .15s, color .15s;
   font-family: inherit;
@@ -231,8 +251,9 @@
 /* Sidebar colapsado: el botón queda centrado angosto, el popover se
    corre un poco a la derecha para no quedar pegado al borde. */
 .contacto-popover.collapsed {
-  left: 60px;
-  bottom: 0;
+  left: calc(100% + 8px);
+  bottom: 70%;
+
 }
 .contacto-opt {
   display: flex;
@@ -244,7 +265,7 @@
   background: none;
   font-size: 13px;
   font-weight: 500;
-  color: #2B2F38;
+  color: #2b2f38;
   text-align: left;
   cursor: pointer;
   font-family: inherit;
