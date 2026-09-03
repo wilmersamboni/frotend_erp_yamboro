@@ -67,7 +67,7 @@ interface NavGroup {
       </div>
 
       <!-- ── Centro/sede actual ────────────────────────────────── -->
-      <div class="px-3 pb-3">
+      <div class="px-3 pb-3 flex-shrink-0">
         <div class="sb-centro" [class.justify-center]="!open"
           [title]="!open ? centroLabel : ''">
           <div class="sb-centro-ic">
@@ -86,9 +86,7 @@ interface NavGroup {
       </div>
 
       <!-- ── Navegación ──────────────────────────────────────── -->
-      <!-- overflow-y-auto solo cuando está abierto para que los tooltips
-           del modo colapsado no queden cortados -->
-      <nav class="sb-nav flex-1 px-2 py-2" [class.overflow-y-auto]="open">
+      <nav class="sb-nav flex-1 px-2 py-2">
 
         @for (group of visibleGroups; track group.id; let first = $first) {
 
@@ -122,9 +120,10 @@ interface NavGroup {
               [routerLink]="linkRepresentativo(group).href"
               class="nav-link justify-center"
               [class.nav-link-active]="isGroupActive(group)"
+              (mouseenter)="mostrarTooltip($event, group.label + ' (' + group.links.length + ')')"
+              (mouseleave)="ocultarTooltip()"
             >
               <span class="flex-shrink-0 w-[18px] h-[18px]" [innerHTML]="linkRepresentativo(group).safeIcon"></span>
-              <span class="nav-tooltip">{{ group.label }} ({{ group.links.length }})</span>
             </a>
           } @else if (!open || !isCollapsible(group) || !isGroupCollapsed(group)) {
             @for (link of group.links; track link.href) {
@@ -134,14 +133,13 @@ interface NavGroup {
                 [routerLinkActiveOptions]="{ exact: link.href === '/' }"
                 class="nav-link"
                 [class.justify-center]="!open"
+                (mouseenter)="mostrarTooltip($event, link.label)"
+                (mouseleave)="ocultarTooltip()"
               >
                 <span class="flex-shrink-0 w-[18px] h-[18px]" [innerHTML]="link.safeIcon"></span>
 
                 @if (open) {
                   <span>{{ link.label }}</span>
-                } @else {
-                  <!-- Tooltip personalizado en modo colapsado -->
-                  <span class="nav-tooltip">{{ link.label }}</span>
                 }
               </a>
             }
@@ -150,8 +148,19 @@ interface NavGroup {
         }
       </nav>
 
+      <!-- Tooltip del modo colapsado — position:fixed y UN SOLO elemento
+           compartido (no uno por link) para que pueda escapar el scroll del
+           nav (ver mostrarTooltip/ocultarTooltip) sin depender de que el nav
+           tenga overflow:visible, que antes le impedía encogerse/scrollear
+           de verdad y rompía el layout en pantallas chicas o con zoom. -->
+      @if (tooltipVisible() && !open) {
+        <div class="nav-tooltip-fixed" [style.top.px]="tooltipTop()" [style.left.px]="tooltipLeft()">
+          {{ tooltipTexto() }}
+        </div>
+      }
+
       <!-- ── Pie: contáctanos + cerrar sesión ────────────────── -->
-      <div class="px-2 pt-2 pb-3 relative">
+      <div class="sb-bottom px-2 pt-2 pb-3 relative">
 
         <!-- Popover con las opciones de contacto — abre hacia arriba porque
              el botón que lo dispara vive al fondo del sidebar. -->
@@ -230,6 +239,26 @@ export class SidebarComponent implements OnChanges, OnInit {
   @Output() toggle = new EventEmitter<void>();
 
   contactoAbierto = signal(false);
+
+  // Tooltip del modo colapsado — ver el comentario junto al @if en el
+  // template sobre por qué es un solo elemento position:fixed en vez de un
+  // <span> por link.
+  tooltipVisible = signal(false);
+  tooltipTexto = signal('');
+  tooltipTop = signal(0);
+  tooltipLeft = signal(0);
+
+  mostrarTooltip(ev: MouseEvent, texto: string): void {
+    const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect();
+    this.tooltipTop.set(rect.top + rect.height / 2);
+    this.tooltipLeft.set(rect.right + 12);
+    this.tooltipTexto.set(texto);
+    this.tooltipVisible.set(true);
+  }
+
+  ocultarTooltip(): void {
+    this.tooltipVisible.set(false);
+  }
 
   // El sidebar se colapsa al sacar el mouse (mouseleave en main-layout) —
   // si el popover de contacto seguía abierto, quedaba flotando con la

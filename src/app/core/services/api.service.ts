@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { Area, Curso, Formato, Persona } from '../../shared/models';
 import { environment } from '../../../environments/environment';
+import { SILENCIAR_TOAST_ERROR } from '../interceptors/error.interceptor';
 
 const BASE  = environment.apiUrl;          // → http://localhost:3000 vía proxy
 const BASE2 = environment.apiPracticaUrl;  // → http://localhost:3001 vía proxy
@@ -128,10 +129,20 @@ export class ApiService {
   }
 
   // ── Prácticas ─────────────────────────────────────────────────────────────
-  /** Solo trae etapas activas — las inactivadas no deben verse en Seguimiento ni en el home. */
+  /**
+   * Solo trae etapas activas — las inactivadas no deben verse en Seguimiento
+   * ni en el home. Se usa también como widget "best effort" del dashboard
+   * (StatsService, HomeComponent) para cualquier rol autenticado, incluidos
+   * admins de un aplicativo (p.ej. Horarios) que no tienen Etapa Práctica —
+   * ahí un 403 es esperado y ya se degrada a `[]` abajo, así que se silencia
+   * el toast global para no interrumpir con una alerta sobre algo que la
+   * pantalla ya maneja en silencio.
+   */
   async listarPracticas(): Promise<any[]> {
     try {
-      const resp: any = await firstValueFrom(this.http.get(`${BASE2}/etapa-practica?soloActivas=true`));
+      const resp: any = await firstValueFrom(this.http.get(`${BASE2}/etapa-practica?soloActivas=true`, {
+        context: new HttpContext().set(SILENCIAR_TOAST_ERROR, true),
+      }));
       if (Array.isArray(resp)) return resp;
       if (resp?.data      && Array.isArray(resp.data))      return resp.data;
       if (resp?.practicas && Array.isArray(resp.practicas)) return resp.practicas;
