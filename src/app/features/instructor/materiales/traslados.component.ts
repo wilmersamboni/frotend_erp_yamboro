@@ -309,10 +309,12 @@ export class InstructorMaterialesTrasladosComponent implements OnInit {
   private async cargar(): Promise<void> {
     this.loading = true;
     try {
+      // M9 — solo `listarTraslados()` es crítico; una secundaria con 403
+      // (excepción personal) no debe tumbar la tabla entera.
       const [traslados, items, sitios] = await Promise.all([
         this.api.listarTraslados(),
-        this.api.listarItems(),
-        this.api.listarSitios(),
+        this.api.listarItems().catch(() => [] as Item[]),
+        this.api.listarSitios().catch(() => [] as Sitio[]),
       ]);
       this.traslados = traslados;
       this.items = items;

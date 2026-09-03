@@ -1,8 +1,10 @@
 import { Component, EventEmitter, HostListener, Input, OnChanges, Output, SimpleChanges, signal } from '@angular/core';
+import { Component, HostListener, Input, OnChanges, OnInit, SimpleChanges, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { AprendizContextService } from '../../core/services/aprendiz-context.service';
 import { ContactWidgetService } from '../../core/services/contact-widget.service';
+import { MaterialesApiService } from '../../core/services/materiales/materiales-api.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { SERVICIOS_ADMIN_PANEL } from '../../features/admin/config/admin.config';
 
@@ -12,6 +14,9 @@ interface NavLink  {
   soloAprendizConEtapa?: boolean;
   /** Solo para rol aprendiz: mostrar únicamente si NO tiene etapa práctica creada. */
   soloAprendizSinEtapa?: boolean;
+  /** Mostrar solo si el usuario es `id_responsable` de ≥1 bodega (cualquier
+   * cargo). El admin NO ve el link salvo que además sea responsable de una. */
+  soloResponsableBodega?: boolean;
   /** Servicio del sistema de permisos dinámico que también habilita este link,
    * aunque el cargo no esté en `roles` (ver AuthService.tieneServicio). OR con
    * `roles` — pensado para poblaciones DISTINTAS (ej. `roles` = admin,
@@ -62,7 +67,7 @@ interface NavGroup {
       </div>
 
       <!-- ── Centro/sede actual ────────────────────────────────── -->
-      <div class="px-3 pb-3">
+      <div class="px-3 pb-3 flex-shrink-0">
         <div class="sb-centro" [class.justify-center]="!open"
           [title]="!open ? centroLabel : ''">
           <div class="sb-centro-ic">
@@ -81,9 +86,7 @@ interface NavGroup {
       </div>
 
       <!-- ── Navegación ──────────────────────────────────────── -->
-      <!-- overflow-y-auto solo cuando está abierto para que los tooltips
-           del modo colapsado no queden cortados -->
-      <nav class="sb-nav flex-1 px-2 py-2" [class.overflow-y-auto]="open">
+      <nav class="sb-nav flex-1 px-2 py-2">
 
         @for (group of visibleGroups; track group.id; let first = $first) {
 
@@ -117,9 +120,10 @@ interface NavGroup {
               [routerLink]="linkRepresentativo(group).href"
               class="nav-link justify-center"
               [class.nav-link-active]="isGroupActive(group)"
+              (mouseenter)="mostrarTooltip($event, group.label + ' (' + group.links.length + ')')"
+              (mouseleave)="ocultarTooltip()"
             >
               <span class="flex-shrink-0 w-[18px] h-[18px]" [innerHTML]="linkRepresentativo(group).safeIcon"></span>
-              <span class="nav-tooltip">{{ group.label }} ({{ group.links.length }})</span>
             </a>
           } @else if (!open || !isCollapsible(group) || !isGroupCollapsed(group)) {
             @for (link of group.links; track link.href) {
@@ -129,14 +133,13 @@ interface NavGroup {
                 [routerLinkActiveOptions]="{ exact: link.href === '/' }"
                 class="nav-link"
                 [class.justify-center]="!open"
+                (mouseenter)="mostrarTooltip($event, link.label)"
+                (mouseleave)="ocultarTooltip()"
               >
                 <span class="flex-shrink-0 w-[18px] h-[18px]" [innerHTML]="link.safeIcon"></span>
 
                 @if (open) {
                   <span>{{ link.label }}</span>
-                } @else {
-                  <!-- Tooltip personalizado en modo colapsado -->
-                  <span class="nav-tooltip">{{ link.label }}</span>
                 }
               </a>
             }
@@ -145,8 +148,19 @@ interface NavGroup {
         }
       </nav>
 
+      <!-- Tooltip del modo colapsado — position:fixed y UN SOLO elemento
+           compartido (no uno por link) para que pueda escapar el scroll del
+           nav (ver mostrarTooltip/ocultarTooltip) sin depender de que el nav
+           tenga overflow:visible, que antes le impedía encogerse/scrollear
+           de verdad y rompía el layout en pantallas chicas o con zoom. -->
+      @if (tooltipVisible() && !open) {
+        <div class="nav-tooltip-fixed" [style.top.px]="tooltipTop()" [style.left.px]="tooltipLeft()">
+          {{ tooltipTexto() }}
+        </div>
+      }
+
       <!-- ── Pie: contáctanos + cerrar sesión ────────────────── -->
-      <div class="px-2 pt-2 pb-3 relative">
+      <div class="sb-bottom px-2 pt-2 pb-3 relative">
 
         <!-- Popover con las opciones de contacto — abre hacia arriba porque
              el botón que lo dispara vive al fondo del sidebar. -->
@@ -205,7 +219,17 @@ interface NavGroup {
   `,
   styleUrls: ['./sidebar.component.css'],
 })
-export class SidebarComponent implements OnChanges {
+export class SidebarComponent implements OnChanges, OnInit {
+  /** ¿El usuario es responsable de ≥1 bodega? Gate del link "Mi Bodega". */
+  esResponsableBodega = signal(false);
+
+  ngOnInit(): void {
+    this.materialesApi
+      .sitiosACargo()
+      .then((bodegas) => this.esResponsableBodega.set(bodegas.length > 0))
+      .catch(() => this.esResponsableBodega.set(false));
+  }
+
   @Input() open = false;
   /** Controla el drawer fijo en mobile (<1024px) — independiente de `open`,
    * que en mobile siempre viene en true junto con este (ver main-layout). */
@@ -215,6 +239,26 @@ export class SidebarComponent implements OnChanges {
   @Output() toggle = new EventEmitter<void>();
 
   contactoAbierto = signal(false);
+
+  // Tooltip del modo colapsado — ver el comentario junto al @if en el
+  // template sobre por qué es un solo elemento position:fixed en vez de un
+  // <span> por link.
+  tooltipVisible = signal(false);
+  tooltipTexto = signal('');
+  tooltipTop = signal(0);
+  tooltipLeft = signal(0);
+
+  mostrarTooltip(ev: MouseEvent, texto: string): void {
+    const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect();
+    this.tooltipTop.set(rect.top + rect.height / 2);
+    this.tooltipLeft.set(rect.right + 12);
+    this.tooltipTexto.set(texto);
+    this.tooltipVisible.set(true);
+  }
+
+  ocultarTooltip(): void {
+    this.tooltipVisible.set(false);
+  }
 
   // El sidebar se colapsa al sacar el mouse (mouseleave en main-layout) —
   // si el popover de contacto seguía abierto, quedaba flotando con la
@@ -240,6 +284,7 @@ export class SidebarComponent implements OnChanges {
     private aprendizContext: AprendizContextService,
     private contactWidget: ContactWidgetService,
     private router: Router,
+    private materialesApi: MaterialesApiService,
   ) {
     this.allGroups = [
       {
@@ -380,6 +425,15 @@ export class SidebarComponent implements OnChanges {
         // administrador_erp), marcado individualmente en cada uno.
         links: [
           {
+            // Consola del encargado de bodega. Se muestra SOLO si el usuario es
+            // `id_responsable` de ≥1 bodega (cualquier cargo) — el admin no lo
+            // ve salvo que además sea responsable de una. El guard
+            // `miBodegaGuard` hace el mismo chequeo al navegar.
+            label: 'Mi Bodega', href: '/mi-bodega',
+            soloResponsableBodega: true,
+            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`),
+          },
+          {
             label: 'Categorías', href: '/materiales/categorias',
             roles: ['administrador', 'administrador_erp'],
             aplicativo: 'Materiales',
@@ -514,12 +568,9 @@ export class SidebarComponent implements OnChanges {
             servicioEstricto: 'materiales.devoluciones.ver',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l-4-4m0 0l4-4m-4 4h11a4 4 0 010 8h-1"/></svg>`),
           },
-          {
-            label: 'Asignaciones', href: '/instructor/materiales/asignaciones',
-            roles: ['instructor'],
-            servicioEstricto: 'materiales.asignaciones.ver',
-            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1a4 4 0 100-8 4 4 0 000 8zm6 3a4 4 0 00-3-3.87M9 13a4 4 0 00-3 3.87"/></svg>`),
-          },
+          // "Asignaciones" NO va para instructor: el rol no tiene ningún
+          // `materiales.asignaciones.*` en SERVICIOS_POR_ROL (es admin-only),
+          // así que la pantalla era inalcanzable. Ruta y componente retirados.
 
           // ── Aprendiz: solo lectura + solicitar/recibir préstamos propios —
           // sin `aplicativo`, mismo criterio que instructor arriba. Mismo
@@ -548,6 +599,15 @@ export class SidebarComponent implements OnChanges {
             roles: ['aprendiz'],
             servicioEstricto: 'materiales.solicitudes.ver',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-5 8l2 2 4-4"/></svg>`),
+          },
+          {
+            // Solo aprendiz encargado de bodega: `materiales.devoluciones.ver`
+            // no está en MATERIALES_APRENDIZ, llega vía el bundle B3 →
+            // `servicioEstricto` (AND) oculta el link a un aprendiz normal.
+            label: 'Devoluciones', href: '/aprendiz/materiales/devoluciones',
+            roles: ['aprendiz'],
+            servicioEstricto: 'materiales.devoluciones.ver',
+            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l-4-4m0 0l4-4m-4 4h11a4 4 0 010 8h-1"/></svg>`),
           },
         ],
       },
@@ -615,6 +675,7 @@ export class SidebarComponent implements OnChanges {
           // por un instante y luego cambiarlo.
           if (esAprendiz && l.soloAprendizConEtapa && tieneEtapa !== true) return false;
           if (esAprendiz && l.soloAprendizSinEtapa && tieneEtapa !== false) return false;
+          if (l.soloResponsableBodega && !this.esResponsableBodega()) return false;
           return true;
         }),
       }))

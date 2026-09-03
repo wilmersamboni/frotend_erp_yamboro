@@ -1,10 +1,20 @@
-import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
+import { HttpContextToken, HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, retry, throwError, timer } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 import { AdminAuthService } from '../admin-auth/admin-auth.service';
 import { ToastService } from '../services/toast.service';
+
+/**
+ * Marca una request para que sus errores (403/429/0/503) no disparen el
+ * toast global de abajo — para llamadas "best effort" que el propio
+ * servicio ya degrada en silencio (try/catch → []), donde un 403 esperado
+ * (p.ej. un admin de un aplicativo consultando datos de otro) no debería
+ * interrumpir al usuario con una alerta. El 401 NO se puede silenciar así:
+ * ahí la sesión realmente expiró y el aviso es siempre relevante.
+ */
+export const SILENCIAR_TOAST_ERROR = new HttpContextToken<boolean>(() => false);
 
 /**
  * Manejo global de errores HTTP.
@@ -73,6 +83,11 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
     }),
     catchError((err: unknown) => {
       if (!(err instanceof HttpErrorResponse)) {
+        return throwError(() => err);
+      }
+
+      const silencioso = req.context.get(SILENCIAR_TOAST_ERROR);
+      if (silencioso && err.status !== 401) {
         return throwError(() => err);
       }
 

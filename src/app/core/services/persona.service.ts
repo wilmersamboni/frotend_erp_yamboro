@@ -64,10 +64,17 @@ export class PersonaService {
     return Array.isArray(resp) ? resp : (resp?.data ?? []);
   }
 
-  /** Usuarios elegibles como responsable de un sitio de Materiales: administrador/administrador_erp/instructor, activos. */
+  /**
+   * Usuarios elegibles como responsable de un sitio de Materiales: activos, de
+   * cualquier cargo — un "encargado de bodega" puede ser instructor O aprendiz
+   * (ver Fase B: `SitiosACargoService` resuelve por `sitio.id_responsable`
+   * sin mirar el cargo, y `EncargadoBodegaPermisosService` le otorga el bundle
+   * B3). Antes esto excluía a los aprendices y no se los podía seleccionar en
+   * el form aunque el backend sí los soportaba.
+   */
   async listarResponsablesBodega(): Promise<any[]> {
     const todos = await this.listarUsuarios();
-    const cargosPermitidos = ['administrador', 'administrador_erp', 'instructor'];
+    const cargosPermitidos = ['administrador', 'administrador_erp', 'instructor', 'aprendiz'];
     return todos.filter((u: any) =>
       cargosPermitidos.includes(u.persona?.cargo) && u.persona?.estado !== 'inactivo'
     );

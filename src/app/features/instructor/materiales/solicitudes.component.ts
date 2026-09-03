@@ -48,6 +48,7 @@ import { MaterialesApiService, Producto, Sitio, Solicitud } from '../../../core/
               <tr>
                 <th class="px-4 py-3 text-left font-medium">Producto</th>
                 <th class="px-4 py-3 text-left font-medium">Cantidad</th>
+                <th class="px-4 py-3 text-left font-medium">Disponible</th>
                 <th class="px-4 py-3 text-left font-medium">Observación</th>
                 <th class="px-4 py-3 text-left font-medium">Estado</th>
                 <th class="px-4 py-3 text-left font-medium">Fecha</th>
@@ -59,13 +60,28 @@ import { MaterialesApiService, Producto, Sitio, Solicitud } from '../../../core/
                 <tr class="hover:bg-gray-50 transition-colors">
                   <td class="px-4 py-3 text-gray-700">{{ s.producto?.nombre ?? '—' }}</td>
                   <td class="px-4 py-3 text-gray-700">{{ s.cantidad }}</td>
+                  <td class="px-4 py-3">
+                    @if ((s.estado === 'PENDIENTE' || s.estado === 'APROBADA') && stockDe(s); as st) {
+                      <span class="text-xs font-medium"
+                        [class.text-red-600]="st.disponibles < s.cantidad"
+                        [class.text-green-700]="st.disponibles >= s.cantidad">
+                        {{ st.disponibles }} / {{ st.total }}
+                      </span>
+                      @if (st.disponibles < s.cantidad) {
+                        <span class="block text-[11px] text-red-500">faltan {{ s.cantidad - st.disponibles }}</span>
+                      }
+                    } @else {
+                      <span class="text-xs text-gray-300">—</span>
+                    }
+                  </td>
                   <td class="px-4 py-3 text-gray-500 max-w-[220px] truncate">{{ s.observacion ?? '—' }}</td>
                   <td class="px-4 py-3">
                     <span class="px-2 py-1 rounded-full text-xs"
                       [class.bg-amber-100]="s.estado === 'PENDIENTE'" [class.text-amber-700]="s.estado === 'PENDIENTE'"
                       [class.bg-blue-100]="s.estado === 'APROBADA' || s.estado === 'EN_ENTREGA'" [class.text-blue-700]="s.estado === 'APROBADA' || s.estado === 'EN_ENTREGA'"
                       [class.bg-green-100]="s.estado === 'ENTREGADA'" [class.text-green-700]="s.estado === 'ENTREGADA'"
-                      [class.bg-red-100]="s.estado === 'RECHAZADA'" [class.text-red-700]="s.estado === 'RECHAZADA'">
+                      [class.bg-red-100]="s.estado === 'RECHAZADA'" [class.text-red-700]="s.estado === 'RECHAZADA'"
+                      [class.bg-gray-200]="s.estado === 'CANCELADA' || s.estado === 'DEVUELTA'" [class.text-gray-600]="s.estado === 'CANCELADA' || s.estado === 'DEVUELTA'">
                       {{ s.estado }}
                     </span>
                   </td>
@@ -81,6 +97,9 @@ import { MaterialesApiService, Producto, Sitio, Solicitud } from '../../../core/
                       }
                       @if (s.estado === 'APROBADA' && puedeEntregar) {
                         <button (click)="entregar(s)" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">Marcar en entrega</button>
+                      }
+                      @if (s.estado === 'APROBADA' && puedeRechazar && puedeGestionar(s)) {
+                        <button (click)="cancelar(s)" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">Cancelar</button>
                       }
                       @if (s.estado === 'EN_ENTREGA' && esSolicitantePropio(s)) {
                         <button (click)="confirmarRecepcion(s)" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-50 text-green-600 hover:bg-green-100 transition-colors">Confirmar recepción</button>
@@ -239,6 +258,9 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
   /** Stock del producto elegido — consultado en vivo, mismo endpoint que ya usa el módulo hermano SGM. */
   stock: { disponibles: number; total: number; cargando: boolean } = { disponibles: 0, total: 0, cargando: false };
 
+  /** Stock disponible por producto para las filas PENDIENTE / APROBADA de la tabla. */
+  stocksPorProducto: Record<string, { disponibles: number; total: number }> = {};
+
   constructor(
     private api: MaterialesApiService,
     private toast: ToastService,
@@ -326,19 +348,52 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
   private async cargar(): Promise<void> {
     this.loading = true;
     try {
+      // M9 — solo `listarSolicitudes()` es crítico; si una secundaria da 403
+      // (excepción personal) no debe tumbar la tabla entera.
       const [solicitudes, productos, sitios] = await Promise.all([
         this.api.listarSolicitudes(),
-        this.api.listarProductos(),
-        this.api.listarSitios(),
+        this.api.listarProductos().catch(() => [] as Producto[]),
+        this.api.listarSitios().catch(() => [] as Sitio[]),
       ]);
       this.solicitudes = solicitudes;
       this.productos = productos;
       this.sitios = sitios;
+      await this.cargarStocks();
     } catch (e) {
       this.toast.httpError(e, 'No se pudieron cargar las solicitudes.');
     } finally {
       this.loading = false;
     }
+  }
+
+  /** Stock en vivo de los productos de las solicitudes PENDIENTE / APROBADA. */
+  private async cargarStocks(): Promise<void> {
+    const ids = [
+      ...new Set(
+        this.solicitudes
+          .filter((s) => s.estado === 'PENDIENTE' || s.estado === 'APROBADA')
+          .map((s) => s.producto?.id_producto)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const pares = await Promise.all(
+      ids.map(async (id) => {
+        try {
+          return [id, await this.api.stockProducto(id)] as const;
+        } catch {
+          return null;
+        }
+      }),
+    );
+    const mapa: Record<string, { disponibles: number; total: number }> = {};
+    for (const par of pares) if (par) mapa[par[0]] = par[1];
+    this.stocksPorProducto = mapa;
+  }
+
+  /** Stock disponible del producto de una fila (o null si no se consultó). */
+  stockDe(s: Solicitud): { disponibles: number; total: number } | null {
+    const id = s.producto?.id_producto;
+    return id ? this.stocksPorProducto[id] ?? null : null;
   }
 
   nuevo(): void {
@@ -397,12 +452,37 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
   }
 
   async aprobar(s: Solicitud): Promise<void> {
+    // Aviso (no bloquea): aprobar por encima del stock actual. La entrega
+    // igual quedará bloqueada por M8 hasta que haya unidades.
+    const st = this.stockDe(s);
+    if (st && st.disponibles < s.cantidad) {
+      const ok = confirm(
+        `Estás aprobando ${s.cantidad} unidad(es) de "${s.producto?.nombre ?? 'este producto'}" ` +
+        `pero solo hay ${st.disponibles} disponible(s) ahora.\n\n` +
+        `La solicitud quedará APROBADA y se podrá entregar cuando haya stock. ¿Continuar?`,
+      );
+      if (!ok) return;
+    }
     try {
       await this.api.aprobarSolicitud(s.id_solicitud);
       this.toast.ok('Solicitud aprobada');
       await this.cargar();
     } catch (e) {
       this.toast.httpError(e, 'No se pudo aprobar la solicitud.');
+    }
+  }
+
+  async cancelar(s: Solicitud): Promise<void> {
+    if (!confirm(
+      `¿Cancelar esta solicitud aprobada de "${s.producto?.nombre ?? 'este producto'}"?\n\n` +
+      `El solicitante será notificado y no se entregará. No afecta el inventario.`,
+    )) return;
+    try {
+      await this.api.cancelarSolicitud(s.id_solicitud);
+      this.toast.ok('Solicitud cancelada');
+      await this.cargar();
+    } catch (e) {
+      this.toast.httpError(e, 'No se pudo cancelar la solicitud.');
     }
   }
 
