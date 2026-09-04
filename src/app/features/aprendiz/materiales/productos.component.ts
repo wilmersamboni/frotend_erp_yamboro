@@ -164,8 +164,8 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
 // el comentario completo en la versión admin de este componente.
 // `es_psd` NO es un campo del formulario (Ronda 6) — se deriva de
 // tipo_material === 'PERECEDERO' en `guardar()`, ver la versión admin.
-const CAMPOS_CREAR_BASE  = ['nombre', 'descripcion', 'codigo_unspsc', 'SKU', 'tipo_material', 'unidad_medida', 'unidad_peso_bulto', 'peso_por_bulto', 'fecha_vencimiento', 'id_categoria', 'id_sitio', 'cantidad', 'stock_minimo'];
-const CAMPOS_EDITAR_BASE = ['nombre', 'descripcion', 'codigo_unspsc', 'SKU', 'tipo_material', 'unidad_medida', 'unidad_peso_bulto', 'peso_por_bulto', 'fecha_vencimiento', 'id_categoria', 'id_sitio', 'stock_minimo'];
+const CAMPOS_CREAR_BASE  = ['nombre', 'descripcion', 'codigo_unspsc', 'SKU', 'marca', 'modelo', 'tipo_material', 'unidad_medida', 'unidad_peso_bulto', 'peso_por_bulto', 'fecha_vencimiento', 'id_categoria', 'id_sitio', 'cantidad', 'stock_minimo'];
+const CAMPOS_EDITAR_BASE = ['nombre', 'descripcion', 'codigo_unspsc', 'SKU', 'marca', 'modelo', 'tipo_material', 'unidad_medida', 'unidad_peso_bulto', 'peso_por_bulto', 'fecha_vencimiento', 'id_categoria', 'id_sitio', 'stock_minimo'];
 
 /**
  * Catálogo de productos para aprendiz — crear/editar/eliminar gateado por
@@ -257,7 +257,7 @@ export class AprendizMaterialesProductosComponent implements OnInit, DoCheck {
     cantidad: 'number', stock_minimo: 'number',
     fecha_vencimiento: 'date', peso_por_bulto: 'number',
   };
-  placeholders: Record<string, string> = { nombre: 'Ej: Taladro percutor, Guantes de nitrilo…', descripcion: 'Ej: Uso exclusivo del taller de soldadura', SKU: 'Se autogenera si lo dejás vacío (ej. TAL-001)', stock_minimo: 'Ej: 5', cantidad: 'Ej: 10', peso_por_bulto: 'Ej: 25' };
+  placeholders: Record<string, string> = { nombre: 'Ej: Taladro percutor, Guantes de nitrilo…', descripcion: 'Ej: Uso exclusivo del taller de soldadura', SKU: 'Se autogenera si lo dejás vacío (ej. TAL-001)', marca: 'Ej: Bosch, 3M… (opcional)', modelo: 'Ej: GSB 550, 8210 (opcional)', stock_minimo: 'Ej: 5', cantidad: 'Ej: 10', peso_por_bulto: 'Ej: 25' };
 
   columnLabels: Record<string, string> = {
     categoria_nombre: 'Categoría',
@@ -378,7 +378,7 @@ export class AprendizMaterialesProductosComponent implements OnInit, DoCheck {
     }
     this.editando = null;
     this.form = {
-      nombre: '', descripcion: '', codigo_unspsc: '', SKU: '',
+      nombre: '', descripcion: '', codigo_unspsc: '', SKU: '', marca: '', modelo: '',
       tipo_material: 'CONSUMO', unidad_medida: '',
       fecha_vencimiento: '', unidad_peso_bulto: '', peso_por_bulto: '',
       id_categoria: this.categorias[0].id_categoria,
@@ -401,6 +401,8 @@ export class AprendizMaterialesProductosComponent implements OnInit, DoCheck {
       descripcion: producto.descripcion ?? '',
       codigo_unspsc: producto.codigo_unspsc ?? '',
       SKU: producto.SKU ?? '',
+      marca: producto.marca ?? '',
+      modelo: producto.modelo ?? '',
       tipo_material: producto.tipo_material,
       unidad_medida: producto.unidad_medida,
       fecha_vencimiento: producto.fecha_vencimiento ?? '',
@@ -447,6 +449,8 @@ export class AprendizMaterialesProductosComponent implements OnInit, DoCheck {
           descripcion: form['descripcion'] || undefined,
           codigo_unspsc: form['codigo_unspsc'] || undefined,
           SKU: form['SKU'] || undefined,
+          marca: form['marca'] || undefined,
+          modelo: form['modelo'] || undefined,
           tipo_material: form['tipo_material'],
           unidad_medida: form['unidad_medida'],
           es_psd: esPsd,
@@ -463,6 +467,8 @@ export class AprendizMaterialesProductosComponent implements OnInit, DoCheck {
           descripcion: form['descripcion'] || undefined,
           codigo_unspsc: form['codigo_unspsc'] || undefined,
           SKU: form['SKU'] || undefined,
+          marca: form['marca'] || undefined,
+          modelo: form['modelo'] || undefined,
           tipo_material: form['tipo_material'],
           unidad_medida: form['unidad_medida'],
           es_psd: esPsd,
