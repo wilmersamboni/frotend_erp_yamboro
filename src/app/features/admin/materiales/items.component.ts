@@ -10,6 +10,7 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
   { label: 'Prestado', value: 'PRESTADO' },
   { label: 'Dañado', value: 'DAÑADO' },
   { label: 'Perdido', value: 'PERDIDO' },
+  { label: 'En mantenimiento', value: 'EN_MANTENIMIENTO' },
 ];
 
 /**

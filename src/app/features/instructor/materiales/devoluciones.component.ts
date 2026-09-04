@@ -133,12 +133,10 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                   @for (f of filas; track f.id_item) {
                     <div class="flex items-center gap-3 px-3 py-2">
                       <div class="flex-1 min-w-0">
-                        <p class="font-mono text-xs font-semibold text-gray-800 truncate">
-                          {{ f.placa_sena || f.codigo_sku || 'Unidad' }}
+                        <p class="text-xs font-semibold text-gray-800 truncate">{{ f.producto_nombre || 'Unidad' }}</p>
+                        <p class="font-mono text-[11px] text-gray-400 truncate">
+                          {{ f.placa_sena || f.codigo_sku || '' }}{{ f.placa_sena && f.codigo_sku ? ' · ' + f.codigo_sku : '' }}
                         </p>
-                        @if (f.placa_sena && f.codigo_sku) {
-                          <p class="text-[11px] text-gray-400 truncate">{{ f.codigo_sku }}</p>
-                        }
                       </div>
                       <select [(ngModel)]="f.estadoDev"
                         class="px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]"
@@ -216,7 +214,12 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
   }
 
   nombreProducto(d: Devolucion): string {
-    return this.solicitudes.find((s) => s.id_solicitud === d.id_solicitud)?.producto?.nombre ?? '—';
+    const item = this.items.find((i) => i.id_item === d.id_item);
+    return (
+      item?.producto?.nombre ??
+      this.solicitudes.find((s) => s.id_solicitud === d.id_solicitud)?.producto?.nombre ??
+      '—'
+    );
   }
 
   private async cargar(): Promise<void> {

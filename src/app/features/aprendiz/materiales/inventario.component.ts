@@ -1,193 +1,177 @@
-import { Component, OnInit, computed, inject } from '@angular/core';
+import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AdminTableComponent } from '../../../shared/components/admin-table.component';
-import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
-import { OpcionSelect } from '../../admin/services/admin.service';
-import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
-import { ConfirmService } from '../../../core/services/confirm.service';
-import { Inventario, Item, MaterialesApiService, Sitio } from '../../../core/services/materiales/materiales-api.service';
-
-const OPCIONES_ESTADO: OpcionSelect[] = [
-  { label: 'Disponible', value: 'DISPONIBLE' },
-  { label: 'Prestado', value: 'PRESTADO' },
-  { label: 'Dañado', value: 'DAÑADO' },
-  { label: 'Perdido', value: 'PERDIDO' },
-];
+import { MaterialesApiService, ResumenInventario } from '../../../core/services/materiales/materiales-api.service';
 
 /**
- * Vista de inventario (item ⇄ sitio) para aprendiz — "Registrar entrada",
- * editar y eliminar una fila, cada uno gateado por su propio servicio
- * (`materiales.inventario.crear`/`.editar`/`.eliminar`), no por cargo.
- * Ver plan "Ronda 3" (creación) y "Ronda 4" Fase 4 (editar/eliminar).
+ * Panel de existencias — SOLO LECTURA (Tier SigMat M6). Reemplaza el CRUD que
+ * escribía a mano en la tabla `inventario` (vestigial: ningún flujo la
+ * sincronizaba, el stock real vive en `item.estado` + `lote`). Los datos
+ * salen de `GET /api2/inventario/resumen`, ya recortado por programa/bodega.
+ *
+ * Para mover stock se usan los flujos reales (solicitudes, traslados,
+ * novedades, devoluciones) — acá no se crea/edita/elimina nada.
  */
 @Component({
   selector: 'app-aprendiz-materiales-inventario',
   standalone: true,
-  imports: [FormsModule, AdminTableComponent, AdminModalComponent],
+  imports: [FormsModule],
   template: `
     <div class="p-6">
-      <h1 class="text-xl font-bold text-gray-800 mb-5">Inventario</h1>
+      <div class="mb-5">
+        <h1 class="text-xl font-bold text-gray-800">Existencias</h1>
+        <p class="text-sm text-gray-400">Vista de solo lectura. El stock se mueve con solicitudes, traslados, novedades y devoluciones.</p>
+      </div>
 
-      <app-admin-table
-        [addLabel]="puedeCrear() ? 'Registrar entrada' : null"
-        (add)="nuevo()"
-        [rows]="filas"
-        [searchable]="true"
-        [searchPlaceholder]="'Buscar por SKU, producto, sitio, estado…'"
-        [columns]="['item_sku', 'producto_nombre', 'sitio_nombre', 'estado']"
-        [columnLabels]="columnLabels"
-        [loading]="loading"
-        [canEdit]="puedeEditar()"
-        [canDelete]="puedeEliminar()"
-        (edit)="editar($event)"
-        (delete)="eliminar($event)" />
+      @if (loading) {
+        <div class="flex justify-center py-12">
+          <div class="w-8 h-8 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
+        </div>
+      } @else {
+        <!-- Tarjetas resumen -->
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
+          <div class="rounded-xl border border-gray-100 p-3">
+            <div class="text-[11px] uppercase tracking-wide text-gray-400">Unidades</div>
+            <div class="text-lg font-bold text-gray-800">{{ tot().total }}</div>
+          </div>
+          <div class="rounded-xl border border-green-100 bg-green-50/50 p-3">
+            <div class="text-[11px] uppercase tracking-wide text-green-600">Disponibles</div>
+            <div class="text-lg font-bold text-green-700">{{ tot().disponibles }}</div>
+          </div>
+          <div class="rounded-xl border border-blue-100 bg-blue-50/50 p-3">
+            <div class="text-[11px] uppercase tracking-wide text-blue-600">Prestadas</div>
+            <div class="text-lg font-bold text-blue-700">{{ tot().prestados }}</div>
+          </div>
+          <div class="rounded-xl border border-amber-100 bg-amber-50/50 p-3">
+            <div class="text-[11px] uppercase tracking-wide text-amber-600">En mantenimiento</div>
+            <div class="text-lg font-bold text-amber-700">{{ tot().mantenimiento }}</div>
+          </div>
+          <div class="rounded-xl border border-red-100 bg-red-50/50 p-3">
+            <div class="text-[11px] uppercase tracking-wide text-red-600">Dañadas / perdidas</div>
+            <div class="text-lg font-bold text-red-700">{{ tot().danados + tot().perdidos }}</div>
+          </div>
+          <div class="rounded-xl border p-3"
+            [class.border-gray-100]="tot().lotes_por_vencer === 0"
+            [class.border-orange-200]="tot().lotes_por_vencer > 0"
+            [class.bg-orange-50]="tot().lotes_por_vencer > 0">
+            <div class="text-[11px] uppercase tracking-wide"
+              [class.text-gray-400]="tot().lotes_por_vencer === 0" [class.text-orange-600]="tot().lotes_por_vencer > 0">
+              Lotes por vencer
+            </div>
+            <div class="text-lg font-bold"
+              [class.text-gray-800]="tot().lotes_por_vencer === 0" [class.text-orange-700]="tot().lotes_por_vencer > 0">
+              {{ tot().lotes_por_vencer }}
+            </div>
+          </div>
+        </div>
+
+        <input type="text" [(ngModel)]="q" (ngModelChange)="filtro.set($event)"
+          placeholder="Buscar por producto, SKU o bodega…"
+          class="w-full md:w-96 mb-3 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+
+        @if (filtradas().length === 0) {
+          <p class="text-center text-gray-400 text-sm py-10">Sin existencias para mostrar</p>
+        } @else {
+          <div class="overflow-x-auto rounded-xl border border-gray-100">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+                <tr>
+                  <th class="px-4 py-3 text-left font-medium">Producto</th>
+                  <th class="px-4 py-3 text-left font-medium">Bodega</th>
+                  <th class="px-3 py-3 text-right font-medium">Disp.</th>
+                  <th class="px-3 py-3 text-right font-medium">Prest.</th>
+                  <th class="px-3 py-3 text-right font-medium">Mant.</th>
+                  <th class="px-3 py-3 text-right font-medium">Dañ./Perd.</th>
+                  <th class="px-3 py-3 text-right font-medium">Total</th>
+                  <th class="px-3 py-3 text-right font-medium">Lote disp.</th>
+                  <th class="px-3 py-3 text-right font-medium">Por vencer</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-50">
+                @for (r of filtradas(); track r.id_producto) {
+                  <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3">
+                      <div class="text-gray-800 font-medium">{{ r.nombre }}</div>
+                      <div class="text-[11px] text-gray-400">
+                        {{ r.sku || '—' }}
+                        @if (r.marca || r.modelo) { · {{ marcaModelo(r) }} }
+                        · {{ r.tipo_material }}
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ r.sitio_nombre || '— sin bodega —' }}</td>
+                    <td class="px-3 py-3 text-right font-medium" [class.text-green-700]="r.disponibles > 0" [class.text-gray-300]="r.disponibles === 0">{{ r.disponibles }}</td>
+                    <td class="px-3 py-3 text-right" [class.text-blue-700]="r.prestados > 0" [class.text-gray-300]="r.prestados === 0">{{ r.prestados }}</td>
+                    <td class="px-3 py-3 text-right" [class.text-amber-700]="r.mantenimiento > 0" [class.text-gray-300]="r.mantenimiento === 0">{{ r.mantenimiento }}</td>
+                    <td class="px-3 py-3 text-right" [class.text-red-700]="(r.danados + r.perdidos) > 0" [class.text-gray-300]="(r.danados + r.perdidos) === 0">{{ r.danados + r.perdidos }}</td>
+                    <td class="px-3 py-3 text-right text-gray-700">{{ r.total }}</td>
+                    <td class="px-3 py-3 text-right" [class.text-gray-700]="r.lote_disponible > 0" [class.text-gray-300]="r.lote_disponible === 0">{{ r.lote_disponible || '—' }}</td>
+                    <td class="px-3 py-3 text-right">
+                      @if (r.lotes_por_vencer > 0) {
+                        <span class="px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-700">{{ r.lotes_por_vencer }}</span>
+                      } @else {
+                        <span class="text-gray-300">—</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      }
     </div>
-
-    <app-admin-modal
-      [open]="modalOpen"
-      [editando]="editando"
-      labelSingular="entrada de inventario"
-      [columns]="['id_item', 'id_sitio', 'estado']"
-      [form]="form"
-      [opciones]="opciones"
-      [columnLabels]="columnLabels"
-      [saving]="saving"
-      [error]="error"
-      (closed)="cerrarModal()"
-      (saved)="guardar($event)" />
   `,
 })
 export class AprendizMaterialesInventarioComponent implements OnInit {
-  private readonly confirm = inject(ConfirmService);
-
-  inventario: Inventario[] = [];
-  items: Item[] = [];
-  sitios: Sitio[] = [];
+  filas = signal<ResumenInventario[]>([]);
   loading = false;
-  saving = false;
-  error: string | null = null;
+  q = '';
+  filtro = signal('');
 
-  modalOpen = false;
-  editando: Inventario | null = null;
-  form: Record<string, any> = {};
+  filtradas = computed(() => {
+    const t = this.filtro().trim().toLowerCase();
+    const rows = this.filas();
+    if (!t) return rows;
+    return rows.filter((r) =>
+      [r.nombre, r.sku, r.sitio_nombre, r.marca, r.modelo]
+        .filter(Boolean)
+        .some((v) => (v as string).toLowerCase().includes(t)),
+    );
+  });
 
-  columnLabels: Record<string, string> = {
-    item_sku: 'SKU',
-    producto_nombre: 'Producto',
-    sitio_nombre: 'Sitio',
-    id_item: 'Ítem',
-    id_sitio: 'Sitio',
-  };
+  tot = computed(() =>
+    this.filas().reduce(
+      (a, r) => ({
+        total: a.total + r.total,
+        disponibles: a.disponibles + r.disponibles,
+        prestados: a.prestados + r.prestados,
+        mantenimiento: a.mantenimiento + r.mantenimiento,
+        danados: a.danados + r.danados,
+        perdidos: a.perdidos + r.perdidos,
+        lotes_por_vencer: a.lotes_por_vencer + r.lotes_por_vencer,
+      }),
+      { total: 0, disponibles: 0, prestados: 0, mantenimiento: 0, danados: 0, perdidos: 0, lotes_por_vencer: 0 },
+    ),
+  );
 
-  puedeCrear = computed(() => this.auth.tieneServicio('materiales.inventario.crear'));
-  puedeEditar = computed(() => this.auth.tieneServicio('materiales.inventario.editar'));
-  puedeEliminar = computed(() => this.auth.tieneServicio('materiales.inventario.eliminar'));
+  marcaModelo(r: ResumenInventario): string {
+    return [r.marca, r.modelo].filter((v) => !!v).join(' ');
+  }
 
-  constructor(private api: MaterialesApiService, private toast: ToastService, private auth: AuthService) {}
+  constructor(private api: MaterialesApiService, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.cargar();
   }
 
-  get opciones(): Record<string, OpcionSelect[]> {
-    return {
-      id_item: this.items.map((i) => ({
-        label: `${i.codigo_sku} — ${i.producto?.nombre ?? 'sin producto'}`,
-        value: i.id_item,
-      })),
-      id_sitio: this.sitios.map((s) => ({ label: s.nombre, value: s.id_sitio })),
-      estado: OPCIONES_ESTADO,
-    };
-  }
-
-  get filas(): any[] {
-    return this.inventario.map((inv) => ({
-      ...inv,
-      item_sku: inv.item?.codigo_sku ?? inv.id_item,
-      producto_nombre: inv.item?.producto?.nombre ?? '—',
-      // /api2/inventario ya trae el sitio anidado — no depende del catálogo.
-      sitio_nombre: inv.sitio?.nombre ?? '—',
-    }));
-  }
-
   private async cargar(): Promise<void> {
     this.loading = true;
     try {
-      // El aprendiz no tiene `materiales.sitios.ver`; el nombre del sitio sale
-      // del objeto anidado de /inventario. Antes el 403 de /sitios tumbaba todo.
-      const verSitios = this.auth.tieneServicio('materiales.sitios.ver');
-      const [inventario, items, sitios] = await Promise.all([
-        this.api.listarInventario(),
-        this.api.listarItems().catch(() => [] as Item[]),
-        verSitios ? this.api.listarSitios().catch(() => [] as Sitio[]) : Promise.resolve([] as Sitio[]),
-      ]);
-      this.inventario = inventario;
-      this.items = items;
-      this.sitios = sitios;
+      this.filas.set(await this.api.resumenInventario());
     } catch (e) {
-      this.toast.httpError(e, 'No se pudo cargar el inventario.');
+      this.toast.httpError(e, 'No se pudo cargar el panel de existencias.');
     } finally {
       this.loading = false;
-    }
-  }
-
-  nuevo(): void {
-    if (!this.puedeCrear()) return;
-    if (this.items.length === 0 || this.sitios.length === 0) {
-      this.toast.warn('Faltan datos', 'Necesitás al menos un producto (que genera ítems) y un sitio antes de registrar una entrada.');
-      return;
-    }
-    this.editando = null;
-    this.form = { id_item: this.items[0].id_item, id_sitio: this.sitios[0].id_sitio, estado: 'DISPONIBLE' };
-    this.error = null;
-    this.modalOpen = true;
-  }
-
-  editar(fila: any): void {
-    if (!this.puedeEditar()) return;
-    const inv = this.inventario.find((i) => i.id_inventario === fila.id_inventario);
-    if (!inv) return;
-    this.editando = inv;
-    this.form = { id_item: inv.id_item, id_sitio: inv.id_sitio, estado: inv.estado };
-    this.error = null;
-    this.modalOpen = true;
-  }
-
-  cerrarModal(): void {
-    this.modalOpen = false;
-  }
-
-  async guardar(form: Record<string, any>): Promise<void> {
-    this.saving = true;
-    this.error = null;
-    try {
-      const dto = { id_item: form['id_item'], id_sitio: form['id_sitio'], estado: form['estado'] };
-      if (this.editando) {
-        await this.api.actualizarInventario(this.editando.id_inventario, dto);
-        this.toast.ok('Entrada actualizada');
-      } else {
-        await this.api.crearInventario(dto);
-        this.toast.ok('Entrada registrada');
-      }
-      this.modalOpen = false;
-      await this.cargar();
-    } catch (e: any) {
-      this.error = e?.error?.message ?? (this.editando ? 'No se pudo actualizar la entrada.' : 'No se pudo registrar la entrada.');
-    } finally {
-      this.saving = false;
-    }
-  }
-
-  async eliminar(fila: any): Promise<void> {
-    if (!this.puedeEliminar()) return;
-    if (!(await this.confirm.ask(`¿Eliminar esta entrada de inventario (${fila.item_sku} en ${fila.sitio_nombre})?`))) return;
-    try {
-      await this.api.eliminarInventario(fila.id_inventario);
-      this.toast.ok('Entrada eliminada');
-      await this.cargar();
-    } catch (e) {
-      this.toast.httpError(e, 'No se pudo eliminar la entrada.');
     }
   }
 }

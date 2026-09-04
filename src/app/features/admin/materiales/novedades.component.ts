@@ -7,7 +7,16 @@ import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { PersonaService } from '../../../core/services/persona.service';
-import { Item, MaterialesApiService, Novedad, Sitio, TipoNovedad } from '../../../core/services/materiales/materiales-api.service';
+import { EstadoItem, Item, MaterialesApiService, Novedad, Sitio, TipoNovedad } from '../../../core/services/materiales/materiales-api.service';
+
+/** Estados en los que puede quedar el ítem al mover una novedad (Tier SigMat M7). */
+const OPCIONES_ESTADO_ITEM: { label: string; value: EstadoItem | '' }[] = [
+  { label: '— Dejar el ítem como está —', value: '' },
+  { label: 'Disponible (reparado / sin problema)', value: 'DISPONIBLE' },
+  { label: 'En mantenimiento', value: 'EN_MANTENIMIENTO' },
+  { label: 'Dañado', value: 'DAÑADO' },
+  { label: 'Perdido', value: 'PERDIDO' },
+];
 
 const OPCIONES_TIPO: OpcionSelect[] = [
   { label: 'Daño', value: 'DAÑO' },
@@ -158,6 +167,37 @@ const OPCIONES_TIPO: OpcionSelect[] = [
       (closed)="cerrarModal()"
       (saved)="guardar($event)" />
 
+    @if (resolverAbierto && resolverNovedad) {
+      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="resolverAbierto = false">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-gray-800">
+              {{ resolverEstadoNovedad === 'RESUELTA' ? 'Resolver novedad' : 'Poner novedad en proceso' }}
+            </h2>
+            <button (click)="resolverAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+          </div>
+          <p class="text-sm text-gray-500 mb-3">
+            {{ resolverNovedad.tipo }} sobre
+            <span class="font-medium text-gray-700">{{ resolverNovedad.item?.producto?.nombre ?? resolverNovedad.item?.codigo_sku ?? 'el ítem' }}</span>.
+            Elegí en qué estado queda el ítem.
+          </p>
+          <select [(ngModel)]="resolverEstadoItem"
+            class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
+            @for (o of opcionesEstadoItem; track o.value) {
+              <option [value]="o.value">{{ o.label }}</option>
+            }
+          </select>
+          <div class="flex justify-end gap-2 mt-6">
+            <button (click)="resolverAbierto = false" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
+            <button (click)="confirmarResolver()" [disabled]="resolviendo"
+              class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors" style="background-color: #39A900">
+              {{ resolviendo ? 'Guardando...' : 'Confirmar' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
     @if (detalleAbierto && detalle) {
       <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="detalleAbierto = false">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
@@ -198,6 +238,14 @@ export class MaterialesNovedadesComponent implements OnInit {
   /** "Ver detalles" (Fase 9). */
   detalleAbierto = false;
   detalle: Novedad | null = null;
+
+  /** Diálogo "resolver / poner en proceso" con estado resultante del ítem (Tier SigMat M7). */
+  opcionesEstadoItem = OPCIONES_ESTADO_ITEM;
+  resolverAbierto = false;
+  resolverNovedad: Novedad | null = null;
+  resolverEstadoNovedad: 'EN_PROCESO' | 'RESUELTA' = 'RESUELTA';
+  resolverEstadoItem: EstadoItem | '' = '';
+  resolviendo = false;
 
   placeholders: Record<string, string> = { descripcion: 'Ej: La carcasa llegó rajada / falta 1 unidad respecto al conteo' };
 
@@ -321,9 +369,48 @@ export class MaterialesNovedadesComponent implements OnInit {
   }
 
   async cambiarEstado(n: Novedad, estado: 'EN_PROCESO' | 'RESUELTA'): Promise<void> {
+    // Con ítem asociado: se abre el diálogo para elegir el estado resultante
+    // del ítem (Tier SigMat M7). Sin ítem: cambio directo, como siempre.
+    if (n.id_item) {
+      this.resolverNovedad = n;
+      this.resolverEstadoNovedad = estado;
+      this.resolverEstadoItem = this.defaultEstadoItem(n, estado);
+      this.resolverAbierto = true;
+      return;
+    }
+    await this.enviarCambioEstado(n, estado);
+  }
+
+  private defaultEstadoItem(n: Novedad, estado: 'EN_PROCESO' | 'RESUELTA'): EstadoItem | '' {
+    if (estado === 'EN_PROCESO') return 'EN_MANTENIMIENTO';
+    if (n.tipo === 'DAÑO') return 'DAÑADO';
+    if (n.tipo === 'PERDIDA') return 'PERDIDO';
+    return 'DISPONIBLE';
+  }
+
+  async confirmarResolver(): Promise<void> {
+    if (!this.resolverNovedad) return;
+    this.resolviendo = true;
     try {
-      await this.api.actualizarNovedad(n.id_novedad, estado);
-      this.toast.ok('Novedad actualizada');
+      await this.enviarCambioEstado(
+        this.resolverNovedad,
+        this.resolverEstadoNovedad,
+        this.resolverEstadoItem || undefined,
+      );
+      this.resolverAbierto = false;
+    } finally {
+      this.resolviendo = false;
+    }
+  }
+
+  private async enviarCambioEstado(
+    n: Novedad,
+    estado: 'EN_PROCESO' | 'RESUELTA',
+    estadoItem?: EstadoItem,
+  ): Promise<void> {
+    try {
+      await this.api.actualizarNovedad(n.id_novedad, estado, estadoItem);
+      this.toast.ok(estadoItem ? 'Novedad actualizada y ítem actualizado' : 'Novedad actualizada');
       await this.cargar();
     } catch (e) {
       this.toast.httpError(e, 'No se pudo actualizar la novedad.');

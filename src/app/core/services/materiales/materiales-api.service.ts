@@ -10,7 +10,8 @@ const BASE = environment.apiPracticaUrl;
 
 export type TipoSitio = 'BODEGA' | 'AMBIENTE' | 'LABORATORIO' | 'OTRO';
 export type TipoMaterial = 'CONSUMO' | 'DEVOLUTIVO' | 'SOFTWARE' | 'EPP' | 'PERECEDERO';
-export type EstadoItem = 'DISPONIBLE' | 'PRESTADO' | 'DAÑADO' | 'PERDIDO';
+export type EstadoItem = 'DISPONIBLE' | 'PRESTADO' | 'DAÑADO' | 'PERDIDO' | 'EN_MANTENIMIENTO';
+export type EstadoLote = 'ACTIVO' | 'AGOTADO' | 'VENCIDO' | 'DADO_DE_BAJA';
 export type TipoNovedad = 'DAÑO' | 'PERDIDA' | 'MANTENIMIENTO' | 'DISCREPANCIA' | 'OTRO';
 export type EstadoNovedad = 'PENDIENTE' | 'EN_PROCESO' | 'RESUELTA';
 
@@ -49,6 +50,34 @@ export interface Producto {
   unidad_peso_bulto?: string | null;
   peso_por_bulto?: number | null;
   id_sitio?: string | null;
+  marca?: string | null;
+  modelo?: string | null;
+}
+
+export interface Lote {
+  id_lote: string;
+  id_producto: string;
+  cantidad_inicial: number;
+  cantidad_disponible: number;
+  estado: EstadoLote;
+  codigo_lote?: string | null;
+  unidad_medida?: string | null;
+  fecha_ingreso?: string | null;
+  fecha_vencimiento?: string | null;
+  id_sitio?: string | null;
+  id_responsable?: string | null;
+  producto?: { id_producto: string; nombre: string; SKU: string | null; tipo_material: string };
+}
+
+export interface CreateLoteDto {
+  id_producto: string;
+  cantidad_inicial: number;
+  unidad_medida?: string;
+  codigo_lote?: string;
+  fecha_ingreso?: string;
+  fecha_vencimiento?: string;
+  id_sitio?: string;
+  id_responsable?: string;
 }
 
 export interface Item {
@@ -90,6 +119,8 @@ export interface CreateProductoDto {
   descripcion?: string;
   codigo_unspsc?: string;
   SKU?: string;
+  marca?: string;
+  modelo?: string;
   tipo_material: TipoMaterial;
   unidad_medida: string;
   es_psd: boolean;
@@ -101,6 +132,27 @@ export interface CreateProductoDto {
   unidad_peso_bulto?: string;
   peso_por_bulto?: number;
   id_sitio: string;
+}
+
+/** Fila del panel de existencias de solo lectura (Tier SigMat M6, `GET /api2/inventario/resumen`). */
+export interface ResumenInventario {
+  id_producto: string;
+  nombre: string;
+  sku: string | null;
+  marca: string | null;
+  modelo: string | null;
+  tipo_material: TipoMaterial;
+  unidad_medida: string;
+  id_sitio: string | null;
+  sitio_nombre: string | null;
+  disponibles: number;
+  prestados: number;
+  danados: number;
+  perdidos: number;
+  mantenimiento: number;
+  total: number;
+  lote_disponible: number;
+  lotes_por_vencer: number;
 }
 
 export interface CreateInventarioDto {
@@ -134,6 +186,17 @@ export interface CreateNovedadDto {
 export type EstadoTraslado = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO';
 export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'EN_ENTREGA' | 'ENTREGADA' | 'DEVUELTA' | 'CANCELADA';
 
+/** Línea de una solicitud multi-línea (Tier SigMat M4). Producto devolutivo XOR lote consumible. */
+export interface LineaSolicitud {
+  id_detalle: string;
+  id_producto: string | null;
+  id_lote: string | null;
+  cantidad: number;
+  cantidad_entregada: number;
+  producto_nombre?: string | null;
+  lote_codigo?: string | null;
+}
+
 export interface Solicitud {
   id_solicitud: string;
   fecha: string;
@@ -147,12 +210,31 @@ export interface Solicitud {
   id_curso?: string | null;
   fecha_devolucion?: string | null;
   producto?: { id_producto: string; nombre: string; SKU: string | null; id_sitio: string | null; tipo_material: string };
+  // Tier SigMat M4/M5
+  lineas?: LineaSolicitud[];
+  id_usuario_entrega?: string | null;
+  fecha_aprobacion?: string | null;
+  fecha_entrega?: string | null;
+  /** Nombres resueltos por el backend (lista y detalle). */
+  usuario_nombre?: string | null;
+  usuario_aprueba_nombre?: string | null;
+  usuario_entrega_nombre?: string | null;
+}
+
+/** Una línea al crear una solicitud multi-línea: producto devolutivo XOR lote consumible. */
+export interface LineaSolicitudInput {
+  id_producto?: string;
+  id_lote?: string;
+  cantidad: number;
 }
 
 export interface CreateSolicitudDto {
   tipo: 'PRESTAMO';
-  id_producto: string;
-  cantidad: number;
+  /** Legacy 1 línea — seguí mandando esto O `lineas`, no ambos. */
+  id_producto?: string;
+  cantidad?: number;
+  /** Tier SigMat M4 — solicitud multi-línea. Todas las líneas deben ser de la misma bodega. */
+  lineas?: LineaSolicitudInput[];
   observacion?: string;
   fecha_devolucion?: string;
 }
@@ -198,6 +280,9 @@ export interface ItemPendienteDevolucion {
   placa_sena: string | null;
   codigo_sku: string | null;
   estado: string;
+  /** Producto real de ESTA unidad (una solicitud multi-línea mezcla varios). */
+  id_producto: string | null;
+  producto_nombre: string | null;
 }
 
 /** Override del estado físico de una unidad puntual del lote (M10a). */
@@ -344,6 +429,20 @@ export class MaterialesApiService {
     );
   }
 
+  // ── Lotes (stock contable para consumibles) ────────────────────────
+  listarLotes() {
+    return this.unwrap(this.http.get<Envelope<Lote[]>>(`${BASE}/lotes`));
+  }
+  crearLote(dto: CreateLoteDto) {
+    return this.unwrap(this.http.post<Envelope<Lote>>(`${BASE}/lotes`, dto));
+  }
+  actualizarLote(id: string, dto: Partial<CreateLoteDto> & { cantidad_disponible?: number; estado?: EstadoLote }) {
+    return this.unwrap(this.http.patch<Envelope<Lote>>(`${BASE}/lotes/${id}`, dto));
+  }
+  eliminarLote(id: string) {
+    return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/lotes/${id}`));
+  }
+
   // ── Items ──────────────────────────────────────────────────────────
   listarItems(idProducto?: string) {
     const params = idProducto != null ? { id_producto: idProducto } : undefined;
@@ -366,6 +465,10 @@ export class MaterialesApiService {
   // ── Inventario ─────────────────────────────────────────────────────
   listarInventario() {
     return this.unwrap(this.http.get<Envelope<Inventario[]>>(`${BASE}/inventario`));
+  }
+  /** Panel de existencias de solo lectura (Tier SigMat M6) — calculado desde `item`/`lote`, recortado por programa/bodega. */
+  resumenInventario() {
+    return this.unwrap(this.http.get<Envelope<ResumenInventario[]>>(`${BASE}/inventario/resumen`));
   }
   crearInventario(dto: CreateInventarioDto) {
     return this.unwrap(this.http.post<Envelope<Inventario>>(`${BASE}/inventario`, dto));
@@ -394,8 +497,14 @@ export class MaterialesApiService {
   crearNovedad(dto: CreateNovedadDto) {
     return this.unwrap(this.http.post<Envelope<Novedad>>(`${BASE}/novedades`, dto));
   }
-  actualizarNovedad(id: string, estado: EstadoNovedad) {
-    return this.unwrap(this.http.patch<Envelope<Novedad>>(`${BASE}/novedades/${id}`, { estado }));
+  /** `estadoItem` (Tier SigMat M7): estado en el que queda el ítem de la novedad — solo si la novedad tiene `id_item`. */
+  actualizarNovedad(id: string, estado: EstadoNovedad, estadoItem?: EstadoItem) {
+    return this.unwrap(
+      this.http.patch<Envelope<Novedad>>(`${BASE}/novedades/${id}`, {
+        estado,
+        ...(estadoItem ? { estado_item: estadoItem } : {}),
+      }),
+    );
   }
   eliminarNovedad(id: string) {
     return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/novedades/${id}`));
@@ -418,6 +527,10 @@ export class MaterialesApiService {
   // ── Solicitudes ────────────────────────────────────────────────────
   listarSolicitudes() {
     return this.unwrap(this.http.get<Envelope<Solicitud[]>>(`${BASE}/solicitudes`));
+  }
+  /** Trae una solicitud con sus `lineas[]` (multi-línea, Tier SigMat M4) — la lista no las incluye. */
+  obtenerSolicitud(id: string) {
+    return this.unwrap(this.http.get<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}`));
   }
   crearSolicitud(dto: CreateSolicitudDto) {
     return this.unwrap(this.http.post<Envelope<Solicitud>>(`${BASE}/solicitudes`, dto));
