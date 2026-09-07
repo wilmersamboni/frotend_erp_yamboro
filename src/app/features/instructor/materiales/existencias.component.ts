@@ -1,21 +1,23 @@
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../../core/services/toast.service';
-import { MaterialesApiService, ResumenInventario } from '../../../core/services/materiales/materiales-api.service';
+import { MaterialesApiService, ResumenExistencias } from '../../../core/services/materiales/materiales-api.service';
+import { StatCardComponent } from '../../../shared/components/stat-card.component';
 
 /**
  * Panel de existencias — SOLO LECTURA (Tier SigMat M6). Reemplaza el CRUD que
- * escribía a mano en la tabla `inventario` (vestigial: ningún flujo la
- * sincronizaba, el stock real vive en `item.estado` + `lote`). Los datos
- * salen de `GET /api2/inventario/resumen`, ya recortado por programa/bodega.
+ * escribía a mano en la vieja tabla `inventario` (vestigial: ningún flujo la
+ * sincronizaba, el stock real vive en `item.estado` + `lote`; el módulo y la
+ * tabla se eliminaron del todo). Los datos salen de `GET /api2/existencias`,
+ * ya recortado por programa/bodega.
  *
  * Para mover stock se usan los flujos reales (solicitudes, traslados,
  * novedades, devoluciones) — acá no se crea/edita/elimina nada.
  */
 @Component({
-  selector: 'app-instructor-materiales-inventario',
+  selector: 'app-instructor-materiales-existencias',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, StatCardComponent],
   template: `
     <div class="p-6">
       <div class="mb-5">
@@ -30,39 +32,24 @@ import { MaterialesApiService, ResumenInventario } from '../../../core/services/
       } @else {
         <!-- Tarjetas resumen -->
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
-          <div class="rounded-xl border border-gray-100 p-3">
-            <div class="text-[11px] uppercase tracking-wide text-gray-400">Unidades</div>
-            <div class="text-lg font-bold text-gray-800">{{ tot().total }}</div>
-          </div>
-          <div class="rounded-xl border border-green-100 bg-green-50/50 p-3">
-            <div class="text-[11px] uppercase tracking-wide text-green-600">Disponibles</div>
-            <div class="text-lg font-bold text-green-700">{{ tot().disponibles }}</div>
-          </div>
-          <div class="rounded-xl border border-blue-100 bg-blue-50/50 p-3">
-            <div class="text-[11px] uppercase tracking-wide text-blue-600">Prestadas</div>
-            <div class="text-lg font-bold text-blue-700">{{ tot().prestados }}</div>
-          </div>
-          <div class="rounded-xl border border-amber-100 bg-amber-50/50 p-3">
-            <div class="text-[11px] uppercase tracking-wide text-amber-600">En mantenimiento</div>
-            <div class="text-lg font-bold text-amber-700">{{ tot().mantenimiento }}</div>
-          </div>
-          <div class="rounded-xl border border-red-100 bg-red-50/50 p-3">
-            <div class="text-[11px] uppercase tracking-wide text-red-600">Dañadas / perdidas</div>
-            <div class="text-lg font-bold text-red-700">{{ tot().danados + tot().perdidos }}</div>
-          </div>
-          <div class="rounded-xl border p-3"
-            [class.border-gray-100]="tot().lotes_por_vencer === 0"
-            [class.border-orange-200]="tot().lotes_por_vencer > 0"
-            [class.bg-orange-50]="tot().lotes_por_vencer > 0">
-            <div class="text-[11px] uppercase tracking-wide"
-              [class.text-gray-400]="tot().lotes_por_vencer === 0" [class.text-orange-600]="tot().lotes_por_vencer > 0">
-              Lotes por vencer
-            </div>
-            <div class="text-lg font-bold"
-              [class.text-gray-800]="tot().lotes_por_vencer === 0" [class.text-orange-700]="tot().lotes_por_vencer > 0">
-              {{ tot().lotes_por_vencer }}
-            </div>
-          </div>
+          <app-stat-card label="Unidades" [value]="tot().total" tono="neutral">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+          </app-stat-card>
+          <app-stat-card label="Disponibles" [value]="tot().disponibles" tono="success">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </app-stat-card>
+          <app-stat-card label="Prestadas" [value]="tot().prestados" tono="info">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+          </app-stat-card>
+          <app-stat-card label="En mantenimiento" [value]="tot().mantenimiento" tono="warning">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a4 4 0 100 8 4 4 0 000-8zM3 20a8 8 0 0116 0"/></svg>
+          </app-stat-card>
+          <app-stat-card label="Dañadas / perdidas" [value]="tot().danados + tot().perdidos" tono="danger">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          </app-stat-card>
+          <app-stat-card label="Lotes por vencer" [value]="tot().lotes_por_vencer" [tono]="tot().lotes_por_vencer > 0 ? 'warning' : 'neutral'">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </app-stat-card>
         </div>
 
         <input type="text" [(ngModel)]="q" (ngModelChange)="filtro.set($event)"
@@ -72,24 +59,25 @@ import { MaterialesApiService, ResumenInventario } from '../../../core/services/
         @if (filtradas().length === 0) {
           <p class="text-center text-gray-400 text-sm py-10">Sin existencias para mostrar</p>
         } @else {
-          <div class="overflow-x-auto rounded-xl border border-gray-100">
+          <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
             <table class="w-full text-sm">
-              <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+              <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
                 <tr>
-                  <th class="px-4 py-3 text-left font-medium">Producto</th>
-                  <th class="px-4 py-3 text-left font-medium">Bodega</th>
-                  <th class="px-3 py-3 text-right font-medium">Disp.</th>
-                  <th class="px-3 py-3 text-right font-medium">Prest.</th>
-                  <th class="px-3 py-3 text-right font-medium">Mant.</th>
-                  <th class="px-3 py-3 text-right font-medium">Dañ./Perd.</th>
-                  <th class="px-3 py-3 text-right font-medium">Total</th>
-                  <th class="px-3 py-3 text-right font-medium">Lote disp.</th>
-                  <th class="px-3 py-3 text-right font-medium">Por vencer</th>
+                  <th class="px-4 py-3 text-left font-semibold">Producto</th>
+                  <th class="px-4 py-3 text-left font-semibold">Bodega</th>
+                  <th class="px-3 py-3 text-right font-semibold">Disp.</th>
+                  <th class="px-3 py-3 text-right font-semibold">Prest.</th>
+                  <th class="px-3 py-3 text-right font-semibold">Mant.</th>
+                  <th class="px-3 py-3 text-right font-semibold">Dañ./Perd.</th>
+                  <th class="px-3 py-3 text-right font-semibold">Total</th>
+                  <th class="px-3 py-3 text-right font-semibold">Lote disp.</th>
+                  <th class="px-3 py-3 text-right font-semibold">Por vencer</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-gray-50">
+              <tbody class="divide-y divide-gray-100">
                 @for (r of filtradas(); track r.id_producto) {
-                  <tr class="hover:bg-gray-50 transition-colors">
+                  <tr class="hover:bg-gray-50/80 transition-colors">
                     <td class="px-4 py-3">
                       <div class="text-gray-800 font-medium">{{ r.nombre }}</div>
                       <div class="text-[11px] text-gray-400">
@@ -99,7 +87,7 @@ import { MaterialesApiService, ResumenInventario } from '../../../core/services/
                       </div>
                     </td>
                     <td class="px-4 py-3 text-gray-600">{{ r.sitio_nombre || '— sin bodega —' }}</td>
-                    <td class="px-3 py-3 text-right font-medium" [class.text-green-700]="r.disponibles > 0" [class.text-gray-300]="r.disponibles === 0">{{ r.disponibles }}</td>
+                    <td class="px-3 py-3 text-right font-semibold" [class.text-green-700]="r.disponibles > 0" [class.text-gray-300]="r.disponibles === 0">{{ r.disponibles }}</td>
                     <td class="px-3 py-3 text-right" [class.text-blue-700]="r.prestados > 0" [class.text-gray-300]="r.prestados === 0">{{ r.prestados }}</td>
                     <td class="px-3 py-3 text-right" [class.text-amber-700]="r.mantenimiento > 0" [class.text-gray-300]="r.mantenimiento === 0">{{ r.mantenimiento }}</td>
                     <td class="px-3 py-3 text-right" [class.text-red-700]="(r.danados + r.perdidos) > 0" [class.text-gray-300]="(r.danados + r.perdidos) === 0">{{ r.danados + r.perdidos }}</td>
@@ -107,7 +95,7 @@ import { MaterialesApiService, ResumenInventario } from '../../../core/services/
                     <td class="px-3 py-3 text-right" [class.text-gray-700]="r.lote_disponible > 0" [class.text-gray-300]="r.lote_disponible === 0">{{ r.lote_disponible || '—' }}</td>
                     <td class="px-3 py-3 text-right">
                       @if (r.lotes_por_vencer > 0) {
-                        <span class="px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-700">{{ r.lotes_por_vencer }}</span>
+                        <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold" style="background-color:#FEF3C7;color:#B45309">{{ r.lotes_por_vencer }}</span>
                       } @else {
                         <span class="text-gray-300">—</span>
                       }
@@ -116,14 +104,15 @@ import { MaterialesApiService, ResumenInventario } from '../../../core/services/
                 }
               </tbody>
             </table>
+            </div>
           </div>
         }
       }
     </div>
   `,
 })
-export class InstructorMaterialesInventarioComponent implements OnInit {
-  filas = signal<ResumenInventario[]>([]);
+export class InstructorMaterialesExistenciasComponent implements OnInit {
+  filas = signal<ResumenExistencias[]>([]);
   loading = false;
   q = '';
   filtro = signal('');
@@ -154,7 +143,7 @@ export class InstructorMaterialesInventarioComponent implements OnInit {
     ),
   );
 
-  marcaModelo(r: ResumenInventario): string {
+  marcaModelo(r: ResumenExistencias): string {
     return [r.marca, r.modelo].filter((v) => !!v).join(' ');
   }
 
@@ -167,7 +156,7 @@ export class InstructorMaterialesInventarioComponent implements OnInit {
   private async cargar(): Promise<void> {
     this.loading = true;
     try {
-      this.filas.set(await this.api.resumenInventario());
+      this.filas.set(await this.api.obtenerExistencias());
     } catch (e) {
       this.toast.httpError(e, 'No se pudo cargar el panel de existencias.');
     } finally {

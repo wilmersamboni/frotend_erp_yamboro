@@ -9,12 +9,11 @@ import { Categoria, MaterialesApiService } from '../../../core/services/material
 
 /**
  * Categorías de Materiales para instructor — crear/editar/eliminar
- * gateados por servicio, no por cargo. OJO: no existe un servicio propio
- * `materiales.categorias.*` en el catálogo — el backend reusa
- * `materiales.inventario.ver/crear/editar/eliminar` a propósito (evita
- * resembrar permisos en tenants existentes, ver CLAUDE.md de
- * backend-epsas-horarios). Consecuencia real: otorgar acceso a Inventario
- * también otorga, sin poder separarlo, acceso a gestionar Categorías.
+ * gateados por servicio, no por cargo. `materiales.categorias.*` es su
+ * propio namespace (antes reusaba `materiales.inventario.*`, que se separó
+ * en `materiales.existencias.ver` + `materiales.categorias.*` — ver
+ * `migrate-existencias-categorias-rename.ts` en backend-epsas), así que
+ * ahora sí se puede otorgar acceso a Categorías sin depender de Existencias.
  */
 @Component({
   selector: 'app-instructor-materiales-categorias',
@@ -63,9 +62,9 @@ export class InstructorMaterialesCategoriasComponent implements OnInit {
   editando: Categoria | null = null;
   form: Record<string, any> = {};
 
-  puedeCrear = computed(() => this.auth.tieneServicio('materiales.inventario.crear'));
-  puedeEditar = computed(() => this.auth.tieneServicio('materiales.inventario.editar'));
-  puedeEliminar = computed(() => this.auth.tieneServicio('materiales.inventario.eliminar'));
+  puedeCrear = computed(() => this.auth.tieneServicio('materiales.categorias.crear'));
+  puedeEditar = computed(() => this.auth.tieneServicio('materiales.categorias.editar'));
+  puedeEliminar = computed(() => this.auth.tieneServicio('materiales.categorias.eliminar'));
 
   constructor(private api: MaterialesApiService, private toast: ToastService, private auth: AuthService) {}
 
