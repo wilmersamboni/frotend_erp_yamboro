@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../../core/services/toast.service';
 import { PermisosService } from '../../../core/services/permisos.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { MaterialesApiService, Lote, Producto, Sitio, Solicitud } from '../../../core/services/materiales/materiales-api.service';
 
 /** Línea del modal "Nueva solicitud" — `p:<id>` producto devolutivo, `l:<id>` lote consumible. */
@@ -14,12 +15,14 @@ interface LineaForm {
 
 /**
  * Solicitudes de préstamo para instructor: crear siempre disponible.
- * Aprobar/rechazar exigen la excepción personal de "responsable de bodega"
- * (`PermisosService.tieneServicio('materiales.solicitudes.<accion>')`) Y ser
- * realmente responsable del sitio del producto (o admin, si el sitio no
- * tiene responsable) y no ser quien pidió la solicitud — ver Ronda 4 Fase 5.
- * Confirmar recepción exige ser el propio solicitante. Entregar no tiene
- * chequeo de dueño en el backend. El backend igual re-valida cada paso.
+ * Aprobar/rechazar/entregar/cancelar exigen la excepción personal de
+ * "responsable de bodega" (`PermisosService.tieneServicio('materiales.
+ * solicitudes.<accion>')`) Y ser realmente responsable del sitio del
+ * producto (el admin bypasea siempre — regla A+C, ver docblock de la
+ * versión admin — pero esta pantalla es de instructor, así que en la
+ * práctica `auth.isAdmin()` nunca es true acá) y no ser quien pidió la
+ * solicitud — ver Ronda 4 Fase 5. Confirmar recepción exige ser el propio
+ * solicitante. El backend igual re-valida cada paso.
  * El backend ya filtra `GET /solicitudes` según quién pregunta (dueño vs.
  * responsable vs. admin), así que la lista no se filtra client-side.
  *
@@ -29,7 +32,7 @@ interface LineaForm {
 @Component({
   selector: 'app-instructor-materiales-solicitudes',
   standalone: true,
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, StatusBadgeComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -48,23 +51,24 @@ interface LineaForm {
       } @else if (solicitudes.length === 0) {
         <p class="text-center text-gray-400 text-sm py-10">No hay solicitudes registradas</p>
       } @else {
-        <div class="overflow-x-auto rounded-xl border border-gray-100">
+        <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
           <table class="w-full text-sm">
-            <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+            <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
               <tr>
-                <th class="px-4 py-3 text-left font-medium">Producto</th>
-                <th class="px-4 py-3 text-left font-medium">Solicitó</th>
-                <th class="px-4 py-3 text-left font-medium">Cantidad</th>
-                <th class="px-4 py-3 text-left font-medium">Disponible</th>
-                <th class="px-4 py-3 text-left font-medium">Observación</th>
-                <th class="px-4 py-3 text-left font-medium">Estado</th>
-                <th class="px-4 py-3 text-left font-medium">Fecha</th>
-                <th class="px-4 py-3 text-right font-medium">Acciones</th>
+                <th class="px-4 py-3 text-left font-semibold">Producto</th>
+                <th class="px-4 py-3 text-left font-semibold">Solicitó</th>
+                <th class="px-4 py-3 text-left font-semibold">Cantidad</th>
+                <th class="px-4 py-3 text-left font-semibold">Disponible</th>
+                <th class="px-4 py-3 text-left font-semibold">Observación</th>
+                <th class="px-4 py-3 text-left font-semibold">Estado</th>
+                <th class="px-4 py-3 text-left font-semibold">Fecha</th>
+                <th class="px-4 py-3 text-right font-semibold">Acciones</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-50">
+            <tbody class="divide-y divide-gray-100">
               @for (s of solicitudes; track s.id_solicitud) {
-                <tr class="hover:bg-gray-50 transition-colors">
+                <tr class="hover:bg-gray-50/80 transition-colors">
                   <td class="px-4 py-3 text-gray-700">{{ s.producto?.nombre ?? '—' }}</td>
                   <td class="px-4 py-3 text-gray-600">{{ s.usuario_nombre || '—' }}</td>
                   <td class="px-4 py-3 text-gray-700">{{ s.cantidad }}</td>
@@ -83,34 +87,25 @@ interface LineaForm {
                     }
                   </td>
                   <td class="px-4 py-3 text-gray-500 max-w-[220px] truncate">{{ s.observacion ?? '—' }}</td>
-                  <td class="px-4 py-3">
-                    <span class="px-2 py-1 rounded-full text-xs"
-                      [class.bg-amber-100]="s.estado === 'PENDIENTE'" [class.text-amber-700]="s.estado === 'PENDIENTE'"
-                      [class.bg-blue-100]="s.estado === 'APROBADA' || s.estado === 'EN_ENTREGA'" [class.text-blue-700]="s.estado === 'APROBADA' || s.estado === 'EN_ENTREGA'"
-                      [class.bg-green-100]="s.estado === 'ENTREGADA'" [class.text-green-700]="s.estado === 'ENTREGADA'"
-                      [class.bg-red-100]="s.estado === 'RECHAZADA'" [class.text-red-700]="s.estado === 'RECHAZADA'"
-                      [class.bg-gray-200]="s.estado === 'CANCELADA' || s.estado === 'DEVUELTA'" [class.text-gray-600]="s.estado === 'CANCELADA' || s.estado === 'DEVUELTA'">
-                      {{ s.estado }}
-                    </span>
-                  </td>
+                  <td class="px-4 py-3"><app-status-badge [value]="s.estado" /></td>
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ s.fecha | date: 'short' }}</td>
                   <td class="px-4 py-3">
-                    <div class="flex justify-end gap-1.5">
-                      <button (click)="verDetalle(s)" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-50 text-gray-500 hover:bg-gray-100 transition-colors">Ver</button>
+                    <div class="flex flex-wrap justify-end gap-2">
+                      <button (click)="verDetalle(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">Ver</button>
                       @if (s.estado === 'PENDIENTE' && puedeAprobar && puedeGestionar(s)) {
-                        <button (click)="aprobar(s)" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-50 text-green-600 hover:bg-green-100 transition-colors">Aprobar</button>
+                        <button (click)="aprobar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-600 bg-white hover:bg-green-50 transition-colors">Aprobar</button>
                       }
                       @if (s.estado === 'PENDIENTE' && puedeRechazar && puedeGestionar(s)) {
-                        <button (click)="rechazar(s)" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors">Rechazar</button>
+                        <button (click)="rechazar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-red-400 hover:text-red-600 transition-colors">Rechazar</button>
                       }
-                      @if (s.estado === 'APROBADA' && puedeEntregar) {
-                        <button (click)="entregar(s)" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">Marcar en entrega</button>
+                      @if (s.estado === 'APROBADA' && puedeEntregar && puedeGestionar(s)) {
+                        <button (click)="entregar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-blue-200 text-blue-600 bg-white hover:bg-blue-50 transition-colors">Marcar en entrega</button>
                       }
                       @if (s.estado === 'APROBADA' && puedeRechazar && puedeGestionar(s)) {
-                        <button (click)="cancelar(s)" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">Cancelar</button>
+                        <button (click)="cancelar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">Cancelar</button>
                       }
                       @if (s.estado === 'EN_ENTREGA' && esSolicitantePropio(s)) {
-                        <button (click)="confirmarRecepcion(s)" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-50 text-green-600 hover:bg-green-100 transition-colors">Confirmar recepción</button>
+                        <button (click)="confirmarRecepcion(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-600 bg-white hover:bg-green-50 transition-colors">Confirmar recepción</button>
                       }
                     </div>
                   </td>
@@ -118,6 +113,7 @@ interface LineaForm {
               }
             </tbody>
           </table>
+          </div>
         </div>
       }
     </div>
@@ -323,17 +319,19 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
   }
 
   /**
-   * Nunca puede gestionar su propia solicitud. Con responsable asignado en
-   * el sitio del producto, solo esa persona (ni siquiera admin). Sin
-   * responsable asignado, solo admin — replica exactamente
-   * `SolicitudesService.cambiarEstadoSolicitud`.
+   * Nunca puede gestionar su propia solicitud. Admin: siempre puede (regla
+   * A+C). Si no, autorizado solo si es el responsable del sitio del
+   * producto, o si el sitio no tiene ninguno asignado — replica
+   * `SolicitudesService.cambiarEstadoSolicitud` / `entregarSolicitud` /
+   * `cancelarSolicitud`.
    */
   puedeGestionar(s: Solicitud): boolean {
     if (this.esSolicitantePropio(s)) return false;
+    if (this.auth.isAdmin()) return true;
     const idSitio = s.producto?.id_sitio;
     const sitio = idSitio ? this.sitios.find((x) => x.id_sitio === idSitio) : undefined;
     if (sitio?.id_responsable) return sitio.id_responsable === this.auth.user()?.id;
-    return this.auth.isAdmin();
+    return false;
   }
 
   ngOnInit(): void {

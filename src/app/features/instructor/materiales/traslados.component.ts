@@ -4,15 +4,18 @@ import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../../core/services/toast.service';
 import { PermisosService } from '../../../core/services/permisos.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { Item, MaterialesApiService, Sitio, Traslado } from '../../../core/services/materiales/materiales-api.service';
 
 /**
  * Traslados de ítems entre sitios para instructor: crear siempre disponible;
  * aprobar/rechazar solo si tiene la excepción personal de "responsable de
  * bodega" (`PermisosService.tieneServicio('materiales.traslados.<accion>')`)
- * Y además es realmente el responsable del sitio origen (o no hay ninguno
- * asignado) y no pidió el traslado él mismo — mismo criterio que la versión
- * admin, ver Ronda 4 Fase 5. El backend igual re-valida todo.
+ * Y además es realmente el responsable del sitio origen o destino (o no hay
+ * ninguno asignado a ninguno de los dos) y no pidió el traslado él mismo —
+ * mismo criterio que la versión admin, ver Ronda 4 Fase 5 (gate corregido
+ * tras el rework de `TrasladosService.assertPuedeResolver`). El backend
+ * igual re-valida todo.
  *
  * Crear (Ronda 4, Fase 6): búsqueda por placa SENA, mismo flujo que la
  * versión admin — ver docblock ahí para el detalle de por qué se resuelve
@@ -21,7 +24,7 @@ import { Item, MaterialesApiService, Sitio, Traslado } from '../../../core/servi
 @Component({
   selector: 'app-instructor-materiales-traslados',
   standalone: true,
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, StatusBadgeComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -40,51 +43,45 @@ import { Item, MaterialesApiService, Sitio, Traslado } from '../../../core/servi
       } @else if (traslados.length === 0) {
         <p class="text-center text-gray-400 text-sm py-10">No hay traslados registrados</p>
       } @else {
-        <div class="overflow-x-auto rounded-xl border border-gray-100">
+        <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
           <table class="w-full text-sm">
-            <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+            <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
               <tr>
-                <th class="px-4 py-3 text-left font-medium">Ítem</th>
-                <th class="px-4 py-3 text-left font-medium">Origen</th>
-                <th class="px-4 py-3 text-left font-medium">Destino</th>
-                <th class="px-4 py-3 text-left font-medium">Justificación</th>
-                <th class="px-4 py-3 text-left font-medium">Estado</th>
-                <th class="px-4 py-3 text-left font-medium">Fecha</th>
-                <th class="px-4 py-3 text-right font-medium">Acciones</th>
+                <th class="px-4 py-3 text-left font-semibold">Ítem</th>
+                <th class="px-4 py-3 text-left font-semibold">Origen</th>
+                <th class="px-4 py-3 text-left font-semibold">Destino</th>
+                <th class="px-4 py-3 text-left font-semibold">Justificación</th>
+                <th class="px-4 py-3 text-left font-semibold">Estado</th>
+                <th class="px-4 py-3 text-left font-semibold">Fecha</th>
+                <th class="px-4 py-3 text-right font-semibold">Acciones</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-50">
+            <tbody class="divide-y divide-gray-100">
               @for (t of traslados; track t.id_traslado) {
-                <tr class="hover:bg-gray-50 transition-colors">
+                <tr class="hover:bg-gray-50/80 transition-colors">
                   <td class="px-4 py-3 text-gray-700">{{ t.item?.codigo_sku ?? '—' }}</td>
                   <td class="px-4 py-3 text-gray-700">{{ nombreSitio(t.id_sitio_origen) }}</td>
                   <td class="px-4 py-3 text-gray-700">{{ nombreSitio(t.id_sitio_destino) }}</td>
                   <td class="px-4 py-3 text-gray-500 max-w-[200px] truncate">{{ t.justificacion ?? '—' }}</td>
-                  <td class="px-4 py-3">
-                    <span class="px-2 py-1 rounded-full text-xs"
-                      [class.bg-amber-100]="t.estado === 'PENDIENTE'" [class.text-amber-700]="t.estado === 'PENDIENTE'"
-                      [class.bg-green-100]="t.estado === 'APROBADO'" [class.text-green-700]="t.estado === 'APROBADO'"
-                      [class.bg-red-100]="t.estado === 'RECHAZADO'" [class.text-red-700]="t.estado === 'RECHAZADO'">
-                      {{ t.estado }}
-                    </span>
-                  </td>
+                  <td class="px-4 py-3"><app-status-badge [value]="t.estado" /></td>
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ t.fecha_solicitud | date: 'short' }}</td>
                   <td class="px-4 py-3">
-                    <div class="flex justify-end gap-1.5">
+                    <div class="flex justify-end gap-2">
                       <button (click)="verDetalle(t)"
-                        class="px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-50 text-gray-500 hover:bg-gray-100 transition-colors">
+                        class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">
                         Ver
                       </button>
                       @if (t.estado === 'PENDIENTE' && !esSolicitantePropio(t) && esResponsableDelSitio(t)) {
                         @if (puedeAprobar) {
                           <button (click)="aprobar(t)"
-                            class="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-50 text-green-600 hover:bg-green-100 transition-colors">
+                            class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-600 bg-white hover:bg-green-50 transition-colors">
                             Aprobar
                           </button>
                         }
                         @if (puedeRechazar) {
-                          <button (click)="rechazar(t)"
-                            class="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors">
+                          <button (click)="abrirRechazar(t)"
+                            class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-red-400 hover:text-red-600 transition-colors">
                             Rechazar
                           </button>
                         }
@@ -95,6 +92,7 @@ import { Item, MaterialesApiService, Sitio, Traslado } from '../../../core/servi
               }
             </tbody>
           </table>
+          </div>
         </div>
       }
     </div>
@@ -123,6 +121,31 @@ import { Item, MaterialesApiService, Sitio, Traslado } from '../../../core/servi
           </dl>
           <div class="flex justify-end mt-6">
             <button (click)="detalleAbierto = false" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (rechazarOpen && trasladoARechazar) {
+      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="rechazarOpen = false">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-gray-800">Rechazar traslado</h2>
+            <button (click)="rechazarOpen = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+          </div>
+          <p class="text-sm text-gray-500 mb-3">
+            {{ trasladoARechazar.item?.producto?.nombre ?? trasladoARechazar.item?.codigo_sku ?? 'Ítem' }} →
+            {{ nombreSitio(trasladoARechazar.id_sitio_destino) }}
+          </p>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Motivo (opcional)</label>
+          <textarea [(ngModel)]="motivoRechazo" rows="3" placeholder="¿Por qué se rechaza este traslado?"
+            class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]"></textarea>
+          <div class="flex justify-end gap-2 mt-6">
+            <button (click)="rechazarOpen = false" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
+            <button (click)="confirmarRechazar()"
+              class="px-5 py-2 text-white text-sm font-medium rounded-lg transition-colors" style="background-color: #DC2626">
+              Rechazar traslado
+            </button>
           </div>
         </div>
       </div>
@@ -244,6 +267,11 @@ export class InstructorMaterialesTrasladosComponent implements OnInit {
   detalleAbierto = false;
   detalle: Traslado | null = null;
 
+  /** Diálogo de rechazo — reemplaza el window.prompt() nativo por el modal estándar de la app. */
+  rechazarOpen = false;
+  trasladoARechazar: Traslado | null = null;
+  motivoRechazo = '';
+
   /** Flujo de creación por placa SENA (Fase 6). */
   crearOpen = false;
   placaBuscar = '';
@@ -274,14 +302,18 @@ export class InstructorMaterialesTrasladosComponent implements OnInit {
   }
 
   /**
-   * Sin responsable asignado en el sitio origen: cualquiera con el servicio
-   * puede actuar. Con responsable asignado: solo esa persona exacta —
-   * replica `TrasladosService.aprobarTraslado`/`rechazarTraslado`, sin
-   * excepción para admin.
+   * Admin: siempre puede. Si no, autorizado solo si es responsable del sitio
+   * origen o del sitio destino; si ninguno de los dos sitios tiene
+   * responsable asignado, cualquiera con el servicio puede actuar — replica
+   * `TrasladosService.assertPuedeResolver`.
    */
   esResponsableDelSitio(t: Traslado): boolean {
-    const responsable = t.sitio_origen?.id_responsable;
-    return !responsable || responsable === this.auth.user()?.id;
+    if (this.auth.isAdmin()) return true;
+    const uid = this.auth.user()?.id;
+    const responsableOrigen = t.sitio_origen?.id_responsable;
+    const responsableDestino = t.sitio_destino?.id_responsable;
+    if (!responsableOrigen && !responsableDestino) return true;
+    return responsableOrigen === uid || responsableDestino === uid;
   }
 
   ngOnInit(): void {
@@ -401,12 +433,18 @@ export class InstructorMaterialesTrasladosComponent implements OnInit {
     }
   }
 
-  async rechazar(t: Traslado): Promise<void> {
-    const observacion = window.prompt('Motivo del rechazo (opcional):');
-    if (observacion === null) return;
+  abrirRechazar(t: Traslado): void {
+    this.trasladoARechazar = t;
+    this.motivoRechazo = '';
+    this.rechazarOpen = true;
+  }
+
+  async confirmarRechazar(): Promise<void> {
+    if (!this.trasladoARechazar) return;
     try {
-      await this.api.rechazarTraslado(t.id_traslado, observacion || undefined);
+      await this.api.rechazarTraslado(this.trasladoARechazar.id_traslado, this.motivoRechazo.trim() || undefined);
       this.toast.ok('Traslado rechazado');
+      this.rechazarOpen = false;
       await this.cargar();
     } catch (e) {
       this.toast.httpError(e, 'No se pudo rechazar el traslado.');
