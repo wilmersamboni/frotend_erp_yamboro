@@ -43,8 +43,8 @@ const OPCIONES_TIPO: OpcionSelect[] = [
         (add)="nuevo()"
         [rows]="filas"
         [searchable]="true"
-        [searchPlaceholder]="'Buscar por nombre, tipo, programa…'"
-        [columns]="['nombre', 'tipo', 'programa_nombre', 'responsable_nombre', 'items_count', 'estado']"
+        [searchPlaceholder]="'Buscar por nombre, tipo, área…'"
+        [columns]="['nombre', 'tipo', 'area_nombre', 'responsable_nombre', 'items_count', 'estado']"
         [columnLabels]="columnLabels"
         [loading]="loading"
         [canEdit]="puedeEditar()"
@@ -108,7 +108,7 @@ export class InstructorMaterialesSitiosComponent implements OnInit {
   sitios: Sitio[] = [];
   responsables: any[] = [];
   centros: any[] = [];
-  programas: any[] = [];
+  areas: any[] = [];
   loading = false;
   saving = false;
   error: string | null = null;
@@ -117,15 +117,16 @@ export class InstructorMaterialesSitiosComponent implements OnInit {
   editando: Sitio | null = null;
   form: Record<string, any> = {};
 
-  tiposCampo: Record<string, string> = {};
+  tiposCampo: Record<string, string> = { acceso_publico: 'boolean' };
   columnLabels: Record<string, string> = {
     id_responsable: 'Responsable',
     id_centro: 'Centro',
-    id_programa: 'Programa',
+    id_area: 'Área',
+    acceso_publico: 'Acceso público (todos los roles)',
     codigo_lugar: 'Código de lugar',
     tipo_personalizado: 'Tipo personalizado',
     responsable_nombre: 'Responsable',
-    programa_nombre: 'Programa',
+    area_nombre: 'Área',
     items_count: 'Ítems',
   };
   placeholders: Record<string, string> = {
@@ -162,9 +163,9 @@ export class InstructorMaterialesSitiosComponent implements OnInit {
         value: u.idUsuario,
       })),
       id_centro: this.centros.map((c) => ({ label: c.nombre, value: c.idCentro })),
-      id_programa: [
-        { label: '— Sin programa (compartido) —', value: '' },
-        ...this.programas.map((p) => ({ label: p.nombre, value: p.idPrograma ?? p.id_programa })),
+      id_area: [
+        { label: '— Sin área (solo personal: instructores y admin, sin aprendices) —', value: '' },
+        ...this.areas.map((a) => ({ label: a.nombre, value: a.idArea ?? a.id_area })),
       ],
       estado: [
         { label: 'Activo', value: true },
@@ -176,7 +177,7 @@ export class InstructorMaterialesSitiosComponent implements OnInit {
   /** Campos al crear: sin `estado` (nace activo), sin `id_centro` si el tenant
    *  tiene un único centro, y sin `tipo_personalizado` salvo que tipo = OTRO. */
   get camposCrear(): string[] {
-    const base = ['nombre', 'tipo', 'tipo_personalizado', 'codigo_lugar', 'id_responsable', 'id_programa'];
+    const base = ['nombre', 'tipo', 'tipo_personalizado', 'codigo_lugar', 'id_responsable', 'id_area', 'acceso_publico'];
     let cols = base.filter((c) => c !== 'tipo_personalizado' || this.form['tipo'] === 'OTRO');
     if (this.centros.length > 1) cols = [...cols, 'id_centro'];
     return cols;
@@ -199,7 +200,7 @@ export class InstructorMaterialesSitiosComponent implements OnInit {
       ...s,
       estado: s.estado ? 'Activo' : 'Inactivo',
       responsable_nombre: this.nombreResponsable(s.id_responsable) ?? '—',
-      programa_nombre: this.nombrePrograma(s.id_programa) ?? '— compartido —',
+      area_nombre: s.acceso_publico ? 'Público' : this.nombreArea(s.id_area) ?? '— sin área (solo personal) —',
       items_count: this.items.filter((i) => i.id_sitio === s.id_sitio).length,
     }));
   }
@@ -210,10 +211,10 @@ export class InstructorMaterialesSitiosComponent implements OnInit {
     return u ? `${u.persona?.nombre ?? ''} ${u.persona?.apellido ?? ''}`.trim() : null;
   }
 
-  private nombrePrograma(idPrograma?: string | null): string | null {
-    if (!idPrograma) return null;
-    const p = this.programas.find((x) => (x.idPrograma ?? x.id_programa) === idPrograma);
-    return p?.nombre ?? null;
+  private nombreArea(idArea?: string | null): string | null {
+    if (!idArea) return null;
+    const a = this.areas.find((x) => (x.idArea ?? x.id_area) === idArea);
+    return a?.nombre ?? null;
   }
 
   itemsDelSitioSeleccionado(): Item[] {
@@ -229,17 +230,17 @@ export class InstructorMaterialesSitiosComponent implements OnInit {
   private async cargar(): Promise<void> {
     this.loading = true;
     try {
-      const [sitios, responsables, centros, programas, items] = await Promise.all([
+      const [sitios, responsables, centros, areas, items] = await Promise.all([
         this.api.listarSitios(),
         this.personaApi.listarResponsablesBodega().catch(() => [] as any[]),
         this.personaApi.listarCentros().catch(() => [] as any[]),
-        this.personaApi.listarProgramas().catch(() => [] as any[]),
+        this.personaApi.listarAreas().catch(() => [] as any[]),
         this.api.listarItems(),
       ]);
       this.sitios = sitios;
       this.responsables = responsables;
       this.centros = centros;
-      this.programas = programas;
+      this.areas = areas;
       this.items = items;
     } catch (e) {
       this.toast.httpError(e, 'No se pudieron cargar los sitios.');
@@ -254,7 +255,8 @@ export class InstructorMaterialesSitiosComponent implements OnInit {
     this.form = {
       nombre: '', tipo: 'BODEGA', tipo_personalizado: '', codigo_lugar: '',
       id_responsable: '',
-      id_programa: '',
+      id_area: '',
+      acceso_publico: false,
       id_centro: this.centros.length === 1 ? this.centros[0].idCentro : '',
       estado: true,
     };
@@ -272,7 +274,8 @@ export class InstructorMaterialesSitiosComponent implements OnInit {
       tipo_personalizado: sitio.tipo_personalizado ?? '',
       codigo_lugar: sitio.codigo_lugar ?? '',
       id_responsable: sitio.id_responsable ?? '',
-      id_programa: sitio.id_programa ?? '',
+      id_area: sitio.id_area ?? '',
+      acceso_publico: sitio.acceso_publico ?? false,
       id_centro: sitio.id_centro ?? (this.centros.length === 1 ? this.centros[0].idCentro : ''),
       estado: sitio.estado,
     };
@@ -296,7 +299,8 @@ export class InstructorMaterialesSitiosComponent implements OnInit {
       codigo_lugar: form['codigo_lugar'] || undefined,
       id_responsable: form['id_responsable'] || undefined,
       id_centro: form['id_centro'] || undefined,
-      id_programa: form['id_programa'] || null,
+      id_area: form['id_area'] || null,
+      acceso_publico: !!form['acceso_publico'],
       estado: this.editando ? form['estado'] : true,
     };
     this.saving = true;
