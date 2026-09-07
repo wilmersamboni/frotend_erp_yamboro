@@ -110,6 +110,14 @@ export interface CreateSitioDto {
   estado?: boolean;
 }
 
+/** #5 — resultado de la importación masiva de productos. */
+export interface ResultadoImportacion {
+  total: number;
+  productos_creados: number;
+  stock_agregado: number;
+  errores: { fila: number; error: string }[];
+}
+
 export interface CreateProductoDto {
   nombre: string;
   descripcion?: string;
@@ -127,7 +135,8 @@ export interface CreateProductoDto {
   stock_minimo: number;
   unidad_peso_bulto?: string;
   peso_por_bulto?: number;
-  id_sitio: string;
+  /** Bodega "de casa" del producto. Opcional (Paso 0 de #5) — un producto puede quedar sin bodega. */
+  id_sitio?: string;
   usa_placa_sena?: boolean;
 }
 
@@ -456,6 +465,18 @@ export class MaterialesApiService {
   }
   actualizarProducto(id: string, dto: Partial<CreateProductoDto>) {
     return this.unwrap(this.http.patch<Envelope<Producto>>(`${BASE}/productos/${id}`, dto));
+  }
+  /** #5 — descarga la plantilla .xlsx (blob, sin envelope). */
+  descargarPlantillaProductos(): Promise<Blob> {
+    return firstValueFrom(
+      this.http.get(`${BASE}/productos/importar/plantilla`, { responseType: 'blob' }),
+    );
+  }
+  /** #5 — sube un .xlsx/.csv y devuelve el resumen + errores por fila. */
+  importarProductos(archivo: File) {
+    const fd = new FormData();
+    fd.append('archivo', archivo);
+    return this.unwrap(this.http.post<Envelope<ResultadoImportacion>>(`${BASE}/productos/importar`, fd));
   }
   eliminarProducto(id: string) {
     return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/productos/${id}`));
