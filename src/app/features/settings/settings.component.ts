@@ -82,7 +82,9 @@ type Tab = 'perfil' | 'password' | 'apariencia';
                   </div>
                   <div class="form-field">
                     <label>Teléfono</label>
-                    <input type="tel" [(ngModel)]="perfil.telefono" placeholder="3001234567" />
+                    <input type="tel" [ngModel]="perfil.telefono"  
+                    (ngModelChange)="cambiarTelefono($event)"
+                    placeholder="3001234567" />
                   </div>
                   <div class="form-field">
                     <label>Dirección</label>
@@ -234,10 +236,25 @@ export class SettingsComponent implements OnInit {
   readonly iniciales = computed(() =>
     (this.user()?.nombre ?? 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
   );
+  cambiarTelefono(valor: string | number | null): void {
+  this.perfil.telefono =
+    valor === '' || valor === null
+      ? null
+      : Number(valor);
+}
 
   // Datos de perfil
-  perfil = { nombre: '', correo: '', telefono: '', direccion: '' };
-
+perfil: {
+  nombre: string;
+  correo: string;
+  telefono: number | null;
+  direccion: string;
+} = {
+  nombre: '',
+  correo: '',
+  telefono: null,
+  direccion: ''
+};
   // Cambio de contraseña
   pwd       = { actual: '', nueva: '', confirma: '' };
   showPwd   = { actual: false, nueva: false, confirma: false };
@@ -279,7 +296,7 @@ export class SettingsComponent implements OnInit {
       this.perfil = {
         nombre:    data.nombre    ?? '',
         correo:    data.correo    ?? '',
-        telefono:  String(data.telefono  ?? ''),
+        telefono:  data.telefono != null ? Number(data.telefono) : null,
         direccion: data.direccion ?? '',
       };
     } catch { this.perfil.nombre = this.user()?.nombre ?? ''; }
@@ -307,9 +324,22 @@ export class SettingsComponent implements OnInit {
           estado:       actual.estado,
         })
       );
+      console.log('BODY PUT:', {
+  nombre: this.perfil.nombre,
+  correo: this.perfil.correo,
+  telefono: this.perfil.telefono,
+  direccion: this.perfil.direccion,
+  genero: actual.genero,
+  municipioId: actual.municipioId,
+  cargo: actual.cargo,
+  estado: actual.estado,
+});
       this.auth.actualizarUser({ nombre: this.perfil.nombre });
       this.toast.ok('Perfil actualizado', 'Los cambios fueron guardados correctamente.');
     } catch (e: any) {
+      console.error('ERROR PUT:', e);
+  console.error('STATUS:', e?.status);
+  console.error('ERROR BODY:', e?.error);
       this.toast.httpError(e, 'Error al guardar el perfil.');
     } finally { this.saving.set(false); }
   }

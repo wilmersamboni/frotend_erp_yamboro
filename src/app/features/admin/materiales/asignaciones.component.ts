@@ -5,6 +5,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { ErpCatalogoService } from '../../../core/services/horarios/erp-catalogo.service';
+import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { Asignacion, CreateAsignacionDto, MaterialesApiService, Producto } from '../../../core/services/materiales/materiales-api.service';
 
 interface Ficha {
@@ -30,7 +31,7 @@ interface Ficha {
 @Component({
   selector: 'app-materiales-asignaciones',
   standalone: true,
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, StatusBadgeComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -49,37 +50,32 @@ interface Ficha {
       } @else if (asignaciones.length === 0) {
         <p class="text-center text-gray-400 text-sm py-10">No hay asignaciones registradas</p>
       } @else {
-        <div class="overflow-x-auto rounded-xl border border-gray-100">
+        <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
           <table class="w-full text-sm">
-            <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+            <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
               <tr>
-                <th class="px-4 py-3 text-left font-medium">Ficha</th>
-                <th class="px-4 py-3 text-left font-medium">Producto</th>
-                <th class="px-4 py-3 text-left font-medium">Cantidad</th>
-                <th class="px-4 py-3 text-left font-medium">Estado</th>
-                <th class="px-4 py-3 text-left font-medium">Fecha</th>
-                <th class="px-4 py-3 text-right font-medium">Acciones</th>
+                <th class="px-4 py-3 text-left font-semibold">Ficha</th>
+                <th class="px-4 py-3 text-left font-semibold">Producto</th>
+                <th class="px-4 py-3 text-left font-semibold">Cantidad</th>
+                <th class="px-4 py-3 text-left font-semibold">Estado</th>
+                <th class="px-4 py-3 text-left font-semibold">Fecha</th>
+                <th class="px-4 py-3 text-right font-semibold">Acciones</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-50">
+            <tbody class="divide-y divide-gray-100">
               @for (a of asignaciones; track a.id_asignacion) {
-                <tr class="hover:bg-gray-50 transition-colors">
+                <tr class="hover:bg-gray-50/80 transition-colors">
                   <td class="px-4 py-3 text-gray-700">{{ nombreFicha(a.id_curso) }}</td>
                   <td class="px-4 py-3 text-gray-700">{{ a.producto?.nombre ?? '—' }}</td>
                   <td class="px-4 py-3 text-gray-700">{{ a.cantidad }}</td>
-                  <td class="px-4 py-3">
-                    <span class="px-2 py-1 rounded-full text-xs"
-                      [class.bg-green-100]="a.estado === 'ACTIVA'" [class.text-green-700]="a.estado === 'ACTIVA'"
-                      [class.bg-gray-100]="a.estado === 'ANULADA'" [class.text-gray-500]="a.estado === 'ANULADA'">
-                      {{ a.estado }}
-                    </span>
-                  </td>
+                  <td class="px-4 py-3"><app-status-badge [value]="a.estado" /></td>
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ a.fecha_asignacion | date: 'short' }}</td>
                   <td class="px-4 py-3">
-                    <div class="flex justify-end gap-1.5">
+                    <div class="flex justify-end gap-2">
                       @if (a.estado === 'ACTIVA' && puedeAnular) {
                         <button (click)="anular(a)"
-                          class="px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors">
+                          class="px-3 py-1.5 rounded-full text-xs font-semibold border border-amber-200 text-amber-600 bg-white hover:bg-amber-50 transition-colors">
                           Anular
                         </button>
                       }
@@ -89,6 +85,7 @@ interface Ficha {
               }
             </tbody>
           </table>
+          </div>
         </div>
       }
     </div>
