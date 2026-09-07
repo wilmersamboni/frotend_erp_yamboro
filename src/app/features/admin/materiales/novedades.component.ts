@@ -2,6 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
+import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { OpcionSelect } from '../services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -48,7 +49,7 @@ const OPCIONES_TIPO: OpcionSelect[] = [
 @Component({
   selector: 'app-materiales-novedades',
   standalone: true,
-  imports: [FormsModule, DatePipe, AdminModalComponent],
+  imports: [FormsModule, DatePipe, AdminModalComponent, StatusBadgeComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -86,61 +87,51 @@ const OPCIONES_TIPO: OpcionSelect[] = [
           </div>
         </div>
 
-        <div class="overflow-x-auto rounded-xl border border-gray-100">
+        <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
           <table class="w-full text-sm">
-            <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+            <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
               <tr>
-                <th class="px-4 py-3 text-left font-medium">Tipo</th>
-                <th class="px-4 py-3 text-left font-medium">Descripción</th>
-                <th class="px-4 py-3 text-left font-medium">Ítem</th>
-                <th class="px-4 py-3 text-left font-medium">Reportado por</th>
-                <th class="px-4 py-3 text-left font-medium">Estado</th>
-                <th class="px-4 py-3 text-left font-medium">Fecha</th>
-                <th class="px-4 py-3 text-right font-medium">Acciones</th>
+                <th class="px-4 py-3 text-left font-semibold">Tipo</th>
+                <th class="px-4 py-3 text-left font-semibold">Descripción</th>
+                <th class="px-4 py-3 text-left font-semibold">Ítem</th>
+                <th class="px-4 py-3 text-left font-semibold">Reportado por</th>
+                <th class="px-4 py-3 text-left font-semibold">Estado</th>
+                <th class="px-4 py-3 text-left font-semibold">Fecha</th>
+                <th class="px-4 py-3 text-right font-semibold">Acciones</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-50">
+            <tbody class="divide-y divide-gray-100">
               @for (n of novedades; track n.id_novedad) {
-                <tr class="hover:bg-gray-50 transition-colors">
+                <tr class="hover:bg-gray-50/80 transition-colors">
                   <td class="px-4 py-3 text-gray-700">{{ n.tipo }}</td>
                   <td class="px-4 py-3 text-gray-700 max-w-[280px] truncate">{{ n.descripcion }}</td>
                   <td class="px-4 py-3 text-gray-700">{{ n.item?.codigo_sku ?? '—' }}</td>
                   <td class="px-4 py-3 text-gray-700">{{ nombreUsuario(n.id_usuario) }}</td>
-                  <td class="px-4 py-3">
-                    <span class="px-2 py-1 rounded-full text-xs"
-                      [class.bg-amber-100]="n.estado === 'PENDIENTE'" [class.text-amber-700]="n.estado === 'PENDIENTE'"
-                      [class.bg-blue-100]="n.estado === 'EN_PROCESO'" [class.text-blue-700]="n.estado === 'EN_PROCESO'"
-                      [class.bg-green-100]="n.estado === 'RESUELTA'" [class.text-green-700]="n.estado === 'RESUELTA'">
-                      {{ n.estado }}
-                    </span>
-                  </td>
+                  <td class="px-4 py-3"><app-status-badge [value]="n.estado" /></td>
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ n.fecha | date: 'short' }}</td>
                   <td class="px-4 py-3">
-                    <div class="flex justify-end gap-1.5">
+                    <div class="flex justify-end gap-2">
                       <button (click)="verDetalle(n)"
-                        class="px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-50 text-gray-500 hover:bg-gray-100 transition-colors">
+                        class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">
                         Ver
                       </button>
                       @if (puedeEditar && n.estado === 'PENDIENTE' && esResponsableDelSitio(n)) {
                         <button (click)="cambiarEstado(n, 'EN_PROCESO')"
-                          class="px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">
-                          Marcar en proceso
+                          class="px-3 py-1.5 rounded-full text-xs font-semibold border border-blue-200 text-blue-600 bg-white hover:bg-blue-50 transition-colors">
+                          En proceso
                         </button>
                       }
                       @if (puedeEditar && n.estado === 'EN_PROCESO' && esResponsableDelSitio(n)) {
                         <button (click)="cambiarEstado(n, 'RESUELTA')"
-                          class="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-50 text-green-600 hover:bg-green-100 transition-colors">
-                          Marcar resuelta
+                          class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-600 bg-white hover:bg-green-50 transition-colors">
+                          Resolver
                         </button>
                       }
                       @if (puedeEliminar) {
                         <button (click)="eliminar(n)"
-                          class="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors" title="Eliminar">
-                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7
-                                 m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                          </svg>
+                          class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-red-400 hover:text-red-600 transition-colors">
+                          Eliminar
                         </button>
                       }
                     </div>
@@ -149,6 +140,7 @@ const OPCIONES_TIPO: OpcionSelect[] = [
               }
             </tbody>
           </table>
+          </div>
         </div>
       }
     </div>
