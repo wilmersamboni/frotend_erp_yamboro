@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AdminTableComponent } from '../../../shared/components/admin-table.component';
 import { StatCardComponent } from '../../../shared/components/stat-card.component';
 import { ToastService } from '../../../core/services/toast.service';
@@ -28,6 +29,12 @@ import { Kardex, MaterialesApiService } from '../../../core/services/materiales/
           </select>
           <input [(ngModel)]="filtroTexto" placeholder="Buscar por producto, SKU o placa..."
             class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+          @if (idProductoFiltro || idItemFiltro) {
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#39A900]/10 text-[#2d8000] border border-[#39A900]/20">
+              {{ idProductoFiltro ? 'Filtrando por producto' : 'Filtrando por ítem' }}
+              <button (click)="quitarFiltroCruzado()" class="hover:text-red-600" title="Quitar filtro">×</button>
+            </span>
+          }
         </div>
       </div>
 
@@ -63,6 +70,10 @@ export class InstructorMaterialesKardexComponent implements OnInit {
   filtroTipo = '';
   filtroTexto = '';
 
+  /** `?id_producto=`/`?id_item=` de la navegación cruzada — se leen una sola vez al entrar. */
+  idProductoFiltro: string | null = null;
+  idItemFiltro: string | null = null;
+
   columnLabels: Record<string, string> = {
     item_sku: 'Ítem',
     cantidad: 'Cantidad',
@@ -71,15 +82,30 @@ export class InstructorMaterialesKardexComponent implements OnInit {
     observacion: 'Observación',
   };
 
-  constructor(private api: MaterialesApiService, private toast: ToastService) {}
+  constructor(
+    private api: MaterialesApiService,
+    private toast: ToastService,
+    private route: ActivatedRoute,
+    private router: Router,
+  ) {}
 
   ngOnInit(): void {
+    this.idProductoFiltro = this.route.snapshot.queryParamMap.get('id_producto');
+    this.idItemFiltro = this.route.snapshot.queryParamMap.get('id_item');
     this.cargar();
+  }
+
+  quitarFiltroCruzado(): void {
+    this.idProductoFiltro = null;
+    this.idItemFiltro = null;
+    this.router.navigate([], { relativeTo: this.route, queryParams: {} });
   }
 
   get filas(): any[] {
     const texto = this.filtroTexto.trim().toLowerCase();
     return this.kardex
+      .filter((k) => !this.idProductoFiltro || k.item?.producto?.id_producto === this.idProductoFiltro)
+      .filter((k) => !this.idItemFiltro || k.id_item === this.idItemFiltro)
       .filter((k) => !this.filtroTipo || k.tipo === this.filtroTipo)
       .filter((k) => !texto
         || k.item?.producto?.nombre?.toLowerCase().includes(texto)

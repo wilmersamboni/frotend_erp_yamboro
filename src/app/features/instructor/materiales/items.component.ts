@@ -1,5 +1,5 @@
 import { Component, OnInit, computed } from '@angular/core';
-import { AdminTableComponent } from '../../../shared/components/admin-table.component';
+import { AdminTableComponent, TableRowLink } from '../../../shared/components/admin-table.component';
 import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
 import { OpcionSelect } from '../../admin/services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -39,6 +39,7 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
         [loading]="loading"
         [canEdit]="puedeEditar()"
         [canDelete]="false"
+        [rowLinks]="rowLinks"
         (edit)="editar($event)" />
     </div>
 
@@ -112,6 +113,12 @@ export class InstructorMaterialesItemsComponent implements OnInit {
   get opcionesAgregar(): Record<string, OpcionSelect[]> {
     return { id_producto: this.productos.map((p) => ({ label: p.SKU ? `${p.nombre} (${p.SKU})` : p.nombre, value: p.id_producto })) };
   }
+
+  /** Navegación cruzada (ítem 4): desde un ítem, ir directo a su historial de movimientos/novedades. */
+  readonly rowLinks: TableRowLink[] = [
+    { label: 'Kardex', routerLink: () => ['/instructor/materiales/kardex'], queryParams: (r) => ({ id_item: r.id_item }) },
+    { label: 'Novedades', routerLink: () => ['/instructor/materiales/novedades'], queryParams: (r) => ({ id_item: r.id_item }) },
+  ];
 
   get filas(): any[] {
     return this.items.map((i) => ({

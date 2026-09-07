@@ -1,5 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AdminTableComponent } from '../../../shared/components/admin-table.component';
 import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
 import { OpcionSelect } from '../services/admin.service';
@@ -33,7 +34,15 @@ const OPCIONES_UNIDAD: OpcionSelect[] = [
   imports: [FormsModule, AdminTableComponent, AdminModalComponent],
   template: `
     <div class="p-6">
-      <h1 class="text-xl font-bold text-gray-800 mb-5">Lotes</h1>
+      <div class="flex items-center gap-2 mb-5">
+        <h1 class="text-xl font-bold text-gray-800">Lotes</h1>
+        @if (idProductoFiltro) {
+          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#39A900]/10 text-[#2d8000] border border-[#39A900]/20">
+            Filtrando por producto
+            <button (click)="quitarFiltroProducto()" class="hover:text-red-600" title="Quitar filtro">×</button>
+          </span>
+        }
+      </div>
 
       <app-admin-table
         [addLabel]="'Nuevo lote'"
@@ -88,9 +97,25 @@ export class MaterialesLotesComponent implements OnInit {
     codigo_lote: 'Ej: LT-2026-014', cantidad_inicial: 'Ej: 500',
   };
 
-  constructor(private api: MaterialesApiService, private toast: ToastService) {}
+  /** `?id_producto=` de la navegación cruzada (Productos → Lotes). */
+  idProductoFiltro: string | null = null;
 
-  ngOnInit(): void { this.cargar(); }
+  constructor(
+    private api: MaterialesApiService,
+    private toast: ToastService,
+    private route: ActivatedRoute,
+    private router: Router,
+  ) {}
+
+  ngOnInit(): void {
+    this.idProductoFiltro = this.route.snapshot.queryParamMap.get('id_producto');
+    this.cargar();
+  }
+
+  quitarFiltroProducto(): void {
+    this.idProductoFiltro = null;
+    this.router.navigate([], { relativeTo: this.route, queryParams: {} });
+  }
 
   get camposModal(): string[] {
     return this.editando
@@ -108,13 +133,15 @@ export class MaterialesLotesComponent implements OnInit {
   }
 
   get filas(): any[] {
-    return this.lotes.map((l) => ({
-      ...l,
-      producto_nombre: l.producto?.nombre ?? '—',
-      disponible: `${l.cantidad_disponible} / ${l.cantidad_inicial}`,
-      vence: l.fecha_vencimiento ? String(l.fecha_vencimiento).slice(0, 10) : '—',
-      sitio_nombre: this.sitios.find((s) => s.id_sitio === l.id_sitio)?.nombre ?? '—',
-    }));
+    return this.lotes
+      .filter((l) => !this.idProductoFiltro || l.id_producto === this.idProductoFiltro)
+      .map((l) => ({
+        ...l,
+        producto_nombre: l.producto?.nombre ?? '—',
+        disponible: `${l.cantidad_disponible} / ${l.cantidad_inicial}`,
+        vence: l.fecha_vencimiento ? String(l.fecha_vencimiento).slice(0, 10) : '—',
+        sitio_nombre: this.sitios.find((s) => s.id_sitio === l.id_sitio)?.nombre ?? '—',
+      }));
   }
 
   private async cargar(): Promise<void> {

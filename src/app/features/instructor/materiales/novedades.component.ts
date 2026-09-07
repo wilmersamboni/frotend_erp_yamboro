@@ -1,6 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { OpcionSelect } from '../../admin/services/admin.service';
@@ -46,7 +47,15 @@ const OPCIONES_TIPO: OpcionSelect[] = [
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
-        <h1 class="text-xl font-bold text-gray-800">Novedades</h1>
+        <div class="flex items-center gap-2">
+          <h1 class="text-xl font-bold text-gray-800">Novedades</h1>
+          @if (idItemFiltro) {
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#39A900]/10 text-[#2d8000] border border-[#39A900]/20">
+              Filtrando por ítem
+              <button (click)="quitarFiltroItem()" class="hover:text-red-600" title="Quitar filtro">×</button>
+            </span>
+          }
+        </div>
         <button (click)="nuevo()"
           class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
           style="background-color: #39A900">
@@ -58,13 +67,13 @@ const OPCIONES_TIPO: OpcionSelect[] = [
         <div class="flex justify-center py-12">
           <div class="w-8 h-8 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
         </div>
-      } @else if (novedades.length === 0) {
-        <p class="text-center text-gray-400 text-sm py-10">No hay novedades registradas</p>
+      } @else if (novedadesFiltradas.length === 0) {
+        <p class="text-center text-gray-400 text-sm py-10">No hay novedades {{ idItemFiltro ? 'para este ítem' : 'registradas' }}</p>
       } @else {
         <div class="grid grid-cols-4 gap-3 mb-5">
           <div class="rounded-xl border border-gray-100 px-4 py-3">
             <p class="text-xs text-gray-500">Total</p>
-            <p class="text-xl font-bold text-gray-800">{{ novedades.length }}</p>
+            <p class="text-xl font-bold text-gray-800">{{ novedadesFiltradas.length }}</p>
           </div>
           <div class="rounded-xl border border-gray-100 px-4 py-3">
             <p class="text-xs text-gray-500">Pendientes</p>
@@ -95,7 +104,7 @@ const OPCIONES_TIPO: OpcionSelect[] = [
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
-              @for (n of novedades; track n.id_novedad) {
+              @for (n of novedadesFiltradas; track n.id_novedad) {
                 <tr class="hover:bg-gray-50/80 transition-colors">
                   <td class="px-4 py-3 text-gray-700">{{ n.tipo }}</td>
                   <td class="px-4 py-3 text-gray-700 max-w-[280px] truncate">{{ n.descripcion }}</td>
@@ -236,13 +245,27 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
 
   columnLabels: Record<string, string> = { id_item: 'Ítem (opcional)' };
 
+  /** `?id_item=` de la navegación cruzada (Ítems → Novedades). */
+  idItemFiltro: string | null = null;
+
   constructor(
     private api: MaterialesApiService,
     private toast: ToastService,
     private permisos: PermisosService,
     private auth: AuthService,
     private personaApi: PersonaService,
+    private route: ActivatedRoute,
+    private router: Router,
   ) {}
+
+  get novedadesFiltradas(): Novedad[] {
+    return this.idItemFiltro ? this.novedades.filter((n) => n.id_item === this.idItemFiltro) : this.novedades;
+  }
+
+  quitarFiltroItem(): void {
+    this.idItemFiltro = null;
+    this.router.navigate([], { relativeTo: this.route, queryParams: {} });
+  }
 
   get puedeEditar(): boolean {
     return this.permisos.tieneServicio('materiales.novedades.editar');
@@ -288,7 +311,7 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
   }
 
   contarEstado(estado: string): number {
-    return this.novedades.filter((n) => n.estado === estado).length;
+    return this.novedadesFiltradas.filter((n) => n.estado === estado).length;
   }
 
   verDetalle(n: Novedad): void {
@@ -297,6 +320,7 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
   }
 
   private async cargar(): Promise<void> {
+    this.idItemFiltro = this.route.snapshot.queryParamMap.get('id_item');
     this.loading = true;
     try {
       // M9 — solo `listarNovedades()` es crítico; una secundaria con 403

@@ -1,6 +1,6 @@
 import { Component, DoCheck, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AdminTableComponent } from '../../../shared/components/admin-table.component';
+import { AdminTableComponent, TableRowLink } from '../../../shared/components/admin-table.component';
 import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
 import { OpcionSelect } from '../services/admin.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -219,6 +219,7 @@ const CAMPOS_EDITAR_BASE = ['nombre', 'descripcion', 'codigo_unspsc', 'SKU', 'ma
         [columns]="['nombre', 'categoria_nombre', 'tipo_material', 'unidad_medida', 'stock_minimo']"
         [columnLabels]="columnLabels"
         [loading]="loading"
+        [rowLinks]="rowLinks"
         (edit)="editar($event)"
         (delete)="eliminar($event)" />
     </div>
@@ -370,6 +371,13 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
     const unidades = UNIDADES_POR_FAMILIA[familia];
     return unidades ? unidades.map((u) => ({ label: u, value: u })) : OPCIONES_UNIDAD_MEDIDA;
   }
+
+  /** Navegación cruzada (ítem 4): desde un producto, ir directo a su stock/movimientos/lotes ya filtrados. */
+  readonly rowLinks: TableRowLink[] = [
+    { label: 'Existencias', routerLink: () => ['/materiales/existencias'], queryParams: (r) => ({ id_producto: r.id_producto }) },
+    { label: 'Kardex', routerLink: () => ['/materiales/kardex'], queryParams: (r) => ({ id_producto: r.id_producto }) },
+    { label: 'Lotes', routerLink: () => ['/materiales/lotes'], queryParams: (r) => ({ id_producto: r.id_producto }) },
+  ];
 
   get filas(): any[] {
     return this.productos.map((p) => ({

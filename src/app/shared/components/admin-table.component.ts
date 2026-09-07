@@ -1,6 +1,16 @@
 import { Component, DoCheck, Input, Output, EventEmitter } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { StatusBadgeComponent } from './status-badge.component';
+
+/** Enlace de navegación cruzada por fila (ej. Producto → Existencias filtradas por ese producto). */
+export interface TableRowLink {
+  label: string;
+  routerLink: (row: any) => any[];
+  queryParams?: (row: any) => Record<string, any>;
+  /** Si se pasa, el link solo se muestra en filas donde devuelva true (ej. "Lotes" solo para productos consumibles). */
+  visible?: (row: any) => boolean;
+}
 
 /**
  * Tabla genérica reutilizable para el panel administrativo.
@@ -20,11 +30,16 @@ import { StatusBadgeComponent } from './status-badge.component';
  *
  * Los clics de Editar/Eliminar cortan la propagación (Ronda 4, Fase 9) para
  * no disparar también `rowSelected` cuando un consumidor usa `selectable`.
+ *
+ * Navegación cruzada: `rowLinks` agrega pills de navegación junto a
+ * Editar/Eliminar (ej. desde Productos, "Ver existencias" con
+ * `?id_producto=` ya cargado) — cada pantalla destino decide qué hacer con
+ * el query param, esta tabla solo arma el link.
  */
 @Component({
   selector: 'app-admin-table',
   standalone: true,
-  imports: [FormsModule, StatusBadgeComponent],
+  imports: [FormsModule, RouterLink, StatusBadgeComponent],
   template: `
     <div [class]="searchable
         ? 'bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden'
@@ -100,7 +115,7 @@ import { StatusBadgeComponent } from './status-badge.component';
                 @for (col of visibleColumns; track col) {
                   <th class="px-4 py-3 text-left font-semibold whitespace-nowrap">{{ columnLabels[col] ?? col }}</th>
                 }
-                @if (canEdit || canDelete) {
+                @if (canEdit || canDelete || rowLinks.length > 0) {
                   <th class="px-4 py-3 text-right font-semibold">Acciones</th>
                 }
               </tr>
@@ -126,9 +141,18 @@ import { StatusBadgeComponent } from './status-badge.component';
                       }
                     </td>
                   }
-                  @if (canEdit || canDelete) {
+                  @if (canEdit || canDelete || rowLinks.length > 0) {
                     <td class="px-4 py-3">
                       <div class="flex justify-end gap-2">
+                        @for (link of rowLinks; track link.label) {
+                          @if (!link.visible || link.visible(row)) {
+                            <a [routerLink]="link.routerLink(row)" [queryParams]="link.queryParams ? link.queryParams(row) : undefined"
+                              (click)="$event.stopPropagation()"
+                              class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-[#39A900] hover:text-[#39A900] transition-colors">
+                              {{ link.label }}
+                            </a>
+                          }
+                        }
                         @if (canEdit) {
                           <button (click)="edit.emit(row); $event.stopPropagation()"
                             class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-[#39A900] hover:text-[#39A900] transition-colors">
@@ -218,6 +242,9 @@ export class AdminTableComponent implements DoCheck {
   @Output() edit   = new EventEmitter<any>();
   @Output() delete = new EventEmitter<any>();
   @Output() rowSelected = new EventEmitter<any>();
+
+  /** Enlaces de navegación cruzada por fila (ej. "Ver existencias" desde Productos) — se renderizan como pills junto a Editar/Eliminar. */
+  @Input() rowLinks: TableRowLink[] = [];
 
   /** Columna a renderizar como píldora de estado (app-status-badge) en vez de texto plano. */
   @Input() statusColumn: string | null = null;

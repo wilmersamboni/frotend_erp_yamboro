@@ -1,5 +1,6 @@
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ToastService } from '../../../core/services/toast.service';
 import { MaterialesApiService, ResumenExistencias } from '../../../core/services/materiales/materiales-api.service';
 import { StatCardComponent } from '../../../shared/components/stat-card.component';
@@ -13,6 +14,10 @@ import { StatCardComponent } from '../../../shared/components/stat-card.componen
  *
  * Para mover stock se usan los flujos reales (solicitudes, traslados,
  * novedades, devoluciones) — acá no se crea/edita/elimina nada.
+ *
+ * Navegación cruzada (ítem 4): llega con `?id_producto=` desde la fila de un
+ * producto en Productos — filtra exacto por ese producto y muestra un chip
+ * para quitar el filtro, sin tocar el buscador de texto libre.
  */
 @Component({
   selector: 'app-materiales-existencias',
@@ -52,9 +57,17 @@ import { StatCardComponent } from '../../../shared/components/stat-card.componen
           </app-stat-card>
         </div>
 
-        <input type="text" [(ngModel)]="q" (ngModelChange)="filtro.set($event)"
-          placeholder="Buscar por producto, SKU o bodega…"
-          class="w-full md:w-96 mb-3 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <input type="text" [(ngModel)]="q" (ngModelChange)="filtro.set($event)"
+            placeholder="Buscar por producto, SKU o bodega…"
+            class="w-full md:w-96 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+          @if (idProductoFiltro()) {
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#39A900]/10 text-[#2d8000] border border-[#39A900]/20">
+              Filtrando por producto
+              <button (click)="quitarFiltroProducto()" class="hover:text-red-600" title="Quitar filtro">×</button>
+            </span>
+          }
+        </div>
 
         @if (filtradas().length === 0) {
           <p class="text-center text-gray-400 text-sm py-10">Sin existencias para mostrar</p>
@@ -117,9 +130,13 @@ export class MaterialesExistenciasComponent implements OnInit {
   q = '';
   filtro = signal('');
 
+  /** `?id_producto=` de la navegación cruzada — filtro exacto, independiente del buscador de texto. */
+  idProductoFiltro = signal<string | null>(null);
+
   filtradas = computed(() => {
     const t = this.filtro().trim().toLowerCase();
-    const rows = this.filas();
+    const idProducto = this.idProductoFiltro();
+    const rows = idProducto ? this.filas().filter((r) => r.id_producto === idProducto) : this.filas();
     if (!t) return rows;
     return rows.filter((r) =>
       [r.nombre, r.sku, r.sitio_nombre, r.marca, r.modelo]
@@ -147,10 +164,21 @@ export class MaterialesExistenciasComponent implements OnInit {
     return [r.marca, r.modelo].filter((v) => !!v).join(' ');
   }
 
-  constructor(private api: MaterialesApiService, private toast: ToastService) {}
+  constructor(
+    private api: MaterialesApiService,
+    private toast: ToastService,
+    private route: ActivatedRoute,
+    private router: Router,
+  ) {}
 
   ngOnInit(): void {
+    this.idProductoFiltro.set(this.route.snapshot.queryParamMap.get('id_producto'));
     this.cargar();
+  }
+
+  quitarFiltroProducto(): void {
+    this.idProductoFiltro.set(null);
+    this.router.navigate([], { relativeTo: this.route, queryParams: {} });
   }
 
   private async cargar(): Promise<void> {

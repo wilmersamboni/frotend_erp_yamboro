@@ -1,6 +1,6 @@
 import { Component, DoCheck, OnInit, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AdminTableComponent } from '../../../shared/components/admin-table.component';
+import { AdminTableComponent, TableRowLink } from '../../../shared/components/admin-table.component';
 import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
 import { OpcionSelect } from '../../admin/services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -192,6 +192,7 @@ const CAMPOS_EDITAR_BASE = ['nombre', 'descripcion', 'codigo_unspsc', 'SKU', 'ma
         [loading]="loading"
         [canEdit]="puedeEditar()"
         [canDelete]="puedeEliminar()"
+        [rowLinks]="rowLinks"
         (edit)="editar($event)"
         (delete)="eliminar($event)" />
     </div>
@@ -335,6 +336,11 @@ export class AprendizMaterialesProductosComponent implements OnInit, DoCheck {
     const unidades = UNIDADES_POR_FAMILIA[familia];
     return unidades ? unidades.map((u) => ({ label: u, value: u })) : OPCIONES_UNIDAD_MEDIDA;
   }
+
+  /** Navegación cruzada (ítem 4): aprendiz no tiene pantalla de Kardex/Lotes, solo Existencias. */
+  readonly rowLinks: TableRowLink[] = [
+    { label: 'Existencias', routerLink: () => ['/aprendiz/materiales/existencias'], queryParams: (r) => ({ id_producto: r.id_producto }) },
+  ];
 
   get filas(): any[] {
     return this.productos.map((p) => ({
