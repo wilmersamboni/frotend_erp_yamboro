@@ -1,12 +1,13 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AdminTableComponent } from '../../../shared/components/admin-table.component';
-import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
-import { OpcionSelect } from '../services/admin.service';
-import { ToastService } from '../../../core/services/toast.service';
-import { ConfirmService } from '../../../core/services/confirm.service';
-import { Item, MaterialesApiService, Sitio } from '../../../core/services/materiales/materiales-api.service';
-import { PersonaService } from '../../../core/services/persona.service';
+import { AdminTableComponent } from '../../shared/components/admin-table.component';
+import { AdminModalComponent } from '../../shared/components/admin-modal.component';
+import { OpcionSelect } from '../admin/services/admin.service';
+import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
+import { ConfirmService } from '../../core/services/confirm.service';
+import { Item, MaterialesApiService, Sitio } from '../../core/services/materiales/materiales-api.service';
+import { PersonaService } from '../../core/services/persona.service';
 
 const OPCIONES_TIPO: OpcionSelect[] = [
   { label: 'Bodega', value: 'BODEGA' },
@@ -17,18 +18,22 @@ const OPCIONES_TIPO: OpcionSelect[] = [
 
 /**
  * Sitios de almacenamiento (bodegas/ambientes/laboratorios). `id_responsable`
- * e `id_centro` son UUIDs foráneos al propio ERP (persona/centro) — ya se
- * resuelven contra el listado real de usuarios/centros (mismo criterio que
- * el sitio de almacenamiento del SGM: responsable = select de personas
- * elegibles, centro se omite del formulario cuando el tenant tiene uno solo).
- * `estado` no se pide al crear — un sitio nuevo siempre nace activo, igual
- * que en el SGM; solo aparece al editar.
+ * e `id_centro` son UUIDs foráneos al propio ERP (persona/centro), resueltos
+ * contra el listado real de usuarios/centros. `estado` no se pide al crear —
+ * un sitio nuevo siempre nace activo — solo aparece al editar.
  *
- * Pulido (Ronda 4, Fase 9): columna con el conteo de ítems por sitio
- * (cruzando `listarItems()` por `id_sitio`, sin endpoint nuevo) + clic en la
- * fila ("Ver ítems") abre un diálogo con el detalle — usa `selectable` de
- * `AdminTableComponent` en vez de un botón de acción propio, ya que el
- * componente no soporta una tercera acción de fila.
+ * Crear/editar/eliminar gateados por servicio (`materiales.sitios.crear/
+ * editar/eliminar`), no por cargo — admin las tiene siempre vía su bundle de
+ * rol, cualquier otro cargo solo si se las otorgan (mismo mecanismo que
+ * Categorías, ver ese docblock).
+ *
+ * "Ver ítems" al hacer clic en la fila (cruza `listarItems()` por
+ * `id_sitio`, sin endpoint nuevo) — usa `selectable` de `AdminTableComponent`
+ * en vez de un botón de acción propio.
+ *
+ * Componente único para admin/instructor (ítem 5 del plan de unificación) —
+ * antes vivía duplicado en `features/{admin,instructor}/materiales/`.
+ * Aprendiz no tiene esta pantalla.
  */
 @Component({
   selector: 'app-materiales-sitios',
@@ -39,7 +44,7 @@ const OPCIONES_TIPO: OpcionSelect[] = [
       <h1 class="text-xl font-bold text-gray-800 mb-5">Sitios de almacenamiento</h1>
 
       <app-admin-table
-        [addLabel]="'Nuevo sitio'"
+        [addLabel]="puedeCrear() ? 'Nuevo sitio' : null"
         (add)="nuevo()"
         [rows]="filas"
         [searchable]="true"
@@ -47,6 +52,8 @@ const OPCIONES_TIPO: OpcionSelect[] = [
         [columns]="['nombre', 'tipo', 'programa_nombre', 'responsable_nombre', 'items_count', 'estado']"
         [columnLabels]="columnLabels"
         [loading]="loading"
+        [canEdit]="puedeEditar()"
+        [canDelete]="puedeEliminar()"
         [selectable]="true"
         (rowSelected)="verItems($event)"
         (edit)="editar($event)"
@@ -115,8 +122,6 @@ export class MaterialesSitiosComponent implements OnInit {
   editando: Sitio | null = null;
   form: Record<string, any> = {};
 
-  // `estado` ya no es checkbox: se ofrece como <select> Activo/Inactivo al
-  // editar (Ronda 6) — ver `opciones.estado`.
   tiposCampo: Record<string, string> = {};
   columnLabels: Record<string, string> = {
     id_responsable: 'Responsable',
@@ -134,15 +139,20 @@ export class MaterialesSitiosComponent implements OnInit {
     tipo_personalizado: 'Ej: Auditorio, Taller',
   };
 
-  /** "Ver ítems" (Fase 9) — diálogo aparte, sin backend nuevo. */
+  /** "Ver ítems" — diálogo aparte, sin backend nuevo. */
   items: Item[] = [];
   verItemsAbierto = false;
   sitioSeleccionado: Sitio | null = null;
+
+  puedeCrear = computed(() => this.auth.tieneServicio('materiales.sitios.crear'));
+  puedeEditar = computed(() => this.auth.tieneServicio('materiales.sitios.editar'));
+  puedeEliminar = computed(() => this.auth.tieneServicio('materiales.sitios.eliminar'));
 
   constructor(
     private api: MaterialesApiService,
     private personaApi: PersonaService,
     private toast: ToastService,
+    private auth: AuthService,
   ) {}
 
   ngOnInit(): void {
@@ -157,16 +167,15 @@ export class MaterialesSitiosComponent implements OnInit {
         value: u.idUsuario,
       })),
       // Solo se ofrece como select cuando el tenant tiene más de un centro
-      // registrado — con uno solo no tiene sentido preguntar (ver `camposCrear`).
+      // registrado — con uno solo no tiene sentido preguntar.
       id_centro: this.centros.map((c) => ({ label: c.nombre, value: c.idCentro })),
-      // Programa al que pertenece el sitio (Ronda 7). "Sin programa" = sitio
-      // compartido: lo ven todos los instructores y el admin, pero ningún
-      // aprendiz. Con >10 programas el modal lo muestra como buscador.
+      // Programa al que pertenece el sitio. "Sin programa" = sitio compartido:
+      // lo ven todos los instructores y el admin, pero ningún aprendiz.
       id_programa: [
         { label: '— Sin programa (compartido) —', value: '' },
         ...this.programas.map((p) => ({ label: p.nombre, value: p.idPrograma ?? p.id_programa })),
       ],
-      // Estado como <select> (Ronda 6) en vez de checkbox — solo aparece al editar.
+      // Estado como <select> Activo/Inactivo — solo aparece al editar.
       estado: [
         { label: 'Activo', value: true },
         { label: 'Inactivo', value: false },
@@ -234,8 +243,8 @@ export class MaterialesSitiosComponent implements OnInit {
     try {
       const [sitios, responsables, centros, programas, items] = await Promise.all([
         this.api.listarSitios(),
-        this.personaApi.listarResponsablesBodega(),
-        this.personaApi.listarCentros(),
+        this.personaApi.listarResponsablesBodega().catch(() => [] as any[]),
+        this.personaApi.listarCentros().catch(() => [] as any[]),
         this.personaApi.listarProgramas().catch(() => [] as any[]),
         this.api.listarItems(),
       ]);
@@ -252,6 +261,7 @@ export class MaterialesSitiosComponent implements OnInit {
   }
 
   nuevo(): void {
+    if (!this.puedeCrear()) return;
     this.editando = null;
     this.form = {
       nombre: '', tipo: 'BODEGA', tipo_personalizado: '', codigo_lugar: '',
@@ -266,6 +276,7 @@ export class MaterialesSitiosComponent implements OnInit {
   }
 
   editar(fila: any): void {
+    if (!this.puedeEditar()) return;
     const sitio = this.sitios.find((s) => s.id_sitio === fila.id_sitio)!;
     this.editando = sitio;
     this.form = {
@@ -325,6 +336,7 @@ export class MaterialesSitiosComponent implements OnInit {
   }
 
   async eliminar(fila: any): Promise<void> {
+    if (!this.puedeEliminar()) return;
     if (!(await this.confirm.ask(`¿Eliminar el sitio "${fila.nombre}"?`))) return;
     try {
       await this.api.eliminarSitio(fila.id_sitio);

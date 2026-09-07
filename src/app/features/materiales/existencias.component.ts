@@ -1,9 +1,9 @@
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ToastService } from '../../../core/services/toast.service';
-import { MaterialesApiService, ResumenExistencias } from '../../../core/services/materiales/materiales-api.service';
-import { StatCardComponent } from '../../../shared/components/stat-card.component';
+import { ToastService } from '../../core/services/toast.service';
+import { MaterialesApiService, ResumenExistencias } from '../../core/services/materiales/materiales-api.service';
+import { StatCardComponent } from '../../shared/components/stat-card.component';
 
 /**
  * Panel de existencias — SOLO LECTURA (Tier SigMat M6). Reemplaza el CRUD que
@@ -14,9 +14,20 @@ import { StatCardComponent } from '../../../shared/components/stat-card.componen
  *
  * Para mover stock se usan los flujos reales (solicitudes, traslados,
  * novedades, devoluciones) — acá no se crea/edita/elimina nada.
+ *
+ * Componente único para admin/instructor/aprendiz (ítem 5 del plan de
+ * unificación): esta pantalla nunca tuvo diferencias de comportamiento entre
+ * roles — no hay gating de acciones porque no hay acciones, solo la
+ * visibilidad de la ruta cambia (gateada por `materiales.existencias.ver`
+ * vía `serviciosRequeridos` en la ruta, no por `roles`). Antes vivía
+ * triplicada en `features/{admin,instructor,aprendiz}/materiales/`.
+ *
+ * Navegación cruzada (ítem 4): llega con `?id_producto=` desde la fila de un
+ * producto en Productos — filtra exacto por ese producto y muestra un chip
+ * para quitar el filtro, sin tocar el buscador de texto libre.
  */
 @Component({
-  selector: 'app-instructor-materiales-existencias',
+  selector: 'app-materiales-existencias',
   standalone: true,
   imports: [FormsModule, StatCardComponent],
   template: `
@@ -120,7 +131,7 @@ import { StatCardComponent } from '../../../shared/components/stat-card.componen
     </div>
   `,
 })
-export class InstructorMaterialesExistenciasComponent implements OnInit {
+export class MaterialesExistenciasComponent implements OnInit {
   filas = signal<ResumenExistencias[]>([]);
   loading = false;
   q = '';

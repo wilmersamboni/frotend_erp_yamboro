@@ -1,12 +1,12 @@
 import { Component, DoCheck, OnInit, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AdminTableComponent, TableRowLink } from '../../../shared/components/admin-table.component';
-import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
-import { OpcionSelect } from '../../admin/services/admin.service';
-import { AuthService } from '../../../core/services/auth.service';
-import { ToastService } from '../../../core/services/toast.service';
-import { ConfirmService } from '../../../core/services/confirm.service';
-import { Categoria, Item, MaterialesApiService, Producto, Sitio } from '../../../core/services/materiales/materiales-api.service';
+import { AdminTableComponent, TableRowLink } from '../../shared/components/admin-table.component';
+import { AdminModalComponent } from '../../shared/components/admin-modal.component';
+import { OpcionSelect } from '../admin/services/admin.service';
+import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
+import { ConfirmService } from '../../core/services/confirm.service';
+import { Categoria, Item, MaterialesApiService, Producto, Sitio } from '../../core/services/materiales/materiales-api.service';
 
 const OPCIONES_TIPO_MATERIAL: OpcionSelect[] = [
   { label: 'Consumo', value: 'CONSUMO' },
@@ -16,10 +16,11 @@ const OPCIONES_TIPO_MATERIAL: OpcionSelect[] = [
   { label: 'Perecedero', value: 'PERECEDERO' },
 ];
 
-// Mismo catálogo UNSPSC curado que la versión admin
-// (features/admin/materiales/productos.component.ts) — ver ese archivo para
-// el comentario completo sobre el origen y la decisión de mantenerlo
-// hardcodeado (pendiente de revisar tabla+búsqueda server-side más adelante).
+// Catálogo UNSPSC (Colombia Compra Eficiente) curado para SENA — mismo
+// catálogo que usa el sistema hermano de bodega (frontend-proyecto/SGM),
+// copiado 1:1 para que ambos sistemas ofrezcan los mismos códigos. Los que
+// empiezan en '50' (segmento Alimentos y Bebidas) son "de gastronomía": el
+// backend (create-producto.dto.ts) exime el SKU para esos, ver `esGastronomia()`.
 const OPCIONES_UNSPSC: OpcionSelect[] = [
   { label: '50101501 - Arroz', value: '50101501' },
   { label: '50101701 - Harina de trigo', value: '50101701' },
@@ -116,6 +117,9 @@ const OPCIONES_UNSPSC: OpcionSelect[] = [
   { label: '43231501 - Cable de red UTP', value: '43231501' },
 ];
 
+// Unidades de medida frecuentes en SENA (alimentos, TIC, aseo, herramientas) —
+// select en vez de texto libre. Lista completa, usada como fallback cuando
+// no hay UNSPSC elegido o su familia no está en UNIDADES_POR_FAMILIA de abajo.
 const TODAS_LAS_UNIDADES = [
   'UNIDAD', 'PAR', 'KIT', 'JUEGO', 'SET', 'METRO', 'ROLLO',
   'LITRO', 'MILILITRO', 'GALÓN', 'BOTELLA', 'LATA', 'FRASCO',
@@ -125,56 +129,90 @@ const TODAS_LAS_UNIDADES = [
 ];
 const OPCIONES_UNIDAD_MEDIDA: OpcionSelect[] = TODAS_LAS_UNIDADES.map((u) => ({ label: u, value: u }));
 
-// Mismo mapa que la versión admin (ver ese archivo para el detalle completo por familia).
+// Filtra las unidades ofrecidas según la familia UNSPSC elegida (primeros 4
+// dígitos del código) — mismo criterio que SGM (`UNIDADES_POR_FAMILIA`),
+// adaptado y extendido acá para cubrir también las familias no-alimenticias
+// del catálogo propio del ERP (TIC, aseo, empaques, herramientas de cocina).
 const UNIDADES_POR_FAMILIA: Record<string, string[]> = {
-  '5010': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'BULTO', 'PAQUETE', 'TONELADA'],
-  '5011': ['LITRO', 'MILILITRO', 'BOTELLA', 'GALÓN', 'LATA', 'KILOGRAMO'],
-  '5012': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'LITRO', 'BOTELLA', 'PAQUETE', 'BULTO'],
-  '5013': ['LITRO', 'MILILITRO', 'BOTELLA', 'BOLSA', 'CAJA', 'KILOGRAMO', 'GRAMO', 'UNIDAD'],
-  '5014': ['UNIDAD', 'CARTÓN', 'PAQUETE', 'CAJA'],
-  '5015': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'UNIDAD', 'PAQUETE'],
-  '5017': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'UNIDAD'],
-  '5018': ['KILOGRAMO', 'GRAMO', 'LIBRA'],
-  '5019': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'BULTO', 'PAQUETE'],
-  '5020': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'UNIDAD', 'ATADO', 'PAQUETE', 'BULTO'],
-  '5021': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'UNIDAD', 'CAJA', 'PAQUETE'],
-  '5022': ['GRAMO', 'KILOGRAMO', 'PAQUETE', 'FRASCO', 'UNIDAD'],
-  '5028': ['GRAMO', 'KILOGRAMO', 'PAQUETE', 'CAJA', 'UNIDAD'],
-  '5029': ['LITRO', 'BOTELLA', 'UNIDAD'],
-  '5030': ['PAQUETE', 'UNIDAD', 'CAJA'],
-  '5214': ['UNIDAD', 'JUEGO', 'SET', 'KIT', 'CAJA'],
-  '4810': ['UNIDAD'],
-  '2611': ['UNIDAD', 'PAQUETE', 'CAJA'],
-  '4713': ['LITRO', 'MILILITRO', 'BOTELLA', 'GALÓN', 'LATA'],
-  '4714': ['UNIDAD', 'PAQUETE', 'CAJA'],
-  '2411': ['ROLLO', 'PAQUETE', 'CAJA', 'METRO'],
-  '3120': ['UNIDAD', 'JUEGO', 'SET', 'CAJA'],
-  '2412': ['PAQUETE', 'CAJA', 'UNIDAD'],
-  '4320': ['UNIDAD'],
-  '4321': ['UNIDAD', 'CAJA'],
-  '4319': ['UNIDAD', 'CAJA'],
-  '4322': ['UNIDAD', 'LICENCIA'],
-  '4323': ['ROLLO', 'METRO', 'UNIDAD'],
+  '5010': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'BULTO', 'PAQUETE', 'TONELADA'], // Cereales y granos
+  '5011': ['LITRO', 'MILILITRO', 'BOTELLA', 'GALÓN', 'LATA', 'KILOGRAMO'], // Aceites y grasas
+  '5012': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'LITRO', 'BOTELLA', 'PAQUETE', 'BULTO'], // Condimentos
+  '5013': ['LITRO', 'MILILITRO', 'BOTELLA', 'BOLSA', 'CAJA', 'KILOGRAMO', 'GRAMO', 'UNIDAD'], // Lácteos
+  '5014': ['UNIDAD', 'CARTÓN', 'PAQUETE', 'CAJA'], // Huevos
+  '5015': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'UNIDAD', 'PAQUETE'], // Carnes
+  '5017': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'UNIDAD'], // Pescado
+  '5018': ['KILOGRAMO', 'GRAMO', 'LIBRA'], // Mariscos
+  '5019': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'BULTO', 'PAQUETE'], // Legumbres
+  '5020': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'UNIDAD', 'ATADO', 'PAQUETE', 'BULTO'], // Verduras y tubérculos
+  '5021': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'UNIDAD', 'CAJA', 'PAQUETE'], // Frutas
+  '5022': ['GRAMO', 'KILOGRAMO', 'PAQUETE', 'FRASCO', 'UNIDAD'], // Especias y hierbas
+  '5028': ['GRAMO', 'KILOGRAMO', 'PAQUETE', 'CAJA', 'UNIDAD'], // Café y té
+  '5029': ['LITRO', 'BOTELLA', 'UNIDAD'], // Agua y bebidas
+  '5030': ['PAQUETE', 'UNIDAD', 'CAJA'], // Pastas y panadería
+  '5214': ['UNIDAD', 'JUEGO', 'SET', 'KIT', 'CAJA'], // Utensilios de cocina
+  '4810': ['UNIDAD'], // Equipos industriales de cocina
+  '2611': ['UNIDAD', 'PAQUETE', 'CAJA'], // Baterías y pilas
+  '4713': ['LITRO', 'MILILITRO', 'BOTELLA', 'GALÓN', 'LATA'], // Detergentes y desinfectantes
+  '4714': ['UNIDAD', 'PAQUETE', 'CAJA'], // Esponjas, trapeadores, escobas
+  '2411': ['ROLLO', 'PAQUETE', 'CAJA', 'METRO'], // Bolsas, film, papel aluminio
+  '3120': ['UNIDAD', 'JUEGO', 'SET', 'CAJA'], // Recipientes herméticos
+  '2412': ['PAQUETE', 'CAJA', 'UNIDAD'], // Desechables
+  '4320': ['UNIDAD'], // Pantallas, proyectores, periféricos de video/audio
+  '4321': ['UNIDAD', 'CAJA'], // Computadores y periféricos
+  '4319': ['UNIDAD', 'CAJA'], // Almacenamiento (discos, memorias)
+  '4322': ['UNIDAD', 'LICENCIA'], // Software y redes
+  '4323': ['ROLLO', 'METRO', 'UNIDAD'], // Cableado de red
 };
 
+// Unidades de peso válidas para "peso por bulto" — subconjunto de
+// OPCIONES_UNIDAD_MEDIDA, mismas 3 que ofrece SGM (unidadesPeso).
 const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map((u) => ({ label: u, value: u }));
 
-// SKU/fecha_vencimiento/unidad_peso_bulto/peso_por_bulto se agregan
-// condicionalmente en los getters camposCrear/camposEditar de abajo — ver
-// el comentario completo en la versión admin de este componente.
-// `es_psd` NO es un campo del formulario (Ronda 6) — se deriva de
-// tipo_material === 'PERECEDERO' en `guardar()`, ver la versión admin.
+// Al crear, `cantidad` genera N Item automáticamente; al editar no aplica
+// (UpdateProductoDto no la acepta) — por eso las columnas del modal difieren.
+// `SKU` se agrega condicionalmente en los getters `camposCrear`/`camposEditar`
+// de abajo: el backend lo exime cuando el UNSPSC es de gastronomía (empieza en
+// '50'), así que si el campo se dejara siempre visible confundiría — se oculta
+// del todo en ese caso, igual que hace el SGM. `fecha_vencimiento` (solo si
+// tipo_material=PERECEDERO) y `unidad_peso_bulto`/`peso_por_bulto` (solo si
+// unidad_medida=BULTO/PAQUETE) se agregan igual de condicionalmente — el
+// backend ya los acepta (create-producto.dto.ts) pero el formulario nunca
+// los pedía.
+// `es_psd` NO es un campo del formulario: se descubrió comparando contra SGM
+// que ese sistema tampoco lo expone como campo — lo deriva solo de
+// tipo_material === 'PERECEDERO'. Acá se replica igual: se manda calculado
+// en `guardar()`, nunca se pide en el modal.
 const CAMPOS_CREAR_BASE  = ['nombre', 'descripcion', 'codigo_unspsc', 'SKU', 'marca', 'modelo', 'tipo_material', 'unidad_medida', 'unidad_peso_bulto', 'peso_por_bulto', 'fecha_vencimiento', 'id_categoria', 'id_sitio', 'cantidad', 'stock_minimo'];
 const CAMPOS_EDITAR_BASE = ['nombre', 'descripcion', 'codigo_unspsc', 'SKU', 'marca', 'modelo', 'tipo_material', 'unidad_medida', 'unidad_peso_bulto', 'peso_por_bulto', 'fecha_vencimiento', 'id_categoria', 'id_sitio', 'stock_minimo'];
 
 /**
- * Catálogo de productos para instructor — crear/editar/eliminar gateado por
- * servicio (`materiales.productos.crear/.editar/.eliminar`), no por cargo.
- * Ver plan "Ronda 3". Pulido (Ronda 4, Fase 9): auto-SKU al crear + unidad
- * de medida filtrada por familia UNSPSC — ver docblock de la versión admin.
+ * CRUD de Productos (lotes). Crear un producto genera automáticamente
+ * `cantidad` Items — la gestión individual de Items (buscar por placa,
+ * reasignar sitio, cambiar estado) queda fuera de este slice.
+ *
+ * Crear/editar/eliminar gateados por servicio (`materiales.productos.crear/
+ * editar/eliminar`), no por cargo — admin las tiene siempre vía su bundle de
+ * rol, cualquier otro cargo solo si se las otorgan (mismo mecanismo que
+ * Categorías/Sitios).
+ *
+ * El SKU se autogenera a partir del nombre mientras se escribe (prefijo de 3
+ * letras + consecutivo por prefijo, mismo algoritmo que SGM `generarSku()`)
+ * — editable a mano en cualquier momento; si se vacía el campo, vuelve al
+ * auto-fill. Como `AdminModalComponent` es genérico y no expone un evento
+ * por cada keystroke, se implementa con `ngDoCheck` comparando
+ * `form['nombre']`/`form['SKU']` contra el último valor visto. El `<select>`
+ * de unidad de medida además se filtra por la familia UNSPSC elegida
+ * (`UNIDADES_POR_FAMILIA`, arriba).
+ *
+ * Componente único para admin/instructor/aprendiz (ítem 5 del plan de
+ * unificación) — antes vivía triplicado en
+ * `features/{admin,instructor,aprendiz}/materiales/`, con el catálogo UNSPSC
+ * (100+ líneas) copiado 1:1 en cada copia.
+ *
+ * Navegación cruzada (ítem 4): "Existencias"/"Kardex"/"Lotes" por fila.
  */
 @Component({
-  selector: 'app-instructor-materiales-productos',
+  selector: 'app-materiales-productos',
   standalone: true,
   imports: [FormsModule, AdminTableComponent, AdminModalComponent],
   template: `
@@ -214,7 +252,7 @@ const CAMPOS_EDITAR_BASE = ['nombre', 'descripcion', 'codigo_unspsc', 'SKU', 'ma
       (saved)="guardar($event)" />
   `,
 })
-export class InstructorMaterialesProductosComponent implements OnInit, DoCheck {
+export class MaterialesProductosComponent implements OnInit, DoCheck {
   private readonly confirm = inject(ConfirmService);
 
   productos: Producto[] = [];
@@ -226,15 +264,24 @@ export class InstructorMaterialesProductosComponent implements OnInit, DoCheck {
   saving = false;
   error: string | null = null;
 
+  puedeCrear = computed(() => this.auth.tieneServicio('materiales.productos.crear'));
+  puedeEditar = computed(() => this.auth.tieneServicio('materiales.productos.editar'));
+  puedeEliminar = computed(() => this.auth.tieneServicio('materiales.productos.eliminar'));
+
+  /** SKU se oculta del todo cuando el UNSPSC elegido es de gastronomía (empieza en '50') — ver comentario junto a CAMPOS_CREAR_BASE. */
   private esGastronomia(): boolean {
     return !!this.form['codigo_unspsc']?.startsWith('50');
   }
+
   private esPerecedero(): boolean {
     return this.form['tipo_material'] === 'PERECEDERO';
   }
+
   private esBulto(): boolean {
     return this.form['unidad_medida'] === 'BULTO' || this.form['unidad_medida'] === 'PAQUETE';
   }
+
+  /** Filtra los campos condicionales (SKU/fecha de vencimiento/peso por bulto) según el estado actual del form. */
   private filtrarCamposCondicionales(campos: string[]): string[] {
     return campos.filter((c) => {
       if (c === 'SKU') return !this.esGastronomia();
@@ -243,9 +290,11 @@ export class InstructorMaterialesProductosComponent implements OnInit, DoCheck {
       return true;
     });
   }
+
   get camposCrear(): string[] {
     return this.filtrarCamposCondicionales(CAMPOS_CREAR_BASE);
   }
+
   get camposEditar(): string[] {
     return this.filtrarCamposCondicionales(CAMPOS_EDITAR_BASE);
   }
@@ -275,11 +324,7 @@ export class InstructorMaterialesProductosComponent implements OnInit, DoCheck {
     peso_por_bulto: 'Peso por bulto',
   };
 
-  puedeCrear = computed(() => this.auth.tieneServicio('materiales.productos.crear'));
-  puedeEditar = computed(() => this.auth.tieneServicio('materiales.productos.editar'));
-  puedeEliminar = computed(() => this.auth.tieneServicio('materiales.productos.eliminar'));
-
-  /** Estado del auto-fill de SKU al crear — ver docblock de la versión admin. */
+  /** Estado del auto-fill de SKU al crear — ver docblock arriba. */
   private skuEsAuto = true;
   private ultimoNombreVisto = '';
   private ultimoSkuAuto = '';
@@ -294,9 +339,12 @@ export class InstructorMaterialesProductosComponent implements OnInit, DoCheck {
     if (!this.modalOpen || this.editando) return;
     const nombreActual: string = this.form['nombre'] ?? '';
     const skuActual: string = this.form['SKU'] ?? '';
+
+    // Si el SKU visible no coincide con el último que autogeneré, alguien lo tocó a mano.
     if (skuActual !== this.ultimoSkuAuto) {
-      this.skuEsAuto = !skuActual.trim();
+      this.skuEsAuto = !skuActual.trim(); // vacío → vuelve al auto-fill; con texto → deja de autogenerar
     }
+
     if (this.skuEsAuto && nombreActual !== this.ultimoNombreVisto) {
       this.ultimoNombreVisto = nombreActual;
       const nuevoSku = this.generarSku(nombreActual);
@@ -305,6 +353,7 @@ export class InstructorMaterialesProductosComponent implements OnInit, DoCheck {
     }
   }
 
+  /** Prefijo de 3 letras del nombre + consecutivo por prefijo entre los productos ya cargados — mismo algoritmo que SGM. */
   private generarSku(nombre: string): string {
     const limpio = nombre.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     const prefijo = limpio.substring(0, 3);
@@ -331,16 +380,34 @@ export class InstructorMaterialesProductosComponent implements OnInit, DoCheck {
     };
   }
 
+  /** Unidades ofrecidas según la familia UNSPSC elegida (primeros 4 dígitos) — ver UNIDADES_POR_FAMILIA. */
   private opcionesUnidadMedida(): OpcionSelect[] {
     const familia = (this.form['codigo_unspsc'] ?? '').slice(0, 4);
     const unidades = UNIDADES_POR_FAMILIA[familia];
     return unidades ? unidades.map((u) => ({ label: u, value: u })) : OPCIONES_UNIDAD_MEDIDA;
   }
 
-  /** Navegación cruzada (ítem 4): sin Lotes acá — instructor no tiene esa pantalla. */
+  /**
+   * Navegación cruzada (ítem 4): desde un producto, ir directo a su stock/
+   * movimientos/lotes ya filtrados. Existencias sí se unificó (ítem 5, una
+   * sola ruta para los 3 cargos) — pero Kardex sigue con ruta propia por rol
+   * y Lotes es admin-only, así que esos dos sí necesitan bifurcar/ocultarse
+   * según el cargo.
+   */
   readonly rowLinks: TableRowLink[] = [
-    { label: 'Existencias', routerLink: () => ['/instructor/materiales/existencias'], queryParams: (r) => ({ id_producto: r.id_producto }) },
-    { label: 'Kardex', routerLink: () => ['/instructor/materiales/kardex'], queryParams: (r) => ({ id_producto: r.id_producto }) },
+    { label: 'Existencias', routerLink: () => ['/materiales/existencias'], queryParams: (r) => ({ id_producto: r.id_producto }) },
+    {
+      label: 'Kardex',
+      routerLink: () => [this.auth.isAdmin() ? '/materiales/kardex' : '/instructor/materiales/kardex'],
+      queryParams: (r) => ({ id_producto: r.id_producto }),
+      visible: () => this.auth.isAdmin() || this.auth.cargo() === 'instructor',
+    },
+    {
+      label: 'Lotes',
+      routerLink: () => ['/materiales/lotes'],
+      queryParams: (r) => ({ id_producto: r.id_producto }),
+      visible: () => this.auth.isAdmin(),
+    },
   ];
 
   get filas(): any[] {
@@ -437,12 +504,13 @@ export class InstructorMaterialesProductosComponent implements OnInit, DoCheck {
     }
     this.saving = true;
     this.error = null;
+    // Solo se mandan si el campo aplica y está visible — mismo criterio que SKU con gastronomía.
     const camposCondicionales = {
       fecha_vencimiento: this.esPerecedero() ? (form['fecha_vencimiento'] || undefined) : undefined,
       unidad_peso_bulto: this.esBulto() ? (form['unidad_peso_bulto'] || undefined) : undefined,
       peso_por_bulto: this.esBulto() && form['peso_por_bulto'] ? Number(form['peso_por_bulto']) : undefined,
     };
-    // `es_psd` no lo llena el usuario — se deriva de tipo_material, igual que SGM (Ronda 6).
+    // `es_psd` no lo llena el usuario — se deriva de tipo_material.
     const esPsd = this.esPerecedero();
     try {
       if (this.editando) {
