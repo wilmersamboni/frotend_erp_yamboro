@@ -1,11 +1,11 @@
 import { Component, OnInit, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AdminTableComponent } from '../../../shared/components/admin-table.component';
-import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
-import { OpcionSelect } from '../../admin/services/admin.service';
-import { AuthService } from '../../../core/services/auth.service';
-import { ToastService } from '../../../core/services/toast.service';
-import { Item, MaterialesApiService, Producto, Sitio } from '../../../core/services/materiales/materiales-api.service';
+import { AdminTableComponent, TableRowLink } from '../../shared/components/admin-table.component';
+import { AdminModalComponent } from '../../shared/components/admin-modal.component';
+import { OpcionSelect } from '../admin/services/admin.service';
+import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
+import { Item, MaterialesApiService, Producto, Sitio } from '../../core/services/materiales/materiales-api.service';
 
 const OPCIONES_ESTADO: OpcionSelect[] = [
   { label: 'Disponible', value: 'DISPONIBLE' },
@@ -16,12 +16,27 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
 ];
 
 /**
- * Ítems individuales para aprendiz — edición gateada por servicio
- * (`materiales.items.editar`; sin `.eliminar` en el catálogo). Conserva la
- * búsqueda por placa SENA (siempre de lectura). Ver plan "Ronda 3".
+ * Gestión de Ítems individuales (las unidades que genera Productos). No hay
+ * alta acá — se crean solo vía Productos, salvo "agregar ítem suelto al
+ * lote" — solo edición (placa/sitio/estado) y búsqueda por placa SENA.
+ *
+ * Crear/editar gateados por servicio (`materiales.items.crear/.editar`; no
+ * hay `.eliminar` en el catálogo, los ítems no se borran individualmente) —
+ * admin los tiene siempre vía su bundle de rol.
+ *
+ * La columna "Sitio" y su carga (`listarSitios()`) dependen de
+ * `materiales.sitios.ver`: sin ese permiso (el caso típico de aprendiz) ni
+ * se pide el endpoint ni se muestra la columna — antes un 403 ahí tumbaba
+ * toda la carga de Ítems.
+ *
+ * Componente único para admin/instructor/aprendiz (ítem 5 del plan de
+ * unificación) — antes vivía triplicado en
+ * `features/{admin,instructor,aprendiz}/materiales/`.
+ *
+ * Navegación cruzada (ítem 4): "Kardex"/"Novedades" por fila.
  */
 @Component({
-  selector: 'app-aprendiz-materiales-items',
+  selector: 'app-materiales-items',
   standalone: true,
   imports: [FormsModule, AdminTableComponent, AdminModalComponent],
   template: `
@@ -39,14 +54,15 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
       <app-admin-table
         [rows]="filas"
         [searchable]="true"
-        [searchPlaceholder]="'Buscar por SKU, producto, estado…'"
+        [searchPlaceholder]="'Buscar por SKU, producto, sitio, estado…'"
         [addLabel]="puedeCrear() ? 'Agregar ítem' : null"
         (add)="abrirAgregar()"
-        [columns]="['codigo_sku', 'placa_sena', 'producto_nombre', 'estado']"
+        [columns]="columnas"
         [columnLabels]="columnLabels"
         [loading]="loading"
         [canEdit]="puedeEditar()"
         [canDelete]="false"
+        [rowLinks]="rowLinks"
         (edit)="editar($event)" />
     </div>
 
@@ -136,7 +152,7 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
     }
   `,
 })
-export class AprendizMaterialesItemsComponent implements OnInit {
+export class MaterialesItemsComponent implements OnInit {
   items: Item[] = [];
   sitios: Sitio[] = [];
   productos: Producto[] = [];
@@ -144,12 +160,11 @@ export class AprendizMaterialesItemsComponent implements OnInit {
   saving = false;
   error: string | null = null;
 
-
   modalOpen = false;
   editando: Item | null = null;
   form: Record<string, any> = {};
 
-  /** "Agregar ítem al lote" (Fase 3, Ronda 4) — modal aparte, siempre en modo creación. */
+  /** "Agregar ítem al lote" — modal aparte, siempre en modo creación. */
   agregarOpen = false;
   agregarForm: Record<string, any> = {};
   agregarSaving = false;
@@ -171,11 +186,39 @@ export class AprendizMaterialesItemsComponent implements OnInit {
 
   puedeEditar = computed(() => this.auth.tieneServicio('materiales.items.editar'));
   puedeCrear = computed(() => this.auth.tieneServicio('materiales.items.crear'));
+  puedeVerSitios = computed(() => this.auth.tieneServicio('materiales.sitios.ver'));
+
+  /**
+   * Navegación cruzada (ítem 4): desde un ítem, ir directo a su historial de
+   * movimientos/novedades. Kardex y Novedades NO se unificaron (ítem 5) —
+   * siguen con ruta propia por rol — así que acá sí hace falta bifurcar
+   * según el cargo. Aprendiz no tiene ninguna de las dos pantallas: los
+   * links se ocultan del todo para ese cargo.
+   */
+  readonly rowLinks: TableRowLink[] = [
+    {
+      label: 'Kardex',
+      routerLink: () => [this.auth.isAdmin() ? '/materiales/kardex' : '/instructor/materiales/kardex'],
+      queryParams: (r) => ({ id_item: r.id_item }),
+      visible: () => this.auth.isAdmin() || this.auth.cargo() === 'instructor',
+    },
+    {
+      label: 'Novedades',
+      routerLink: () => [this.auth.isAdmin() ? '/materiales/novedades' : '/instructor/materiales/novedades'],
+      queryParams: (r) => ({ id_item: r.id_item }),
+      visible: () => this.auth.isAdmin() || this.auth.cargo() === 'instructor',
+    },
+  ];
 
   constructor(private api: MaterialesApiService, private toast: ToastService, private auth: AuthService) {}
 
   ngOnInit(): void {
     this.cargar();
+  }
+
+  get columnas(): string[] {
+    const base = ['codigo_sku', 'placa_sena', 'producto_nombre'];
+    return this.puedeVerSitios() ? [...base, 'sitio_nombre', 'estado'] : [...base, 'estado'];
   }
 
   get opciones(): Record<string, OpcionSelect[]> {
@@ -190,15 +233,16 @@ export class AprendizMaterialesItemsComponent implements OnInit {
     return this.items.map((i) => ({
       ...i,
       producto_nombre: i.producto?.nombre ?? '—',
+      sitio_nombre: this.sitios.find((s) => s.id_sitio === i.id_sitio)?.nombre ?? '—',
     }));
   }
 
   private async cargar(): Promise<void> {
     this.loading = true;
     try {
-      // Sin `materiales.sitios.ver` no se pide /sitios (el aprendiz no edita
-      // ítems ni ve la columna Sitio) — antes el 403 tumbaba toda la carga.
-      const verSitios = this.auth.tieneServicio('materiales.sitios.ver');
+      // Sin `materiales.sitios.ver` no se pide /sitios — antes un 403 ahí
+      // tumbaba toda la carga de Ítems.
+      const verSitios = this.puedeVerSitios();
       const [items, sitios, productos] = await Promise.all([
         this.api.listarItems(),
         verSitios ? this.api.listarSitios().catch(() => [] as Sitio[]) : Promise.resolve([] as Sitio[]),
@@ -213,7 +257,6 @@ export class AprendizMaterialesItemsComponent implements OnInit {
       this.loading = false;
     }
   }
-
 
   editar(fila: any): void {
     if (!this.puedeEditar()) return;

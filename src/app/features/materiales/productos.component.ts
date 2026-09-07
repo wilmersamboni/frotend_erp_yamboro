@@ -1,16 +1,18 @@
-import { Component, DoCheck, OnInit, inject } from '@angular/core';
+import { Component, DoCheck, OnInit, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AdminTableComponent } from '../../../shared/components/admin-table.component';
-import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
-import { OpcionSelect } from '../services/admin.service';
-import { ToastService } from '../../../core/services/toast.service';
-import { ConfirmService } from '../../../core/services/confirm.service';
-import { Categoria, Item, MaterialesApiService, Producto, Sitio } from '../../../core/services/materiales/materiales-api.service';
+import { AdminTableComponent, TableRowLink } from '../../shared/components/admin-table.component';
+import { AdminModalComponent } from '../../shared/components/admin-modal.component';
+import { OpcionSelect } from '../admin/services/admin.service';
+import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
+import { ConfirmService } from '../../core/services/confirm.service';
+import { Categoria, Item, MaterialesApiService, Producto, Sitio } from '../../core/services/materiales/materiales-api.service';
 
-const OPCIONES_TIPO_MATERIAL = [
-  { value: 'CONSUMO', label: 'Consumo', clases: 'border-green-300 bg-green-50 text-green-700' },
-  { value: 'DEVOLUTIVO', label: 'Devolutivo', clases: 'border-blue-300 bg-blue-50 text-blue-700' },
-  { value: 'PERECEDERO', label: 'Perecedero', clases: 'border-amber-300 bg-amber-50 text-amber-700' },
+
+const OPCIONES_TIPO_MATERIAL: OpcionSelect[] = [
+  { value: 'CONSUMO', label: 'Consumo' },
+  { value: 'DEVOLUTIVO', label: 'Devolutivo' },
+  { value: 'PERECEDERO', label: 'Perecedero' },
 ] as const;
 
 // Catálogo UNSPSC (Colombia Compra Eficiente) curado para SENA — mismo
@@ -165,6 +167,23 @@ const UNIDADES_POR_FAMILIA: Record<string, string[]> = {
 // OPCIONES_UNIDAD_MEDIDA, mismas 3 que ofrece SGM (unidadesPeso).
 const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map((u) => ({ label: u, value: u }));
 
+// Al crear, `cantidad` genera N Item automáticamente; al editar no aplica
+// (UpdateProductoDto no la acepta) — por eso las columnas del modal difieren.
+// `SKU` se agrega condicionalmente en los getters `camposCrear`/`camposEditar`
+// de abajo: el backend lo exime cuando el UNSPSC es de gastronomía (empieza en
+// '50'), así que si el campo se dejara siempre visible confundiría — se oculta
+// del todo en ese caso, igual que hace el SGM. `fecha_vencimiento` (solo si
+// tipo_material=PERECEDERO) y `unidad_peso_bulto`/`peso_por_bulto` (solo si
+// unidad_medida=BULTO/PAQUETE) se agregan igual de condicionalmente — el
+// backend ya los acepta (create-producto.dto.ts) pero el formulario nunca
+// los pedía.
+// `es_psd` NO es un campo del formulario: se descubrió comparando contra SGM
+// que ese sistema tampoco lo expone como campo — lo deriva solo de
+// tipo_material === 'PERECEDERO'. Acá se replica igual: se manda calculado
+// en `guardar()`, nunca se pide en el modal.
+const CAMPOS_CREAR_BASE  = ['nombre', 'descripcion', 'codigo_unspsc', 'SKU', 'marca', 'modelo', 'tipo_material', 'unidad_medida', 'unidad_peso_bulto', 'peso_por_bulto', 'fecha_vencimiento', 'id_categoria', 'id_sitio', 'cantidad', 'stock_minimo'];
+const CAMPOS_EDITAR_BASE = ['nombre', 'descripcion', 'codigo_unspsc', 'SKU', 'marca', 'modelo', 'tipo_material', 'unidad_medida', 'unidad_peso_bulto', 'peso_por_bulto', 'fecha_vencimiento', 'id_categoria', 'id_sitio', 'stock_minimo'];
+
 /**
  * CRUD de Productos. Crear un producto genera automáticamente `cantidad`
  * Items (DEVOLUTIVO) o un `lote` (CONSUMO/PERECEDERO) — ver
@@ -176,26 +195,37 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
  * "Tipo de material" como 3 pills de color (inspirado en el mismo patrón de
  * SigMat) en vez de un `<select>`, y el resto en grilla de 2 columnas.
  *
- * Pulido (Ronda 4, Fase 9): al crear (no al editar), el SKU se autogenera a
- * partir del nombre mientras se escribe (prefijo de 3 letras + consecutivo
- * por prefijo, mismo algoritmo que SGM `generarSku()`) — editable a mano en
- * cualquier momento; si se vacía el campo, vuelve al auto-fill. Se sigue
- * implementando con `ngDoCheck` comparando `form['nombre']`/`form['SKU']`
- * contra el último valor visto, porque el propio template muta `form` por
- * referencia en cada keystroke (mismo motivo que cuando el modal era genérico).
- * El `<select>` de unidad de medida además se filtra por la familia UNSPSC
- * elegida (`UNIDADES_POR_FAMILIA`, arriba).
+ * Crear/editar/eliminar gateados por servicio (`materiales.productos.crear/
+ * editar/eliminar`), no por cargo — admin las tiene siempre vía su bundle de
+ * rol, cualquier otro cargo solo si se las otorgan (mismo mecanismo que
+ * Categorías/Sitios).
+ *
+ * El SKU se autogenera a partir del nombre mientras se escribe (prefijo de 3
+ * letras + consecutivo por prefijo, mismo algoritmo que SGM `generarSku()`)
+ * — editable a mano en cualquier momento; si se vacía el campo, vuelve al
+ * auto-fill. Como `AdminModalComponent` es genérico y no expone un evento
+ * por cada keystroke, se implementa con `ngDoCheck` comparando
+ * `form['nombre']`/`form['SKU']` contra el último valor visto. El `<select>`
+ * de unidad de medida además se filtra por la familia UNSPSC elegida
+ * (`UNIDADES_POR_FAMILIA`, arriba).
+ *
+ * Componente único para admin/instructor/aprendiz (ítem 5 del plan de
+ * unificación) — antes vivía triplicado en
+ * `features/{admin,instructor,aprendiz}/materiales/`, con el catálogo UNSPSC
+ * (100+ líneas) copiado 1:1 en cada copia.
+ *
+ * Navegación cruzada (ítem 4): "Existencias"/"Kardex"/"Lotes" por fila.
  */
 @Component({
   selector: 'app-materiales-productos',
   standalone: true,
-  imports: [FormsModule, AdminTableComponent, SearchableSelectComponent],
+  imports: [FormsModule, AdminTableComponent, AdminModalComponent],
   template: `
     <div class="p-6">
       <h1 class="text-xl font-bold text-gray-800 mb-5">Productos</h1>
 
       <app-admin-table
-        [addLabel]="'Nuevo producto'"
+        [addLabel]="puedeCrear() ? 'Nuevo producto' : null"
         (add)="nuevo()"
         [rows]="filas"
         [searchable]="true"
@@ -203,6 +233,9 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
         [columns]="['nombre', 'categoria_nombre', 'tipo_material', 'unidad_medida', 'stock_minimo']"
         [columnLabels]="columnLabels"
         [loading]="loading"
+        [canEdit]="puedeEditar()"
+        [canDelete]="puedeEliminar()"
+        [rowLinks]="rowLinks"
         (edit)="editar($event)"
         (delete)="eliminar($event)" />
     </div>
@@ -362,6 +395,11 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
   saving = false;
   error: string | null = null;
 
+  puedeCrear = computed(() => this.auth.tieneServicio('materiales.productos.crear'));
+  puedeEditar = computed(() => this.auth.tieneServicio('materiales.productos.editar'));
+  puedeEliminar = computed(() => this.auth.tieneServicio('materiales.productos.eliminar'));
+  puedeVerSitios = computed(() => this.auth.tieneServicio('materiales.sitios.ver'));
+
   opcionesTipoMaterial = OPCIONES_TIPO_MATERIAL;
   opcionesUnspsc = OPCIONES_UNSPSC;
   opcionesUnidadPeso = OPCIONES_UNIDAD_PESO;
@@ -386,6 +424,24 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
     return this.form['unidad_medida'] === 'BULTO' || this.form['unidad_medida'] === 'PAQUETE';
   }
 
+  /** Filtra los campos condicionales (SKU/fecha de vencimiento/peso por bulto) según el estado actual del form. */
+  private filtrarCamposCondicionales(campos: string[]): string[] {
+    return campos.filter((c) => {
+      if (c === 'SKU') return !this.esGastronomia();
+      if (c === 'fecha_vencimiento') return this.esPerecedero();
+      if (c === 'unidad_peso_bulto' || c === 'peso_por_bulto') return this.esBulto();
+      return true;
+    });
+  }
+
+  get camposCrear(): string[] {
+    return this.filtrarCamposCondicionales(CAMPOS_CREAR_BASE);
+  }
+
+  get camposEditar(): string[] {
+    return this.filtrarCamposCondicionales(CAMPOS_EDITAR_BASE);
+  }
+
   modalOpen = false;
   editando: Producto | null = null;
   form: Record<string, any> = {};
@@ -402,7 +458,7 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
   private ultimoNombreVisto = '';
   private ultimoSkuAuto = '';
 
-  constructor(private api: MaterialesApiService, private toast: ToastService) {}
+  constructor(private api: MaterialesApiService, private toast: ToastService, private auth: AuthService) {}
 
   ngOnInit(): void {
     this.cargar();
@@ -457,6 +513,29 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
     return unidades ? unidades.map((u) => ({ label: u, value: u })) : OPCIONES_UNIDAD_MEDIDA;
   }
 
+  /**
+   * Navegación cruzada (ítem 4): desde un producto, ir directo a su stock/
+   * movimientos/lotes ya filtrados. Existencias sí se unificó (ítem 5, una
+   * sola ruta para los 3 cargos) — pero Kardex sigue con ruta propia por rol
+   * y Lotes es admin-only, así que esos dos sí necesitan bifurcar/ocultarse
+   * según el cargo.
+   */
+  readonly rowLinks: TableRowLink[] = [
+    { label: 'Existencias', routerLink: () => ['/materiales/existencias'], queryParams: (r) => ({ id_producto: r.id_producto }) },
+    {
+      label: 'Kardex',
+      routerLink: () => [this.auth.isAdmin() ? '/materiales/kardex' : '/instructor/materiales/kardex'],
+      queryParams: (r) => ({ id_producto: r.id_producto }),
+      visible: () => this.auth.isAdmin() || this.auth.cargo() === 'instructor',
+    },
+    {
+      label: 'Lotes',
+      routerLink: () => ['/materiales/lotes'],
+      queryParams: (r) => ({ id_producto: r.id_producto }),
+      visible: () => this.auth.isAdmin(),
+    },
+  ];
+
   get filas(): any[] {
     return this.productos.map((p) => ({
       ...p,
@@ -487,8 +566,9 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
   }
 
   nuevo(): void {
+    if (!this.puedeCrear()) return;
     if (this.categorias.length === 0 || this.sitios.length === 0) {
-      this.toast.warn('Faltan datos', 'Creá al menos una categoría y un sitio antes de registrar un producto.');
+      this.toast.warn('Faltan datos', 'Necesitás al menos una categoría y un sitio antes de registrar un producto.');
       return;
     }
     this.editando = null;
@@ -508,6 +588,7 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
   }
 
   editar(fila: any): void {
+    if (!this.puedeEditar()) return;
     const producto = this.productos.find((p) => p.id_producto === fila.id_producto)!;
     this.editando = producto;
     this.form = {
@@ -557,7 +638,7 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
       unidad_peso_bulto: this.esBulto() ? (form['unidad_peso_bulto'] || undefined) : undefined,
       peso_por_bulto: this.esBulto() && form['peso_por_bulto'] ? Number(form['peso_por_bulto']) : undefined,
     };
-    // `es_psd` no lo llena el usuario — se deriva de tipo_material, igual que SGM (Ronda 6).
+    // `es_psd` no lo llena el usuario — se deriva de tipo_material.
     const esPsd = this.esPerecedero();
     // Solo aplica a DEVOLUTIVO — en CONSUMO/PERECEDERO no se manda (el backend ya lo ignora, pero así queda explícito).
     const usaPlacaSena = form['tipo_material'] === 'DEVOLUTIVO' ? !!form['usa_placa_sena'] : undefined;
@@ -631,6 +712,7 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
   }
 
   async eliminar(fila: any): Promise<void> {
+    if (!this.puedeEliminar()) return;
     if (!(await this.confirm.ask(`¿Eliminar el producto "${fila.nombre}"?`))) return;
     try {
       await this.api.eliminarProducto(fila.id_producto);

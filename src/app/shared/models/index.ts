@@ -60,7 +60,7 @@ export interface Persona {
   id_persona?: string;
   nombre: string;
   correo: string;
-  telefono: string;
+  telefono: number;
   direccion: string;
   genero?: string;
   fk_municipio?: number;

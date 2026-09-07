@@ -1,15 +1,24 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AdminTableComponent } from '../../../shared/components/admin-table.component';
-import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
-import { ToastService } from '../../../core/services/toast.service';
-import { ConfirmService } from '../../../core/services/confirm.service';
-import { Categoria, MaterialesApiService } from '../../../core/services/materiales/materiales-api.service';
+import { AdminTableComponent } from '../../shared/components/admin-table.component';
+import { AdminModalComponent } from '../../shared/components/admin-modal.component';
+import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
+import { ConfirmService } from '../../core/services/confirm.service';
+import { Categoria, MaterialesApiService } from '../../core/services/materiales/materiales-api.service';
 
 /**
- * Categorías de Materiales — entidad plana (id, nombre), CRUD directo
- * reusando los widgets genéricos del panel admin (AdminTableComponent /
- * AdminModalComponent) en vez de reescribir tabla+formulario a mano.
+ * Categorías de Materiales — crear/editar/eliminar gateados por servicio
+ * (`materiales.categorias.crear/editar/eliminar`), no por cargo: admin las
+ * tiene siempre vía su bundle de rol (MATERIALES_ADMIN en backend-epsas), y
+ * cualquier otro cargo solo si se las otorgan explícitamente — mismo
+ * mecanismo (`AuthService.tieneServicio`, poblado para todos los cargos vía
+ * `GET /permisos/mis-servicios`), sin necesidad de ramificar por rol.
+ *
+ * Componente único para admin/instructor (ítem 5 del plan de unificación) —
+ * antes vivía duplicado en `features/{admin,instructor}/materiales/`, con la
+ * única diferencia real siendo que la versión admin no gateaba los botones
+ * (la ruta ya era admin-only). Aprendiz no tiene esta pantalla.
  */
 @Component({
   selector: 'app-materiales-categorias',
@@ -20,13 +29,15 @@ import { Categoria, MaterialesApiService } from '../../../core/services/material
       <h1 class="text-xl font-bold text-gray-800 mb-5">Categorías de Materiales</h1>
 
       <app-admin-table
-        [addLabel]="'Nueva categoría'"
+        [addLabel]="puedeCrear() ? 'Nueva categoría' : null"
         (add)="nuevo()"
         [rows]="categorias"
         [searchable]="true"
         [searchPlaceholder]="'Buscar categoría…'"
         [columns]="['nombre']"
         [loading]="loading"
+        [canEdit]="puedeEditar()"
+        [canDelete]="puedeEliminar()"
         (edit)="editar($event)"
         (delete)="eliminar($event)" />
     </div>
@@ -56,7 +67,11 @@ export class MaterialesCategoriasComponent implements OnInit {
   editando: Categoria | null = null;
   form: Record<string, any> = {};
 
-  constructor(private api: MaterialesApiService, private toast: ToastService) {}
+  puedeCrear = computed(() => this.auth.tieneServicio('materiales.categorias.crear'));
+  puedeEditar = computed(() => this.auth.tieneServicio('materiales.categorias.editar'));
+  puedeEliminar = computed(() => this.auth.tieneServicio('materiales.categorias.eliminar'));
+
+  constructor(private api: MaterialesApiService, private toast: ToastService, private auth: AuthService) {}
 
   ngOnInit(): void {
     this.cargar();
@@ -74,6 +89,7 @@ export class MaterialesCategoriasComponent implements OnInit {
   }
 
   nuevo(): void {
+    if (!this.puedeCrear()) return;
     this.editando = null;
     this.form = { nombre: '' };
     this.error = null;
@@ -81,6 +97,7 @@ export class MaterialesCategoriasComponent implements OnInit {
   }
 
   editar(cat: Categoria): void {
+    if (!this.puedeEditar()) return;
     this.editando = cat;
     this.form = { nombre: cat.nombre };
     this.error = null;
@@ -116,6 +133,7 @@ export class MaterialesCategoriasComponent implements OnInit {
   }
 
   async eliminar(cat: Categoria): Promise<void> {
+    if (!this.puedeEliminar()) return;
     if (!(await this.confirm.ask(`¿Eliminar la categoría "${cat.nombre}"?`))) return;
     try {
       await this.api.eliminarCategoria(cat.id_categoria);

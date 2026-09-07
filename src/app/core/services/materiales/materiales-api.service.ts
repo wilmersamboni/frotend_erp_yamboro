@@ -94,15 +94,6 @@ export interface Item {
   producto?: Producto;
 }
 
-export interface Inventario {
-  id_inventario: string;
-  estado: EstadoItem;
-  id_item: string;
-  id_sitio: string;
-  item?: Item;
-  sitio?: Sitio;
-}
-
 export interface CreateCategoriaDto {
   nombre: string;
 }
@@ -140,8 +131,8 @@ export interface CreateProductoDto {
   usa_placa_sena?: boolean;
 }
 
-/** Fila del panel de existencias de solo lectura (Tier SigMat M6, `GET /api2/inventario/resumen`). */
-export interface ResumenInventario {
+/** Fila del panel de existencias de solo lectura (Tier SigMat M6, `GET /api2/existencias`). */
+export interface ResumenExistencias {
   id_producto: string;
   nombre: string;
   sku: string | null;
@@ -159,12 +150,6 @@ export interface ResumenInventario {
   total: number;
   lote_disponible: number;
   lotes_por_vencer: number;
-}
-
-export interface CreateInventarioDto {
-  estado: EstadoItem;
-  id_item: string;
-  id_sitio: string;
 }
 
 export interface UpdateItemDto {
@@ -225,6 +210,8 @@ export interface Solicitud {
   usuario_nombre?: string | null;
   usuario_aprueba_nombre?: string | null;
   usuario_entrega_nombre?: string | null;
+  /** Justificación del rechazo — presente solo si `estado === 'RECHAZADA'`. */
+  motivo_rechazo?: string | null;
 }
 
 /** Una línea al crear una solicitud multi-línea: producto devolutivo XOR lote consumible. */
@@ -326,6 +313,32 @@ export interface Chequeo {
 
 export interface CreateChequeoDto {
   id_solicitud: string;
+}
+
+/** Detalle pasa/no-pasa por unidad de un chequeo — poblado al cerrar una devolución. */
+export interface ItemChequeo {
+  id_item_chequeo: string;
+  estado: boolean;
+  observacion: string | null;
+  id_chequeo: string;
+  id_item: string;
+  item?: Item;
+}
+
+/**
+ * Acta de entrega/devolución: PDF generado automáticamente por el backend
+ * al confirmar recepción o al cerrar una devolución (una por solicitud —
+ * la que ocurra primero). `url_pdf` es relativa (`uploads/materiales-actas/
+ * <archivo>.pdf`) y debe descargarse autenticado, no con un <a href> plano
+ * — ver MaterialesApiService.descargarActaPdf.
+ */
+export interface Acta {
+  id_acta: string;
+  fecha: string;
+  url_pdf: string | null;
+  id_solicitud: string;
+  id_usuario: string;
+  solicitud?: Solicitud;
 }
 
 export type EstadoAsignacion = 'ACTIVA' | 'ANULADA';
@@ -475,26 +488,14 @@ export class MaterialesApiService {
     );
   }
 
-  // ── Inventario ─────────────────────────────────────────────────────
-  listarInventario() {
-    return this.unwrap(this.http.get<Envelope<Inventario[]>>(`${BASE}/inventario`));
-  }
-  /** Panel de existencias de solo lectura (Tier SigMat M6) — calculado desde `item`/`lote`, recortado por programa/bodega. */
-  resumenInventario() {
-    return this.unwrap(this.http.get<Envelope<ResumenInventario[]>>(`${BASE}/inventario/resumen`));
-  }
-  crearInventario(dto: CreateInventarioDto) {
-    return this.unwrap(this.http.post<Envelope<Inventario>>(`${BASE}/inventario`, dto));
-  }
-  actualizarInventario(id: string, dto: Partial<CreateInventarioDto>) {
-    return this.unwrap(this.http.patch<Envelope<Inventario>>(`${BASE}/inventario/${id}`, dto));
-  }
-  eliminarInventario(id: string) {
-    return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/inventario/${id}`));
+  // ── Existencias (solo lectura) ──────────────────────────────────────
+  /** Panel de existencias (Tier SigMat M6) — calculado desde `item`/`lote`, recortado por programa/bodega. Sin CRUD propio: no hay altas/bajas de "existencia", solo de ítems/lotes. */
+  obtenerExistencias() {
+    return this.unwrap(this.http.get<Envelope<ResumenExistencias[]>>(`${BASE}/existencias`));
   }
   stockProducto(idProducto: string) {
     return this.unwrap(
-      this.http.get<Envelope<{ disponibles: number; total: number }>>(`${BASE}/inventario/producto/${idProducto}/stock`),
+      this.http.get<Envelope<{ disponibles: number; total: number }>>(`${BASE}/existencias/producto/${idProducto}/stock`),
     );
   }
 
@@ -551,8 +552,9 @@ export class MaterialesApiService {
   aprobarSolicitud(id: string) {
     return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/aprobar`, {}));
   }
-  rechazarSolicitud(id: string) {
-    return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/rechazar`, {}));
+  /** El motivo es obligatorio — el backend rechaza con 400 si viene vacío. */
+  rechazarSolicitud(id: string, motivo: string) {
+    return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/rechazar`, { motivo }));
   }
   entregarSolicitud(id: string) {
     return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/entregar`, {}));
@@ -584,6 +586,36 @@ export class MaterialesApiService {
   /** Marca que se inspeccionó la devolución de una solicitud — ver docblock de `Chequeo`. */
   crearChequeo(dto: CreateChequeoDto) {
     return this.unwrap(this.http.post<Envelope<Chequeo>>(`${BASE}/chequeos`, dto));
+  }
+  /** El backend los genera solo — uno por solicitud, al cerrar su devolución. */
+  listarChequeos() {
+    return this.unwrap(this.http.get<Envelope<Chequeo[]>>(`${BASE}/chequeos`));
+  }
+  obtenerChequeo(id: string) {
+    return this.unwrap(this.http.get<Envelope<Chequeo>>(`${BASE}/chequeos/${id}`));
+  }
+  /** Sin filtro por chequeo en el backend — se trae todo y se agrupa por id_chequeo en el cliente. */
+  listarItemsChequeo() {
+    return this.unwrap(this.http.get<Envelope<ItemChequeo[]>>(`${BASE}/items-chequeo`));
+  }
+
+  // ── Actas ──────────────────────────────────────────────────────────
+  /** El backend las genera solo — al confirmar recepción o al cerrar una devolución. */
+  listarActas() {
+    return this.unwrap(this.http.get<Envelope<Acta[]>>(`${BASE}/actas`));
+  }
+  obtenerActa(id: string) {
+    return this.unwrap(this.http.get<Envelope<Acta>>(`${BASE}/actas/${id}`));
+  }
+  /**
+   * Descarga el PDF autenticado — un `<a href="/uploads/...">` plano no pasa
+   * por el interceptor (x-tenant + cookie de sesión), y en un despliegue por
+   * IP sin subdominio el backend no tiene de dónde más sacar el tenant (ver
+   * seguimiento.service.ts.descargarArchivo, mismo criterio).
+   */
+  async descargarActaPdf(urlRelativa: string): Promise<Blob> {
+    const ruta = urlRelativa.startsWith('/') ? urlRelativa : `/${urlRelativa}`;
+    return firstValueFrom(this.http.get(ruta, { responseType: 'blob' }));
   }
 
   // ── Asignaciones ───────────────────────────────────────────────────
