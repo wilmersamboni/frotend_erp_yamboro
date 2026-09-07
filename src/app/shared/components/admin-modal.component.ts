@@ -56,7 +56,8 @@ import { TuiDay } from '@taiga-ui/cdk';
                        listas cortas y largas — el propio dropdown filtra por
                        texto, así que no hace falta un autocomplete aparte. -->
                   <app-ss [options]="opciones[col]" placeholder="— Selecciona —"
-                          [(ngModel)]="form[col]"></app-ss>
+                          [ngModel]="form[col]"
+                          (ngModelChange)="form[col] = $event; fieldChange.emit({ col, value: $event })"></app-ss>
 
                 } @else if (tiposCampo[col] === 'date') {
                   <!-- FECHA: calendario -->
@@ -75,13 +76,24 @@ import { TuiDay } from '@taiga-ui/cdk';
                     class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
 
                 } @else if (tiposCampo[col] === 'boolean') {
-                  <!-- CHECKBOX: campo booleano — el [type] dinámico de abajo no
-                       enlaza [checked] correctamente para checkboxes en Angular. -->
-                  <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                  <!-- SWITCH: campo booleano — checkbox real oculto (sr-only) +
+                       track/thumb pintados con peer-checked, el [type] dinámico
+                       de abajo no enlaza [checked] correctamente para checkboxes.
+                       El thumb es el ::after del track (no un <span> anidado
+                       aparte): peer-checked usa el combinador "~" de hermanos,
+                       así que solo alcanza a un elemento que sea hermano directo
+                       del input — un <span> anidado DENTRO del track no calificaba
+                       y por eso el círculo no se movía (el fondo sí, porque ese
+                       cambio de color estaba en el propio track, el hermano real). -->
+                  <label class="inline-flex items-center gap-2.5 cursor-pointer select-none">
                     <input type="checkbox"
                       [(ngModel)]="form[col]"
                       [name]="col"
-                      class="w-4 h-4 rounded border-gray-300 text-[#39A900] focus:ring-[#39A900]/30 cursor-pointer" />
+                      class="sr-only peer" />
+                    <span class="relative w-10 h-6 rounded-full bg-gray-200 peer-checked:bg-[#39A900] transition-colors
+                      after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-5 after:h-5
+                      after:rounded-full after:bg-white after:shadow after:transition-transform
+                      peer-checked:after:translate-x-4"></span>
                     <span class="text-sm text-gray-700">{{ form[col] ? 'Sí' : 'No' }}</span>
                   </label>
 
@@ -157,6 +169,13 @@ export class AdminModalComponent {
 
   @Output() closed = new EventEmitter<void>();
   @Output() saved  = new EventEmitter<Record<string, any>>();
+
+  /**
+   * Se emite cuando cambia un campo tipo <select> (app-ss). Lo usa el padre
+   * para reaccionar a un campo — ej. lotes precarga el sitio del producto
+   * elegido. Los <input> normales no lo emiten (no hace falta hasta hoy).
+   */
+  @Output() fieldChange = new EventEmitter<{ col: string; value: any }>();
 
   // ── Helper de teléfono: solo dígitos, con un único "+" opcional al inicio ──
   sanitizeTelefono(valor: string): string {

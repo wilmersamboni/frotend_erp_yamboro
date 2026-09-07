@@ -9,7 +9,7 @@ import { environment } from '../../../../environments/environment';
 const BASE = environment.apiPracticaUrl;
 
 export type TipoSitio = 'BODEGA' | 'AMBIENTE' | 'LABORATORIO' | 'OTRO';
-export type TipoMaterial = 'CONSUMO' | 'DEVOLUTIVO' | 'SOFTWARE' | 'EPP' | 'PERECEDERO';
+export type TipoMaterial = 'CONSUMO' | 'DEVOLUTIVO' | 'PERECEDERO';
 export type EstadoItem = 'DISPONIBLE' | 'PRESTADO' | 'DAÑADO' | 'PERDIDO' | 'EN_MANTENIMIENTO';
 export type EstadoLote = 'ACTIVO' | 'AGOTADO' | 'VENCIDO' | 'DADO_DE_BAJA';
 export type TipoNovedad = 'DAÑO' | 'PERDIDA' | 'MANTENIMIENTO' | 'DISCREPANCIA' | 'OTRO';
@@ -28,9 +28,11 @@ export interface Sitio {
   codigo_lugar?: string | null;
   id_responsable?: string | null;
   id_centro?: string | null;
-  // Programa de formación (ERP) al que pertenece el sitio. null = compartido /
-  // sin clasificar. Recorta la visibilidad de Materiales por programa (Ronda 7).
-  id_programa?: string | null;
+  // Área (ERP) a la que pertenece el sitio. null = compartido entre
+  // instructor/admin, sin aprendices. Recorta la visibilidad de Materiales por área.
+  id_area?: string | null;
+  // Excepción: visible para cualquier rol sin importar el área (ej. biblioteca).
+  acceso_publico?: boolean;
   estado: boolean;
 }
 
@@ -52,6 +54,8 @@ export interface Producto {
   id_sitio?: string | null;
   marca?: string | null;
   modelo?: string | null;
+  /** Solo DEVOLUTIVO. true (default) = los ítems no llevan el SKU copiado, se identifican por su placa SENA. */
+  usa_placa_sena?: boolean;
 }
 
 export interface Lote {
@@ -101,7 +105,8 @@ export interface CreateSitioDto {
   codigo_lugar?: string;
   id_responsable?: string;
   id_centro?: string;
-  id_programa?: string | null;
+  id_area?: string | null;
+  acceso_publico?: boolean;
   estado?: boolean;
 }
 
@@ -123,6 +128,7 @@ export interface CreateProductoDto {
   unidad_peso_bulto?: string;
   peso_por_bulto?: number;
   id_sitio: string;
+  usa_placa_sena?: boolean;
 }
 
 /** Fila del panel de existencias de solo lectura (Tier SigMat M6, `GET /api2/existencias`). */
@@ -204,6 +210,8 @@ export interface Solicitud {
   usuario_nombre?: string | null;
   usuario_aprueba_nombre?: string | null;
   usuario_entrega_nombre?: string | null;
+  /** Justificación del rechazo — presente solo si `estado === 'RECHAZADA'`. */
+  motivo_rechazo?: string | null;
 }
 
 /** Una línea al crear una solicitud multi-línea: producto devolutivo XOR lote consumible. */
@@ -420,9 +428,10 @@ export class MaterialesApiService {
   listarProductos() {
     return this.unwrap(this.http.get<Envelope<Producto[]>>(`${BASE}/productos`));
   }
+  /** DEVOLUTIVO genera `items_generados` (uno por unidad); CONSUMO/PERECEDERO genera `lote_generado` en su lugar. */
   crearProducto(dto: CreateProductoDto) {
     return this.unwrap(
-      this.http.post<Envelope<{ producto: Producto; items_generados: Item[] }>>(`${BASE}/productos`, dto),
+      this.http.post<Envelope<{ producto: Producto; items_generados: Item[]; lote_generado: Lote | null }>>(`${BASE}/productos`, dto),
     );
   }
   actualizarProducto(id: string, dto: Partial<CreateProductoDto>) {
@@ -471,6 +480,12 @@ export class MaterialesApiService {
   }
   actualizarEstadoItem(id: string, estado: EstadoItem) {
     return this.unwrap(this.http.patch<Envelope<Item>>(`${BASE}/items/${id}/estado`, { estado }));
+  }
+  /** Alta masiva de placas SENA sobre ítems ya generados (uno por unidad). Atómica en el backend. */
+  asignarPlacasItems(asignaciones: { id_item: string; placa_sena: string }[]) {
+    return this.unwrap(
+      this.http.patch<Envelope<{ actualizados: number }>>(`${BASE}/items/asignar-placas`, { asignaciones }),
+    );
   }
 
   // ── Existencias (solo lectura) ──────────────────────────────────────
@@ -537,8 +552,9 @@ export class MaterialesApiService {
   aprobarSolicitud(id: string) {
     return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/aprobar`, {}));
   }
-  rechazarSolicitud(id: string) {
-    return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/rechazar`, {}));
+  /** El motivo es obligatorio — el backend rechaza con 400 si viene vacío. */
+  rechazarSolicitud(id: string, motivo: string) {
+    return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/rechazar`, { motivo }));
   }
   entregarSolicitud(id: string) {
     return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/entregar`, {}));

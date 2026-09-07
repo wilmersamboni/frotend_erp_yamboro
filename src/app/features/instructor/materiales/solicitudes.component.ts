@@ -258,9 +258,42 @@ interface LineaForm {
             @if (detalle.id_usuario_entrega || detalle.fecha_entrega) {
               <div class="flex justify-between gap-4"><dt class="text-gray-500">Entregó</dt><dd class="text-gray-800 text-right">{{ detalle.usuario_entrega_nombre || '—' }}<span class="block text-[11px] text-gray-400">{{ detalle.fecha_entrega | date: 'short' }}</span></dd></div>
             }
+            @if (detalle.estado === 'RECHAZADA' && detalle.motivo_rechazo) {
+              <div class="rounded-lg bg-red-50 border border-red-100 p-3">
+                <dt class="text-red-600 font-medium mb-1">Motivo del rechazo</dt>
+                <dd class="text-red-700 whitespace-pre-wrap">{{ detalle.motivo_rechazo }}</dd>
+              </div>
+            }
           </dl>
           <div class="flex justify-end mt-6">
             <button (click)="detalleAbierto = false" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (rechazoAbierto && rechazoSolicitud) {
+      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarRechazo()">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-gray-800">Rechazar solicitud</h2>
+            <button (click)="cerrarRechazo()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+          </div>
+          <p class="text-sm text-gray-500 mb-3">
+            Se le informará al solicitante de
+            "<span class="font-medium text-gray-700">{{ rechazoSolicitud.producto?.nombre ?? 'este material' }}</span>".
+            El motivo es obligatorio.
+          </p>
+          <textarea [(ngModel)]="motivoRechazo" rows="3" maxlength="500"
+            placeholder="Ej: No hay stock disponible para la fecha solicitada."
+            class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400/30 focus:border-red-400 resize-none"></textarea>
+          <div class="text-right text-[11px] text-gray-400 mt-1">{{ motivoRechazo.length }}/500</div>
+          <div class="flex justify-end gap-2 mt-4">
+            <button (click)="cerrarRechazo()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
+            <button (click)="confirmarRechazo()" [disabled]="!motivoRechazo.trim() || rechazando"
+              class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors bg-red-600 hover:bg-red-700">
+              {{ rechazando ? 'Rechazando...' : 'Rechazar' }}
+            </button>
           </div>
         </div>
       </div>
@@ -289,6 +322,12 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
   detalleAbierto = false;
   detalle: Solicitud | null = null;
   detalleCargando = false;
+
+  /** Diálogo de rechazo — el motivo es obligatorio (#7). */
+  rechazoAbierto = false;
+  rechazoSolicitud: Solicitud | null = null;
+  motivoRechazo = '';
+  rechazando = false;
 
   /** Bodega elegida en el paso 1 del modal. */
   idSitioSeleccionado: string | null = null;
@@ -581,13 +620,32 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
     }
   }
 
-  async rechazar(s: Solicitud): Promise<void> {
+  rechazar(s: Solicitud): void {
+    this.rechazoSolicitud = s;
+    this.motivoRechazo = '';
+    this.rechazoAbierto = true;
+  }
+
+  cerrarRechazo(): void {
+    this.rechazoAbierto = false;
+    this.rechazoSolicitud = null;
+    this.motivoRechazo = '';
+  }
+
+  async confirmarRechazo(): Promise<void> {
+    const s = this.rechazoSolicitud;
+    const motivo = this.motivoRechazo.trim();
+    if (!s || !motivo) return;
+    this.rechazando = true;
     try {
-      await this.api.rechazarSolicitud(s.id_solicitud);
+      await this.api.rechazarSolicitud(s.id_solicitud, motivo);
       this.toast.ok('Solicitud rechazada');
+      this.cerrarRechazo();
       await this.cargar();
     } catch (e) {
       this.toast.httpError(e, 'No se pudo rechazar la solicitud.');
+    } finally {
+      this.rechazando = false;
     }
   }
 

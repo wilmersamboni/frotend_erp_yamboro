@@ -88,11 +88,19 @@ export class PersonaService {
     return Array.isArray(resp) ? resp : (resp?.data ?? []);
   }
 
-  /** Programas de formación del tenant (TIC, Gastronomía, …). Usado para
-   *  clasificar los sitios de Materiales por programa (Ronda 7). */
+  /** Programas de formación del tenant. */
   async listarProgramas(): Promise<any[]> {
     const resp: any = await firstValueFrom(
       this.http.get(`${BASE}/programas`, { withCredentials: true })
+    );
+    return Array.isArray(resp) ? resp : (resp?.data ?? []);
+  }
+
+  /** Áreas del tenant (TIC, Gastronomía, …). Usado para clasificar los sitios
+   *  de Materiales por área — reemplaza el scope por programa. */
+  async listarAreas(): Promise<any[]> {
+    const resp: any = await firstValueFrom(
+      this.http.get(`${BASE}/areas`, { withCredentials: true })
     );
     return Array.isArray(resp) ? resp : (resp?.data ?? []);
   }

@@ -69,6 +69,7 @@ const OPCIONES_UNIDAD: OpcionSelect[] = [
       [saving]="saving"
       [error]="error"
       (closed)="cerrarModal()"
+      (fieldChange)="onCampoModal($event)"
       (saved)="guardar($event)" />
   `,
 })
@@ -117,15 +118,32 @@ export class MaterialesLotesComponent implements OnInit {
     this.router.navigate([], { relativeTo: this.route, queryParams: {} });
   }
 
+  /** Solo los CONSUMO/PERECEDERO llevan lote — un DEVOLUTIVO se gestiona por ítems con placa. */
+  private get productosLoteables(): Producto[] {
+    return this.productos.filter((p) => p.tipo_material !== 'DEVOLUTIVO');
+  }
+
+  /** El producto elegido (alta) o el del lote en edición. */
+  private get productoDelForm(): Producto | undefined {
+    const id = this.editando ? this.editando.id_producto : this.form['id_producto'];
+    return this.productos.find((p) => p.id_producto === id);
+  }
+
+  get esPerecedero(): boolean {
+    return this.productoDelForm?.tipo_material === 'PERECEDERO';
+  }
+
   get camposModal(): string[] {
+    // "Fecha de vencimiento" solo aplica si el producto del lote es PERECEDERO.
+    const venc = this.esPerecedero ? ['fecha_vencimiento'] : [];
     return this.editando
-      ? ['codigo_lote', 'unidad_medida', 'fecha_vencimiento', 'id_sitio', 'cantidad_disponible', 'estado']
-      : ['id_producto', 'cantidad_inicial', 'unidad_medida', 'codigo_lote', 'fecha_vencimiento', 'id_sitio'];
+      ? ['codigo_lote', 'unidad_medida', ...venc, 'id_sitio', 'cantidad_disponible', 'estado']
+      : ['id_producto', 'cantidad_inicial', 'unidad_medida', 'codigo_lote', ...venc, 'id_sitio'];
   }
 
   get opciones(): Record<string, OpcionSelect[]> {
     return {
-      id_producto: this.productos.map((p) => ({ label: p.SKU ? `${p.nombre} (${p.SKU})` : p.nombre, value: p.id_producto })),
+      id_producto: this.productosLoteables.map((p) => ({ label: p.SKU ? `${p.nombre} (${p.SKU})` : p.nombre, value: p.id_producto })),
       id_sitio: this.sitios.map((s) => ({ label: s.nombre, value: s.id_sitio })),
       unidad_medida: OPCIONES_UNIDAD,
       estado: OPCIONES_ESTADO,
@@ -163,14 +181,28 @@ export class MaterialesLotesComponent implements OnInit {
   }
 
   nuevo(): void {
-    if (this.productos.length === 0) {
-      this.toast.warn('Faltan datos', 'Creá al menos un producto antes de registrar un lote.');
+    const loteables = this.productosLoteables;
+    if (loteables.length === 0) {
+      this.toast.warn('Faltan datos', 'Creá al menos un producto de consumo o perecedero antes de registrar un lote.');
       return;
     }
     this.editando = null;
-    this.form = { id_producto: this.productos[0].id_producto, cantidad_inicial: null, unidad_medida: 'und', codigo_lote: '', fecha_vencimiento: null, id_sitio: null };
+    const primero = loteables[0];
+    this.form = {
+      id_producto: primero.id_producto, cantidad_inicial: null, unidad_medida: 'und',
+      codigo_lote: '', fecha_vencimiento: null,
+      // Precarga la bodega "de casa" del producto — editable si el lote va a otra.
+      id_sitio: primero.id_sitio ?? null,
+    };
     this.error = null;
     this.modalOpen = true;
+  }
+
+  /** Al cambiar el producto en el alta, precarga su bodega por defecto (queda editable). */
+  onCampoModal(e: { col: string; value: any }): void {
+    if (e.col !== 'id_producto' || this.editando) return;
+    const prod = this.productos.find((p) => p.id_producto === e.value);
+    if (prod?.id_sitio) this.form['id_sitio'] = prod.id_sitio;
   }
 
   editar(fila: any): void {
@@ -192,11 +224,13 @@ export class MaterialesLotesComponent implements OnInit {
     this.saving = true;
     this.error = null;
     try {
+      // Solo mandamos fecha de vencimiento si el producto del lote es perecedero.
+      const fechaVenc = this.esPerecedero ? (form['fecha_vencimiento'] || undefined) : undefined;
       if (this.editando) {
         await this.api.actualizarLote(this.editando.id_lote, {
           codigo_lote: form['codigo_lote'] || undefined,
           unidad_medida: form['unidad_medida'] || undefined,
-          fecha_vencimiento: form['fecha_vencimiento'] || undefined,
+          fecha_vencimiento: fechaVenc,
           id_sitio: form['id_sitio'] || undefined,
           cantidad_disponible: form['cantidad_disponible'] != null ? Number(form['cantidad_disponible']) : undefined,
           estado: form['estado'] || undefined,
@@ -208,7 +242,7 @@ export class MaterialesLotesComponent implements OnInit {
           cantidad_inicial: Number(form['cantidad_inicial'] ?? 0),
           unidad_medida: form['unidad_medida'] || undefined,
           codigo_lote: form['codigo_lote'] || undefined,
-          fecha_vencimiento: form['fecha_vencimiento'] || undefined,
+          fecha_vencimiento: fechaVenc,
           id_sitio: form['id_sitio'] || undefined,
         };
         await this.api.crearLote(dto);
