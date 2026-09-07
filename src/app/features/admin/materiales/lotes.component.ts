@@ -60,6 +60,7 @@ const OPCIONES_UNIDAD: OpcionSelect[] = [
       [saving]="saving"
       [error]="error"
       (closed)="cerrarModal()"
+      (fieldChange)="onCampoModal($event)"
       (saved)="guardar($event)" />
   `,
 })
@@ -159,9 +160,22 @@ export class MaterialesLotesComponent implements OnInit {
       return;
     }
     this.editando = null;
-    this.form = { id_producto: loteables[0].id_producto, cantidad_inicial: null, unidad_medida: 'und', codigo_lote: '', fecha_vencimiento: null, id_sitio: null };
+    const primero = loteables[0];
+    this.form = {
+      id_producto: primero.id_producto, cantidad_inicial: null, unidad_medida: 'und',
+      codigo_lote: '', fecha_vencimiento: null,
+      // Precarga la bodega "de casa" del producto — editable si el lote va a otra.
+      id_sitio: primero.id_sitio ?? null,
+    };
     this.error = null;
     this.modalOpen = true;
+  }
+
+  /** Al cambiar el producto en el alta, precarga su bodega por defecto (queda editable). */
+  onCampoModal(e: { col: string; value: any }): void {
+    if (e.col !== 'id_producto' || this.editando) return;
+    const prod = this.productos.find((p) => p.id_producto === e.value);
+    if (prod?.id_sitio) this.form['id_sitio'] = prod.id_sitio;
   }
 
   editar(fila: any): void {

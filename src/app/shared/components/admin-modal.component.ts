@@ -56,7 +56,8 @@ import { TuiDay } from '@taiga-ui/cdk';
                        listas cortas y largas — el propio dropdown filtra por
                        texto, así que no hace falta un autocomplete aparte. -->
                   <app-ss [options]="opciones[col]" placeholder="— Selecciona —"
-                          [(ngModel)]="form[col]"></app-ss>
+                          [ngModel]="form[col]"
+                          (ngModelChange)="form[col] = $event; fieldChange.emit({ col, value: $event })"></app-ss>
 
                 } @else if (tiposCampo[col] === 'date') {
                   <!-- FECHA: calendario -->
@@ -168,6 +169,13 @@ export class AdminModalComponent {
 
   @Output() closed = new EventEmitter<void>();
   @Output() saved  = new EventEmitter<Record<string, any>>();
+
+  /**
+   * Se emite cuando cambia un campo tipo <select> (app-ss). Lo usa el padre
+   * para reaccionar a un campo — ej. lotes precarga el sitio del producto
+   * elegido. Los <input> normales no lo emiten (no hace falta hasta hoy).
+   */
+  @Output() fieldChange = new EventEmitter<{ col: string; value: any }>();
 
   // ── Helper de teléfono: solo dígitos, con un único "+" opcional al inicio ──
   sanitizeTelefono(valor: string): string {
