@@ -1,19 +1,17 @@
 import { Component, DoCheck, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AdminTableComponent } from '../../../shared/components/admin-table.component';
-import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
 import { OpcionSelect } from '../services/admin.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { Categoria, Item, MaterialesApiService, Producto, Sitio } from '../../../core/services/materiales/materiales-api.service';
 
-const OPCIONES_TIPO_MATERIAL: OpcionSelect[] = [
-  { label: 'Consumo', value: 'CONSUMO' },
-  { label: 'Devolutivo', value: 'DEVOLUTIVO' },
-  { label: 'Software', value: 'SOFTWARE' },
-  { label: 'EPP', value: 'EPP' },
-  { label: 'Perecedero', value: 'PERECEDERO' },
-];
+const OPCIONES_TIPO_MATERIAL = [
+  { value: 'CONSUMO', label: 'Consumo', clases: 'border-green-300 bg-green-50 text-green-700' },
+  { value: 'DEVOLUTIVO', label: 'Devolutivo', clases: 'border-blue-300 bg-blue-50 text-blue-700' },
+  { value: 'PERECEDERO', label: 'Perecedero', clases: 'border-amber-300 bg-amber-50 text-amber-700' },
+] as const;
 
 // Catálogo UNSPSC (Colombia Compra Eficiente) curado para SENA — mismo
 // catálogo que usa el sistema hermano de bodega (frontend-proyecto/SGM),
@@ -167,45 +165,31 @@ const UNIDADES_POR_FAMILIA: Record<string, string[]> = {
 // OPCIONES_UNIDAD_MEDIDA, mismas 3 que ofrece SGM (unidadesPeso).
 const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map((u) => ({ label: u, value: u }));
 
-// Al crear, `cantidad` genera N Item automáticamente; al editar no aplica
-// (UpdateProductoDto no la acepta) — por eso las columnas del modal difieren.
-// `SKU` se agrega condicionalmente en los getters `camposCrear`/`camposEditar`
-// de abajo: el backend lo exime cuando el UNSPSC es de gastronomía (empieza en
-// '50'), así que si el campo se dejara siempre visible confundiría — se oculta
-// del todo en ese caso, igual que hace el SGM. `fecha_vencimiento` (solo si
-// tipo_material=PERECEDERO) y `unidad_peso_bulto`/`peso_por_bulto` (solo si
-// unidad_medida=BULTO/PAQUETE) se agregan igual de condicionalmente — el
-// backend ya los acepta (create-producto.dto.ts) pero el formulario nunca
-// los pedía, ver Fase 2 del plan.
-// `es_psd` NO es un campo del formulario (Ronda 6): se descubrió comparando
-// contra SGM que ese sistema tampoco lo expone como campo — lo deriva solo
-// de tipo_material === 'PERECEDERO' (ver `onTipoMaterialChange` en
-// frontend-proyecto/productos.component.ts). Acá se replica igual: se manda
-// calculado en `guardar()`, nunca se pide en el modal.
-const CAMPOS_CREAR_BASE  = ['nombre', 'descripcion', 'codigo_unspsc', 'SKU', 'marca', 'modelo', 'tipo_material', 'unidad_medida', 'unidad_peso_bulto', 'peso_por_bulto', 'fecha_vencimiento', 'id_categoria', 'id_sitio', 'cantidad', 'stock_minimo'];
-const CAMPOS_EDITAR_BASE = ['nombre', 'descripcion', 'codigo_unspsc', 'SKU', 'marca', 'modelo', 'tipo_material', 'unidad_medida', 'unidad_peso_bulto', 'peso_por_bulto', 'fecha_vencimiento', 'id_categoria', 'id_sitio', 'stock_minimo'];
-
 /**
- * CRUD de Productos (lotes). Crear un producto genera automáticamente
- * `cantidad` Items — la gestión individual de Items (buscar por placa,
- * reasignar sitio, cambiar estado) queda fuera de este slice.
+ * CRUD de Productos. Crear un producto genera automáticamente `cantidad`
+ * Items (DEVOLUTIVO) o un `lote` (CONSUMO/PERECEDERO) — ver
+ * `MaterialesApiService.crearProducto`.
+ *
+ * Diálogo propio (no `AdminModalComponent`, Ronda 2026-09-04 — el genérico
+ * amontonaba ~14 campos en una sola columna larga y no dejaba agrupar
+ * visualmente "qué es esto" antes de "cómo se llama", quedaba confuso).
+ * "Tipo de material" como 3 pills de color (inspirado en el mismo patrón de
+ * SigMat) en vez de un `<select>`, y el resto en grilla de 2 columnas.
  *
  * Pulido (Ronda 4, Fase 9): al crear (no al editar), el SKU se autogenera a
  * partir del nombre mientras se escribe (prefijo de 3 letras + consecutivo
  * por prefijo, mismo algoritmo que SGM `generarSku()`) — editable a mano en
- * cualquier momento; si se vacía el campo, vuelve al auto-fill. Como
- * `AdminModalComponent` es genérico y no expone un evento por cada
- * keystroke, se implementa con `ngDoCheck` comparando `form['nombre']`/
- * `form['SKU']` contra el último valor visto — Angular corre `ngDoCheck` en
- * cada ciclo de detección de cambios, incluidos los que dispara el modal
- * hijo al mutar el mismo objeto `form` por referencia. El `<select>` de
- * unidad de medida además se filtra por la familia UNSPSC elegida
- * (`UNIDADES_POR_FAMILIA`, arriba).
+ * cualquier momento; si se vacía el campo, vuelve al auto-fill. Se sigue
+ * implementando con `ngDoCheck` comparando `form['nombre']`/`form['SKU']`
+ * contra el último valor visto, porque el propio template muta `form` por
+ * referencia en cada keystroke (mismo motivo que cuando el modal era genérico).
+ * El `<select>` de unidad de medida además se filtra por la familia UNSPSC
+ * elegida (`UNIDADES_POR_FAMILIA`, arriba).
  */
 @Component({
   selector: 'app-materiales-productos',
   standalone: true,
-  imports: [FormsModule, AdminTableComponent, AdminModalComponent],
+  imports: [FormsModule, AdminTableComponent, SearchableSelectComponent],
   template: `
     <div class="p-6">
       <h1 class="text-xl font-bold text-gray-800 mb-5">Productos</h1>
@@ -223,21 +207,147 @@ const CAMPOS_EDITAR_BASE = ['nombre', 'descripcion', 'codigo_unspsc', 'SKU', 'ma
         (delete)="eliminar($event)" />
     </div>
 
-    <app-admin-modal
-      [open]="modalOpen"
-      [editando]="editando"
-      labelSingular="producto"
-      [columns]="editando ? camposEditar : camposCrear"
-      [form]="form"
-      [opciones]="opciones"
-      [tiposCampo]="tiposCampo"
-      [columnLabels]="columnLabels"
-      [placeholders]="placeholders"
-      [forzarSelect]="['id_categoria', 'id_sitio']"
-      [saving]="saving"
-      [error]="error"
-      (closed)="cerrarModal()"
-      (saved)="guardar($event)" />
+    @if (modalOpen) {
+      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarModal()">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
+          <div class="flex items-center justify-between mb-5">
+            <h2 class="text-lg font-bold text-gray-800">{{ editando ? 'Editar producto' : 'Nuevo producto' }}</h2>
+            <button (click)="cerrarModal()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+          </div>
+
+          <div class="space-y-4">
+            <!-- Tipo de material: pills de color, primera decisión del form -->
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1.5">Tipo de material <span class="text-red-500">*</span></label>
+              <div class="grid grid-cols-3 gap-2">
+                @for (t of opcionesTipoMaterial; track t.value) {
+                  <button type="button" (click)="form['tipo_material'] = t.value"
+                    class="px-2 py-2 rounded-lg border text-sm font-medium text-center transition-colors"
+                    [class]="form['tipo_material'] === t.value ? t.clases : 'border-gray-200 text-gray-500 hover:bg-gray-50'">
+                    {{ t.label }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Nombre <span class="text-red-500">*</span></label>
+              <input type="text" [(ngModel)]="form['nombre']" placeholder="Ej: Taladro percutor, Guantes de nitrilo…"
+                class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Descripción</label>
+              <input type="text" [(ngModel)]="form['descripcion']" placeholder="Ej: Uso exclusivo del taller de soldadura"
+                class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+            </div>
+
+            <div [class]="form['tipo_material'] === 'DEVOLUTIVO' ? 'grid grid-cols-2 gap-3' : ''">
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Marca</label>
+                <input type="text" [(ngModel)]="form['marca']" placeholder="Ej: Bosch, 3M…"
+                  class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+              </div>
+              @if (form['tipo_material'] === 'DEVOLUTIVO') {
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Modelo</label>
+                  <input type="text" [(ngModel)]="form['modelo']" placeholder="Ej: GSB 550, 8210"
+                    class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                </div>
+              }
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Código UNSPSC</label>
+              <app-ss [options]="opcionesUnspsc" placeholder="Buscar código o nombre…" [(ngModel)]="form['codigo_unspsc']"></app-ss>
+            </div>
+
+            @if (form['tipo_material'] === 'DEVOLUTIVO') {
+              <label class="flex items-center gap-2.5 cursor-pointer select-none">
+                <input type="checkbox" [(ngModel)]="form['usa_placa_sena']" class="sr-only peer" />
+                <span class="relative w-10 h-6 rounded-full bg-gray-200 peer-checked:bg-[#39A900] transition-colors
+                  after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-5 after:h-5
+                  after:rounded-full after:bg-white after:shadow after:transition-transform
+                  peer-checked:after:translate-x-4"></span>
+                <span class="text-xs text-gray-600">Los ítems se identifican por placa SENA (no por SKU)</span>
+              </label>
+            }
+
+            @if (mostrarSku()) {
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">SKU <span class="text-red-500">*</span></label>
+                <input type="text" [(ngModel)]="form['SKU']" placeholder="Se autogenera si lo dejás vacío (ej. TAL-001)"
+                  class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+              </div>
+            }
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Unidad de medida <span class="text-red-500">*</span></label>
+                <app-ss [options]="opcionesUnidadMedida()" placeholder="— Selecciona —" [(ngModel)]="form['unidad_medida']"></app-ss>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Categoría <span class="text-red-500">*</span></label>
+                <app-ss [options]="opcionesCategoria" placeholder="— Selecciona —" [(ngModel)]="form['id_categoria']"></app-ss>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Sitio <span class="text-red-500">*</span></label>
+                <app-ss [options]="opcionesSitio" placeholder="— Selecciona —" [(ngModel)]="form['id_sitio']"></app-ss>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Stock mínimo</label>
+                <input type="number" [(ngModel)]="form['stock_minimo']" placeholder="Ej: 5"
+                  class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+              </div>
+            </div>
+
+            @if (!editando && form['tipo_material'] === 'DEVOLUTIVO') {
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Cantidad de ítems a generar</label>
+                <input type="number" [(ngModel)]="form['cantidad']" placeholder="Ej: 10"
+                  class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+              </div>
+            }
+
+            @if (!editando && form['tipo_material'] !== 'DEVOLUTIVO') {
+              <p class="text-xs text-gray-400 bg-gray-50 rounded-lg p-2.5">
+                El stock (cantidad y fecha de vencimiento) se registra después como lote(s) en el módulo de <span class="font-medium text-gray-500">Lotes</span>.
+              </p>
+            }
+
+            @if (esBulto()) {
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Unidad de peso por bulto</label>
+                  <app-ss [options]="opcionesUnidadPeso" placeholder="— Selecciona —" [(ngModel)]="form['unidad_peso_bulto']"></app-ss>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Peso por bulto</label>
+                  <input type="number" [(ngModel)]="form['peso_por_bulto']" placeholder="Ej: 25"
+                    class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                </div>
+              </div>
+            }
+          </div>
+
+          @if (error) {
+            <p class="text-red-500 text-xs mt-3 p-2 bg-red-50 rounded-lg">{{ error }}</p>
+          }
+
+          <div class="flex justify-end gap-2 mt-6">
+            <button (click)="cerrarModal()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
+            <button (click)="guardar()" [disabled]="saving"
+              class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
+              style="background-color: #39A900">
+              {{ saving ? 'Guardando...' : (editando ? 'Guardar' : 'Crear producto') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
   `,
 })
 export class MaterialesProductosComponent implements OnInit, DoCheck {
@@ -252,60 +362,39 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
   saving = false;
   error: string | null = null;
 
-  /** SKU se oculta del todo cuando el UNSPSC elegido es de gastronomía (empieza en '50') — ver comentario junto a CAMPOS_CREAR_BASE. */
-  private esGastronomia(): boolean {
+  opcionesTipoMaterial = OPCIONES_TIPO_MATERIAL;
+  opcionesUnspsc = OPCIONES_UNSPSC;
+  opcionesUnidadPeso = OPCIONES_UNIDAD_PESO;
+
+  /** SKU se oculta del todo cuando el UNSPSC elegido es de gastronomía (empieza en '50'). */
+  esGastronomia(): boolean {
     return !!this.form['codigo_unspsc']?.startsWith('50');
   }
 
-  private esPerecedero(): boolean {
+  /** También se oculta en DEVOLUTIVO con placa SENA activa — ahí el SKU no se usa para identificar ítems. */
+  mostrarSku(): boolean {
+    if (this.esGastronomia()) return false;
+    if (this.form['tipo_material'] === 'DEVOLUTIVO' && this.form['usa_placa_sena']) return false;
+    return true;
+  }
+
+  esPerecedero(): boolean {
     return this.form['tipo_material'] === 'PERECEDERO';
   }
 
-  private esBulto(): boolean {
+  esBulto(): boolean {
     return this.form['unidad_medida'] === 'BULTO' || this.form['unidad_medida'] === 'PAQUETE';
-  }
-
-  /** Filtra los campos condicionales (SKU/fecha de vencimiento/peso por bulto) según el estado actual del form — ver Fase 2 del plan. */
-  private filtrarCamposCondicionales(campos: string[]): string[] {
-    return campos.filter((c) => {
-      if (c === 'SKU') return !this.esGastronomia();
-      if (c === 'fecha_vencimiento') return this.esPerecedero();
-      if (c === 'unidad_peso_bulto' || c === 'peso_por_bulto') return this.esBulto();
-      return true;
-    });
-  }
-
-  get camposCrear(): string[] {
-    return this.filtrarCamposCondicionales(CAMPOS_CREAR_BASE);
-  }
-
-  get camposEditar(): string[] {
-    return this.filtrarCamposCondicionales(CAMPOS_EDITAR_BASE);
   }
 
   modalOpen = false;
   editando: Producto | null = null;
   form: Record<string, any> = {};
 
-  tiposCampo: Record<string, string> = {
-    cantidad: 'number', stock_minimo: 'number',
-    fecha_vencimiento: 'date', peso_por_bulto: 'number',
-  };
-  placeholders: Record<string, string> = { nombre: 'Ej: Taladro percutor, Guantes de nitrilo…', descripcion: 'Ej: Uso exclusivo del taller de soldadura', SKU: 'Se autogenera si lo dejás vacío (ej. TAL-001)', marca: 'Ej: Bosch, 3M… (opcional)', modelo: 'Ej: GSB 550, 8210 (opcional)', stock_minimo: 'Ej: 5', cantidad: 'Ej: 10', peso_por_bulto: 'Ej: 25' };
-
   columnLabels: Record<string, string> = {
     categoria_nombre: 'Categoría',
     tipo_material: 'Tipo de material',
     unidad_medida: 'Unidad de medida',
     stock_minimo: 'Stock mínimo',
-    codigo_unspsc: 'Código UNSPSC',
-    SKU: 'SKU',
-    id_categoria: 'Categoría',
-    id_sitio: 'Sitio',
-    cantidad: 'Cantidad a generar',
-    fecha_vencimiento: 'Fecha de vencimiento',
-    unidad_peso_bulto: 'Unidad de peso por bulto',
-    peso_por_bulto: 'Peso por bulto',
   };
 
   /** Estado del auto-fill de SKU al crear — ver docblock arriba. */
@@ -353,19 +442,16 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
     return `${prefijo}-${siguiente}`;
   }
 
-  get opciones(): Record<string, OpcionSelect[]> {
-    return {
-      tipo_material: OPCIONES_TIPO_MATERIAL,
-      codigo_unspsc: OPCIONES_UNSPSC,
-      unidad_medida: this.opcionesUnidadMedida(),
-      unidad_peso_bulto: OPCIONES_UNIDAD_PESO,
-      id_categoria: this.categorias.map((c) => ({ label: c.nombre, value: c.id_categoria })),
-      id_sitio: this.sitios.map((s) => ({ label: s.nombre, value: s.id_sitio })),
-    };
+  get opcionesCategoria(): OpcionSelect[] {
+    return this.categorias.map((c) => ({ label: c.nombre, value: c.id_categoria }));
+  }
+
+  get opcionesSitio(): OpcionSelect[] {
+    return this.sitios.map((s) => ({ label: s.nombre, value: s.id_sitio }));
   }
 
   /** Unidades ofrecidas según la familia UNSPSC elegida (primeros 4 dígitos) — ver UNIDADES_POR_FAMILIA. */
-  private opcionesUnidadMedida(): OpcionSelect[] {
+  opcionesUnidadMedida(): OpcionSelect[] {
     const familia = (this.form['codigo_unspsc'] ?? '').slice(0, 4);
     const unidades = UNIDADES_POR_FAMILIA[familia];
     return unidades ? unidades.map((u) => ({ label: u, value: u })) : OPCIONES_UNIDAD_MEDIDA;
@@ -408,8 +494,8 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
     this.editando = null;
     this.form = {
       nombre: '', descripcion: '', codigo_unspsc: '', SKU: '', marca: '', modelo: '',
-      tipo_material: 'CONSUMO', unidad_medida: '',
-      fecha_vencimiento: '', unidad_peso_bulto: '', peso_por_bulto: '',
+      tipo_material: 'CONSUMO', unidad_medida: '', usa_placa_sena: true,
+      unidad_peso_bulto: '', peso_por_bulto: '',
       id_categoria: this.categorias[0].id_categoria,
       id_sitio: this.sitios[0].id_sitio,
       cantidad: 1, stock_minimo: 1,
@@ -432,8 +518,8 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
       marca: producto.marca ?? '',
       modelo: producto.modelo ?? '',
       tipo_material: producto.tipo_material,
+      usa_placa_sena: producto.usa_placa_sena ?? true,
       unidad_medida: producto.unidad_medida,
-      fecha_vencimiento: producto.fecha_vencimiento ?? '',
       unidad_peso_bulto: producto.unidad_peso_bulto ?? '',
       peso_por_bulto: producto.peso_por_bulto ?? '',
       id_categoria: producto.id_categoria,
@@ -448,7 +534,8 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
     this.modalOpen = false;
   }
 
-  async guardar(form: Record<string, any>): Promise<void> {
+  async guardar(): Promise<void> {
+    const form = this.form;
     if (!form['nombre']?.trim()) {
       this.error = 'El nombre es obligatorio.';
       return;
@@ -457,20 +544,25 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
       this.error = 'La unidad de medida es obligatoria.';
       return;
     }
-    if (!this.esGastronomia() && !form['SKU']?.trim()) {
-      this.error = 'El SKU es obligatorio salvo para productos de gastronomía (código UNSPSC que empieza en 50).';
+    if (this.mostrarSku() && !form['SKU']?.trim()) {
+      this.error = 'El SKU es obligatorio salvo para productos de gastronomía (código UNSPSC que empieza en 50) o devolutivos con placa SENA.';
       return;
     }
     this.saving = true;
     this.error = null;
+    const esDevolutivo = form['tipo_material'] === 'DEVOLUTIVO';
     // Solo se mandan si el campo aplica y está visible — mismo criterio que SKU con gastronomía.
+    // `fecha_vencimiento` ya NO se pide acá: vive en cada lote (módulo de Lotes).
     const camposCondicionales = {
-      fecha_vencimiento: this.esPerecedero() ? (form['fecha_vencimiento'] || undefined) : undefined,
       unidad_peso_bulto: this.esBulto() ? (form['unidad_peso_bulto'] || undefined) : undefined,
       peso_por_bulto: this.esBulto() && form['peso_por_bulto'] ? Number(form['peso_por_bulto']) : undefined,
     };
     // `es_psd` no lo llena el usuario — se deriva de tipo_material, igual que SGM (Ronda 6).
     const esPsd = this.esPerecedero();
+    // Solo aplica a DEVOLUTIVO — en CONSUMO/PERECEDERO no se manda (el backend ya lo ignora, pero así queda explícito).
+    const usaPlacaSena = form['tipo_material'] === 'DEVOLUTIVO' ? !!form['usa_placa_sena'] : undefined;
+    // "Modelo" solo tiene sentido en devolutivos (un activo con nº de modelo); en consumo/perecedero el campo ni se muestra.
+    const modelo = form['tipo_material'] === 'DEVOLUTIVO' ? (form['modelo'] || undefined) : undefined;
     try {
       if (this.editando) {
         await this.api.actualizarProducto(this.editando.id_producto, {
@@ -479,8 +571,9 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
           codigo_unspsc: form['codigo_unspsc'] || undefined,
           SKU: form['SKU'] || undefined,
           marca: form['marca'] || undefined,
-          modelo: form['modelo'] || undefined,
+          modelo,
           tipo_material: form['tipo_material'],
+          usa_placa_sena: usaPlacaSena,
           unidad_medida: form['unidad_medida'],
           es_psd: esPsd,
           id_categoria: form['id_categoria'],
@@ -490,24 +583,43 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
         });
         this.toast.ok('Producto actualizado');
       } else {
-        const cantidad = Number(form['cantidad']) || 1;
         const { items_generados } = await this.api.crearProducto({
           nombre: form['nombre'],
           descripcion: form['descripcion'] || undefined,
           codigo_unspsc: form['codigo_unspsc'] || undefined,
           SKU: form['SKU'] || undefined,
           marca: form['marca'] || undefined,
-          modelo: form['modelo'] || undefined,
+          modelo,
           tipo_material: form['tipo_material'],
+          usa_placa_sena: usaPlacaSena,
           unidad_medida: form['unidad_medida'],
           es_psd: esPsd,
           id_categoria: form['id_categoria'],
           id_sitio: form['id_sitio'],
-          cantidad,
+          // Solo DEVOLUTIVO genera ítems; en CONSUMO/PERECEDERO el stock se carga aparte en Lotes.
+          cantidad: esDevolutivo ? (Number(form['cantidad']) || 1) : 0,
           stock_minimo: Number(form['stock_minimo']),
           ...camposCondicionales,
         });
-        this.toast.ok('Producto creado', `Se generaron ${items_generados.length} ítem(s).`);
+        if (esDevolutivo) {
+          this.toast.ok('Producto creado', `Se generaron ${items_generados.length} ítem(s).`);
+          // Recordatorio: sin SKU copiado, esos ítems son irreconocibles hasta
+          // que se les asigne la placa a mano en Ítems.
+          if (usaPlacaSena && items_generados.length > 0) {
+            this.toast.warn(
+              'Falta la placa SENA',
+              `Recordá agregar la placa SENA a los ${items_generados.length} ítem(s) de "${form['nombre']}" en el módulo de Ítems.`,
+              7000,
+            );
+          }
+        } else {
+          this.toast.ok('Producto creado');
+          this.toast.warn(
+            'Falta el stock',
+            `Registrá el stock inicial de "${form['nombre']}" como lote en el módulo de Lotes.`,
+            7000,
+          );
+        }
       }
       this.modalOpen = false;
       await this.cargar();
