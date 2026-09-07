@@ -449,6 +449,12 @@ export class SidebarComponent implements OnChanges, OnInit {
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l-4-4m0 0l4-4m-4 4h11a4 4 0 010 8h-1"/></svg>`),
           },
           {
+            label: 'Vencimientos', href: '/materiales/vencimientos',
+            roles: ['administrador', 'administrador_erp'],
+            aplicativo: 'Materiales',
+            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`),
+          },
+          {
             label: 'Existencias', href: '/materiales/existencias',
             roles: ['administrador', 'administrador_erp'],
             aplicativo: 'Materiales',
@@ -539,6 +545,12 @@ export class SidebarComponent implements OnChanges, OnInit {
             roles: ['instructor'],
             servicioEstricto: 'materiales.devoluciones.ver',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l-4-4m0 0l4-4m-4 4h11a4 4 0 010 8h-1"/></svg>`),
+          },
+          {
+            label: 'Vencimientos', href: '/materiales/vencimientos',
+            roles: ['instructor'],
+            servicioEstricto: 'materiales.solicitudes.ver',
+            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`),
           },
           {
             label: 'Categorías', href: '/materiales/categorias',

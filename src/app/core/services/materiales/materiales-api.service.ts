@@ -214,6 +214,26 @@ export interface Solicitud {
   motivo_rechazo?: string | null;
 }
 
+/** #3 — una fila del seguimiento de préstamos vencidos / por vencer. */
+export interface FilaVencimiento {
+  id_solicitud: string;
+  producto_nombre: string;
+  cantidad: number;
+  fecha_entrega: string | null;
+  fecha_devolucion: string | null;
+  /** Días de atraso (vencidas) o días que faltan (por_vencer). */
+  dias: number;
+  solicitante_nombre: string | null;
+  bodega_nombre: string | null;
+  responsable_nombre: string | null;
+}
+
+export interface SeguimientoVencimientos {
+  vencidas: FilaVencimiento[];
+  por_vencer: FilaVencimiento[];
+  ventana_dias: number;
+}
+
 /** Una línea al crear una solicitud multi-línea: producto devolutivo XOR lote consumible. */
 export interface LineaSolicitudInput {
   id_producto?: string;
@@ -549,12 +569,19 @@ export class MaterialesApiService {
   crearSolicitud(dto: CreateSolicitudDto) {
     return this.unwrap(this.http.post<Envelope<Solicitud>>(`${BASE}/solicitudes`, dto));
   }
-  aprobarSolicitud(id: string) {
-    return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/aprobar`, {}));
+  /** #3b — `fecha_devolucion` (yyyy-MM-dd) opcional: el aprobador la fija/mueve al aprobar. No puede ser pasada (400). */
+  aprobarSolicitud(id: string, opts: { fecha_devolucion?: string } = {}) {
+    return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/aprobar`, opts));
   }
   /** El motivo es obligatorio — el backend rechaza con 400 si viene vacío. */
   rechazarSolicitud(id: string, motivo: string) {
     return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/rechazar`, { motivo }));
+  }
+  /** #3 — préstamos ENTREGADA vencidos / por vencer (recortado por bodega/rol). */
+  vencimientosSolicitudes(ventana = 7) {
+    return this.unwrap(
+      this.http.get<Envelope<SeguimientoVencimientos>>(`${BASE}/solicitudes/vencimientos`, { params: { ventana } }),
+    );
   }
   entregarSolicitud(id: string) {
     return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/entregar`, {}));

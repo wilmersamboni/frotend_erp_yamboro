@@ -128,6 +128,7 @@ export const routes: Routes = [
           { path: 'materiales/productos', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.productos.ver'] }, loadComponent: () => import('./features/materiales/productos.component').then((m) => m.MaterialesProductosComponent) },
           { path: 'materiales/existencias', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.existencias.ver'] }, loadComponent: () => import('./features/materiales/existencias.component').then((m) => m.MaterialesExistenciasComponent) },
           { path: 'materiales/items', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.items.ver'] }, loadComponent: () => import('./features/materiales/items.component').then((m) => m.MaterialesItemsComponent) },
+          { path: 'materiales/vencimientos', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.solicitudes.ver'] }, loadComponent: () => import('./features/materiales/vencimientos.component').then((m) => m.MaterialesVencimientosComponent) },
 
           // ── Materiales (bodega) — slice de admin ──
           { path: 'materiales/lotes', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/lotes.component').then((m) => m.MaterialesLotesComponent) },
