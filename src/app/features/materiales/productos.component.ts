@@ -201,7 +201,16 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
   imports: [FormsModule, AdminTableComponent, SearchableSelectComponent],
   template: `
     <div class="p-6">
-      <h1 class="text-xl font-bold text-gray-800 mb-5">Productos</h1>
+      <div class="flex items-center justify-between mb-5">
+        <h1 class="text-xl font-bold text-gray-800">Productos</h1>
+        @if (puedeEliminar()) {
+          <button (click)="toggleInactivos()"
+            class="text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors"
+            [class]="verInactivos ? 'border-[#39A900] text-[#2d8000] bg-[#39A900]/10' : 'border-gray-200 text-gray-500 hover:border-gray-400'">
+            {{ verInactivos ? 'Ocultar desactivados' : 'Ver desactivados' }}
+          </button>
+        }
+      </div>
 
       <app-admin-table
         [addLabel]="puedeCrear() ? 'Nuevo producto' : null"
@@ -212,8 +221,9 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
         [columns]="['nombre', 'categoria_nombre', 'tipo_material', 'unidad_medida', 'stock_minimo']"
         [columnLabels]="columnLabels"
         [loading]="loading"
-        [canEdit]="puedeEditar()"
+        [canEdit]="puedeEditar() && !verInactivos"
         [canDelete]="puedeEliminar()"
+        [deleteLabel]="verInactivos ? 'Reactivar' : 'Desactivar'"
         [rowLinks]="rowLinks"
         (edit)="editar($event)"
         (delete)="eliminar($event)" />
@@ -228,18 +238,23 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
           </div>
 
           <div class="space-y-4">
-            <!-- Tipo de material: pills de color, primera decisión del form -->
+            <!-- Tipo de material: pills de color, primera decisión del form.
+                 Inmutable al editar (M4): cambiar el tipo dejaba ítems/lotes huérfanos. -->
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1.5">Tipo de material <span class="text-red-500">*</span></label>
               <div class="grid grid-cols-3 gap-2">
                 @for (t of opcionesTipoMaterial; track t.value) {
-                  <button type="button" (click)="form['tipo_material'] = t.value"
-                    class="px-2 py-2 rounded-lg border text-sm font-medium text-center transition-colors"
+                  <button type="button" (click)="!editando && (form['tipo_material'] = t.value)"
+                    [disabled]="!!editando"
+                    class="px-2 py-2 rounded-lg border text-sm font-medium text-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     [class]="form['tipo_material'] === t.value ? t.clases : 'border-gray-200 text-gray-500 hover:bg-gray-50'">
                     {{ t.label }}
                   </button>
                 }
               </div>
+              @if (editando) {
+                <p class="text-[11px] text-gray-400 mt-1">El tipo no se puede cambiar. Si está mal, desactivá el producto y creá otro.</p>
+              }
             </div>
 
             <div>
@@ -500,13 +515,22 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
     },
   ];
 
+  /** B1 — mostrar también los productos desactivados (solo lo ofrece el toggle a quien puede editar). */
+  verInactivos = false;
+
   get filas(): any[] {
     return this.productos.map((p) => ({
       ...p,
+      nombre: (p as any).activo === false ? `${p.nombre}  ·  (desactivado)` : p.nombre,
       categoria_nombre: p.categoria?.nombre ?? this.categorias.find((c) => c.id_categoria === p.id_categoria)?.nombre ?? '—',
       // Campo oculto (no está en `columns`) — solo para que el buscador de la tabla matchee por placa SENA.
       _placas: this.items.filter((i) => i.id_producto === p.id_producto).map((i) => i.placa_sena).filter(Boolean).join(' '),
     }));
+  }
+
+  toggleInactivos(): void {
+    this.verInactivos = !this.verInactivos;
+    this.cargar();
   }
 
   private async cargar(): Promise<void> {
@@ -516,7 +540,7 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
       // /sitios ni se deja que un 403 ahí tumbe el resto de la carga.
       const verSitios = this.puedeVerSitios();
       const [productos, categorias, sitios, items] = await Promise.all([
-        this.api.listarProductos(),
+        this.api.listarProductos(this.verInactivos),
         this.api.listarCategorias(),
         verSitios ? this.api.listarSitios().catch(() => [] as Sitio[]) : Promise.resolve([] as Sitio[]),
         this.api.listarItems().catch(() => [] as Item[]),
@@ -614,6 +638,7 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
     const modelo = form['tipo_material'] === 'DEVOLUTIVO' ? (form['modelo'] || undefined) : undefined;
     try {
       if (this.editando) {
+        // `tipo_material` es inmutable (M4) — el backend ya no lo acepta en el PATCH.
         await this.api.actualizarProducto(this.editando.id_producto, {
           nombre: form['nombre'],
           descripcion: form['descripcion'] || undefined,
@@ -621,7 +646,6 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
           SKU: form['SKU'] || undefined,
           marca: form['marca'] || undefined,
           modelo,
-          tipo_material: form['tipo_material'],
           usa_placa_sena: usaPlacaSena,
           unidad_medida: form['unidad_medida'],
           es_psd: esPsd,
@@ -679,15 +703,34 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
     }
   }
 
+  /** B1 — el botón de la derecha es "Desactivar" (soft-delete) o "Reactivar" según el modo. */
   async eliminar(fila: any): Promise<void> {
     if (!this.puedeEliminar()) return;
-    if (!(await this.confirm.ask(`¿Eliminar el producto "${fila.nombre}"?`))) return;
+    const p = this.productos.find((x) => x.id_producto === fila.id_producto);
+    const nombre = p?.nombre ?? 'este producto';
+
+    if (this.verInactivos) {
+      if (!(await this.confirm.ask(`¿Reactivar el producto "${nombre}"?`, { danger: false, acceptLabel: 'Reactivar' }))) return;
+      try {
+        await this.api.activarProducto(fila.id_producto);
+        this.toast.ok('Producto reactivado');
+        await this.cargar();
+      } catch (e) {
+        this.toast.httpError(e, 'No se pudo reactivar el producto.');
+      }
+      return;
+    }
+
+    if (!(await this.confirm.ask(
+      `¿Desactivar el producto "${nombre}"? Sale de las listas y los selects; su histórico (kardex, préstamos, lotes) queda intacto y podés reactivarlo.`,
+      { acceptLabel: 'Desactivar' },
+    ))) return;
     try {
       await this.api.eliminarProducto(fila.id_producto);
-      this.toast.ok('Producto eliminado');
+      this.toast.ok('Producto desactivado');
       await this.cargar();
     } catch (e) {
-      this.toast.httpError(e, 'No se pudo eliminar el producto.');
+      this.toast.httpError(e, 'No se pudo desactivar el producto.');
     }
   }
 }

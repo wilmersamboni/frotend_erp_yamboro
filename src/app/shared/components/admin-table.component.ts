@@ -162,7 +162,7 @@ export interface TableRowLink {
                         @if (canDelete) {
                           <button (click)="delete.emit(row); $event.stopPropagation()"
                             class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-red-400 hover:text-red-600 transition-colors">
-                            Eliminar
+                            {{ deleteLabel }}
                           </button>
                         }
                       </div>
@@ -209,6 +209,8 @@ export class AdminTableComponent implements DoCheck {
   @Input() loading  = false;
   @Input() canEdit  = true;
   @Input() canDelete = true;
+  /** Texto del botón de la derecha (por defecto "Eliminar"). Ej.: "Desactivar" / "Reactivar". */
+  @Input() deleteLabel = 'Eliminar';
 
   /** Columnas a ocultar de la vista (el id sigue disponible en los eventos) */
   @Input() hiddenColumns: string[] = ['idPersona'];

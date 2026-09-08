@@ -56,6 +56,8 @@ export interface Producto {
   modelo?: string | null;
   /** Solo DEVOLUTIVO. true (default) = los ítems no llevan el SKU copiado, se identifican por su placa SENA. */
   usa_placa_sena?: boolean;
+  /** B1 — false = producto desactivado (soft-delete). Solo llega cuando se pide `incluirInactivos`. */
+  activo?: boolean;
 }
 
 export interface Lote {
@@ -110,12 +112,65 @@ export interface CreateSitioDto {
   estado?: boolean;
 }
 
-/** #5 — resultado de la importación masiva de productos. */
+/** #5 — resultado del PASO 2 (confirmar): acá sí se registró en la base. */
 export interface ResultadoImportacion {
   total: number;
   productos_creados: number;
   stock_agregado: number;
   errores: { fila: number; error: string }[];
+}
+
+/** #5 — una fila parseada del archivo, para que el encargado la revise (PASO 1). */
+export interface FilaImportacion {
+  fila: number;
+  nombre: string;
+  descripcion: string | null;
+  codigo_unspsc: string | null;
+  unidad_medida: string;
+  marca: string | null;
+  modelo: string | null;
+  stock_minimo: number;
+  cantidad: number;
+  codigo_lote: string | null;
+  fecha_vencimiento: string | null;
+  sku: string;
+  tipo_material: TipoMaterial | null;
+  sitio_sugerido: string | null;
+  id_sitio_sugerido: string | null;
+  advertencias: string[];
+  ya_existe_nombre: boolean;
+}
+
+/** #5 — resultado del PASO 1 (previsualizar): NADA se escribió todavía. */
+export interface ResultadoPrevisualizacion {
+  archivo: string;
+  total: number;
+  filas: FilaImportacion[];
+  errores: { fila: number; error: string }[];
+  catalogos: {
+    sitios: { id_sitio: string; nombre: string }[];
+    categorias: { id_categoria: string; nombre: string }[];
+  };
+}
+
+/** #5 — fila ya revisada por el encargado que se manda en el PASO 2. */
+export interface FilaConfirmada {
+  nombre: string;
+  descripcion?: string | null;
+  codigo_unspsc?: string | null;
+  unidad_medida: string;
+  tipo_material: TipoMaterial;
+  id_categoria: string;
+  id_sitio?: string | null;
+  sku?: string;
+  marca?: string | null;
+  modelo?: string | null;
+  stock_minimo?: number;
+  cantidad?: number;
+  codigo_lote?: string | null;
+  fecha_vencimiento?: string | null;
+  placas_sena?: string[];
+  fila_origen?: number;
 }
 
 export interface CreateProductoDto {
@@ -315,12 +370,14 @@ export interface DevolucionItemInput {
 }
 
 /**
- * Devolución por LOTE (M10a): `estado_general` se aplica a todas las unidades
- * pendientes del préstamo; `items` lleva solo las excepciones.
+ * Devolución por LOTE (M10a) + parcial (M9):
+ *  - `estado_general` sin `items` → cierre total (todas las pendientes).
+ *  - `items` presente → devolución PARCIAL: solo esas unidades vuelven; el
+ *    préstamo sigue ENTREGADO hasta que vuelvan todas.
  */
 export interface CreateDevolucionDto {
   id_solicitud: string;
-  estado_general: EstadoDevolucion;
+  estado_general?: EstadoDevolucion;
   observacion?: string;
   items?: DevolucionItemInput[];
 }
@@ -454,8 +511,10 @@ export class MaterialesApiService {
   }
 
   // ── Productos ──────────────────────────────────────────────────────
-  listarProductos() {
-    return this.unwrap(this.http.get<Envelope<Producto[]>>(`${BASE}/productos`));
+  /** `incluirInactivos` (B1) trae también los desactivados (soft-delete). */
+  listarProductos(incluirInactivos = false) {
+    const params = incluirInactivos ? { incluirInactivos: 'true' } : undefined;
+    return this.unwrap(this.http.get<Envelope<Producto[]>>(`${BASE}/productos`, { params }));
   }
   /** DEVOLUTIVO genera `items_generados` (uno por unidad); CONSUMO/PERECEDERO genera `lote_generado` en su lugar. */
   crearProducto(dto: CreateProductoDto) {
@@ -472,14 +531,33 @@ export class MaterialesApiService {
       this.http.get(`${BASE}/productos/importar/plantilla`, { responseType: 'blob' }),
     );
   }
-  /** #5 — sube un .xlsx/.csv y devuelve el resumen + errores por fila. */
-  importarProductos(archivo: File) {
+  /** #5 PASO 1 — sube un .xlsx/.csv y devuelve el RESUMEN para revisar. No registra nada. */
+  previsualizarImportacion(archivo: File) {
     const fd = new FormData();
     fd.append('archivo', archivo);
-    return this.unwrap(this.http.post<Envelope<ResultadoImportacion>>(`${BASE}/productos/importar`, fd));
+    return this.unwrap(
+      this.http.post<Envelope<ResultadoPrevisualizacion>>(
+        `${BASE}/productos/importar/previsualizar`,
+        fd,
+      ),
+    );
   }
+  /** #5 PASO 2 — el encargado ya revisó: registra productos + stock. */
+  confirmarImportacion(filas: FilaConfirmada[]) {
+    return this.unwrap(
+      this.http.post<Envelope<ResultadoImportacion>>(
+        `${BASE}/productos/importar/confirmar`,
+        { filas },
+      ),
+    );
+  }
+  /** B1 — soft-delete: marca el producto como inactivo (no borra nada). */
   eliminarProducto(id: string) {
     return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/productos/${id}`));
+  }
+  /** B1 — reactiva un producto desactivado. */
+  activarProducto(id: string) {
+    return this.unwrap(this.http.patch<Envelope<Producto>>(`${BASE}/productos/${id}/activar`, {}));
   }
   /** Agrega un ítem suelto al lote de un producto existente (mismo SKU, estado DISPONIBLE). */
   agregarItemAProducto(idProducto: string, placaSena?: string) {
