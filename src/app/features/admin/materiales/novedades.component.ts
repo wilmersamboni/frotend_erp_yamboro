@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
+import { StatCardComponent } from '../../../shared/components/stat-card.component';
 import { OpcionSelect } from '../services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -54,7 +55,7 @@ const OPCIONES_TIPO: OpcionSelect[] = [
 @Component({
   selector: 'app-materiales-novedades',
   standalone: true,
-  imports: [FormsModule, DatePipe, AdminModalComponent, StatusBadgeComponent],
+  imports: [FormsModule, DatePipe, AdminModalComponent, StatusBadgeComponent, StatCardComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -81,23 +82,19 @@ const OPCIONES_TIPO: OpcionSelect[] = [
       } @else if (novedadesFiltradas.length === 0) {
         <p class="text-center text-gray-400 text-sm py-10">No hay novedades {{ idItemFiltro ? 'para este ítem' : 'registradas' }}</p>
       } @else {
-        <div class="grid grid-cols-4 gap-3 mb-5">
-          <div class="rounded-xl border border-gray-100 px-4 py-3">
-            <p class="text-xs text-gray-500">Total</p>
-            <p class="text-xl font-bold text-gray-800">{{ novedadesFiltradas.length }}</p>
-          </div>
-          <div class="rounded-xl border border-gray-100 px-4 py-3">
-            <p class="text-xs text-gray-500">Pendientes</p>
-            <p class="text-xl font-bold text-amber-600">{{ contarEstado('PENDIENTE') }}</p>
-          </div>
-          <div class="rounded-xl border border-gray-100 px-4 py-3">
-            <p class="text-xs text-gray-500">En proceso</p>
-            <p class="text-xl font-bold text-blue-600">{{ contarEstado('EN_PROCESO') }}</p>
-          </div>
-          <div class="rounded-xl border border-gray-100 px-4 py-3">
-            <p class="text-xs text-gray-500">Resueltas</p>
-            <p class="text-xl font-bold text-green-600">{{ contarEstado('RESUELTA') }}</p>
-          </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          <app-stat-card label="Total" [value]="novedadesFiltradas.length" tono="neutral">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          </app-stat-card>
+          <app-stat-card label="Pendientes" [value]="contarEstado('PENDIENTE')" tono="warning">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          </app-stat-card>
+          <app-stat-card label="En proceso" [value]="contarEstado('EN_PROCESO')" tono="info">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </app-stat-card>
+          <app-stat-card label="Resueltas" [value]="contarEstado('RESUELTA')" tono="success">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </app-stat-card>
         </div>
 
         <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">

@@ -43,8 +43,7 @@ const SERVICIO_LABELS: Record<string, string> = {
   'materiales.devoluciones.ver': 'Ver devoluciones', 'materiales.devoluciones.crear': 'Registrar devoluciones',
   'materiales.detalle-solicitud.ver': 'Ver detalle de solicitudes', 'materiales.detalle-solicitud.crear': 'Crear detalle de solicitudes',
   'materiales.actas.ver': 'Ver actas de entrega', 'materiales.actas.crear': 'Crear actas de entrega',
-  'materiales.chequeos.ver': 'Ver listas de chequeo', 'materiales.chequeos.crear': 'Crear listas de chequeo',
-  'materiales.items-chequeo.ver': 'Ver ítems de chequeo', 'materiales.items-chequeo.crear': 'Crear ítems de chequeo',
+  'materiales.chequeos.ver': 'Ver chequeos de devolución', 'materiales.items-chequeo.ver': 'Ver ítems de chequeo',
   // Personas y Matrículas
   'personas.ver': 'Ver personas', 'personas.gestionar': 'Crear y editar personas',
   'matriculas.ver': 'Ver matrículas', 'matriculas.gestionar': 'Crear y editar matrículas',

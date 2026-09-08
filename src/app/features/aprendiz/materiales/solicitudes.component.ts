@@ -4,6 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../../core/services/toast.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
+import { DateInputComponent } from '../../../shared/components/date-input.component';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
+import { TuiDayCache } from '../../../shared/utils/tui-day.util';
+import type { TuiDay } from '@taiga-ui/cdk';
 import {
   MaterialesApiService,
   Lote,
@@ -33,7 +37,7 @@ interface LineaForm {
 @Component({
   selector: 'app-aprendiz-materiales-solicitudes',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent],
+  imports: [FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -103,13 +107,8 @@ interface LineaForm {
             @if (pasoBodega) {
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Bodega</label>
-                <select [(ngModel)]="idSitioSeleccionado" (ngModelChange)="onSitioChange($event)"
-                  class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
-                  <option [ngValue]="null">— Selecciona una bodega —</option>
-                  @for (s of sitios; track s.id_sitio) {
-                    <option [ngValue]="s.id_sitio">{{ s.nombre }} ({{ s.tipo }})</option>
-                  }
-                </select>
+                <app-ss [options]="opcionesSitio" placeholder="— Selecciona una bodega —"
+                  [(ngModel)]="idSitioSeleccionado" (ngModelChange)="onSitioChange($event)"></app-ss>
                 <p class="text-[11px] text-gray-400 mt-1">Todas las líneas de una solicitud tienen que ser de la misma bodega.</p>
               </div>
             }
@@ -133,13 +132,8 @@ interface LineaForm {
                   @for (linea of lineas; track $index) {
                     <div class="flex gap-2 items-start">
                       <div class="flex-1">
-                        <select [(ngModel)]="linea.ref" (ngModelChange)="onRefChange(linea)"
-                          class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
-                          <option value="">— Selecciona producto o lote —</option>
-                          @for (o of opcionesParaLinea(linea); track o.ref) {
-                            <option [value]="o.ref">{{ o.label }}</option>
-                          }
-                        </select>
+                        <app-ss [options]="opcionesLinea(linea)" placeholder="— Selecciona producto o lote —"
+                          [(ngModel)]="linea.ref" (ngModelChange)="onRefChange(linea)"></app-ss>
                         @if (linea.ref) {
                           <p class="text-[11px] mt-0.5"
                             [class.text-red-500]="disponibleDe(linea) < linea.cantidad"
@@ -160,8 +154,9 @@ interface LineaForm {
               @if (requiereFechaDevolucion()) {
                 <div>
                   <label class="block text-xs font-medium text-gray-600 mb-1">Fecha de devolución <span class="text-red-500">*</span></label>
-                  <input type="date" [(ngModel)]="fechaDevolucion"
-                    class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                  <app-date-input placeholder="DD/MM/AAAA"
+                    [ngModel]="cacheFechaDevolucion.get(fechaDevolucion)"
+                    (ngModelChange)="fechaDevolucion = tuiDayToIso($event)"></app-date-input>
                   <p class="text-[11px] text-gray-400 mt-1">Alguna línea es de un material devolutivo.</p>
                 </div>
               }
@@ -256,6 +251,12 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
   lineas: LineaForm[] = [];
   observacion = '';
   fechaDevolucion = '';
+  readonly cacheFechaDevolucion = new TuiDayCache();
+
+  /** <app-date-input> trabaja con TuiDay; el resto del componente sigue en 'yyyy-MM-dd'. */
+  tuiDayToIso(day: TuiDay | null): string {
+    return TuiDayCache.toIso(day);
+  }
 
   detalleAbierto = false;
   detalle: Solicitud | null = null;
@@ -320,12 +321,21 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
     return this.opciones().filter((o) => !usadas.has(o.ref));
   }
 
-  /** Para el `<select>` de una línea: las libres + la que ya tiene elegida. */
+  /** Para el `<app-ss>` de una línea: las libres + la que ya tiene elegida. */
   opcionesParaLinea(linea: LineaForm): { ref: string; label: string }[] {
     const usadasEnOtras = new Set(
       this.lineas.filter((l) => l !== linea).map((l) => l.ref).filter(Boolean),
     );
     return this.opciones().filter((o) => !usadasEnOtras.has(o.ref));
+  }
+
+  /** <app-ss> espera {value,label} — mismo filtrado que opcionesParaLinea, solo mapeado. */
+  opcionesLinea(linea: LineaForm): { value: string; label: string }[] {
+    return this.opcionesParaLinea(linea).map((o) => ({ value: o.ref, label: o.label }));
+  }
+
+  get opcionesSitio(): { value: string; label: string }[] {
+    return this.sitios.map((s) => ({ value: s.id_sitio, label: `${s.nombre} (${s.tipo})` }));
   }
 
   disponibleDe(linea: LineaForm): number {

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
 import { Item, MaterialesApiService, Sitio, Traslado } from '../../../core/services/materiales/materiales-api.service';
 
 /**
@@ -36,7 +37,7 @@ import { Item, MaterialesApiService, Sitio, Traslado } from '../../../core/servi
 @Component({
   selector: 'app-materiales-traslados',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent],
+  imports: [FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -232,13 +233,7 @@ import { Item, MaterialesApiService, Sitio, Traslado } from '../../../core/servi
 
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Destino</label>
-                <select [(ngModel)]="idSitioDestino"
-                  class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
-                  <option [ngValue]="null">— Selecciona —</option>
-                  @for (s of destinosDisponibles(); track s.id_sitio) {
-                    <option [value]="s.id_sitio">{{ s.nombre }} ({{ s.tipo }})</option>
-                  }
-                </select>
+                <app-ss [options]="opcionesDestino()" placeholder="— Selecciona —" [(ngModel)]="idSitioDestino"></app-ss>
               </div>
 
               <div>
@@ -354,6 +349,10 @@ export class MaterialesTrasladosComponent implements OnInit {
   /** Todos los sitios salvo el de origen actual del ítem. */
   destinosDisponibles(): Sitio[] {
     return this.sitios.filter((s) => s.id_sitio !== this.sitioOrigen?.id_sitio);
+  }
+
+  opcionesDestino(): { value: string; label: string }[] {
+    return this.destinosDisponibles().map((s) => ({ value: s.id_sitio, label: `${s.nombre} (${s.tipo})` }));
   }
 
   private async cargar(): Promise<void> {

@@ -1,9 +1,10 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AdminTableComponent } from '../../../shared/components/admin-table.component';
 import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
 import { OpcionSelect } from '../services/admin.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { CreateLoteDto, Lote, MaterialesApiService, Producto, Sitio } from '../../../core/services/materiales/materiales-api.service';
@@ -27,6 +28,13 @@ const OPCIONES_UNIDAD: OpcionSelect[] = [
  * Lotes — stock CONTABLE de consumibles (portado de SigMat). Un lote lleva
  * `cantidad_disponible` que baja/sube con los movimientos, en vez de N ítems
  * individuales. El alta escribe un movimiento de kardex ENTRADA.
+ *
+ * Ruta abierta a admin/instructor/aprendiz por `materiales.lotes.ver` (antes
+ * era admin-only por `roles`, aunque instructor/aprendiz ya tenían `.ver` de
+ * catálogo por defecto — quedaban con el servicio pero sin forma de llegar a
+ * la pantalla). Crear/editar/eliminar sí quedan gateados acá por servicio —
+ * antes los botones se mostraban siempre, confiando en que el admin fuera el
+ * único que pudiera llegar a verlos.
  */
 @Component({
   selector: 'app-materiales-lotes',
@@ -45,7 +53,7 @@ const OPCIONES_UNIDAD: OpcionSelect[] = [
       </div>
 
       <app-admin-table
-        [addLabel]="'Nuevo lote'"
+        [addLabel]="puedeCrear() ? 'Nuevo lote' : null"
         (add)="nuevo()"
         [rows]="filas"
         [searchable]="true"
@@ -53,6 +61,8 @@ const OPCIONES_UNIDAD: OpcionSelect[] = [
         [columns]="['producto_nombre', 'codigo_lote', 'disponible', 'unidad_medida', 'vence', 'sitio_nombre', 'estado']"
         [columnLabels]="columnLabels"
         [loading]="loading"
+        [canEdit]="puedeEditar()"
+        [canDelete]="puedeEliminar()"
         (edit)="editar($event)"
         (delete)="eliminar($event)" />
     </div>
@@ -101,9 +111,14 @@ export class MaterialesLotesComponent implements OnInit {
   /** `?id_producto=` de la navegación cruzada (Productos → Lotes). */
   idProductoFiltro: string | null = null;
 
+  puedeCrear = computed(() => this.auth.tieneServicio('materiales.lotes.crear'));
+  puedeEditar = computed(() => this.auth.tieneServicio('materiales.lotes.editar'));
+  puedeEliminar = computed(() => this.auth.tieneServicio('materiales.lotes.eliminar'));
+
   constructor(
     private api: MaterialesApiService,
     private toast: ToastService,
+    private auth: AuthService,
     private route: ActivatedRoute,
     private router: Router,
   ) {}
@@ -165,10 +180,14 @@ export class MaterialesLotesComponent implements OnInit {
   private async cargar(): Promise<void> {
     this.loading = true;
     try {
+      // Sin `materiales.sitios.ver` (caso típico de aprendiz) ni se pide
+      // /sitios ni se deja que un 403 ahí muestre el toast global — mismo
+      // criterio que Items/Productos.
+      const verSitios = this.auth.tieneServicio('materiales.sitios.ver');
       const [lotes, productos, sitios] = await Promise.all([
         this.api.listarLotes(),
         this.api.listarProductos().catch(() => []),
-        this.api.listarSitios().catch(() => []),
+        verSitios ? this.api.listarSitios().catch(() => []) : Promise.resolve([]),
       ]);
       this.lotes = lotes;
       this.productos = productos;
@@ -181,6 +200,7 @@ export class MaterialesLotesComponent implements OnInit {
   }
 
   nuevo(): void {
+    if (!this.puedeCrear()) return;
     const loteables = this.productosLoteables;
     if (loteables.length === 0) {
       this.toast.warn('Faltan datos', 'Creá al menos un producto de consumo o perecedero antes de registrar un lote.');
@@ -206,6 +226,7 @@ export class MaterialesLotesComponent implements OnInit {
   }
 
   editar(fila: any): void {
+    if (!this.puedeEditar()) return;
     const l = this.lotes.find((x) => x.id_lote === fila.id_lote);
     if (!l) return;
     this.editando = l;
@@ -221,6 +242,7 @@ export class MaterialesLotesComponent implements OnInit {
   cerrarModal(): void { this.modalOpen = false; }
 
   async guardar(form: Record<string, any>): Promise<void> {
+    if (this.editando ? !this.puedeEditar() : !this.puedeCrear()) return;
     this.saving = true;
     this.error = null;
     try {
@@ -258,6 +280,7 @@ export class MaterialesLotesComponent implements OnInit {
   }
 
   async eliminar(fila: any): Promise<void> {
+    if (!this.puedeEliminar()) return;
     if (!(await this.confirm.ask(`¿Eliminar el lote ${fila.codigo_lote || ''} de "${fila.producto_nombre}"?`))) return;
     try {
       await this.api.eliminarLote(fila.id_lote);
