@@ -327,20 +327,16 @@ export interface CreateDevolucionDto {
 
 /**
  * Registro de "se hizo la inspección" tras una devolución — el estado
- * físico real ya vive en `Devolucion.estado` (Fase 6), esto es solo el
- * marcador de auditoría (quién y cuándo revisó), mismo criterio que SGM
- * (`crearChequeo` allá tampoco manda un estado — ver Ronda 4, Fase 8). El
- * detalle por ítem (`item_chequeo`, con su propio booleano pasa/no pasa)
- * queda fuera de alcance: ni SGM ni esta fase lo pueblan.
+ * físico real ya vive en `Devolucion.estado`, esto es solo el marcador de
+ * auditoría (quién y cuándo cerró el préstamo). El backend lo crea solo,
+ * junto con un `ItemChequeo` por cada unidad, cuando ya volvieron TODAS las
+ * unidades pendientes de una solicitud (ver DevolucionesRepositoryAdapter.
+ * registrarLote en backend-practica-hexagonal).
  */
 export interface Chequeo {
   id_chequeo: string;
   fecha: string;
   id_usuario: string;
-  id_solicitud: string;
-}
-
-export interface CreateChequeoDto {
   id_solicitud: string;
 }
 
@@ -633,16 +629,9 @@ export class MaterialesApiService {
   }
 
   // ── Chequeos ───────────────────────────────────────────────────────
-  /** Marca que se inspeccionó la devolución de una solicitud — ver docblock de `Chequeo`. */
-  crearChequeo(dto: CreateChequeoDto) {
-    return this.unwrap(this.http.post<Envelope<Chequeo>>(`${BASE}/chequeos`, dto));
-  }
-  /** El backend los genera solo — uno por solicitud, al cerrar su devolución. */
+  /** El backend los genera solo — uno por solicitud, al cerrar su devolución. Solo lectura. */
   listarChequeos() {
     return this.unwrap(this.http.get<Envelope<Chequeo[]>>(`${BASE}/chequeos`));
-  }
-  obtenerChequeo(id: string) {
-    return this.unwrap(this.http.get<Envelope<Chequeo>>(`${BASE}/chequeos/${id}`));
   }
   /** Sin filtro por chequeo en el backend — se trae todo y se agrupa por id_chequeo en el cliente. */
   listarItemsChequeo() {

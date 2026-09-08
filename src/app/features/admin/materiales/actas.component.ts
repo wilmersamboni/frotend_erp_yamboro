@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AdminTableComponent } from '../../../shared/components/admin-table.component';
+import { StatCardComponent } from '../../../shared/components/stat-card.component';
 import { ToastService } from '../../../core/services/toast.service';
 import { Acta, MaterialesApiService } from '../../../core/services/materiales/materiales-api.service';
 
@@ -20,7 +21,7 @@ import { Acta, MaterialesApiService } from '../../../core/services/materiales/ma
 @Component({
   selector: 'app-materiales-actas',
   standalone: true,
-  imports: [FormsModule, AdminTableComponent],
+  imports: [FormsModule, AdminTableComponent, StatCardComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -32,15 +33,19 @@ import { Acta, MaterialesApiService } from '../../../core/services/materiales/ma
           class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
       </div>
 
-      <div class="grid grid-cols-2 gap-3 mb-5 max-w-md">
-        <div class="rounded-xl border border-gray-100 px-4 py-3">
-          <p class="text-xs text-gray-500">Total actas</p>
-          <p class="text-xl font-bold text-gray-800">{{ actas.length }}</p>
-        </div>
-        <div class="rounded-xl border border-gray-100 px-4 py-3">
-          <p class="text-xs text-gray-500">Este mes</p>
-          <p class="text-xl font-bold text-[#39A900]">{{ contarEsteMes() }}</p>
-        </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <app-stat-card label="Total actas" [value]="actas.length" tono="neutral">
+          <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </app-stat-card>
+        <app-stat-card label="Entregas" [value]="contarTipo('ENTREGA')" tono="success">
+          <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+        </app-stat-card>
+        <app-stat-card label="Devoluciones" [value]="contarTipo('DEVOLUCION')" tono="warning">
+          <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l-4-4m0 0l4-4m-4 4h11a4 4 0 010 8h-1"/></svg>
+        </app-stat-card>
+        <app-stat-card label="Este mes" [value]="contarEsteMes()" tono="info">
+          <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        </app-stat-card>
       </div>
 
       <app-admin-table
@@ -97,6 +102,10 @@ export class MaterialesActasComponent implements OnInit {
         estado_solicitud: a.solicitud?.estado ?? '—',
       }))
       .sort((a, b) => b.fecha.localeCompare(a.fecha));
+  }
+
+  contarTipo(tipo: 'ENTREGA' | 'DEVOLUCION'): number {
+    return this.actas.filter((a) => a.tipo === tipo).length;
   }
 
   contarEsteMes(): number {

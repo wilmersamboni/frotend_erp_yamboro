@@ -521,12 +521,6 @@ export class SidebarComponent implements OnChanges, OnInit {
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>`),
           },
           {
-            label: 'Chequeos', href: '/materiales/chequeos',
-            roles: ['administrador', 'administrador_erp'],
-            aplicativo: 'Materiales',
-            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`),
-          },
-          {
             label: 'Actas', href: '/materiales/actas',
             roles: ['administrador', 'administrador_erp'],
             aplicativo: 'Materiales',
@@ -539,7 +533,7 @@ export class SidebarComponent implements OnChanges, OnInit {
           // Orden por FRECUENCIA de uso (2026-09-07): operación diaria arriba
           // (Solicitudes/Devoluciones/Existencias), configuración abajo
           // (Sitios/Categorías). Mismo criterio e íconos que la versión admin
-          // — mantener en sync. Instructor no tiene Lotes ni Asignaciones.
+          // — mantener en sync. Instructor no tiene Asignaciones (admin-only).
           {
             label: 'Solicitudes', href: '/instructor/materiales/solicitudes',
             roles: ['instructor'],
@@ -589,9 +583,9 @@ export class SidebarComponent implements OnChanges, OnInit {
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375C2.754 3.75 2.25 4.254 2.25 4.875v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>`),
           },
           {
-            label: 'Productos', href: '/instructor/materiales/productos',
+            label: 'Lotes', href: '/materiales/lotes',
             roles: ['instructor'],
-            servicioEstricto: 'materiales.productos.ver',
+            servicioEstricto: 'materiales.lotes.ver',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`),
           },
           {
@@ -612,19 +606,6 @@ export class SidebarComponent implements OnChanges, OnInit {
             servicioEstricto: 'materiales.kardex.ver',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>`),
           },
-          {
-            label: 'Sitios', href: '/instructor/materiales/sitios',
-            roles: ['instructor'],
-            servicioEstricto: 'materiales.sitios.ver',
-            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V9a2 2 0 00-2-2h-2V5a2 2 0 00-2-2H9a2 2 0 00-2 2v2H5a2 2 0 00-2 2v12h18zM9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4"/></svg>`),
-          },
-          {
-            // Sin servicio propio ('materiales.categorias.*' no existe en el catálogo) — reusa materiales.inventario.ver.
-            label: 'Categorías', href: '/instructor/materiales/categorias',
-            roles: ['instructor'],
-            servicioEstricto: 'materiales.inventario.ver',
-            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>`),
-          },
           // "Asignaciones" NO va para instructor: el rol no tiene ningún
           // `materiales.asignaciones.*` en SERVICIOS_POR_ROL (es admin-only),
           // así que la pantalla era inalcanzable. Ruta y componente retirados.
@@ -636,7 +617,6 @@ export class SidebarComponent implements OnChanges, OnInit {
           // (Productos · Ítems).
           {
             label: 'Solicitudes', href: '/aprendiz/materiales/solicitudes',
-            // label: 'Productos', href: '/materiales/productos',
             roles: ['aprendiz'],
             servicioEstricto: 'materiales.solicitudes.ver',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-5 8l2 2 4-4"/></svg>`),
@@ -648,18 +628,6 @@ export class SidebarComponent implements OnChanges, OnInit {
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>`),
           },
           {
-            label: 'Ítems', href: '/materiales/items',
-            roles: ['aprendiz'],
-            servicioEstricto: 'materiales.items.ver',
-            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375C2.754 3.75 2.25 4.254 2.25 4.875v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>`),
-          },
-          {
-            label: 'Solicitudes', href: '/aprendiz/materiales/solicitudes',
-            roles: ['aprendiz'],
-            servicioEstricto: 'materiales.solicitudes.ver',
-            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-5 8l2 2 4-4"/></svg>`),
-          },
-          {
             // Solo aprendiz encargado de bodega: `materiales.devoluciones.ver`
             // no está en MATERIALES_APRENDIZ, llega vía el bundle B3 →
             // `servicioEstricto` (AND) oculta el link a un aprendiz normal.
@@ -669,16 +637,22 @@ export class SidebarComponent implements OnChanges, OnInit {
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l-4-4m0 0l4-4m-4 4h11a4 4 0 010 8h-1"/></svg>`),
           },
           {
-            label: 'Productos', href: '/aprendiz/materiales/productos',
+            label: 'Productos', href: '/materiales/productos',
             roles: ['aprendiz'],
             servicioEstricto: 'materiales.productos.ver',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`),
           },
           {
-            label: 'Ítems', href: '/aprendiz/materiales/items',
+            label: 'Ítems', href: '/materiales/items',
             roles: ['aprendiz'],
             servicioEstricto: 'materiales.items.ver',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375C2.754 3.75 2.25 4.254 2.25 4.875v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>`),
+          },
+          {
+            label: 'Lotes', href: '/materiales/lotes',
+            roles: ['aprendiz'],
+            servicioEstricto: 'materiales.lotes.ver',
+            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`),
           },
         ],
       },

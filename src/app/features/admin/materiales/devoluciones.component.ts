@@ -3,6 +3,7 @@ import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../../core/services/toast.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
 import {
   CreateDevolucionDto,
   Devolucion,
@@ -11,6 +12,8 @@ import {
   ItemPendienteDevolucion,
   MaterialesApiService,
   Solicitud,
+  Chequeo, 
+  ItemChequeo
 } from '../../../core/services/materiales/materiales-api.service';
 
 const ESTADOS_DEVOLUCION: { value: EstadoDevolucion; label: string; desc: string }[] = [
@@ -38,7 +41,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
 @Component({
   selector: 'app-materiales-devoluciones',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent],
+  imports: [FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -67,6 +70,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                 <th class="px-4 py-3 text-left font-semibold">Estado</th>
                 <th class="px-4 py-3 text-left font-semibold">Observación</th>
                 <th class="px-4 py-3 text-left font-semibold">Fecha</th>
+                <th class="px-4 py-3 text-left font-semibold">Chequeo</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -77,6 +81,14 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                   <td class="px-4 py-3"><app-status-badge [value]="d.estado" /></td>
                   <td class="px-4 py-3 text-gray-500 max-w-[220px] truncate">{{ d.observacion ?? '—' }}</td>
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ d.fecha | date: 'short' }}</td>
+                  <td class="px-4 py-3 ">
+                  @if(itemChequeoDe(d);as ic){
+                    <app-status-badge [value]= "ic.estado ? 'BUENO' : 'DAÑADO'" [labelOverride]="ic.estado ? 'pasa' : 'No pasa'" />
+
+                  }@else {
+                    <span class= "text-gray-400 text-xs"> Pendiente</span>
+                  }
+                  </td>
                 </tr>
               }
             </tbody>
@@ -97,15 +109,8 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
           <div class="space-y-4">
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Préstamo a devolver</label>
-              <select [(ngModel)]="idSolicitud" (ngModelChange)="onSolicitudChange()"
-                class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
-                <option [ngValue]="null">— Selecciona —</option>
-                @for (s of solicitudesEntregadas; track s.id_solicitud) {
-                  <option [ngValue]="s.id_solicitud">
-                    {{ s.producto?.nombre ?? 'Material' }} — Cant. {{ s.cantidad }} — {{ s.fecha | date: 'short' }}
-                  </option>
-                }
-              </select>
+              <app-ss [options]="opcionesSolicitud()" placeholder="— Selecciona —"
+                [(ngModel)]="idSolicitud" (ngModelChange)="onSolicitudChange()"></app-ss>
             </div>
 
             @if (idSolicitud) {
@@ -181,6 +186,8 @@ export class MaterialesDevolucionesComponent implements OnInit {
   devoluciones: Devolucion[] = [];
   solicitudes: Solicitud[] = [];
   items: Item[] = [];
+  chequeo: Chequeo[]=[];
+  item_chequeo: ItemChequeo[]=[]
   loading = false;
   saving = false;
   error: string | null = null;
@@ -209,6 +216,13 @@ export class MaterialesDevolucionesComponent implements OnInit {
     return this.solicitudes.filter((s) => s.estado === 'ENTREGADA');
   }
 
+  opcionesSolicitud(): { value: string; label: string }[] {
+    return this.solicitudesEntregadas.map((s) => ({
+      value: s.id_solicitud,
+      label: `${s.producto?.nombre ?? 'Material'} — Cant. ${s.cantidad} — ${new Date(s.fecha).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}`,
+    }));
+  }
+
   ngOnInit(): void {
     this.cargar();
   }
@@ -217,6 +231,8 @@ export class MaterialesDevolucionesComponent implements OnInit {
     const item = this.items.find((i) => i.id_item === id);
     return item ? `${item.codigo_sku}${item.placa_sena ? ' — ' + item.placa_sena : ''}` : '—';
   }
+
+  
 
   nombreProducto(d: Devolucion): string {
     // El producto real de la unidad devuelta — una solicitud multi-línea
@@ -229,19 +245,32 @@ export class MaterialesDevolucionesComponent implements OnInit {
     );
   }
 
+  itemChequeoDe(d: Devolucion): ItemChequeo | undefined{
+    const chq = this.chequeo.find((c)=>c.id_solicitud === d.id_solicitud);
+    if(!chq){
+      return undefined;
+      
+    }
+    return this.item_chequeo.find((ic)=> ic.id_chequeo === chq.id_chequeo && ic.id_item === d.id_item)
+  }
+
   private async cargar(): Promise<void> {
     this.loading = true;
     try {
       // M9 — solo `listarDevoluciones()` es crítico; si una secundaria da 403
       // (excepción personal) no debe tumbar la tabla entera.
-      const [devoluciones, solicitudes, items] = await Promise.all([
+      const [devoluciones, solicitudes, items, chequeo, item_chequeo] = await Promise.all([
         this.api.listarDevoluciones(),
         this.api.listarSolicitudes().catch(() => [] as Solicitud[]),
         this.api.listarItems().catch(() => [] as Item[]),
+        this.api.listarChequeos().catch(()=>[] as Chequeo[]),
+        this.api.listarItemsChequeo().catch(()=> [] as ItemChequeo[]),
       ]);
       this.devoluciones = devoluciones;
       this.solicitudes = solicitudes;
       this.items = items;
+      this.chequeo = chequeo;
+      this.item_chequeo = item_chequeo;
     } catch (e) {
       this.toast.httpError(e, 'No se pudieron cargar las devoluciones.');
     } finally {

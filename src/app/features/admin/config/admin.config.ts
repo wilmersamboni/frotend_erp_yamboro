@@ -331,6 +331,10 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     listar: `${BASE}/cursos`, crear: `${BASE}/cursos`,
     actualizar: id => `${BASE}/cursos/${id}`,
     eliminar:   id => `${BASE}/cursos/${id}`,
+    // cursos.controller.ts solo expone @Patch(':id'), nunca tuvo @Put — sin
+    // esto el servicio caía al PUT por default y el backend respondía 404
+    // ("Cannot PUT"), aunque el recurso sí existiera.
+    usePatch: true,
     grupo: 'epsas', categoria: 'Académico',
     // Lectura abierta (catálogo básico compartido); crear/editar/eliminar sí
     // exige el servicio — antes cursos.controller.ts no tenía ningún guard.
