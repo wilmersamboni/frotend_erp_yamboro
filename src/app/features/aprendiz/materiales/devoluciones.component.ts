@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../../core/services/toast.service';
+import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import {
   CreateDevolucionDto,
   Devolucion,
@@ -36,7 +37,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
 @Component({
   selector: 'app-aprendiz-materiales-devoluciones',
   standalone: true,
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, StatusBadgeComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -55,36 +56,31 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
       } @else if (devoluciones.length === 0) {
         <p class="text-center text-gray-400 text-sm py-10">No hay devoluciones registradas</p>
       } @else {
-        <div class="overflow-x-auto rounded-xl border border-gray-100">
+        <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
           <table class="w-full text-sm">
-            <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+            <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
               <tr>
-                <th class="px-4 py-3 text-left font-medium">Producto</th>
-                <th class="px-4 py-3 text-left font-medium">Ítem</th>
-                <th class="px-4 py-3 text-left font-medium">Estado</th>
-                <th class="px-4 py-3 text-left font-medium">Observación</th>
-                <th class="px-4 py-3 text-left font-medium">Fecha</th>
+                <th class="px-4 py-3 text-left font-semibold">Producto</th>
+                <th class="px-4 py-3 text-left font-semibold">Ítem</th>
+                <th class="px-4 py-3 text-left font-semibold">Estado</th>
+                <th class="px-4 py-3 text-left font-semibold">Observación</th>
+                <th class="px-4 py-3 text-left font-semibold">Fecha</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-50">
+            <tbody class="divide-y divide-gray-100">
               @for (d of devoluciones; track d.id_devolucion) {
-                <tr class="hover:bg-gray-50 transition-colors">
+                <tr class="hover:bg-gray-50/80 transition-colors">
                   <td class="px-4 py-3 text-gray-700">{{ nombreProducto(d) }}</td>
                   <td class="px-4 py-3 text-gray-700">{{ nombreItem(d.id_item) }}</td>
-                  <td class="px-4 py-3">
-                    <span class="px-2 py-1 rounded-full text-xs"
-                      [class.bg-green-100]="d.estado === 'BUENO'" [class.text-green-700]="d.estado === 'BUENO'"
-                      [class.bg-amber-100]="d.estado === 'REGULAR'" [class.text-amber-700]="d.estado === 'REGULAR'"
-                      [class.bg-red-100]="d.estado === 'DAÑADO' || d.estado === 'PERDIDO'" [class.text-red-700]="d.estado === 'DAÑADO' || d.estado === 'PERDIDO'">
-                      {{ d.estado }}
-                    </span>
-                  </td>
+                  <td class="px-4 py-3"><app-status-badge [value]="d.estado" /></td>
                   <td class="px-4 py-3 text-gray-500 max-w-[220px] truncate">{{ d.observacion ?? '—' }}</td>
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ d.fecha | date: 'short' }}</td>
                 </tr>
               }
             </tbody>
           </table>
+          </div>
         </div>
       }
     </div>
@@ -136,12 +132,10 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                   @for (f of filas; track f.id_item) {
                     <div class="flex items-center gap-3 px-3 py-2">
                       <div class="flex-1 min-w-0">
-                        <p class="font-mono text-xs font-semibold text-gray-800 truncate">
-                          {{ f.placa_sena || f.codigo_sku || 'Unidad' }}
+                        <p class="text-xs font-semibold text-gray-800 truncate">{{ f.producto_nombre || 'Unidad' }}</p>
+                        <p class="font-mono text-[11px] text-gray-400 truncate">
+                          {{ f.placa_sena || f.codigo_sku || '' }}{{ f.placa_sena && f.codigo_sku ? ' · ' + f.codigo_sku : '' }}
                         </p>
-                        @if (f.placa_sena && f.codigo_sku) {
-                          <p class="text-[11px] text-gray-400 truncate">{{ f.codigo_sku }}</p>
-                        }
                       </div>
                       <select [(ngModel)]="f.estadoDev"
                         class="px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]"
@@ -219,7 +213,12 @@ export class AprendizMaterialesDevolucionesComponent implements OnInit {
   }
 
   nombreProducto(d: Devolucion): string {
-    return this.solicitudes.find((s) => s.id_solicitud === d.id_solicitud)?.producto?.nombre ?? '—';
+    const item = this.items.find((i) => i.id_item === d.id_item);
+    return (
+      item?.producto?.nombre ??
+      this.solicitudes.find((s) => s.id_solicitud === d.id_solicitud)?.producto?.nombre ??
+      '—'
+    );
   }
 
   private async cargar(): Promise<void> {

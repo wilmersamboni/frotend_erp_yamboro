@@ -14,8 +14,6 @@ type Tab = 'productos' | 'items';
 const OPCIONES_TIPO_MATERIAL: OpcionSelect[] = [
   { label: 'Consumo', value: 'CONSUMO' },
   { label: 'Devolutivo', value: 'DEVOLUTIVO' },
-  { label: 'Software', value: 'SOFTWARE' },
-  { label: 'EPP', value: 'EPP' },
   { label: 'Perecedero', value: 'PERECEDERO' },
 ];
 const OPCIONES_UNIDAD: OpcionSelect[] = [
@@ -112,7 +110,7 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
       [open]="modalOpen()"
       [editando]="editando()"
       [labelSingular]="modalKind() === 'producto' ? 'producto' : 'ítem'"
-      [columns]="modalColumns()"
+      [columns]="modalColumns"
       [form]="form"
       [opciones]="opcionesModal()"
       [columnLabels]="{ tipo_material: 'Tipo', unidad_medida: 'Unidad de medida', id_categoria: 'Categoría', stock_minimo: 'Stock mínimo', codigo_sku: 'SKU', placa_sena: 'Placa SENA' }"
@@ -167,13 +165,14 @@ export class MiBodegaComponent implements OnInit {
       .map((i) => ({ ...i, producto_nombre: i.producto?.nombre ?? this.productos().find((p) => p.id_producto === i.id_producto)?.nombre ?? '—' })),
   );
 
-  modalColumns = computed<string[]>(() =>
-    this.modalKind() === 'item'
-      ? ['placa_sena', 'estado']
-      : this.editando()
-        ? ['nombre', 'SKU', 'tipo_material', 'unidad_medida', 'id_categoria', 'stock_minimo']
-        : ['nombre', 'SKU', 'tipo_material', 'unidad_medida', 'id_categoria', 'stock_minimo', 'cantidad'],
-  );
+  // Getter (no computed): tiene que reaccionar a form['tipo_material'], que es
+  // un objeto plano, no un signal. Se re-evalúa en cada CD igual que en lotes/productos.
+  get modalColumns(): string[] {
+    if (this.modalKind() === 'item') return ['placa_sena', 'estado'];
+    const base = ['nombre', 'tipo_material', 'SKU', 'unidad_medida', 'id_categoria', 'stock_minimo'];
+    // "cantidad" solo al crear un DEVOLUTIVO (genera N ítems). CONSUMO/PERECEDERO carga su stock en Lotes.
+    return !this.editando() && this.form['tipo_material'] === 'DEVOLUTIVO' ? [...base, 'cantidad'] : base;
+  }
   opcionesModal = computed<Record<string, OpcionSelect[]>>(() => ({
     tipo_material: OPCIONES_TIPO_MATERIAL,
     unidad_medida: OPCIONES_UNIDAD,
@@ -282,14 +281,32 @@ export class MiBodegaComponent implements OnInit {
         });
         this.toast.ok('Producto actualizado');
       } else {
-        await this.api.crearProducto({
+        const esDevolutivo = form['tipo_material'] === 'DEVOLUTIVO';
+        const { items_generados } = await this.api.crearProducto({
           nombre: form['nombre'], SKU: form['SKU'] || undefined, tipo_material: form['tipo_material'],
           unidad_medida: form['unidad_medida'], id_categoria: form['id_categoria'],
-          stock_minimo: Number(form['stock_minimo']) || 0, cantidad: Number(form['cantidad']) || 1,
+          stock_minimo: Number(form['stock_minimo']) || 0,
+          // Solo DEVOLUTIVO genera ítems; CONSUMO/PERECEDERO carga su stock aparte como lote.
+          cantidad: esDevolutivo ? (Number(form['cantidad']) || 1) : 0,
           es_psd: form['tipo_material'] === 'PERECEDERO',
           id_sitio: this.bodegaSel(),
         } as any);
         this.toast.ok('Producto creado');
+        // DEVOLUTIVO usa placa SENA por defecto (usa_placa_sena=true) — sin
+        // SKU copiado en el ítem, hay que asignarla a mano después.
+        if (esDevolutivo && items_generados?.length > 0) {
+          this.toast.warn(
+            'Falta la placa SENA',
+            `Recordá agregar la placa SENA a los ${items_generados.length} ítem(s) de "${form['nombre']}" en el módulo de Ítems.`,
+            7000,
+          );
+        } else if (!esDevolutivo) {
+          this.toast.warn(
+            'Falta el stock',
+            `Registrá el stock inicial de "${form['nombre']}" como lote en el módulo de Lotes.`,
+            7000,
+          );
+        }
       }
       this.modalOpen.set(false);
       await this.cargar();

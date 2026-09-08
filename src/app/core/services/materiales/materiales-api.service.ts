@@ -9,8 +9,9 @@ import { environment } from '../../../../environments/environment';
 const BASE = environment.apiPracticaUrl;
 
 export type TipoSitio = 'BODEGA' | 'AMBIENTE' | 'LABORATORIO' | 'OTRO';
-export type TipoMaterial = 'CONSUMO' | 'DEVOLUTIVO' | 'SOFTWARE' | 'EPP' | 'PERECEDERO';
-export type EstadoItem = 'DISPONIBLE' | 'PRESTADO' | 'DAÑADO' | 'PERDIDO';
+export type TipoMaterial = 'CONSUMO' | 'DEVOLUTIVO' | 'PERECEDERO';
+export type EstadoItem = 'DISPONIBLE' | 'PRESTADO' | 'DAÑADO' | 'PERDIDO' | 'EN_MANTENIMIENTO';
+export type EstadoLote = 'ACTIVO' | 'AGOTADO' | 'VENCIDO' | 'DADO_DE_BAJA';
 export type TipoNovedad = 'DAÑO' | 'PERDIDA' | 'MANTENIMIENTO' | 'DISCREPANCIA' | 'OTRO';
 export type EstadoNovedad = 'PENDIENTE' | 'EN_PROCESO' | 'RESUELTA';
 
@@ -27,9 +28,11 @@ export interface Sitio {
   codigo_lugar?: string | null;
   id_responsable?: string | null;
   id_centro?: string | null;
-  // Programa de formación (ERP) al que pertenece el sitio. null = compartido /
-  // sin clasificar. Recorta la visibilidad de Materiales por programa (Ronda 7).
-  id_programa?: string | null;
+  // Área (ERP) a la que pertenece el sitio. null = compartido entre
+  // instructor/admin, sin aprendices. Recorta la visibilidad de Materiales por área.
+  id_area?: string | null;
+  // Excepción: visible para cualquier rol sin importar el área (ej. biblioteca).
+  acceso_publico?: boolean;
   estado: boolean;
 }
 
@@ -49,6 +52,36 @@ export interface Producto {
   unidad_peso_bulto?: string | null;
   peso_por_bulto?: number | null;
   id_sitio?: string | null;
+  marca?: string | null;
+  modelo?: string | null;
+  /** Solo DEVOLUTIVO. true (default) = los ítems no llevan el SKU copiado, se identifican por su placa SENA. */
+  usa_placa_sena?: boolean;
+}
+
+export interface Lote {
+  id_lote: string;
+  id_producto: string;
+  cantidad_inicial: number;
+  cantidad_disponible: number;
+  estado: EstadoLote;
+  codigo_lote?: string | null;
+  unidad_medida?: string | null;
+  fecha_ingreso?: string | null;
+  fecha_vencimiento?: string | null;
+  id_sitio?: string | null;
+  id_responsable?: string | null;
+  producto?: { id_producto: string; nombre: string; SKU: string | null; tipo_material: string };
+}
+
+export interface CreateLoteDto {
+  id_producto: string;
+  cantidad_inicial: number;
+  unidad_medida?: string;
+  codigo_lote?: string;
+  fecha_ingreso?: string;
+  fecha_vencimiento?: string;
+  id_sitio?: string;
+  id_responsable?: string;
 }
 
 export interface Item {
@@ -59,15 +92,6 @@ export interface Item {
   placa_sena?: string | null;
   id_sitio?: string | null;
   producto?: Producto;
-}
-
-export interface Inventario {
-  id_inventario: string;
-  estado: EstadoItem;
-  id_item: string;
-  id_sitio: string;
-  item?: Item;
-  sitio?: Sitio;
 }
 
 export interface CreateCategoriaDto {
@@ -81,8 +105,17 @@ export interface CreateSitioDto {
   codigo_lugar?: string;
   id_responsable?: string;
   id_centro?: string;
-  id_programa?: string | null;
+  id_area?: string | null;
+  acceso_publico?: boolean;
   estado?: boolean;
+}
+
+/** #5 — resultado de la importación masiva de productos. */
+export interface ResultadoImportacion {
+  total: number;
+  productos_creados: number;
+  stock_agregado: number;
+  errores: { fila: number; error: string }[];
 }
 
 export interface CreateProductoDto {
@@ -90,6 +123,8 @@ export interface CreateProductoDto {
   descripcion?: string;
   codigo_unspsc?: string;
   SKU?: string;
+  marca?: string;
+  modelo?: string;
   tipo_material: TipoMaterial;
   unidad_medida: string;
   es_psd: boolean;
@@ -100,13 +135,30 @@ export interface CreateProductoDto {
   stock_minimo: number;
   unidad_peso_bulto?: string;
   peso_por_bulto?: number;
-  id_sitio: string;
+  /** Bodega "de casa" del producto. Opcional (Paso 0 de #5) — un producto puede quedar sin bodega. */
+  id_sitio?: string;
+  usa_placa_sena?: boolean;
 }
 
-export interface CreateInventarioDto {
-  estado: EstadoItem;
-  id_item: string;
-  id_sitio: string;
+/** Fila del panel de existencias de solo lectura (Tier SigMat M6, `GET /api2/existencias`). */
+export interface ResumenExistencias {
+  id_producto: string;
+  nombre: string;
+  sku: string | null;
+  marca: string | null;
+  modelo: string | null;
+  tipo_material: TipoMaterial;
+  unidad_medida: string;
+  id_sitio: string | null;
+  sitio_nombre: string | null;
+  disponibles: number;
+  prestados: number;
+  danados: number;
+  perdidos: number;
+  mantenimiento: number;
+  total: number;
+  lote_disponible: number;
+  lotes_por_vencer: number;
 }
 
 export interface UpdateItemDto {
@@ -134,6 +186,17 @@ export interface CreateNovedadDto {
 export type EstadoTraslado = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO';
 export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'EN_ENTREGA' | 'ENTREGADA' | 'DEVUELTA' | 'CANCELADA';
 
+/** Línea de una solicitud multi-línea (Tier SigMat M4). Producto devolutivo XOR lote consumible. */
+export interface LineaSolicitud {
+  id_detalle: string;
+  id_producto: string | null;
+  id_lote: string | null;
+  cantidad: number;
+  cantidad_entregada: number;
+  producto_nombre?: string | null;
+  lote_codigo?: string | null;
+}
+
 export interface Solicitud {
   id_solicitud: string;
   fecha: string;
@@ -147,12 +210,53 @@ export interface Solicitud {
   id_curso?: string | null;
   fecha_devolucion?: string | null;
   producto?: { id_producto: string; nombre: string; SKU: string | null; id_sitio: string | null; tipo_material: string };
+  // Tier SigMat M4/M5
+  lineas?: LineaSolicitud[];
+  id_usuario_entrega?: string | null;
+  fecha_aprobacion?: string | null;
+  fecha_entrega?: string | null;
+  /** Nombres resueltos por el backend (lista y detalle). */
+  usuario_nombre?: string | null;
+  usuario_aprueba_nombre?: string | null;
+  usuario_entrega_nombre?: string | null;
+  /** Justificación del rechazo — presente solo si `estado === 'RECHAZADA'`. */
+  motivo_rechazo?: string | null;
+}
+
+/** #3 — una fila del seguimiento de préstamos vencidos / por vencer. */
+export interface FilaVencimiento {
+  id_solicitud: string;
+  producto_nombre: string;
+  cantidad: number;
+  fecha_entrega: string | null;
+  fecha_devolucion: string | null;
+  /** Días de atraso (vencidas) o días que faltan (por_vencer). */
+  dias: number;
+  solicitante_nombre: string | null;
+  bodega_nombre: string | null;
+  responsable_nombre: string | null;
+}
+
+export interface SeguimientoVencimientos {
+  vencidas: FilaVencimiento[];
+  por_vencer: FilaVencimiento[];
+  ventana_dias: number;
+}
+
+/** Una línea al crear una solicitud multi-línea: producto devolutivo XOR lote consumible. */
+export interface LineaSolicitudInput {
+  id_producto?: string;
+  id_lote?: string;
+  cantidad: number;
 }
 
 export interface CreateSolicitudDto {
   tipo: 'PRESTAMO';
-  id_producto: string;
-  cantidad: number;
+  /** Legacy 1 línea — seguí mandando esto O `lineas`, no ambos. */
+  id_producto?: string;
+  cantidad?: number;
+  /** Tier SigMat M4 — solicitud multi-línea. Todas las líneas deben ser de la misma bodega. */
+  lineas?: LineaSolicitudInput[];
   observacion?: string;
   fecha_devolucion?: string;
 }
@@ -198,6 +302,9 @@ export interface ItemPendienteDevolucion {
   placa_sena: string | null;
   codigo_sku: string | null;
   estado: string;
+  /** Producto real de ESTA unidad (una solicitud multi-línea mezcla varios). */
+  id_producto: string | null;
+  producto_nombre: string | null;
 }
 
 /** Override del estado físico de una unidad puntual del lote (M10a). */
@@ -235,6 +342,34 @@ export interface Chequeo {
 
 export interface CreateChequeoDto {
   id_solicitud: string;
+}
+
+/** Detalle pasa/no-pasa por unidad de un chequeo — poblado al cerrar una devolución. */
+export interface ItemChequeo {
+  id_item_chequeo: string;
+  estado: boolean;
+  observacion: string | null;
+  id_chequeo: string;
+  id_item: string;
+  item?: Item;
+}
+
+/**
+ * Acta de entrega/devolución: PDF generado automáticamente por el backend.
+ * Cada solicitud puede tener HASTA DOS actas independientes — una de
+ * `tipo: 'ENTREGA'` (al confirmar recepción) y una de `tipo: 'DEVOLUCION'`
+ * (al cerrarse el préstamo) — no son excluyentes entre sí. `url_pdf` es
+ * relativa (`uploads/materiales-actas/<archivo>.pdf`) y debe descargarse
+ * autenticado, no con un <a href> plano — ver MaterialesApiService.descargarActaPdf.
+ */
+export interface Acta {
+  id_acta: string;
+  fecha: string;
+  url_pdf: string | null;
+  tipo: 'ENTREGA' | 'DEVOLUCION';
+  id_solicitud: string;
+  id_usuario: string;
+  solicitud?: Solicitud;
 }
 
 export type EstadoAsignacion = 'ACTIVA' | 'ANULADA';
@@ -324,13 +459,26 @@ export class MaterialesApiService {
   listarProductos() {
     return this.unwrap(this.http.get<Envelope<Producto[]>>(`${BASE}/productos`));
   }
+  /** DEVOLUTIVO genera `items_generados` (uno por unidad); CONSUMO/PERECEDERO genera `lote_generado` en su lugar. */
   crearProducto(dto: CreateProductoDto) {
     return this.unwrap(
-      this.http.post<Envelope<{ producto: Producto; items_generados: Item[] }>>(`${BASE}/productos`, dto),
+      this.http.post<Envelope<{ producto: Producto; items_generados: Item[]; lote_generado: Lote | null }>>(`${BASE}/productos`, dto),
     );
   }
   actualizarProducto(id: string, dto: Partial<CreateProductoDto>) {
     return this.unwrap(this.http.patch<Envelope<Producto>>(`${BASE}/productos/${id}`, dto));
+  }
+  /** #5 — descarga la plantilla .xlsx (blob, sin envelope). */
+  descargarPlantillaProductos(): Promise<Blob> {
+    return firstValueFrom(
+      this.http.get(`${BASE}/productos/importar/plantilla`, { responseType: 'blob' }),
+    );
+  }
+  /** #5 — sube un .xlsx/.csv y devuelve el resumen + errores por fila. */
+  importarProductos(archivo: File) {
+    const fd = new FormData();
+    fd.append('archivo', archivo);
+    return this.unwrap(this.http.post<Envelope<ResultadoImportacion>>(`${BASE}/productos/importar`, fd));
   }
   eliminarProducto(id: string) {
     return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/productos/${id}`));
@@ -342,6 +490,20 @@ export class MaterialesApiService {
         placa_sena: placaSena || undefined,
       }),
     );
+  }
+
+  // ── Lotes (stock contable para consumibles) ────────────────────────
+  listarLotes() {
+    return this.unwrap(this.http.get<Envelope<Lote[]>>(`${BASE}/lotes`));
+  }
+  crearLote(dto: CreateLoteDto) {
+    return this.unwrap(this.http.post<Envelope<Lote>>(`${BASE}/lotes`, dto));
+  }
+  actualizarLote(id: string, dto: Partial<CreateLoteDto> & { cantidad_disponible?: number; estado?: EstadoLote }) {
+    return this.unwrap(this.http.patch<Envelope<Lote>>(`${BASE}/lotes/${id}`, dto));
+  }
+  eliminarLote(id: string) {
+    return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/lotes/${id}`));
   }
 
   // ── Items ──────────────────────────────────────────────────────────
@@ -362,23 +524,21 @@ export class MaterialesApiService {
   actualizarEstadoItem(id: string, estado: EstadoItem) {
     return this.unwrap(this.http.patch<Envelope<Item>>(`${BASE}/items/${id}/estado`, { estado }));
   }
+  /** Alta masiva de placas SENA sobre ítems ya generados (uno por unidad). Atómica en el backend. */
+  asignarPlacasItems(asignaciones: { id_item: string; placa_sena: string }[]) {
+    return this.unwrap(
+      this.http.patch<Envelope<{ actualizados: number }>>(`${BASE}/items/asignar-placas`, { asignaciones }),
+    );
+  }
 
-  // ── Inventario ─────────────────────────────────────────────────────
-  listarInventario() {
-    return this.unwrap(this.http.get<Envelope<Inventario[]>>(`${BASE}/inventario`));
-  }
-  crearInventario(dto: CreateInventarioDto) {
-    return this.unwrap(this.http.post<Envelope<Inventario>>(`${BASE}/inventario`, dto));
-  }
-  actualizarInventario(id: string, dto: Partial<CreateInventarioDto>) {
-    return this.unwrap(this.http.patch<Envelope<Inventario>>(`${BASE}/inventario/${id}`, dto));
-  }
-  eliminarInventario(id: string) {
-    return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/inventario/${id}`));
+  // ── Existencias (solo lectura) ──────────────────────────────────────
+  /** Panel de existencias (Tier SigMat M6) — calculado desde `item`/`lote`, recortado por programa/bodega. Sin CRUD propio: no hay altas/bajas de "existencia", solo de ítems/lotes. */
+  obtenerExistencias() {
+    return this.unwrap(this.http.get<Envelope<ResumenExistencias[]>>(`${BASE}/existencias`));
   }
   stockProducto(idProducto: string) {
     return this.unwrap(
-      this.http.get<Envelope<{ disponibles: number; total: number }>>(`${BASE}/inventario/producto/${idProducto}/stock`),
+      this.http.get<Envelope<{ disponibles: number; total: number }>>(`${BASE}/existencias/producto/${idProducto}/stock`),
     );
   }
 
@@ -394,8 +554,14 @@ export class MaterialesApiService {
   crearNovedad(dto: CreateNovedadDto) {
     return this.unwrap(this.http.post<Envelope<Novedad>>(`${BASE}/novedades`, dto));
   }
-  actualizarNovedad(id: string, estado: EstadoNovedad) {
-    return this.unwrap(this.http.patch<Envelope<Novedad>>(`${BASE}/novedades/${id}`, { estado }));
+  /** `estadoItem` (Tier SigMat M7): estado en el que queda el ítem de la novedad — solo si la novedad tiene `id_item`. */
+  actualizarNovedad(id: string, estado: EstadoNovedad, estadoItem?: EstadoItem) {
+    return this.unwrap(
+      this.http.patch<Envelope<Novedad>>(`${BASE}/novedades/${id}`, {
+        estado,
+        ...(estadoItem ? { estado_item: estadoItem } : {}),
+      }),
+    );
   }
   eliminarNovedad(id: string) {
     return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/novedades/${id}`));
@@ -419,14 +585,26 @@ export class MaterialesApiService {
   listarSolicitudes() {
     return this.unwrap(this.http.get<Envelope<Solicitud[]>>(`${BASE}/solicitudes`));
   }
+  /** Trae una solicitud con sus `lineas[]` (multi-línea, Tier SigMat M4) — la lista no las incluye. */
+  obtenerSolicitud(id: string) {
+    return this.unwrap(this.http.get<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}`));
+  }
   crearSolicitud(dto: CreateSolicitudDto) {
     return this.unwrap(this.http.post<Envelope<Solicitud>>(`${BASE}/solicitudes`, dto));
   }
-  aprobarSolicitud(id: string) {
-    return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/aprobar`, {}));
+  /** #3b — `fecha_devolucion` (yyyy-MM-dd) opcional: el aprobador la fija/mueve al aprobar. No puede ser pasada (400). */
+  aprobarSolicitud(id: string, opts: { fecha_devolucion?: string } = {}) {
+    return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/aprobar`, opts));
   }
-  rechazarSolicitud(id: string) {
-    return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/rechazar`, {}));
+  /** El motivo es obligatorio — el backend rechaza con 400 si viene vacío. */
+  rechazarSolicitud(id: string, motivo: string) {
+    return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/rechazar`, { motivo }));
+  }
+  /** #3 — préstamos ENTREGADA vencidos / por vencer (recortado por bodega/rol). */
+  vencimientosSolicitudes(ventana = 7) {
+    return this.unwrap(
+      this.http.get<Envelope<SeguimientoVencimientos>>(`${BASE}/solicitudes/vencimientos`, { params: { ventana } }),
+    );
   }
   entregarSolicitud(id: string) {
     return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/entregar`, {}));
@@ -458,6 +636,36 @@ export class MaterialesApiService {
   /** Marca que se inspeccionó la devolución de una solicitud — ver docblock de `Chequeo`. */
   crearChequeo(dto: CreateChequeoDto) {
     return this.unwrap(this.http.post<Envelope<Chequeo>>(`${BASE}/chequeos`, dto));
+  }
+  /** El backend los genera solo — uno por solicitud, al cerrar su devolución. */
+  listarChequeos() {
+    return this.unwrap(this.http.get<Envelope<Chequeo[]>>(`${BASE}/chequeos`));
+  }
+  obtenerChequeo(id: string) {
+    return this.unwrap(this.http.get<Envelope<Chequeo>>(`${BASE}/chequeos/${id}`));
+  }
+  /** Sin filtro por chequeo en el backend — se trae todo y se agrupa por id_chequeo en el cliente. */
+  listarItemsChequeo() {
+    return this.unwrap(this.http.get<Envelope<ItemChequeo[]>>(`${BASE}/items-chequeo`));
+  }
+
+  // ── Actas ──────────────────────────────────────────────────────────
+  /** El backend las genera solo — al confirmar recepción o al cerrar una devolución. */
+  listarActas() {
+    return this.unwrap(this.http.get<Envelope<Acta[]>>(`${BASE}/actas`));
+  }
+  obtenerActa(id: string) {
+    return this.unwrap(this.http.get<Envelope<Acta>>(`${BASE}/actas/${id}`));
+  }
+  /**
+   * Descarga el PDF autenticado — un `<a href="/uploads/...">` plano no pasa
+   * por el interceptor (x-tenant + cookie de sesión), y en un despliegue por
+   * IP sin subdominio el backend no tiene de dónde más sacar el tenant (ver
+   * seguimiento.service.ts.descargarArchivo, mismo criterio).
+   */
+  async descargarActaPdf(urlRelativa: string): Promise<Blob> {
+    const ruta = urlRelativa.startsWith('/') ? urlRelativa : `/${urlRelativa}`;
+    return firstValueFrom(this.http.get(ruta, { responseType: 'blob' }));
   }
 
   // ── Asignaciones ───────────────────────────────────────────────────

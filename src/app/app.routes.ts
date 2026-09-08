@@ -115,17 +115,31 @@ export const routes: Routes = [
           // de ≥1 sitio. Ver plan "Encargado de bodega", Fase B4.
           { path: 'mi-bodega', canActivate: [miBodegaGuard], loadComponent: () => import('./features/mi-bodega/mi-bodega.component').then((m) => m.MiBodegaComponent) },
 
-          // ── Materiales (bodega) — slice de admin, ver plan temporal-seeking-hare ──
-          { path: 'materiales/categorias', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/categorias.component').then((m) => m.MaterialesCategoriasComponent) },
-          { path: 'materiales/sitios', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/sitios.component').then((m) => m.MaterialesSitiosComponent) },
-          { path: 'materiales/productos', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/productos.component').then((m) => m.MaterialesProductosComponent) },
-          { path: 'materiales/inventario', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/inventario.component').then((m) => m.MaterialesInventarioComponent) },
-          { path: 'materiales/items', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/items.component').then((m) => m.MaterialesItemsComponent) },
+          // ── Materiales (bodega) — pantallas compartidas por los 3 cargos
+          // (ítem 5, "extraer componentes repetidos"): un solo componente y
+          // una sola ruta, gateados por `serviciosRequeridos` (sin `roles` —
+          // igual que Encuestas/Horarios, ver docblock de roleGuard) en vez
+          // de vivir triplicados en features/{admin,instructor,aprendiz}/.
+          // Categorías y Sitios no tienen variante aprendiz (nunca la
+          // tuvieron); Lotes es admin-only (instructor/aprendiz nunca
+          // tuvieron esa pantalla).
+          { path: 'materiales/categorias', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.categorias.ver'] }, loadComponent: () => import('./features/materiales/categorias.component').then((m) => m.MaterialesCategoriasComponent) },
+          { path: 'materiales/sitios', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.sitios.ver'] }, loadComponent: () => import('./features/materiales/sitios.component').then((m) => m.MaterialesSitiosComponent) },
+          { path: 'materiales/productos', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.productos.ver'] }, loadComponent: () => import('./features/materiales/productos.component').then((m) => m.MaterialesProductosComponent) },
+          { path: 'materiales/existencias', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.existencias.ver'] }, loadComponent: () => import('./features/materiales/existencias.component').then((m) => m.MaterialesExistenciasComponent) },
+          { path: 'materiales/items', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.items.ver'] }, loadComponent: () => import('./features/materiales/items.component').then((m) => m.MaterialesItemsComponent) },
+          { path: 'materiales/vencimientos', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.solicitudes.ver'] }, loadComponent: () => import('./features/materiales/vencimientos.component').then((m) => m.MaterialesVencimientosComponent) },
+          { path: 'materiales/importar', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.productos.crear'] }, loadComponent: () => import('./features/materiales/importar.component').then((m) => m.MaterialesImportarComponent) },
+
+          // ── Materiales (bodega) — slice de admin ──
+          { path: 'materiales/lotes', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/lotes.component').then((m) => m.MaterialesLotesComponent) },
           { path: 'materiales/kardex', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/kardex.component').then((m) => m.MaterialesKardexComponent) },
           { path: 'materiales/novedades', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/novedades.component').then((m) => m.MaterialesNovedadesComponent) },
           { path: 'materiales/traslados', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/traslados.component').then((m) => m.MaterialesTrasladosComponent) },
           { path: 'materiales/solicitudes', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/solicitudes.component').then((m) => m.MaterialesSolicitudesComponent) },
           { path: 'materiales/devoluciones', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/devoluciones.component').then((m) => m.MaterialesDevolucionesComponent) },
+          { path: 'materiales/actas', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/actas.component').then((m) => m.MaterialesActasComponent) },
+          { path: 'materiales/chequeos', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/chequeos.component').then((m) => m.MaterialesChequeosComponent) },
           { path: 'materiales/asignaciones', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/asignaciones.component').then((m) => m.MaterialesAsignacionesComponent) },
 
           // ── Materiales (bodega) — instructor: solo lectura salvo lo suyo,
@@ -142,22 +156,13 @@ export const routes: Routes = [
           // `serviciosRequeridos` es un AND aparte, no un OR — revocarle el
           // servicio a UN instructor puntual le bloquea la ruta sin afectar
           // a los demás instructores ni depender de que 'roles' no matchee.
-          { path: 'instructor/materiales/sitios', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.sitios.ver'] }, loadComponent: () => import('./features/instructor/materiales/sitios.component').then((m) => m.InstructorMaterialesSitiosComponent) },
-          { path: 'instructor/materiales/productos', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.productos.ver'] }, loadComponent: () => import('./features/instructor/materiales/productos.component').then((m) => m.InstructorMaterialesProductosComponent) },
-          { path: 'instructor/materiales/items', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.items.ver'] }, loadComponent: () => import('./features/instructor/materiales/items.component').then((m) => m.InstructorMaterialesItemsComponent) },
-          { path: 'instructor/materiales/inventario', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.inventario.ver'] }, loadComponent: () => import('./features/instructor/materiales/inventario.component').then((m) => m.InstructorMaterialesInventarioComponent) },
           { path: 'instructor/materiales/kardex', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.kardex.ver'] }, loadComponent: () => import('./features/instructor/materiales/kardex.component').then((m) => m.InstructorMaterialesKardexComponent) },
           { path: 'instructor/materiales/devoluciones', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.devoluciones.ver'] }, loadComponent: () => import('./features/instructor/materiales/devoluciones.component').then((m) => m.InstructorMaterialesDevolucionesComponent) },
           { path: 'instructor/materiales/solicitudes', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.solicitudes.ver'] }, loadComponent: () => import('./features/instructor/materiales/solicitudes.component').then((m) => m.InstructorMaterialesSolicitudesComponent) },
           { path: 'instructor/materiales/traslados', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.traslados.ver'] }, loadComponent: () => import('./features/instructor/materiales/traslados.component').then((m) => m.InstructorMaterialesTrasladosComponent) },
           { path: 'instructor/materiales/novedades', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.novedades.ver'] }, loadComponent: () => import('./features/instructor/materiales/novedades.component').then((m) => m.InstructorMaterialesNovedadesComponent) },
-          // Sin servicio propio ('materiales.categorias.*' no existe en el catálogo, ver comentario en el componente) — reusa materiales.inventario.ver.
-          { path: 'instructor/materiales/categorias', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.inventario.ver'] }, loadComponent: () => import('./features/instructor/materiales/categorias.component').then((m) => m.InstructorMaterialesCategoriasComponent) },
 
           // ── Materiales (bodega) — aprendiz: solo lectura + solicitar/recibir préstamos propios. Mismo criterio que instructor arriba.
-          { path: 'aprendiz/materiales/inventario', canActivate: [roleGuard], data: { roles: ['aprendiz'], serviciosRequeridos: ['materiales.inventario.ver'] }, loadComponent: () => import('./features/aprendiz/materiales/inventario.component').then((m) => m.AprendizMaterialesInventarioComponent) },
-          { path: 'aprendiz/materiales/productos', canActivate: [roleGuard], data: { roles: ['aprendiz'], serviciosRequeridos: ['materiales.productos.ver'] }, loadComponent: () => import('./features/aprendiz/materiales/productos.component').then((m) => m.AprendizMaterialesProductosComponent) },
-          { path: 'aprendiz/materiales/items', canActivate: [roleGuard], data: { roles: ['aprendiz'], serviciosRequeridos: ['materiales.items.ver'] }, loadComponent: () => import('./features/aprendiz/materiales/items.component').then((m) => m.AprendizMaterialesItemsComponent) },
           { path: 'aprendiz/materiales/solicitudes', canActivate: [roleGuard], data: { roles: ['aprendiz'], serviciosRequeridos: ['materiales.solicitudes.ver'] }, loadComponent: () => import('./features/aprendiz/materiales/solicitudes.component').then((m) => m.AprendizMaterialesSolicitudesComponent) },
           // Solo para aprendiz encargado de bodega: `materiales.devoluciones.ver` no está en MATERIALES_APRENDIZ por defecto, llega vía el bundle B3.
           { path: 'aprendiz/materiales/devoluciones', canActivate: [roleGuard], data: { roles: ['aprendiz'], serviciosRequeridos: ['materiales.devoluciones.ver'] }, loadComponent: () => import('./features/aprendiz/materiales/devoluciones.component').then((m) => m.AprendizMaterialesDevolucionesComponent) },

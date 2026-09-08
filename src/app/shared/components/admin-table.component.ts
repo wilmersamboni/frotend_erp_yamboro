@@ -1,5 +1,16 @@
 import { Component, DoCheck, Input, Output, EventEmitter } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
+import { StatusBadgeComponent } from './status-badge.component';
+
+/** Enlace de navegación cruzada por fila (ej. Producto → Existencias filtradas por ese producto). */
+export interface TableRowLink {
+  label: string;
+  routerLink: (row: any) => any[];
+  queryParams?: (row: any) => Record<string, any>;
+  /** Si se pasa, el link solo se muestra en filas donde devuelva true (ej. "Lotes" solo para productos consumibles). */
+  visible?: (row: any) => boolean;
+}
 
 /**
  * Tabla genérica reutilizable para el panel administrativo.
@@ -19,11 +30,16 @@ import { FormsModule } from '@angular/forms';
  *
  * Los clics de Editar/Eliminar cortan la propagación (Ronda 4, Fase 9) para
  * no disparar también `rowSelected` cuando un consumidor usa `selectable`.
+ *
+ * Navegación cruzada: `rowLinks` agrega pills de navegación junto a
+ * Editar/Eliminar (ej. desde Productos, "Ver existencias" con
+ * `?id_producto=` ya cargado) — cada pantalla destino decide qué hacer con
+ * el query param, esta tabla solo arma el link.
  */
 @Component({
   selector: 'app-admin-table',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink, StatusBadgeComponent],
   template: `
     <div [class]="searchable
         ? 'bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden'
@@ -88,51 +104,70 @@ import { FormsModule } from '@angular/forms';
       } @else {
         <div [class]="searchable ? 'overflow-x-auto' : 'overflow-x-auto rounded-xl border border-gray-100'">
           <table class="w-full text-sm">
-            <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+            <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
               <tr>
-                @for (col of visibleColumns; track col) {
-                  <th class="px-4 py-3 text-left font-medium whitespace-nowrap">{{ columnLabels[col] ?? col }}</th>
+                @if (checkable) {
+                  <th class="w-10 px-4 py-3">
+                    <input type="checkbox" [checked]="allSelected" (change)="toggleAll($event)"
+                      class="w-4 h-4 rounded border-gray-300 text-[#39A900] focus:ring-[#39A900]/30 cursor-pointer" />
+                  </th>
                 }
-                <th class="px-4 py-3 text-right font-medium">Acciones</th>
+                @for (col of visibleColumns; track col) {
+                  <th class="px-4 py-3 text-left font-semibold whitespace-nowrap">{{ columnLabels[col] ?? col }}</th>
+                }
+                @if (canEdit || canDelete || rowLinks.length > 0) {
+                  <th class="px-4 py-3 text-right font-semibold">Acciones</th>
+                }
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-50">
+            <tbody class="divide-y divide-gray-100">
               @for (row of pageRows; track $index) {
-                <tr class="hover:bg-gray-50 transition-colors"
+                <tr class="hover:bg-gray-50/80 transition-colors"
                     [class.cursor-pointer]="selectable"
                     [class.bg-[#39A900]/5]="selectable && isSelected(row)"
                     (click)="selectable && rowSelected.emit(row)">
-                  @for (col of visibleColumns; track col) {
-                    <td class="px-4 py-3 text-gray-700 max-w-[200px] truncate">
-                      {{ row[col] ?? '—' }}
+                  @if (checkable) {
+                    <td class="px-4 py-3" (click)="$event.stopPropagation()">
+                      <input type="checkbox" [checked]="isChecked(row)" (change)="toggleRow(row)"
+                        class="w-4 h-4 rounded border-gray-300 text-[#39A900] focus:ring-[#39A900]/30 cursor-pointer" />
                     </td>
                   }
-                  <td class="px-4 py-3">
-                    <div class="flex justify-end gap-1">
-                      @if (canEdit) {
-                        <button (click)="edit.emit(row); $event.stopPropagation()"
-                          class="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 transition-colors"
-                          title="Editar">
-                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5
-                                 m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                          </svg>
-                        </button>
+                  @for (col of visibleColumns; track col) {
+                    <td class="px-4 py-3 text-gray-700 max-w-[220px] truncate">
+                      @if (col === statusColumn) {
+                        <app-status-badge [value]="row[col]" />
+                      } @else {
+                        {{ row[col] ?? '—' }}
                       }
-                      @if (canDelete) {
-                        <button (click)="delete.emit(row); $event.stopPropagation()"
-                          class="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors"
-                          title="Eliminar">
-                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7
-                                 m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                          </svg>
-                        </button>
-                      }
-                    </div>
-                  </td>
+                    </td>
+                  }
+                  @if (canEdit || canDelete || rowLinks.length > 0) {
+                    <td class="px-4 py-3">
+                      <div class="flex justify-end gap-2">
+                        @for (link of rowLinks; track link.label) {
+                          @if (!link.visible || link.visible(row)) {
+                            <a [routerLink]="link.routerLink(row)" [queryParams]="link.queryParams ? link.queryParams(row) : undefined"
+                              (click)="$event.stopPropagation()"
+                              class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-[#39A900] hover:text-[#39A900] transition-colors">
+                              {{ link.label }}
+                            </a>
+                          }
+                        }
+                        @if (canEdit) {
+                          <button (click)="edit.emit(row); $event.stopPropagation()"
+                            class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-[#39A900] hover:text-[#39A900] transition-colors">
+                            Editar
+                          </button>
+                        }
+                        @if (canDelete) {
+                          <button (click)="delete.emit(row); $event.stopPropagation()"
+                            class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-red-400 hover:text-red-600 transition-colors">
+                            Eliminar
+                          </button>
+                        }
+                      </div>
+                    </td>
+                  }
                 </tr>
               }
             </tbody>
@@ -207,6 +242,41 @@ export class AdminTableComponent implements DoCheck {
   @Output() edit   = new EventEmitter<any>();
   @Output() delete = new EventEmitter<any>();
   @Output() rowSelected = new EventEmitter<any>();
+
+  /** Enlaces de navegación cruzada por fila (ej. "Ver existencias" desde Productos) — se renderizan como pills junto a Editar/Eliminar. */
+  @Input() rowLinks: TableRowLink[] = [];
+
+  /** Columna a renderizar como píldora de estado (app-status-badge) en vez de texto plano. */
+  @Input() statusColumn: string | null = null;
+
+  /** Muestra una columna de checkboxes (selección múltiple) a la izquierda. */
+  @Input() checkable = false;
+  /** Filas seleccionadas (por `idKey`) — controlado por el padre, dos vías vía `checkedChange`. */
+  @Input() checkedRows: any[] = [];
+  @Output() checkedChange = new EventEmitter<any[]>();
+
+  isChecked(row: any): boolean {
+    return this.checkedRows.some((r) => r[this.idKey] === row[this.idKey]);
+  }
+
+  get allSelected(): boolean {
+    return this.pageRows.length > 0 && this.pageRows.every((r) => this.isChecked(r));
+  }
+
+  toggleRow(row: any): void {
+    const yaEsta = this.isChecked(row);
+    const siguiente = yaEsta
+      ? this.checkedRows.filter((r) => r[this.idKey] !== row[this.idKey])
+      : [...this.checkedRows, row];
+    this.checkedChange.emit(siguiente);
+  }
+
+  toggleAll(ev: Event): void {
+    const marcar = (ev.target as HTMLInputElement).checked;
+    const idsPagina = new Set(this.pageRows.map((r) => r[this.idKey]));
+    const sinLaPagina = this.checkedRows.filter((r) => !idsPagina.has(r[this.idKey]));
+    this.checkedChange.emit(marcar ? [...sinLaPagina, ...this.pageRows] : sinLaPagina);
+  }
 
   /** Clampa `page` si la lista filtrada se achicó (antes de la vista → sin ExpressionChanged). */
   ngDoCheck(): void {

@@ -1,13 +1,24 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
+import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { OpcionSelect } from '../services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { PersonaService } from '../../../core/services/persona.service';
-import { Item, MaterialesApiService, Novedad, Sitio, TipoNovedad } from '../../../core/services/materiales/materiales-api.service';
+import { EstadoItem, Item, MaterialesApiService, Novedad, Sitio, TipoNovedad } from '../../../core/services/materiales/materiales-api.service';
+
+/** Estados en los que puede quedar el ítem al mover una novedad (Tier SigMat M7). */
+const OPCIONES_ESTADO_ITEM: { label: string; value: EstadoItem | '' }[] = [
+  { label: '— Dejar el ítem como está —', value: '' },
+  { label: 'Disponible (reparado / sin problema)', value: 'DISPONIBLE' },
+  { label: 'En mantenimiento', value: 'EN_MANTENIMIENTO' },
+  { label: 'Dañado', value: 'DAÑADO' },
+  { label: 'Perdido', value: 'PERDIDO' },
+];
 
 const OPCIONES_TIPO: OpcionSelect[] = [
   { label: 'Daño', value: 'DAÑO' },
@@ -35,15 +46,27 @@ const OPCIONES_TIPO: OpcionSelect[] = [
  * `n.id_usuario` contra `PersonaService.listarUsuarios()` (mismo servicio
  * ya usado en Sitios para "Responsable"), y tarjetas resumen
  * (Total/Pendientes/En proceso/Resueltas).
+ *
+ * Navegación cruzada (ítem 4): `?id_item=` desde la fila de un ítem en
+ * Ítems filtra exacto (`novedadesFiltradas`) — tarjetas y tabla reflejan el
+ * subconjunto filtrado, con chip para quitarlo.
  */
 @Component({
   selector: 'app-materiales-novedades',
   standalone: true,
-  imports: [FormsModule, DatePipe, AdminModalComponent],
+  imports: [FormsModule, DatePipe, AdminModalComponent, StatusBadgeComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
-        <h1 class="text-xl font-bold text-gray-800">Novedades</h1>
+        <div class="flex items-center gap-2">
+          <h1 class="text-xl font-bold text-gray-800">Novedades</h1>
+          @if (idItemFiltro) {
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#39A900]/10 text-[#2d8000] border border-[#39A900]/20">
+              Filtrando por ítem
+              <button (click)="quitarFiltroItem()" class="hover:text-red-600" title="Quitar filtro">×</button>
+            </span>
+          }
+        </div>
         <button (click)="nuevo()"
           class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
           style="background-color: #39A900">
@@ -55,13 +78,13 @@ const OPCIONES_TIPO: OpcionSelect[] = [
         <div class="flex justify-center py-12">
           <div class="w-8 h-8 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
         </div>
-      } @else if (novedades.length === 0) {
-        <p class="text-center text-gray-400 text-sm py-10">No hay novedades registradas</p>
+      } @else if (novedadesFiltradas.length === 0) {
+        <p class="text-center text-gray-400 text-sm py-10">No hay novedades {{ idItemFiltro ? 'para este ítem' : 'registradas' }}</p>
       } @else {
         <div class="grid grid-cols-4 gap-3 mb-5">
           <div class="rounded-xl border border-gray-100 px-4 py-3">
             <p class="text-xs text-gray-500">Total</p>
-            <p class="text-xl font-bold text-gray-800">{{ novedades.length }}</p>
+            <p class="text-xl font-bold text-gray-800">{{ novedadesFiltradas.length }}</p>
           </div>
           <div class="rounded-xl border border-gray-100 px-4 py-3">
             <p class="text-xs text-gray-500">Pendientes</p>
@@ -77,61 +100,51 @@ const OPCIONES_TIPO: OpcionSelect[] = [
           </div>
         </div>
 
-        <div class="overflow-x-auto rounded-xl border border-gray-100">
+        <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
           <table class="w-full text-sm">
-            <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+            <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
               <tr>
-                <th class="px-4 py-3 text-left font-medium">Tipo</th>
-                <th class="px-4 py-3 text-left font-medium">Descripción</th>
-                <th class="px-4 py-3 text-left font-medium">Ítem</th>
-                <th class="px-4 py-3 text-left font-medium">Reportado por</th>
-                <th class="px-4 py-3 text-left font-medium">Estado</th>
-                <th class="px-4 py-3 text-left font-medium">Fecha</th>
-                <th class="px-4 py-3 text-right font-medium">Acciones</th>
+                <th class="px-4 py-3 text-left font-semibold">Tipo</th>
+                <th class="px-4 py-3 text-left font-semibold">Descripción</th>
+                <th class="px-4 py-3 text-left font-semibold">Ítem</th>
+                <th class="px-4 py-3 text-left font-semibold">Reportado por</th>
+                <th class="px-4 py-3 text-left font-semibold">Estado</th>
+                <th class="px-4 py-3 text-left font-semibold">Fecha</th>
+                <th class="px-4 py-3 text-right font-semibold">Acciones</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-50">
-              @for (n of novedades; track n.id_novedad) {
-                <tr class="hover:bg-gray-50 transition-colors">
+            <tbody class="divide-y divide-gray-100">
+              @for (n of novedadesFiltradas; track n.id_novedad) {
+                <tr class="hover:bg-gray-50/80 transition-colors">
                   <td class="px-4 py-3 text-gray-700">{{ n.tipo }}</td>
                   <td class="px-4 py-3 text-gray-700 max-w-[280px] truncate">{{ n.descripcion }}</td>
                   <td class="px-4 py-3 text-gray-700">{{ n.item?.codigo_sku ?? '—' }}</td>
                   <td class="px-4 py-3 text-gray-700">{{ nombreUsuario(n.id_usuario) }}</td>
-                  <td class="px-4 py-3">
-                    <span class="px-2 py-1 rounded-full text-xs"
-                      [class.bg-amber-100]="n.estado === 'PENDIENTE'" [class.text-amber-700]="n.estado === 'PENDIENTE'"
-                      [class.bg-blue-100]="n.estado === 'EN_PROCESO'" [class.text-blue-700]="n.estado === 'EN_PROCESO'"
-                      [class.bg-green-100]="n.estado === 'RESUELTA'" [class.text-green-700]="n.estado === 'RESUELTA'">
-                      {{ n.estado }}
-                    </span>
-                  </td>
+                  <td class="px-4 py-3"><app-status-badge [value]="n.estado" /></td>
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ n.fecha | date: 'short' }}</td>
                   <td class="px-4 py-3">
-                    <div class="flex justify-end gap-1.5">
+                    <div class="flex justify-end gap-2">
                       <button (click)="verDetalle(n)"
-                        class="px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-50 text-gray-500 hover:bg-gray-100 transition-colors">
+                        class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">
                         Ver
                       </button>
                       @if (puedeEditar && n.estado === 'PENDIENTE' && esResponsableDelSitio(n)) {
                         <button (click)="cambiarEstado(n, 'EN_PROCESO')"
-                          class="px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">
-                          Marcar en proceso
+                          class="px-3 py-1.5 rounded-full text-xs font-semibold border border-blue-200 text-blue-600 bg-white hover:bg-blue-50 transition-colors">
+                          En proceso
                         </button>
                       }
                       @if (puedeEditar && n.estado === 'EN_PROCESO' && esResponsableDelSitio(n)) {
                         <button (click)="cambiarEstado(n, 'RESUELTA')"
-                          class="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-50 text-green-600 hover:bg-green-100 transition-colors">
-                          Marcar resuelta
+                          class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-600 bg-white hover:bg-green-50 transition-colors">
+                          Resolver
                         </button>
                       }
                       @if (puedeEliminar) {
                         <button (click)="eliminar(n)"
-                          class="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors" title="Eliminar">
-                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7
-                                 m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                          </svg>
+                          class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-red-400 hover:text-red-600 transition-colors">
+                          Eliminar
                         </button>
                       }
                     </div>
@@ -140,6 +153,7 @@ const OPCIONES_TIPO: OpcionSelect[] = [
               }
             </tbody>
           </table>
+          </div>
         </div>
       }
     </div>
@@ -157,6 +171,37 @@ const OPCIONES_TIPO: OpcionSelect[] = [
       [error]="error"
       (closed)="cerrarModal()"
       (saved)="guardar($event)" />
+
+    @if (resolverAbierto && resolverNovedad) {
+      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="resolverAbierto = false">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-gray-800">
+              {{ resolverEstadoNovedad === 'RESUELTA' ? 'Resolver novedad' : 'Poner novedad en proceso' }}
+            </h2>
+            <button (click)="resolverAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+          </div>
+          <p class="text-sm text-gray-500 mb-3">
+            {{ resolverNovedad.tipo }} sobre
+            <span class="font-medium text-gray-700">{{ resolverNovedad.item?.producto?.nombre ?? resolverNovedad.item?.codigo_sku ?? 'el ítem' }}</span>.
+            Elegí en qué estado queda el ítem.
+          </p>
+          <select [(ngModel)]="resolverEstadoItem"
+            class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
+            @for (o of opcionesEstadoItem; track o.value) {
+              <option [value]="o.value">{{ o.label }}</option>
+            }
+          </select>
+          <div class="flex justify-end gap-2 mt-6">
+            <button (click)="resolverAbierto = false" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
+            <button (click)="confirmarResolver()" [disabled]="resolviendo"
+              class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors" style="background-color: #39A900">
+              {{ resolviendo ? 'Guardando...' : 'Confirmar' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
 
     @if (detalleAbierto && detalle) {
       <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="detalleAbierto = false">
@@ -199,16 +244,38 @@ export class MaterialesNovedadesComponent implements OnInit {
   detalleAbierto = false;
   detalle: Novedad | null = null;
 
+  /** Diálogo "resolver / poner en proceso" con estado resultante del ítem (Tier SigMat M7). */
+  opcionesEstadoItem = OPCIONES_ESTADO_ITEM;
+  resolverAbierto = false;
+  resolverNovedad: Novedad | null = null;
+  resolverEstadoNovedad: 'EN_PROCESO' | 'RESUELTA' = 'RESUELTA';
+  resolverEstadoItem: EstadoItem | '' = '';
+  resolviendo = false;
+
   placeholders: Record<string, string> = { descripcion: 'Ej: La carcasa llegó rajada / falta 1 unidad respecto al conteo' };
 
   columnLabels: Record<string, string> = { id_item: 'Ítem (opcional)' };
+
+  /** `?id_item=` de la navegación cruzada (Ítems → Novedades). */
+  idItemFiltro: string | null = null;
 
   constructor(
     private api: MaterialesApiService,
     private toast: ToastService,
     private auth: AuthService,
     private personaApi: PersonaService,
+    private route: ActivatedRoute,
+    private router: Router,
   ) {}
+
+  get novedadesFiltradas(): Novedad[] {
+    return this.idItemFiltro ? this.novedades.filter((n) => n.id_item === this.idItemFiltro) : this.novedades;
+  }
+
+  quitarFiltroItem(): void {
+    this.idItemFiltro = null;
+    this.router.navigate([], { relativeTo: this.route, queryParams: {} });
+  }
 
   /**
    * Gateados por servicio (`materiales.novedades.editar`/`.eliminar`), no
@@ -257,7 +324,7 @@ export class MaterialesNovedadesComponent implements OnInit {
   }
 
   contarEstado(estado: string): number {
-    return this.novedades.filter((n) => n.estado === estado).length;
+    return this.novedadesFiltradas.filter((n) => n.estado === estado).length;
   }
 
   verDetalle(n: Novedad): void {
@@ -266,6 +333,7 @@ export class MaterialesNovedadesComponent implements OnInit {
   }
 
   private async cargar(): Promise<void> {
+    this.idItemFiltro = this.route.snapshot.queryParamMap.get('id_item');
     this.loading = true;
     try {
       // M9 — solo `listarNovedades()` es crítico; una secundaria con 403
@@ -321,9 +389,48 @@ export class MaterialesNovedadesComponent implements OnInit {
   }
 
   async cambiarEstado(n: Novedad, estado: 'EN_PROCESO' | 'RESUELTA'): Promise<void> {
+    // Con ítem asociado: se abre el diálogo para elegir el estado resultante
+    // del ítem (Tier SigMat M7). Sin ítem: cambio directo, como siempre.
+    if (n.id_item) {
+      this.resolverNovedad = n;
+      this.resolverEstadoNovedad = estado;
+      this.resolverEstadoItem = this.defaultEstadoItem(n, estado);
+      this.resolverAbierto = true;
+      return;
+    }
+    await this.enviarCambioEstado(n, estado);
+  }
+
+  private defaultEstadoItem(n: Novedad, estado: 'EN_PROCESO' | 'RESUELTA'): EstadoItem | '' {
+    if (estado === 'EN_PROCESO') return 'EN_MANTENIMIENTO';
+    if (n.tipo === 'DAÑO') return 'DAÑADO';
+    if (n.tipo === 'PERDIDA') return 'PERDIDO';
+    return 'DISPONIBLE';
+  }
+
+  async confirmarResolver(): Promise<void> {
+    if (!this.resolverNovedad) return;
+    this.resolviendo = true;
     try {
-      await this.api.actualizarNovedad(n.id_novedad, estado);
-      this.toast.ok('Novedad actualizada');
+      await this.enviarCambioEstado(
+        this.resolverNovedad,
+        this.resolverEstadoNovedad,
+        this.resolverEstadoItem || undefined,
+      );
+      this.resolverAbierto = false;
+    } finally {
+      this.resolviendo = false;
+    }
+  }
+
+  private async enviarCambioEstado(
+    n: Novedad,
+    estado: 'EN_PROCESO' | 'RESUELTA',
+    estadoItem?: EstadoItem,
+  ): Promise<void> {
+    try {
+      await this.api.actualizarNovedad(n.id_novedad, estado, estadoItem);
+      this.toast.ok(estadoItem ? 'Novedad actualizada y ítem actualizado' : 'Novedad actualizada');
       await this.cargar();
     } catch (e) {
       this.toast.httpError(e, 'No se pudo actualizar la novedad.');

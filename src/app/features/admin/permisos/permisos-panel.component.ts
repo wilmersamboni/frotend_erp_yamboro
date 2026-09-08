@@ -23,8 +23,9 @@ const SERVICIO_LABELS: Record<string, string> = {
   'materiales.productos.editar': 'Editar productos', 'materiales.productos.eliminar': 'Eliminar productos',
   'materiales.items.ver': 'Ver ítems individuales', 'materiales.items.crear': 'Crear ítems',
   'materiales.items.editar': 'Editar ítems',
-  'materiales.inventario.ver': 'Ver inventario', 'materiales.inventario.crear': 'Registrar entradas de inventario',
-  'materiales.inventario.editar': 'Editar inventario', 'materiales.inventario.eliminar': 'Eliminar inventario',
+  'materiales.existencias.ver': 'Ver existencias',
+  'materiales.categorias.ver': 'Ver categorías', 'materiales.categorias.crear': 'Crear categorías',
+  'materiales.categorias.editar': 'Editar categorías', 'materiales.categorias.eliminar': 'Eliminar categorías',
   'materiales.kardex.ver': 'Ver kardex de movimientos',
   'materiales.notificaciones.ver': 'Ver notificaciones de materiales',
   // Materiales — solicitudes de préstamo

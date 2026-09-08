@@ -4,16 +4,25 @@ import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../../core/services/toast.service';
 import { PermisosService } from '../../../core/services/permisos.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { MaterialesApiService, Producto, Sitio, Solicitud } from '../../../core/services/materiales/materiales-api.service';
+import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
+import { MaterialesApiService, Lote, Producto, Sitio, Solicitud } from '../../../core/services/materiales/materiales-api.service';
+
+/** Línea del modal "Nueva solicitud" — `p:<id>` producto devolutivo, `l:<id>` lote consumible. */
+interface LineaForm {
+  ref: string;
+  cantidad: number;
+}
 
 /**
  * Solicitudes de préstamo para instructor: crear siempre disponible.
- * Aprobar/rechazar exigen la excepción personal de "responsable de bodega"
- * (`PermisosService.tieneServicio('materiales.solicitudes.<accion>')`) Y ser
- * realmente responsable del sitio del producto (o admin, si el sitio no
- * tiene responsable) y no ser quien pidió la solicitud — ver Ronda 4 Fase 5.
- * Confirmar recepción exige ser el propio solicitante. Entregar no tiene
- * chequeo de dueño en el backend. El backend igual re-valida cada paso.
+ * Aprobar/rechazar/entregar/cancelar exigen la excepción personal de
+ * "responsable de bodega" (`PermisosService.tieneServicio('materiales.
+ * solicitudes.<accion>')`) Y ser realmente responsable del sitio del
+ * producto (el admin bypasea siempre — regla A+C, ver docblock de la
+ * versión admin — pero esta pantalla es de instructor, así que en la
+ * práctica `auth.isAdmin()` nunca es true acá) y no ser quien pidió la
+ * solicitud — ver Ronda 4 Fase 5. Confirmar recepción exige ser el propio
+ * solicitante. El backend igual re-valida cada paso.
  * El backend ya filtra `GET /solicitudes` según quién pregunta (dueño vs.
  * responsable vs. admin), así que la lista no se filtra client-side.
  *
@@ -23,7 +32,7 @@ import { MaterialesApiService, Producto, Sitio, Solicitud } from '../../../core/
 @Component({
   selector: 'app-instructor-materiales-solicitudes',
   standalone: true,
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, StatusBadgeComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -42,23 +51,26 @@ import { MaterialesApiService, Producto, Sitio, Solicitud } from '../../../core/
       } @else if (solicitudes.length === 0) {
         <p class="text-center text-gray-400 text-sm py-10">No hay solicitudes registradas</p>
       } @else {
-        <div class="overflow-x-auto rounded-xl border border-gray-100">
+        <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
           <table class="w-full text-sm">
-            <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+            <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
               <tr>
-                <th class="px-4 py-3 text-left font-medium">Producto</th>
-                <th class="px-4 py-3 text-left font-medium">Cantidad</th>
-                <th class="px-4 py-3 text-left font-medium">Disponible</th>
-                <th class="px-4 py-3 text-left font-medium">Observación</th>
-                <th class="px-4 py-3 text-left font-medium">Estado</th>
-                <th class="px-4 py-3 text-left font-medium">Fecha</th>
-                <th class="px-4 py-3 text-right font-medium">Acciones</th>
+                <th class="px-4 py-3 text-left font-semibold">Producto</th>
+                <th class="px-4 py-3 text-left font-semibold">Solicitó</th>
+                <th class="px-4 py-3 text-left font-semibold">Cantidad</th>
+                <th class="px-4 py-3 text-left font-semibold">Disponible</th>
+                <th class="px-4 py-3 text-left font-semibold">Observación</th>
+                <th class="px-4 py-3 text-left font-semibold">Estado</th>
+                <th class="px-4 py-3 text-left font-semibold">Fecha</th>
+                <th class="px-4 py-3 text-right font-semibold">Acciones</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-50">
+            <tbody class="divide-y divide-gray-100">
               @for (s of solicitudes; track s.id_solicitud) {
-                <tr class="hover:bg-gray-50 transition-colors">
+                <tr class="hover:bg-gray-50/80 transition-colors">
                   <td class="px-4 py-3 text-gray-700">{{ s.producto?.nombre ?? '—' }}</td>
+                  <td class="px-4 py-3 text-gray-600">{{ s.usuario_nombre || '—' }}</td>
                   <td class="px-4 py-3 text-gray-700">{{ s.cantidad }}</td>
                   <td class="px-4 py-3">
                     @if ((s.estado === 'PENDIENTE' || s.estado === 'APROBADA') && stockDe(s); as st) {
@@ -75,34 +87,25 @@ import { MaterialesApiService, Producto, Sitio, Solicitud } from '../../../core/
                     }
                   </td>
                   <td class="px-4 py-3 text-gray-500 max-w-[220px] truncate">{{ s.observacion ?? '—' }}</td>
-                  <td class="px-4 py-3">
-                    <span class="px-2 py-1 rounded-full text-xs"
-                      [class.bg-amber-100]="s.estado === 'PENDIENTE'" [class.text-amber-700]="s.estado === 'PENDIENTE'"
-                      [class.bg-blue-100]="s.estado === 'APROBADA' || s.estado === 'EN_ENTREGA'" [class.text-blue-700]="s.estado === 'APROBADA' || s.estado === 'EN_ENTREGA'"
-                      [class.bg-green-100]="s.estado === 'ENTREGADA'" [class.text-green-700]="s.estado === 'ENTREGADA'"
-                      [class.bg-red-100]="s.estado === 'RECHAZADA'" [class.text-red-700]="s.estado === 'RECHAZADA'"
-                      [class.bg-gray-200]="s.estado === 'CANCELADA' || s.estado === 'DEVUELTA'" [class.text-gray-600]="s.estado === 'CANCELADA' || s.estado === 'DEVUELTA'">
-                      {{ s.estado }}
-                    </span>
-                  </td>
+                  <td class="px-4 py-3"><app-status-badge [value]="s.estado" /></td>
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ s.fecha | date: 'short' }}</td>
                   <td class="px-4 py-3">
-                    <div class="flex justify-end gap-1.5">
-                      <button (click)="verDetalle(s)" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-50 text-gray-500 hover:bg-gray-100 transition-colors">Ver</button>
+                    <div class="flex flex-wrap justify-end gap-2">
+                      <button (click)="verDetalle(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">Ver</button>
                       @if (s.estado === 'PENDIENTE' && puedeAprobar && puedeGestionar(s)) {
-                        <button (click)="aprobar(s)" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-50 text-green-600 hover:bg-green-100 transition-colors">Aprobar</button>
+                        <button (click)="aprobar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-600 bg-white hover:bg-green-50 transition-colors">Aprobar</button>
                       }
                       @if (s.estado === 'PENDIENTE' && puedeRechazar && puedeGestionar(s)) {
-                        <button (click)="rechazar(s)" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors">Rechazar</button>
+                        <button (click)="rechazar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-red-400 hover:text-red-600 transition-colors">Rechazar</button>
                       }
-                      @if (s.estado === 'APROBADA' && puedeEntregar) {
-                        <button (click)="entregar(s)" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">Marcar en entrega</button>
+                      @if (s.estado === 'APROBADA' && puedeEntregar && puedeGestionar(s)) {
+                        <button (click)="entregar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-blue-200 text-blue-600 bg-white hover:bg-blue-50 transition-colors">Marcar en entrega</button>
                       }
                       @if (s.estado === 'APROBADA' && puedeRechazar && puedeGestionar(s)) {
-                        <button (click)="cancelar(s)" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">Cancelar</button>
+                        <button (click)="cancelar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">Cancelar</button>
                       }
                       @if (s.estado === 'EN_ENTREGA' && esSolicitantePropio(s)) {
-                        <button (click)="confirmarRecepcion(s)" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-green-50 text-green-600 hover:bg-green-100 transition-colors">Confirmar recepción</button>
+                        <button (click)="confirmarRecepcion(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-600 bg-white hover:bg-green-50 transition-colors">Confirmar recepción</button>
                       }
                     </div>
                   </td>
@@ -110,6 +113,7 @@ import { MaterialesApiService, Producto, Sitio, Solicitud } from '../../../core/
               }
             </tbody>
           </table>
+          </div>
         </div>
       }
     </div>
@@ -122,77 +126,76 @@ import { MaterialesApiService, Producto, Sitio, Solicitud } from '../../../core/
             <button (click)="cerrarModal()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 
-          <div class="space-y-3">
+          <div class="space-y-4">
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Bodega</label>
               <select [(ngModel)]="idSitioSeleccionado" (ngModelChange)="onSitioChange($event)"
                 class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
                 <option [ngValue]="null">— Selecciona una bodega —</option>
                 @for (s of sitios; track s.id_sitio) {
-                  <option [value]="s.id_sitio">{{ s.nombre }} ({{ s.tipo }})</option>
+                  <option [ngValue]="s.id_sitio">{{ s.nombre }} ({{ s.tipo }})</option>
                 }
               </select>
+              <p class="text-[11px] text-gray-400 mt-1">Todas las líneas de una solicitud tienen que ser de la misma bodega.</p>
             </div>
 
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Producto</label>
-              <select [(ngModel)]="form['id_producto']" (ngModelChange)="onProductoChange($event)"
-                [disabled]="!idSitioSeleccionado"
-                class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] disabled:bg-gray-50 disabled:text-gray-400">
-                @if (!idSitioSeleccionado) {
-                  <option value="">Elegí primero una bodega</option>
-                } @else if (productosFiltrados().length === 0) {
-                  <option value="">Sin productos en esta bodega</option>
-                } @else {
-                  <option value="">— Selecciona —</option>
-                  @for (p of productosFiltrados(); track p.id_producto) {
-                    <option [value]="p.id_producto">{{ p.nombre }}</option>
-                  }
-                }
-              </select>
-            </div>
-
-            @if (form['id_producto']) {
-            <!-- Panel de stock: mismo criterio que el módulo hermano SGM (frontend-proyecto) -->
-            <div class="rounded-lg border px-3 py-2 text-xs"
-              [class.border-gray-100]="stock.cargando"
-              [class.bg-gray-50]="stock.cargando"
-              [class.border-red-200]="!stock.cargando && stock.disponibles === 0"
-              [class.bg-red-50]="!stock.cargando && stock.disponibles === 0"
-              [class.border-green-200]="!stock.cargando && stock.disponibles > 0"
-              [class.bg-green-50]="!stock.cargando && stock.disponibles > 0">
-              @if (stock.cargando) {
-                <span class="text-gray-400">Consultando stock...</span>
-              } @else if (stock.disponibles === 0) {
-                <span class="text-red-600 font-medium">Sin unidades disponibles ({{ stock.total }} en total, todas prestadas/de baja)</span>
-              } @else {
-                <span class="text-green-700 font-medium">{{ stock.disponibles }} disponible(s)</span>
-                <span class="text-gray-500"> de {{ stock.total }} unidad(es) totales</span>
-              }
-            </div>
-            @if (!stock.cargando && form['cantidad'] > stock.disponibles) {
-              <p class="text-red-500 text-xs -mt-1">No podés pedir más de las {{ stock.disponibles }} unidad(es) disponibles.</p>
-            }
-
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Cantidad</label>
-              <input type="number" [(ngModel)]="form['cantidad']" min="1" [max]="stock.disponibles || 1"
-                class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
-            </div>
-
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Observación (opcional)</label>
-              <input type="text" [(ngModel)]="form['observacion']"
-                class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
-            </div>
-
-            @if (requiereFechaDevolucion()) {
+            @if (idSitioSeleccionado) {
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Fecha de devolución <span class="text-red-500">*</span></label>
-                <input type="date" [(ngModel)]="form['fecha_devolucion']"
+                <div class="flex items-center justify-between mb-1.5">
+                  <label class="block text-xs font-medium text-gray-600">Ítems a solicitar</label>
+                  <button type="button" (click)="agregarLinea()"
+                    [disabled]="opcionesDisponibles().length === 0"
+                    class="text-xs font-medium text-[#39A900] hover:underline disabled:text-gray-300 disabled:no-underline">
+                    + Agregar línea
+                  </button>
+                </div>
+
+                @if (opciones().length === 0) {
+                  <p class="text-xs text-gray-400 py-2">Esta bodega no tiene productos ni lotes disponibles.</p>
+                }
+
+                <div class="space-y-2">
+                  @for (linea of lineas; track $index) {
+                    <div class="flex gap-2 items-start">
+                      <div class="flex-1">
+                        <select [(ngModel)]="linea.ref" (ngModelChange)="onRefChange(linea)"
+                          class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
+                          <option value="">— Selecciona producto o lote —</option>
+                          @for (o of opcionesParaLinea(linea); track o.ref) {
+                            <option [value]="o.ref">{{ o.label }}</option>
+                          }
+                        </select>
+                        @if (linea.ref) {
+                          <p class="text-[11px] mt-0.5"
+                            [class.text-red-500]="disponibleDe(linea) < linea.cantidad"
+                            [class.text-gray-400]="disponibleDe(linea) >= linea.cantidad">
+                            {{ disponibleDe(linea) }} disponible(s){{ disponibleDe(linea) < linea.cantidad ? ' — cantidad excede el stock' : '' }}
+                          </p>
+                        }
+                      </div>
+                      <input type="number" [(ngModel)]="linea.cantidad" min="1"
+                        class="w-20 px-2 py-2 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                      <button type="button" (click)="quitarLinea($index)"
+                        class="p-2 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 text-lg leading-none">×</button>
+                    </div>
+                  }
+                </div>
+              </div>
+
+              @if (requiereFechaDevolucion()) {
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Fecha de devolución <span class="text-red-500">*</span></label>
+                  <input type="date" [(ngModel)]="fechaDevolucion"
+                    class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                  <p class="text-[11px] text-gray-400 mt-1">Alguna línea es de un material devolutivo.</p>
+                </div>
+              }
+
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Observación (opcional)</label>
+                <input type="text" [(ngModel)]="observacion"
                   class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
               </div>
-            }
             }
           </div>
 
@@ -220,17 +223,104 @@ import { MaterialesApiService, Producto, Sitio, Solicitud } from '../../../core/
             <button (click)="detalleAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
           <dl class="space-y-2.5 text-sm">
-            <div class="flex justify-between gap-4"><dt class="text-gray-500">Producto</dt><dd class="text-gray-800 font-medium text-right">{{ detalle.producto?.nombre ?? '—' }}</dd></div>
-            <div class="flex justify-between gap-4"><dt class="text-gray-500">Cantidad</dt><dd class="text-gray-800 text-right">{{ detalle.cantidad }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Estado</dt><dd class="text-gray-800 text-right">{{ detalle.estado }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-gray-500">Solicitó</dt><dd class="text-gray-800 text-right">{{ detalle.usuario_nombre || '—' }}</dd></div>
+            <div>
+              <dt class="text-gray-500 mb-1">Ítems solicitados</dt>
+              <dd>
+                @if (detalleCargando) {
+                  <span class="text-gray-400 text-xs">Cargando líneas...</span>
+                } @else if (detalle.lineas?.length) {
+                  <ul class="divide-y divide-gray-100 border border-gray-100 rounded-lg">
+                    @for (l of detalle.lineas; track l.id_detalle) {
+                      <li class="px-3 py-2 flex justify-between gap-3">
+                        <span class="text-gray-700">
+                          {{ l.producto_nombre ?? l.lote_codigo ?? '—' }}
+                          @if (l.id_lote) { <span class="text-[11px] text-gray-400">(lote)</span> }
+                        </span>
+                        <span class="text-gray-500 text-xs">{{ l.cantidad_entregada }}/{{ l.cantidad }}</span>
+                      </li>
+                    }
+                  </ul>
+                } @else {
+                  <span class="text-gray-700">{{ detalle.producto?.nombre ?? '—' }} × {{ detalle.cantidad }}</span>
+                }
+              </dd>
+            </div>
             <div><dt class="text-gray-500 mb-1">Observación</dt><dd class="text-gray-800">{{ detalle.observacion || '—' }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Fecha</dt><dd class="text-gray-800 text-right">{{ detalle.fecha | date: 'medium' }}</dd></div>
             @if (detalle.fecha_devolucion) {
               <div class="flex justify-between gap-4"><dt class="text-gray-500">Fecha de devolución</dt><dd class="text-gray-800 text-right">{{ detalle.fecha_devolucion | date: 'mediumDate' }}</dd></div>
             }
+            @if (detalle.id_usuario_aprueba || detalle.fecha_aprobacion) {
+              <div class="flex justify-between gap-4"><dt class="text-gray-500">Aprobó</dt><dd class="text-gray-800 text-right">{{ detalle.usuario_aprueba_nombre || '—' }}<span class="block text-[11px] text-gray-400">{{ detalle.fecha_aprobacion | date: 'short' }}</span></dd></div>
+            }
+            @if (detalle.id_usuario_entrega || detalle.fecha_entrega) {
+              <div class="flex justify-between gap-4"><dt class="text-gray-500">Entregó</dt><dd class="text-gray-800 text-right">{{ detalle.usuario_entrega_nombre || '—' }}<span class="block text-[11px] text-gray-400">{{ detalle.fecha_entrega | date: 'short' }}</span></dd></div>
+            }
+            @if (detalle.estado === 'RECHAZADA' && detalle.motivo_rechazo) {
+              <div class="rounded-lg bg-red-50 border border-red-100 p-3">
+                <dt class="text-red-600 font-medium mb-1">Motivo del rechazo</dt>
+                <dd class="text-red-700 whitespace-pre-wrap">{{ detalle.motivo_rechazo }}</dd>
+              </div>
+            }
           </dl>
           <div class="flex justify-end mt-6">
             <button (click)="detalleAbierto = false" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (rechazoAbierto && rechazoSolicitud) {
+      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarRechazo()">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-gray-800">Rechazar solicitud</h2>
+            <button (click)="cerrarRechazo()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+          </div>
+          <p class="text-sm text-gray-500 mb-3">
+            Se le informará al solicitante de
+            "<span class="font-medium text-gray-700">{{ rechazoSolicitud.producto?.nombre ?? 'este material' }}</span>".
+            El motivo es obligatorio.
+          </p>
+          <textarea [(ngModel)]="motivoRechazo" rows="3" maxlength="500"
+            placeholder="Ej: No hay stock disponible para la fecha solicitada."
+            class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400/30 focus:border-red-400 resize-none"></textarea>
+          <div class="text-right text-[11px] text-gray-400 mt-1">{{ motivoRechazo.length }}/500</div>
+          <div class="flex justify-end gap-2 mt-4">
+            <button (click)="cerrarRechazo()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
+            <button (click)="confirmarRechazo()" [disabled]="!motivoRechazo.trim() || rechazando"
+              class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors bg-red-600 hover:bg-red-700">
+              {{ rechazando ? 'Rechazando...' : 'Rechazar' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (aprobarAbierto && aprobarRef) {
+      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarAprobar()">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-gray-800">Aprobar solicitud</h2>
+            <button (click)="cerrarAprobar()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+          </div>
+          <p class="text-sm text-gray-500 mb-3">
+            "<span class="font-medium text-gray-700">{{ aprobarRef.producto?.nombre ?? 'este material' }}</span>"
+            × {{ aprobarRef.cantidad }}.
+          </p>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Fecha de devolución</label>
+          <input type="date" [(ngModel)]="fechaDevAprobar" [min]="hoyISO"
+            class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+          <p class="text-[11px] text-gray-400 mt-1">Podés ajustar la fecha que puso el solicitante. Se le avisa si cambia.</p>
+          <div class="flex justify-end gap-2 mt-4">
+            <button (click)="cerrarAprobar()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
+            <button (click)="confirmarAprobar()" [disabled]="aprobando"
+              class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
+              style="background-color: #39A900">
+              {{ aprobando ? 'Aprobando...' : 'Aprobar' }}
+            </button>
           </div>
         </div>
       </div>
@@ -240,23 +330,41 @@ import { MaterialesApiService, Producto, Sitio, Solicitud } from '../../../core/
 export class InstructorMaterialesSolicitudesComponent implements OnInit {
   solicitudes: Solicitud[] = [];
   productos: Producto[] = [];
+  lotes: Lote[] = [];
   sitios: Sitio[] = [];
   loading = false;
   saving = false;
   error: string | null = null;
 
   modalOpen = false;
-  form: Record<string, any> = {};
 
-  /** "Ver detalles" (Fase 9). */
+  /** Líneas del modal "Nueva solicitud" (Tier SigMat M4) — al menos 1. */
+  lineas: LineaForm[] = [];
+  observacion = '';
+  fechaDevolucion = '';
+  /** Stock de productos devolutivos elegidos en el modal, cacheado por id. */
+  stockProd: Record<string, { disponibles: number; total: number }> = {};
+
+  /** "Ver detalles" (Fase 9) — trae `lineas[]` vía GET /:id. */
   detalleAbierto = false;
   detalle: Solicitud | null = null;
+  detalleCargando = false;
 
-  /** Bodega elegida en el paso 1 del modal — filtra `productos` antes de mostrar el paso 2 (Fase 7). */
+  /** Diálogo de rechazo — el motivo es obligatorio (#7). */
+  rechazoAbierto = false;
+  rechazoSolicitud: Solicitud | null = null;
+  motivoRechazo = '';
+  rechazando = false;
+
+  /** Diálogo de aprobación — el aprobador puede ajustar la fecha de devolución (#3b). */
+  aprobarAbierto = false;
+  aprobarRef: Solicitud | null = null;
+  fechaDevAprobar = '';
+  aprobando = false;
+  readonly hoyISO = new Date().toISOString().slice(0, 10);
+
+  /** Bodega elegida en el paso 1 del modal. */
   idSitioSeleccionado: string | null = null;
-
-  /** Stock del producto elegido — consultado en vivo, mismo endpoint que ya usa el módulo hermano SGM. */
-  stock: { disponibles: number; total: number; cargando: boolean } = { disponibles: 0, total: 0, cargando: false };
 
   /** Stock disponible por producto para las filas PENDIENTE / APROBADA de la tabla. */
   stocksPorProducto: Record<string, { disponibles: number; total: number }> = {};
@@ -284,17 +392,19 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
   }
 
   /**
-   * Nunca puede gestionar su propia solicitud. Con responsable asignado en
-   * el sitio del producto, solo esa persona (ni siquiera admin). Sin
-   * responsable asignado, solo admin — replica exactamente
-   * `SolicitudesService.cambiarEstadoSolicitud`.
+   * Nunca puede gestionar su propia solicitud. Admin: siempre puede (regla
+   * A+C). Si no, autorizado solo si es el responsable del sitio del
+   * producto, o si el sitio no tiene ninguno asignado — replica
+   * `SolicitudesService.cambiarEstadoSolicitud` / `entregarSolicitud` /
+   * `cancelarSolicitud`.
    */
   puedeGestionar(s: Solicitud): boolean {
     if (this.esSolicitantePropio(s)) return false;
+    if (this.auth.isAdmin()) return true;
     const idSitio = s.producto?.id_sitio;
     const sitio = idSitio ? this.sitios.find((x) => x.id_sitio === idSitio) : undefined;
     if (sitio?.id_responsable) return sitio.id_responsable === this.auth.user()?.id;
-    return this.auth.isAdmin();
+    return false;
   }
 
   ngOnInit(): void {
@@ -302,47 +412,92 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
     this.cargar();
   }
 
-  /** Productos disponibles en la bodega elegida — paso 2 del modal (Fase 7). */
-  productosFiltrados(): Producto[] {
+  // ── Modal multi-línea (Tier SigMat M4) ──────────────────────────────
+
+  private productosDeBodega(): Producto[] {
     if (!this.idSitioSeleccionado) return [];
     return this.productos.filter((p) => p.id_sitio === this.idSitioSeleccionado);
   }
 
-  onSitioChange(idSitio: string | null): void {
-    this.idSitioSeleccionado = idSitio;
-    this.form['id_producto'] = '';
-    this.form['fecha_devolucion'] = '';
-    this.stock = { disponibles: 0, total: 0, cargando: false };
+  private lotesDeBodega(): Lote[] {
+    return this.lotes.filter(
+      (l) => l.estado === 'ACTIVO' && l.cantidad_disponible > 0 && l.id_sitio === this.idSitioSeleccionado,
+    );
   }
 
-  productoSeleccionado(): Producto | undefined {
-    return this.productos.find((p) => p.id_producto === this.form['id_producto']);
+  opciones(): { ref: string; label: string }[] {
+    const prods = this.productosDeBodega().map((p) => ({
+      ref: `p:${p.id_producto}`,
+      label: `${p.nombre}${p.marca ? ' · ' + p.marca : ''}`,
+    }));
+    const lotes = this.lotesDeBodega().map((l) => ({
+      ref: `l:${l.id_lote}`,
+      label: `${l.producto?.nombre ?? 'Lote'}${l.codigo_lote ? ' · ' + l.codigo_lote : ''} (lote, ${l.cantidad_disponible})`,
+    }));
+    return [...prods, ...lotes];
   }
 
-  /** Solo los materiales que realmente vuelven piden fecha de devolución — mismo criterio que SGM. */
-  requiereFechaDevolucion(): boolean {
-    const tipo = this.productoSeleccionado()?.tipo_material;
-    return !!tipo && tipo !== 'CONSUMO' && tipo !== 'PERECEDERO';
+  opcionesDisponibles(): { ref: string; label: string }[] {
+    const usadas = new Set(this.lineas.map((l) => l.ref).filter(Boolean));
+    return this.opciones().filter((o) => !usadas.has(o.ref));
   }
 
-  async onProductoChange(idProducto: string): Promise<void> {
-    const id = idProducto;
-    if (!id) { this.stock = { disponibles: 0, total: 0, cargando: false }; return; }
-    this.stock = { disponibles: 0, total: 0, cargando: true };
-    try {
-      const { disponibles, total } = await this.api.stockProducto(id);
-      this.stock = { disponibles, total, cargando: false };
-    } catch {
-      this.stock = { disponibles: 0, total: 0, cargando: false };
+  opcionesParaLinea(linea: LineaForm): { ref: string; label: string }[] {
+    const usadasEnOtras = new Set(
+      this.lineas.filter((l) => l !== linea).map((l) => l.ref).filter(Boolean),
+    );
+    return this.opciones().filter((o) => !usadasEnOtras.has(o.ref));
+  }
+
+  disponibleDe(linea: LineaForm): number {
+    if (!linea.ref) return 0;
+    const [tipo, id] = linea.ref.split(':');
+    if (tipo === 'l') return this.lotes.find((l) => l.id_lote === id)?.cantidad_disponible ?? 0;
+    return this.stockProd[id]?.disponibles ?? 0;
+  }
+
+  async onRefChange(linea: LineaForm): Promise<void> {
+    if (!linea.ref) return;
+    const [tipo, id] = linea.ref.split(':');
+    if (tipo === 'p' && !this.stockProd[id]) {
+      try {
+        this.stockProd[id] = await this.api.stockProducto(id);
+      } catch {
+        this.stockProd[id] = { disponibles: 0, total: 0 };
+      }
     }
   }
 
+  onSitioChange(idSitio: string | null): void {
+    this.idSitioSeleccionado = idSitio;
+    this.lineas = idSitio ? [{ ref: '', cantidad: 1 }] : [];
+    this.fechaDevolucion = '';
+  }
+
+  agregarLinea(): void {
+    this.lineas.push({ ref: '', cantidad: 1 });
+  }
+
+  quitarLinea(i: number): void {
+    this.lineas.splice(i, 1);
+    if (this.lineas.length === 0) this.lineas.push({ ref: '', cantidad: 1 });
+  }
+
+  /** ¿Alguna línea es de un producto devolutivo (no CONSUMO/PERECEDERO)? */
+  requiereFechaDevolucion(): boolean {
+    return this.lineas.some((l) => {
+      if (!l.ref.startsWith('p:')) return false;
+      const p = this.productos.find((x) => x.id_producto === l.ref.slice(2));
+      const tipo = p?.tipo_material;
+      return !!tipo && tipo !== 'CONSUMO' && tipo !== 'PERECEDERO';
+    });
+  }
+
   puedeGuardar(): boolean {
-    const cantidad = Number(this.form['cantidad']) || 0;
-    const stockOk = !!this.form['id_producto'] && cantidad >= 1 && !this.stock.cargando &&
-      this.stock.disponibles > 0 && cantidad <= this.stock.disponibles;
-    if (!stockOk) return false;
-    return !this.requiereFechaDevolucion() || !!this.form['fecha_devolucion'];
+    const activas = this.lineas.filter((l) => l.ref && Number(l.cantidad) >= 1);
+    if (activas.length === 0) return false;
+    for (const l of activas) if (Number(l.cantidad) > this.disponibleDe(l)) return false;
+    return !this.requiereFechaDevolucion() || !!this.fechaDevolucion;
   }
 
   private async cargar(): Promise<void> {
@@ -350,13 +505,15 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
     try {
       // M9 — solo `listarSolicitudes()` es crítico; si una secundaria da 403
       // (excepción personal) no debe tumbar la tabla entera.
-      const [solicitudes, productos, sitios] = await Promise.all([
+      const [solicitudes, productos, lotes, sitios] = await Promise.all([
         this.api.listarSolicitudes(),
         this.api.listarProductos().catch(() => [] as Producto[]),
+        this.api.listarLotes().catch(() => [] as Lote[]),
         this.api.listarSitios().catch(() => [] as Sitio[]),
       ]);
       this.solicitudes = solicitudes;
       this.productos = productos;
+      this.lotes = lotes;
       this.sitios = sitios;
       await this.cargarStocks();
     } catch (e) {
@@ -397,13 +554,15 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
   }
 
   nuevo(): void {
-    if (this.productos.length === 0 || this.sitios.length === 0) {
-      this.toast.warn('Faltan datos', 'Necesitás al menos un producto y un sitio para crear una solicitud.');
+    if ((this.productos.length === 0 && this.lotes.length === 0) || this.sitios.length === 0) {
+      this.toast.warn('Faltan datos', 'Necesitás al menos un producto o lote y un sitio para crear una solicitud.');
       return;
     }
     this.idSitioSeleccionado = null;
-    this.form = { id_producto: '', cantidad: 1, observacion: '', fecha_devolucion: '' };
-    this.stock = { disponibles: 0, total: 0, cargando: false };
+    this.lineas = [];
+    this.observacion = '';
+    this.fechaDevolucion = '';
+    this.stockProd = {};
     this.error = null;
     this.modalOpen = true;
   }
@@ -412,34 +571,43 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
     this.modalOpen = false;
   }
 
-  verDetalle(s: Solicitud): void {
+  async verDetalle(s: Solicitud): Promise<void> {
     this.detalle = s;
     this.detalleAbierto = true;
+    this.detalleCargando = true;
+    try {
+      this.detalle = await this.api.obtenerSolicitud(s.id_solicitud);
+    } catch {
+      // nos quedamos con la fila de la lista
+    } finally {
+      this.detalleCargando = false;
+    }
   }
 
   async guardar(): Promise<void> {
     // Doble chequeo — no alcanza con deshabilitar el botón, ver Fase 1 del plan.
     if (!this.puedeGuardar()) {
-      if (this.stock.disponibles === 0) {
-        this.error = 'Ese producto no tiene unidades disponibles.';
-      } else if (Number(this.form['cantidad']) > this.stock.disponibles) {
-        this.error = 'La cantidad supera el stock disponible.';
-      } else if (this.requiereFechaDevolucion() && !this.form['fecha_devolucion']) {
-        this.error = 'Este producto requiere fecha de devolución.';
-      } else {
-        this.error = 'Completá los datos requeridos.';
-      }
+      this.error = this.requiereFechaDevolucion() && !this.fechaDevolucion
+        ? 'Alguna línea es devolutiva: indicá la fecha de devolución.'
+        : 'Revisá las líneas: cada una necesita producto/lote y una cantidad dentro del stock.';
       return;
     }
     this.saving = true;
     this.error = null;
     try {
+      const lineas = this.lineas
+        .filter((l) => l.ref && Number(l.cantidad) >= 1)
+        .map((l) => {
+          const [tipo, id] = l.ref.split(':');
+          return tipo === 'l'
+            ? { id_lote: id, cantidad: Number(l.cantidad) }
+            : { id_producto: id, cantidad: Number(l.cantidad) };
+        });
       await this.api.crearSolicitud({
         tipo: 'PRESTAMO',
-        id_producto: this.form['id_producto'],
-        cantidad: Number(this.form['cantidad']) || 1,
-        observacion: this.form['observacion'] || undefined,
-        fecha_devolucion: this.form['fecha_devolucion'] || undefined,
+        lineas,
+        observacion: this.observacion || undefined,
+        fecha_devolucion: this.fechaDevolucion || undefined,
       });
       this.toast.ok('Solicitud creada');
       this.modalOpen = false;
@@ -463,12 +631,30 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
       );
       if (!ok) return;
     }
+    this.aprobarRef = s;
+    this.fechaDevAprobar = s.fecha_devolucion ? String(s.fecha_devolucion).slice(0, 10) : '';
+    this.aprobarAbierto = true;
+  }
+
+  cerrarAprobar(): void {
+    this.aprobarAbierto = false;
+    this.aprobarRef = null;
+    this.fechaDevAprobar = '';
+  }
+
+  async confirmarAprobar(): Promise<void> {
+    const s = this.aprobarRef;
+    if (!s) return;
+    this.aprobando = true;
     try {
-      await this.api.aprobarSolicitud(s.id_solicitud);
+      await this.api.aprobarSolicitud(s.id_solicitud, { fecha_devolucion: this.fechaDevAprobar || undefined });
       this.toast.ok('Solicitud aprobada');
+      this.cerrarAprobar();
       await this.cargar();
     } catch (e) {
       this.toast.httpError(e, 'No se pudo aprobar la solicitud.');
+    } finally {
+      this.aprobando = false;
     }
   }
 
@@ -486,13 +672,32 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
     }
   }
 
-  async rechazar(s: Solicitud): Promise<void> {
+  rechazar(s: Solicitud): void {
+    this.rechazoSolicitud = s;
+    this.motivoRechazo = '';
+    this.rechazoAbierto = true;
+  }
+
+  cerrarRechazo(): void {
+    this.rechazoAbierto = false;
+    this.rechazoSolicitud = null;
+    this.motivoRechazo = '';
+  }
+
+  async confirmarRechazo(): Promise<void> {
+    const s = this.rechazoSolicitud;
+    const motivo = this.motivoRechazo.trim();
+    if (!s || !motivo) return;
+    this.rechazando = true;
     try {
-      await this.api.rechazarSolicitud(s.id_solicitud);
+      await this.api.rechazarSolicitud(s.id_solicitud, motivo);
       this.toast.ok('Solicitud rechazada');
+      this.cerrarRechazo();
       await this.cargar();
     } catch (e) {
       this.toast.httpError(e, 'No se pudo rechazar la solicitud.');
+    } finally {
+      this.rechazando = false;
     }
   }
 

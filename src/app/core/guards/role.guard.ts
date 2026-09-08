@@ -28,7 +28,7 @@ import { AprendizContextService } from '../services/aprendiz-context.service';
  * Uso en rutas:
  *   { path: 'admin', data: { roles: ['administrador'] } }
  *   { path: 'encuestas', data: { roles: ['administrador', 'administrador_erp'], servicios: ['encuestas.gestionar'] } }
- *   { path: 'instructor/materiales/sitios', data: { roles: ['instructor'], serviciosRequeridos: ['materiales.sitios.ver'] } }
+ *   { path: 'instructor/materiales/kardex', data: { roles: ['instructor'], serviciosRequeridos: ['materiales.kardex.ver'] } }
  *
  * - `soloAprendizConEtapa` (opcional, bool) → AND extra SOLO para cargo
  *   'aprendiz': la ruta solo se deja entrar si el aprendiz ya tiene una
