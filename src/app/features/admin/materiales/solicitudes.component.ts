@@ -311,6 +311,33 @@ interface LineaForm {
         </div>
       </div>
     }
+
+    @if (aprobarAbierto && aprobarRef) {
+      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarAprobar()">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-gray-800">Aprobar solicitud</h2>
+            <button (click)="cerrarAprobar()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+          </div>
+          <p class="text-sm text-gray-500 mb-3">
+            "<span class="font-medium text-gray-700">{{ aprobarRef.producto?.nombre ?? 'este material' }}</span>"
+            × {{ aprobarRef.cantidad }}.
+          </p>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Fecha de devolución</label>
+          <input type="date" [(ngModel)]="fechaDevAprobar" [min]="hoyISO"
+            class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+          <p class="text-[11px] text-gray-400 mt-1">Podés ajustar la fecha que puso el solicitante. Se le avisa si cambia.</p>
+          <div class="flex justify-end gap-2 mt-4">
+            <button (click)="cerrarAprobar()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
+            <button (click)="confirmarAprobar()" [disabled]="aprobando"
+              class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
+              style="background-color: #39A900">
+              {{ aprobando ? 'Aprobando...' : 'Aprobar' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
   `,
 })
 export class MaterialesSolicitudesComponent implements OnInit {
@@ -343,6 +370,13 @@ export class MaterialesSolicitudesComponent implements OnInit {
   rechazoSolicitud: Solicitud | null = null;
   motivoRechazo = '';
   rechazando = false;
+
+  /** Diálogo de aprobación — el aprobador puede ajustar la fecha de devolución (#3b). */
+  aprobarAbierto = false;
+  aprobarRef: Solicitud | null = null;
+  fechaDevAprobar = '';
+  aprobando = false;
+  readonly hoyISO = new Date().toISOString().slice(0, 10);
 
   /** Bodega elegida en el paso 1 del modal. */
   idSitioSeleccionado: string | null = null;
@@ -624,12 +658,30 @@ export class MaterialesSolicitudesComponent implements OnInit {
       );
       if (!ok) return;
     }
+    this.aprobarRef = s;
+    this.fechaDevAprobar = s.fecha_devolucion ? String(s.fecha_devolucion).slice(0, 10) : '';
+    this.aprobarAbierto = true;
+  }
+
+  cerrarAprobar(): void {
+    this.aprobarAbierto = false;
+    this.aprobarRef = null;
+    this.fechaDevAprobar = '';
+  }
+
+  async confirmarAprobar(): Promise<void> {
+    const s = this.aprobarRef;
+    if (!s) return;
+    this.aprobando = true;
     try {
-      await this.api.aprobarSolicitud(s.id_solicitud);
+      await this.api.aprobarSolicitud(s.id_solicitud, { fecha_devolucion: this.fechaDevAprobar || undefined });
       this.toast.ok('Solicitud aprobada');
+      this.cerrarAprobar();
       await this.cargar();
     } catch (e) {
       this.toast.httpError(e, 'No se pudo aprobar la solicitud.');
+    } finally {
+      this.aprobando = false;
     }
   }
 

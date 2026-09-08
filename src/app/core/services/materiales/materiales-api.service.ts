@@ -110,6 +110,14 @@ export interface CreateSitioDto {
   estado?: boolean;
 }
 
+/** #5 — resultado de la importación masiva de productos. */
+export interface ResultadoImportacion {
+  total: number;
+  productos_creados: number;
+  stock_agregado: number;
+  errores: { fila: number; error: string }[];
+}
+
 export interface CreateProductoDto {
   nombre: string;
   descripcion?: string;
@@ -127,7 +135,8 @@ export interface CreateProductoDto {
   stock_minimo: number;
   unidad_peso_bulto?: string;
   peso_por_bulto?: number;
-  id_sitio: string;
+  /** Bodega "de casa" del producto. Opcional (Paso 0 de #5) — un producto puede quedar sin bodega. */
+  id_sitio?: string;
   usa_placa_sena?: boolean;
 }
 
@@ -212,6 +221,26 @@ export interface Solicitud {
   usuario_entrega_nombre?: string | null;
   /** Justificación del rechazo — presente solo si `estado === 'RECHAZADA'`. */
   motivo_rechazo?: string | null;
+}
+
+/** #3 — una fila del seguimiento de préstamos vencidos / por vencer. */
+export interface FilaVencimiento {
+  id_solicitud: string;
+  producto_nombre: string;
+  cantidad: number;
+  fecha_entrega: string | null;
+  fecha_devolucion: string | null;
+  /** Días de atraso (vencidas) o días que faltan (por_vencer). */
+  dias: number;
+  solicitante_nombre: string | null;
+  bodega_nombre: string | null;
+  responsable_nombre: string | null;
+}
+
+export interface SeguimientoVencimientos {
+  vencidas: FilaVencimiento[];
+  por_vencer: FilaVencimiento[];
+  ventana_dias: number;
 }
 
 /** Una línea al crear una solicitud multi-línea: producto devolutivo XOR lote consumible. */
@@ -439,6 +468,18 @@ export class MaterialesApiService {
   actualizarProducto(id: string, dto: Partial<CreateProductoDto>) {
     return this.unwrap(this.http.patch<Envelope<Producto>>(`${BASE}/productos/${id}`, dto));
   }
+  /** #5 — descarga la plantilla .xlsx (blob, sin envelope). */
+  descargarPlantillaProductos(): Promise<Blob> {
+    return firstValueFrom(
+      this.http.get(`${BASE}/productos/importar/plantilla`, { responseType: 'blob' }),
+    );
+  }
+  /** #5 — sube un .xlsx/.csv y devuelve el resumen + errores por fila. */
+  importarProductos(archivo: File) {
+    const fd = new FormData();
+    fd.append('archivo', archivo);
+    return this.unwrap(this.http.post<Envelope<ResultadoImportacion>>(`${BASE}/productos/importar`, fd));
+  }
   eliminarProducto(id: string) {
     return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/productos/${id}`));
   }
@@ -551,12 +592,19 @@ export class MaterialesApiService {
   crearSolicitud(dto: CreateSolicitudDto) {
     return this.unwrap(this.http.post<Envelope<Solicitud>>(`${BASE}/solicitudes`, dto));
   }
-  aprobarSolicitud(id: string) {
-    return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/aprobar`, {}));
+  /** #3b — `fecha_devolucion` (yyyy-MM-dd) opcional: el aprobador la fija/mueve al aprobar. No puede ser pasada (400). */
+  aprobarSolicitud(id: string, opts: { fecha_devolucion?: string } = {}) {
+    return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/aprobar`, opts));
   }
   /** El motivo es obligatorio — el backend rechaza con 400 si viene vacío. */
   rechazarSolicitud(id: string, motivo: string) {
     return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/rechazar`, { motivo }));
+  }
+  /** #3 — préstamos ENTREGADA vencidos / por vencer (recortado por bodega/rol). */
+  vencimientosSolicitudes(ventana = 7) {
+    return this.unwrap(
+      this.http.get<Envelope<SeguimientoVencimientos>>(`${BASE}/solicitudes/vencimientos`, { params: { ventana } }),
+    );
   }
   entregarSolicitud(id: string) {
     return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/entregar`, {}));

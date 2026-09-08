@@ -306,8 +306,9 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
 
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Sitio <span class="text-red-500">*</span></label>
-                <app-ss [options]="opcionesSitio" placeholder="— Selecciona —" [(ngModel)]="form['id_sitio']"></app-ss>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Bodega por defecto</label>
+                <app-ss [options]="opcionesSitio" placeholder="— Sin bodega —" [(ngModel)]="form['id_sitio']"></app-ss>
+                <p class="text-[11px] text-gray-400 mt-1">Opcional. Prellena el form de lotes; el stock se ubica por lote o por ítem.</p>
               </div>
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Stock mínimo</label>
@@ -533,8 +534,8 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
 
   nuevo(): void {
     if (!this.puedeCrear()) return;
-    if (this.categorias.length === 0 || this.sitios.length === 0) {
-      this.toast.warn('Faltan datos', 'Creá al menos una categoría y un sitio antes de registrar un producto.');
+    if (this.categorias.length === 0) {
+      this.toast.warn('Faltan datos', 'Creá al menos una categoría antes de registrar un producto.');
       return;
     }
     this.editando = null;
@@ -543,7 +544,8 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
       tipo_material: 'CONSUMO', unidad_medida: '', usa_placa_sena: true,
       unidad_peso_bulto: '', peso_por_bulto: '',
       id_categoria: this.categorias[0].id_categoria,
-      id_sitio: this.sitios[0].id_sitio,
+      // Bodega por defecto opcional — arranca vacía (Paso 0 de #5).
+      id_sitio: '',
       cantidad: 1, stock_minimo: 1,
     };
     this.skuEsAuto = true;
@@ -570,7 +572,7 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
       unidad_peso_bulto: producto.unidad_peso_bulto ?? '',
       peso_por_bulto: producto.peso_por_bulto ?? '',
       id_categoria: producto.id_categoria,
-      id_sitio: producto.id_sitio ?? this.sitios[0]?.id_sitio,
+      id_sitio: producto.id_sitio ?? '',
       stock_minimo: producto.stock_minimo,
     };
     this.error = null;
@@ -624,7 +626,7 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
           unidad_medida: form['unidad_medida'],
           es_psd: esPsd,
           id_categoria: form['id_categoria'],
-          id_sitio: form['id_sitio'],
+          id_sitio: form['id_sitio'] || undefined,
           stock_minimo: Number(form['stock_minimo']),
           ...camposCondicionales,
         });
@@ -642,7 +644,7 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
           unidad_medida: form['unidad_medida'],
           es_psd: esPsd,
           id_categoria: form['id_categoria'],
-          id_sitio: form['id_sitio'],
+          id_sitio: form['id_sitio'] || undefined,
           // Solo DEVOLUTIVO genera ítems; en CONSUMO/PERECEDERO el stock se carga aparte en Lotes.
           cantidad: esDevolutivo ? (Number(form['cantidad']) || 1) : 0,
           stock_minimo: Number(form['stock_minimo']),
