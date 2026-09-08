@@ -1,5 +1,6 @@
 import { Component, DoCheck, OnInit, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { AdminTableComponent, TableRowLink } from '../../shared/components/admin-table.component';
 import { SearchableSelectComponent } from '../../shared/components/searchable-select.component';
 import { OpcionSelect } from '../admin/services/admin.service';
@@ -198,17 +199,19 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
 @Component({
   selector: 'app-materiales-productos',
   standalone: true,
-  imports: [FormsModule, AdminTableComponent, SearchableSelectComponent],
+  imports: [FormsModule, RouterLink, AdminTableComponent, SearchableSelectComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
         <h1 class="text-xl font-bold text-gray-800">Productos</h1>
-        @if (puedeEliminar()) {
-          <button (click)="toggleInactivos()"
-            class="text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors"
-            [class]="verInactivos ? 'border-[#39A900] text-[#2d8000] bg-[#39A900]/10' : 'border-gray-200 text-gray-500 hover:border-gray-400'">
-            {{ verInactivos ? 'Ocultar desactivados' : 'Ver desactivados' }}
-          </button>
+        @if (puedeCrear()) {
+          <a routerLink="/materiales/importar"
+            class="group inline-flex items-center gap-1.5 text-xs font-semibold rounded-full pl-2.5 pr-3.5 py-2 border border-[#39A900]/25 text-[#2d8000] bg-[#39A900]/[0.07] shadow-sm hover:bg-[#39A900]/15 hover:border-[#39A900]/45 transition-colors">
+            <svg class="w-4 h-4 transition-transform group-hover:translate-y-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Importar
+          </a>
         }
       </div>
 
@@ -221,9 +224,13 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
         [columns]="['nombre', 'categoria_nombre', 'tipo_material', 'unidad_medida', 'stock_minimo']"
         [columnLabels]="columnLabels"
         [loading]="loading"
-        [canEdit]="puedeEditar() && !verInactivos"
+        [filterOptions]="puedeEliminar() ? estadoOpciones : null"
+        [filterValue]="estadoFiltro"
+        filterLabel="Estado"
+        (filterValueChange)="onEstadoFiltro($event)"
+        [canEdit]="puedeEditar() && estadoFiltro !== 'inactivos'"
         [canDelete]="puedeEliminar()"
-        [deleteLabel]="verInactivos ? 'Reactivar' : 'Desactivar'"
+        [deleteLabel]="estadoFiltro === 'inactivos' ? 'Reactivar' : 'Desactivar'"
         [rowLinks]="rowLinks"
         (edit)="editar($event)"
         (delete)="eliminar($event)" />
@@ -515,8 +522,14 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
     },
   ];
 
-  /** B1 — mostrar también los productos desactivados (solo lo ofrece el toggle a quien puede editar). */
-  verInactivos = false;
+  /** B1 — filtro de estado del toolbar (solo se ofrece a quien puede desactivar).
+   *  'activos' = solo activos (default); 'inactivos' = solo los desactivados,
+   *  para reactivarlos. */
+  readonly estadoOpciones = [
+    { value: 'activos', label: 'Activos' },
+    { value: 'inactivos', label: 'Desactivados' },
+  ];
+  estadoFiltro: 'activos' | 'inactivos' = 'activos';
 
   get filas(): any[] {
     return this.productos.map((p) => ({
@@ -528,8 +541,8 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
     }));
   }
 
-  toggleInactivos(): void {
-    this.verInactivos = !this.verInactivos;
+  onEstadoFiltro(v: string): void {
+    this.estadoFiltro = v === 'inactivos' ? 'inactivos' : 'activos';
     this.cargar();
   }
 
@@ -539,13 +552,18 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
       // Sin `materiales.sitios.ver` (caso típico de aprendiz) ni se pide
       // /sitios ni se deja que un 403 ahí tumbe el resto de la carga.
       const verSitios = this.puedeVerSitios();
+      const soloInactivos = this.estadoFiltro === 'inactivos';
       const [productos, categorias, sitios, items] = await Promise.all([
-        this.api.listarProductos(this.verInactivos),
+        this.api.listarProductos(soloInactivos),
         this.api.listarCategorias(),
         verSitios ? this.api.listarSitios().catch(() => [] as Sitio[]) : Promise.resolve([] as Sitio[]),
         this.api.listarItems().catch(() => [] as Item[]),
       ]);
-      this.productos = productos;
+      // `listarProductos(true)` trae activos + desactivados; en modo
+      // "Desactivados" nos quedamos solo con los que están dados de baja.
+      this.productos = soloInactivos
+        ? productos.filter((p) => (p as any).activo === false)
+        : productos;
       this.categorias = categorias;
       this.sitios = sitios;
       this.items = items;
@@ -709,7 +727,7 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
     const p = this.productos.find((x) => x.id_producto === fila.id_producto);
     const nombre = p?.nombre ?? 'este producto';
 
-    if (this.verInactivos) {
+    if (this.estadoFiltro === 'inactivos') {
       if (!(await this.confirm.ask(`¿Reactivar el producto "${nombre}"?`, { danger: false, acceptLabel: 'Reactivar' }))) return;
       try {
         await this.api.activarProducto(fila.id_producto);

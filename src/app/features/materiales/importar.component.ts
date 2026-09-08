@@ -57,6 +57,13 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
     <div class="p-6 mx-auto" [class.max-w-xl]="fase === 'subir'" [class.max-w-7xl]="fase !== 'subir'" [class.revisar-shell]="fase === 'revisar'">
 
       <header class="mb-4 shrink-0">
+        <a routerLink="/materiales/productos"
+          class="group inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-full pl-2.5 pr-3.5 py-2 shadow-sm hover:border-[#39A900] hover:text-[#2d8000] hover:bg-[#39A900]/[0.06] hover:shadow transition-all mb-2.5">
+          <svg class="w-4 h-4 transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+          </svg>
+          Volver a Productos
+        </a>
         <h1 class="text-[1.35rem] font-bold text-gray-900 tracking-tight">Importar productos</h1>
         <p class="text-sm text-gray-500 mt-0.5">
           Carga masiva desde Excel o CSV. Siempre revisás un resumen antes de que se registre nada.

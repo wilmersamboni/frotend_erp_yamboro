@@ -79,6 +79,19 @@ export interface TableRowLink {
             </select>
           </div>
 
+          <!-- Filtro opcional (ej. estado activo/desactivado) — lo controla el padre -->
+          @if (filterOptions && filterOptions.length) {
+            <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
+              <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">{{ filterLabel }}</span>
+              <select [ngModel]="filterValue" (ngModelChange)="filterValueChange.emit($event); page = 0"
+                class="text-sm font-semibold bg-transparent border-none focus:ring-0 text-gray-700 cursor-pointer">
+                @for (o of filterOptions; track o.value) {
+                  <option [ngValue]="o.value">{{ o.label }}</option>
+                }
+              </select>
+            </div>
+          }
+
           <!-- Botón de alta (opcional) — a la derecha, misma fila que buscador/filas -->
           @if (addLabel) {
             <button (click)="add.emit()"
@@ -228,6 +241,14 @@ export class AdminTableComponent implements DoCheck {
    *  para ocultarlo (ej. el usuario no tiene permiso de alta). */
   @Input() addLabel: string | null = null;
   @Output() add = new EventEmitter<void>();
+
+  /** Filtro opcional en el toolbar (select), entre "Filas" y el botón de alta.
+   *  El padre es el dueño del valor: se pasa `[filterValue]` y se reacciona a
+   *  `(filterValueChange)`. Pasar `null`/`[]` en `filterOptions` lo oculta. */
+  @Input() filterOptions: { value: string; label: string }[] | null = null;
+  @Input() filterValue = '';
+  @Input() filterLabel = 'Estado';
+  @Output() filterValueChange = new EventEmitter<string>();
 
   /** Estado interno del buscador/paginador (solo activo con `searchable`). */
   busqueda = '';
