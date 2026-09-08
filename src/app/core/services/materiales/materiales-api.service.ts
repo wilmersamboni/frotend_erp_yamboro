@@ -412,16 +412,18 @@ export interface ItemChequeo {
 }
 
 /**
- * Acta de entrega/devolución: PDF generado automáticamente por el backend
- * al confirmar recepción o al cerrar una devolución (una por solicitud —
- * la que ocurra primero). `url_pdf` es relativa (`uploads/materiales-actas/
- * <archivo>.pdf`) y debe descargarse autenticado, no con un <a href> plano
- * — ver MaterialesApiService.descargarActaPdf.
+ * Acta de entrega/devolución: PDF generado automáticamente por el backend.
+ * Cada solicitud puede tener HASTA DOS actas independientes — una de
+ * `tipo: 'ENTREGA'` (al confirmar recepción) y una de `tipo: 'DEVOLUCION'`
+ * (al cerrarse el préstamo) — no son excluyentes entre sí. `url_pdf` es
+ * relativa (`uploads/materiales-actas/<archivo>.pdf`) y debe descargarse
+ * autenticado, no con un <a href> plano — ver MaterialesApiService.descargarActaPdf.
  */
 export interface Acta {
   id_acta: string;
   fecha: string;
   url_pdf: string | null;
+  tipo: 'ENTREGA' | 'DEVOLUCION';
   id_solicitud: string;
   id_usuario: string;
   solicitud?: Solicitud;

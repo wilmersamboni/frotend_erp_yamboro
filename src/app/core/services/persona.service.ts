@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { Persona } from '../../shared/models';
 import { environment } from '../../../environments/environment';
+import { SILENCIAR_TOAST_ERROR } from '../interceptors/error.interceptor';
 
 const BASE = environment.apiUrl;
 
@@ -56,10 +57,19 @@ export class PersonaService {
    * Todos los usuarios del tenant con su persona resuelta (nombre, cargo,
    * correo — la `cargo` vive en `Persona`, no en `Usuario`). Sin selector de
    * cargo propio en el backend — se filtra client-side (ver `listarResponsablesBodega`).
+   *
+   * Requiere `usuarios.gestionar`, que un instructor/aprendiz típicamente no
+   * tiene — todos los llamadores ya degradan el 403 a `[]` en silencio (ver
+   * `listarResponsablesBodega`, y los `.catch(() => [])` en Sitios/Novedades),
+   * así que se silencia también el toast global: un usuario sin ese permiso
+   * no está haciendo nada mal, solo se le muestran menos datos auxiliares.
    */
   async listarUsuarios(): Promise<any[]> {
     const resp: any = await firstValueFrom(
-      this.http.get(`${BASE}/usuarios`, { withCredentials: true })
+      this.http.get(`${BASE}/usuarios`, {
+        withCredentials: true,
+        context: new HttpContext().set(SILENCIAR_TOAST_ERROR, true),
+      })
     );
     return Array.isArray(resp) ? resp : (resp?.data ?? []);
   }

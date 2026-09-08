@@ -7,14 +7,15 @@ import { Acta, MaterialesApiService } from '../../../core/services/materiales/ma
 /**
  * Actas de entrega/devolución — solo lectura. El backend las genera solo
  * (PDF real, ver ActasService.generarSiNoExiste en backend-practica-
- * hexagonal): al confirmar recepción de una solicitud, o al cerrar su
- * devolución, lo que ocurra primero. No hay alta ni edición manual acá —
- * el "+ Nueva" no existe a propósito.
+ * hexagonal): una de tipo ENTREGA al confirmar recepción de una solicitud,
+ * y una de tipo DEVOLUCION al cerrar su devolución — son independientes,
+ * una misma solicitud puede (y normalmente va a) tener las dos. No hay alta
+ * ni edición manual acá — el "+ Nueva" no existe a propósito.
  *
  * El resumen de qué se entregó/devolvió vive DENTRO del PDF (generado con
  * los datos de la solicitud en ese momento), no en esta lista — por eso la
- * tabla se mantiene liviana: fecha + referencia a la solicitud + acción
- * para abrir el documento.
+ * tabla se mantiene liviana: fecha + tipo + referencia a la solicitud +
+ * acción para abrir el documento.
  */
 @Component({
   selector: 'app-materiales-actas',
@@ -46,7 +47,7 @@ import { Acta, MaterialesApiService } from '../../../core/services/materiales/ma
         [rows]="filas"
         [searchable]="true"
         [searchPlaceholder]="'Buscar por solicitud…'"
-        [columns]="['fecha', 'referencia', 'estado_solicitud']"
+        [columns]="['fecha', 'tipo', 'referencia', 'estado_solicitud']"
         [columnLabels]="columnLabels"
         [statusColumn]="'estado_solicitud'"
         [loading]="loading"
@@ -73,6 +74,7 @@ export class MaterialesActasComponent implements OnInit {
   filtroTexto = '';
 
   columnLabels: Record<string, string> = {
+    tipo: 'Tipo',
     referencia: 'Solicitud',
     estado_solicitud: 'Estado',
   };
@@ -90,6 +92,7 @@ export class MaterialesActasComponent implements OnInit {
       .map((a) => ({
         ...a,
         fecha: new Date(a.fecha).toLocaleString('es-CO'),
+        tipo: a.tipo === 'DEVOLUCION' ? 'Devolución' : 'Entrega',
         referencia: `#${a.id_solicitud.slice(0, 8)}`,
         estado_solicitud: a.solicitud?.estado ?? '—',
       }))

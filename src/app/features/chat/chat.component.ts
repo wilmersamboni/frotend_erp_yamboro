@@ -1,7 +1,7 @@
 import { Component, OnInit, signal, ElementRef, ViewChild, AfterViewChecked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { ChatService } from '../../core/services/chat.service';
 
 interface Message { role: 'user' | 'assistant'; content: string; }
 
@@ -113,46 +113,58 @@ interface Message { role: 'user' | 'assistant'; content: string; }
     </section>
   `,
 })
-export class ChatComponent implements AfterViewChecked {
+export class ChatComponent implements OnInit, AfterViewChecked {
   @ViewChild('anchor') anchor!: ElementRef;
 
   messages  = signal<Message[]>([
-    { role: 'assistant', content: '¡Hola! Soy tu asistente. ¿En qué puedo ayudarte hoy?' },
+    { role: 'assistant', content: '¡Hola! Soy Atlas, tu asistente. ¿En qué puedo ayudarte hoy?' },
   ]);
   isLoading = signal(false);
   input     = '';
 
-  constructor(private http: HttpClient) {}
+  constructor(private chat: ChatService) {}
+
+  ngOnInit(): void {
+    // Retoma la última conversación (si hay una reciente) en vez de arrancar
+    // siempre en el saludo — ver ChatAsistenteService.obtenerHistorialReciente().
+    this.chat.obtenerHistorialReciente().subscribe({
+      next: (historial) => {
+        if (!historial?.mensajes?.length) return;
+        this.chat.adoptarSession(historial.sessionId);
+        this.messages.set(
+          historial.mensajes.map((m) => ({
+            role: m.rol === 'asistente' ? 'assistant' : 'user',
+            content: m.contenido,
+          })),
+        );
+      },
+      error: () => {}, // sin historial previo o error al pedirlo: se queda con el saludo por defecto
+    });
+  }
 
   ngAfterViewChecked(): void {
     this.anchor?.nativeElement.scrollIntoView({ behavior: 'smooth' });
   }
 
-async handleSubmit(): Promise<void> {
-  if (!this.input.trim() || this.isLoading()) return;
+  async handleSubmit(): Promise<void> {
+    if (!this.input.trim() || this.isLoading()) return;
 
-  const userMsg: Message = { role: 'user', content: this.input.trim() };
-  this.messages.update(m => [...m, userMsg]);
-  this.input = '';
-  this.isLoading.set(true);
+    const userMsg: Message = { role: 'user', content: this.input.trim() };
+    this.messages.update(m => [...m, userMsg]);
+    this.input = '';
+    this.isLoading.set(true);
 
-  try {
-    const resp: any = await firstValueFrom(
-      this.http.post('https://danin8n.duckdns.org/webhook/bot_virtual', {
-        message: userMsg.content
-      })
-    );
-
-    const reply = resp?.reply ?? 'Lo siento, no obtuve respuesta.';
-    this.messages.update(m => [...m, { role: 'assistant', content: reply }]);
-
-  } catch {
-    this.messages.update(m => [
-      ...m,
-      { role: 'assistant', content: 'Lo siento, no fue posible conectar con el asistente.' },
-    ]);
-  } finally {
-    this.isLoading.set(false);
+    try {
+      const resp = await firstValueFrom(this.chat.sendMessage(userMsg.content));
+      const reply = resp?.reply ?? 'Lo siento, no obtuve respuesta.';
+      this.messages.update(m => [...m, { role: 'assistant', content: reply }]);
+    } catch {
+      this.messages.update(m => [
+        ...m,
+        { role: 'assistant', content: 'Lo siento, no fue posible conectar con el asistente.' },
+      ]);
+    } finally {
+      this.isLoading.set(false);
+    }
   }
-}
 }
