@@ -6,6 +6,10 @@ import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { ErpCatalogoService } from '../../../core/services/horarios/erp-catalogo.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
+import { DateInputComponent } from '../../../shared/components/date-input.component';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
+import { TuiDayCache } from '../../../shared/utils/tui-day.util';
+import type { TuiDay } from '@taiga-ui/cdk';
 import { Asignacion, CreateAsignacionDto, MaterialesApiService, Producto } from '../../../core/services/materiales/materiales-api.service';
 
 interface Ficha {
@@ -31,7 +35,7 @@ interface Ficha {
 @Component({
   selector: 'app-materiales-asignaciones',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent],
+  imports: [FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -101,22 +105,13 @@ interface Ficha {
           <div class="space-y-3">
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Ficha</label>
-              <select [(ngModel)]="form['id_curso']"
-                class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
-                @for (f of fichas; track f.idCurso) {
-                  <option [value]="f.idCurso">{{ f.codigo }}{{ f.programa ? ' — ' + f.programa : '' }}</option>
-                }
-              </select>
+              <app-ss [options]="opcionesFicha" placeholder="Seleccioná una ficha…" [(ngModel)]="form['id_curso']"></app-ss>
             </div>
 
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Producto</label>
-              <select [(ngModel)]="form['id_producto']" (ngModelChange)="onProductoChange($event)"
-                class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
-                @for (p of productos; track p.id_producto) {
-                  <option [value]="p.id_producto">{{ p.nombre }}</option>
-                }
-              </select>
+              <app-ss [options]="opcionesProducto" placeholder="Seleccioná un producto…"
+                [(ngModel)]="form['id_producto']" (ngModelChange)="onProductoChange($event)"></app-ss>
             </div>
 
             <!-- Panel de stock: mismo criterio que el módulo hermano SGM (frontend-proyecto) -->
@@ -153,8 +148,9 @@ interface Ficha {
 
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Fecha de devolución (opcional)</label>
-              <input type="date" [(ngModel)]="form['fecha_devolucion']"
-                class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+              <app-date-input placeholder="DD/MM/AAAA"
+                [ngModel]="cacheFechaDevolucion.get(form['fecha_devolucion'])"
+                (ngModelChange)="form['fecha_devolucion'] = tuiDayToIso($event)"></app-date-input>
             </div>
 
             <div>
@@ -187,12 +183,26 @@ export class MaterialesAsignacionesComponent implements OnInit {
   asignaciones: Asignacion[] = [];
   productos: Producto[] = [];
   fichas: Ficha[] = [];
+
+  get opcionesFicha() {
+    return this.fichas.map((f) => ({ value: f.idCurso, label: `${f.codigo}${f.programa ? ' — ' + f.programa : ''}` }));
+  }
+  get opcionesProducto() {
+    return this.productos.map((p) => ({ value: p.id_producto, label: p.nombre }));
+  }
+
   loading = false;
   saving = false;
   error: string | null = null;
 
   modalOpen = false;
   form: Record<string, any> = {};
+  readonly cacheFechaDevolucion = new TuiDayCache();
+
+  /** <app-date-input> trabaja con TuiDay; el resto del componente sigue en 'yyyy-MM-dd'. */
+  tuiDayToIso(day: TuiDay | null): string {
+    return TuiDayCache.toIso(day);
+  }
 
   /** Stock del producto elegido — consultado en vivo, mismo endpoint que ya usa el módulo hermano SGM. */
   stock: { disponibles: number; total: number; cargando: boolean } = { disponibles: 0, total: 0, cargando: false };

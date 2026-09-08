@@ -131,15 +131,20 @@ export const routes: Routes = [
           { path: 'materiales/vencimientos', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.solicitudes.ver'] }, loadComponent: () => import('./features/materiales/vencimientos.component').then((m) => m.MaterialesVencimientosComponent) },
           { path: 'materiales/importar', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.productos.crear'] }, loadComponent: () => import('./features/materiales/importar.component').then((m) => m.MaterialesImportarComponent) },
 
+          // Lotes: instructor y aprendiz ya tienen 'materiales.lotes.ver' por
+          // defecto en el catálogo (MATERIALES_INSTRUCTOR/MATERIALES_APRENDIZ,
+          // backend-epsas), así que se abre por servicio como el resto de las
+          // 5 pantallas unificadas — antes era admin-only por `roles`, dejando
+          // a cualquier otro rol sin acceso aunque sí tuviera el servicio.
+          { path: 'materiales/lotes', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.lotes.ver'] }, loadComponent: () => import('./features/admin/materiales/lotes.component').then((m) => m.MaterialesLotesComponent) },
+
           // ── Materiales (bodega) — slice de admin ──
-          { path: 'materiales/lotes', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/lotes.component').then((m) => m.MaterialesLotesComponent) },
           { path: 'materiales/kardex', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/kardex.component').then((m) => m.MaterialesKardexComponent) },
           { path: 'materiales/novedades', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/novedades.component').then((m) => m.MaterialesNovedadesComponent) },
           { path: 'materiales/traslados', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/traslados.component').then((m) => m.MaterialesTrasladosComponent) },
           { path: 'materiales/solicitudes', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/solicitudes.component').then((m) => m.MaterialesSolicitudesComponent) },
           { path: 'materiales/devoluciones', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/devoluciones.component').then((m) => m.MaterialesDevolucionesComponent) },
           { path: 'materiales/actas', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/actas.component').then((m) => m.MaterialesActasComponent) },
-          { path: 'materiales/chequeos', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/chequeos.component').then((m) => m.MaterialesChequeosComponent) },
           { path: 'materiales/asignaciones', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/asignaciones.component').then((m) => m.MaterialesAsignacionesComponent) },
 
           // ── Materiales (bodega) — instructor: solo lectura salvo lo suyo,

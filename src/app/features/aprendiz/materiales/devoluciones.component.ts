@@ -3,6 +3,7 @@ import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../../core/services/toast.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
 import {
   CreateDevolucionDto,
   Devolucion,
@@ -39,7 +40,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
 @Component({
   selector: 'app-aprendiz-materiales-devoluciones',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent],
+  imports: [FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -98,15 +99,8 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
           <div class="space-y-4">
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Préstamo a devolver</label>
-              <select [(ngModel)]="idSolicitud" (ngModelChange)="onSolicitudChange()"
-                class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
-                <option [ngValue]="null">— Selecciona —</option>
-                @for (s of solicitudesEntregadas; track s.id_solicitud) {
-                  <option [ngValue]="s.id_solicitud">
-                    {{ s.producto?.nombre ?? 'Material' }} — Cant. {{ s.cantidad }} — {{ s.fecha | date: 'short' }}
-                  </option>
-                }
-              </select>
+              <app-ss [options]="opcionesSolicitud()" placeholder="— Selecciona —"
+                [(ngModel)]="idSolicitud" (ngModelChange)="onSolicitudChange()"></app-ss>
             </div>
 
             @if (idSolicitud) {
@@ -211,6 +205,13 @@ export class AprendizMaterialesDevolucionesComponent implements OnInit {
   /** Ver docblock de la versión admin. */
   get solicitudesEntregadas(): Solicitud[] {
     return this.solicitudes.filter((s) => s.estado === 'ENTREGADA');
+  }
+
+  opcionesSolicitud(): { value: string; label: string }[] {
+    return this.solicitudesEntregadas.map((s) => ({
+      value: s.id_solicitud,
+      label: `${s.producto?.nombre ?? 'Material'} — Cant. ${s.cantidad} — ${new Date(s.fecha).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}`,
+    }));
   }
 
   ngOnInit(): void {
