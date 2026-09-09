@@ -488,10 +488,14 @@ export class AdminService {
         );
       }
 
-      opciones[campo] = items.map(item => ({
-      label: item[selector.label] ?? '—',
-      value: item[selector.value],
-    }));
+      const opts = items.map(item => ({
+        label: item[selector.label] ?? '—',
+        value: item[selector.value],
+      }));
+      // `opcional`: permite dejar el FK vacío (ej. líder de área).
+      opciones[campo] = selector.opcional
+        ? [{ label: '— Sin asignar —', value: null }, ...opts]
+        : opts;
     }
     // Opciones estáticas
         const staticOpts = cfg.opcionesEstaticas ?? {};
