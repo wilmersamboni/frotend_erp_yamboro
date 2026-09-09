@@ -228,6 +228,9 @@ export interface Novedad {
   estado: EstadoNovedad;
   fecha: string;
   id_usuario: string;
+  /** "Nombre Apellido" de quien reportó, resuelto por el backend (el frontend no
+   *  puede bulk-cargar `/api/usuarios`). Null si no se pudo resolver. */
+  usuario_nombre?: string | null;
   id_item: string | null;
   item?: Item;
 }
@@ -314,6 +317,22 @@ export interface CreateSolicitudDto {
   lineas?: LineaSolicitudInput[];
   observacion?: string;
   fecha_devolucion?: string;
+}
+
+/** Ubicación (bodega) real del ítem + responsable con nombre resuelto por el backend. */
+export interface UbicacionItem {
+  id_sitio: string;
+  nombre: string;
+  id_responsable: string | null;
+  responsable_nombre: string | null;
+}
+
+export interface ItemDetalleBusqueda {
+  item: Item;
+  prestamo_activo: any;
+  asignacion_activa: any;
+  novedad_activa: any;
+  ubicacion: UbicacionItem | null;
 }
 
 export interface Traslado {
@@ -587,7 +606,7 @@ export class MaterialesApiService {
   }
   buscarItemPorPlaca(placa: string) {
     return this.unwrap(
-      this.http.get<Envelope<{ item: Item; prestamo_activo: any; asignacion_activa: any; novedad_activa: any } | null>>(
+      this.http.get<Envelope<ItemDetalleBusqueda | null>>(
         `${BASE}/items/buscar/${encodeURIComponent(placa)}`,
       ),
     );

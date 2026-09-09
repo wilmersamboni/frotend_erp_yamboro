@@ -600,6 +600,14 @@ export class SidebarComponent implements OnChanges, OnInit {
             servicioEstricto: 'materiales.kardex.ver',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>`),
           },
+          {
+            // El endpoint recorta las actas: el instructor solo ve las de sus
+            // solicitudes o las de las bodegas que gestiona (ver ActasService.resolverScope).
+            label: 'Actas', href: '/materiales/actas',
+            roles: ['instructor'],
+            servicioEstricto: 'materiales.actas.ver',
+            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`),
+          },
           // "Asignaciones" NO va para instructor: el rol no tiene ningún
           // `materiales.asignaciones.*` en SERVICIOS_POR_ROL (es admin-only),
           // así que la pantalla era inalcanzable. Ruta y componente retirados.
@@ -647,6 +655,15 @@ export class SidebarComponent implements OnChanges, OnInit {
             roles: ['aprendiz'],
             servicioEstricto: 'materiales.lotes.ver',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`),
+          },
+          {
+            // El aprendiz solo ve las actas de SUS solicitudes (el endpoint las
+            // recorta por solicitud.id_usuario). `materiales.actas.ver` está en
+            // MATERIALES_APRENDIZ, así que lo tiene cualquier aprendiz.
+            label: 'Actas', href: '/materiales/actas',
+            roles: ['aprendiz'],
+            servicioEstricto: 'materiales.actas.ver',
+            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`),
           },
         ],
       },
