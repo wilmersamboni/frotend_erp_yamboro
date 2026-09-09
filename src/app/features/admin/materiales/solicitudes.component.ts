@@ -1,5 +1,7 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
+import { MaterialesLiveService } from '../../../core/services/realtime/materiales-live.service';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -396,6 +398,8 @@ export class MaterialesSolicitudesComponent implements OnInit {
     private api: MaterialesApiService,
     private toast: ToastService,
     private auth: AuthService,
+    private live: MaterialesLiveService,
+    private destroyRef: DestroyRef,
   ) {}
 
   /**
@@ -440,6 +444,11 @@ export class MaterialesSolicitudesComponent implements OnInit {
 
   ngOnInit(): void {
     this.cargar();
+    // Capa 2 realtime: refetch cuando llega una notificación materiales_* (otra
+    // persona aprobó/entregó/rechazó/etc.) — sin recargar la página.
+    this.live.eventos()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.cargar());
   }
 
   // ── Modal multi-línea (Tier SigMat M4) ──────────────────────────────

@@ -1,5 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, DestroyRef, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
+import { MaterialesLiveService } from '../../../core/services/realtime/materiales-live.service';
 import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../../core/services/toast.service';
 import { PermisosService } from '../../../core/services/permisos.service';
@@ -378,6 +380,8 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
     private toast: ToastService,
     private permisos: PermisosService,
     private auth: AuthService,
+    private live: MaterialesLiveService,
+    private destroyRef: DestroyRef,
   ) {}
 
   get puedeAprobar(): boolean {
@@ -414,6 +418,9 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
   ngOnInit(): void {
     this.permisos.cargar();
     this.cargar();
+    this.live.eventos()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.cargar());
   }
 
   // ── Modal multi-línea (Tier SigMat M4) ──────────────────────────────

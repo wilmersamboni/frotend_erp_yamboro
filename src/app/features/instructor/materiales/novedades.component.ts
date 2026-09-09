@@ -1,5 +1,7 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
+import { MaterialesLiveService } from '../../../core/services/realtime/materiales-live.service';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
@@ -105,8 +107,8 @@ const OPCIONES_TIPO: OpcionSelect[] = [
                 <tr class="hover:bg-gray-50/80 transition-colors">
                   <td class="px-4 py-3 text-gray-700">{{ n.tipo }}</td>
                   <td class="px-4 py-3 text-gray-700 max-w-[280px] truncate">{{ n.descripcion }}</td>
-                  <td class="px-4 py-3 text-gray-700">{{ n.item?.codigo_sku ?? '—' }}</td>
-                  <td class="px-4 py-3 text-gray-700">{{ nombreUsuario(n.id_usuario) }}</td>
+                  <td class="px-4 py-3 text-gray-700">{{ n.item?.producto?.nombre ?? n.item?.codigo_sku ?? '—' }}</td>
+                  <td class="px-4 py-3 text-gray-700">{{ nombreUsuario(n) }}</td>
                   <td class="px-4 py-3"><app-status-badge [value]="n.estado" /></td>
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ n.fecha | date: 'short' }}</td>
                   <td class="px-4 py-3">
@@ -200,7 +202,7 @@ const OPCIONES_TIPO: OpcionSelect[] = [
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Tipo</dt><dd class="text-gray-800 font-medium text-right">{{ detalle.tipo }}</dd></div>
             <div><dt class="text-gray-500 mb-1">Descripción</dt><dd class="text-gray-800">{{ detalle.descripcion }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Ítem</dt><dd class="text-gray-800 text-right">{{ detalle.item?.producto?.nombre ?? detalle.item?.codigo_sku ?? '—' }}</dd></div>
-            <div class="flex justify-between gap-4"><dt class="text-gray-500">Reportado por</dt><dd class="text-gray-800 text-right">{{ nombreUsuario(detalle.id_usuario) }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-gray-500">Reportado por</dt><dd class="text-gray-800 text-right">{{ nombreUsuario(detalle) }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Estado</dt><dd class="text-gray-800 text-right">{{ detalle.estado }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Fecha</dt><dd class="text-gray-800 text-right">{{ detalle.fecha | date: 'medium' }}</dd></div>
           </dl>
@@ -253,6 +255,8 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
     private personaApi: PersonaService,
     private route: ActivatedRoute,
     private router: Router,
+    private live: MaterialesLiveService,
+    private destroyRef: DestroyRef,
   ) {}
 
   get novedadesFiltradas(): Novedad[] {
@@ -299,12 +303,21 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
   ngOnInit(): void {
     this.permisos.cargar();
     this.cargar();
+    this.live.eventos()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.cargar());
   }
 
-  /** "N.N. — cargo" del usuario que reportó, o el id crudo si no se pudo resolver. */
-  nombreUsuario(idUsuario: string): string {
-    const u = this.usuarios.find((x) => x.idUsuario === idUsuario);
-    return u ? `${u.persona?.nombre ?? ''} ${u.persona?.apellido ?? ''}`.trim() || idUsuario : idUsuario;
+  /**
+   * Nombre de quien reportó. Prioriza `usuario_nombre` que ya resuelve el
+   * backend (un encargado de bodega no puede bulk-cargar `/api/usuarios`, así
+   * que `this.usuarios` suele venir vacío para este rol); si no llegó, cae a la
+   * resolución client-side y por último al id crudo.
+   */
+  nombreUsuario(n: Novedad): string {
+    if (n.usuario_nombre) return n.usuario_nombre;
+    const u = this.usuarios.find((x) => x.idUsuario === n.id_usuario);
+    return u ? `${u.persona?.nombre ?? ''} ${u.persona?.apellido ?? ''}`.trim() || n.id_usuario : n.id_usuario;
   }
 
   contarEstado(estado: string): number {

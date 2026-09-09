@@ -1,5 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, DestroyRef, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
+import { MaterialesLiveService } from '../../../core/services/realtime/materiales-live.service';
 import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../../core/services/toast.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
@@ -197,6 +199,8 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
   constructor(
     private api: MaterialesApiService,
     private toast: ToastService,
+    private live: MaterialesLiveService,
+    private destroyRef: DestroyRef,
   ) {}
 
   /** Ver docblock de la versión admin. */
@@ -213,6 +217,9 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
 
   ngOnInit(): void {
     this.cargar();
+    this.live.eventos()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.cargar());
   }
 
   nombreItem(id: string): string {
