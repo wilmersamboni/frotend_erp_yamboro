@@ -20,6 +20,14 @@ export interface Categoria {
   nombre: string;
 }
 
+export interface Unspsc {
+  codigo: string;
+  nombre: string;
+  segmento: string | null;
+  familia: string | null;
+  clase: string | null;
+}
+
 export interface Sitio {
   id_sitio: string;
   nombre: string;
@@ -532,6 +540,18 @@ export class MaterialesApiService {
   listarProductos(incluirInactivos = false) {
     const params = incluirInactivos ? { incluirInactivos: 'true' } : undefined;
     return this.unwrap(this.http.get<Envelope<Producto[]>>(`${BASE}/productos`, { params }));
+  }
+  /**
+   * Búsqueda remota en el catálogo UNSPSC (reemplaza el arreglo hardcodeado
+   * OPCIONES_UNSPSC de ~77 códigos) — server-side, nunca trae el catálogo
+   * completo al navegador. Ver `<app-ss [loadOptions]>` en productos.component.ts.
+   */
+  buscarUnspsc(q: string, limit = 20) {
+    return this.unwrap(
+      this.http.get<Envelope<Unspsc[]>>(
+        `${BASE}/unspsc?q=${encodeURIComponent(q)}&limit=${limit}`,
+      ),
+    );
   }
   /** DEVOLUTIVO genera `items_generados` (uno por unidad); CONSUMO/PERECEDERO genera `lote_generado` en su lugar. */
   crearProducto(dto: CreateProductoDto) {

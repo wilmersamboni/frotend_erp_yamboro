@@ -15,107 +15,6 @@ const OPCIONES_TIPO_MATERIAL = [
   { value: 'PERECEDERO', label: 'Perecedero', clases: 'border-amber-300 bg-amber-50 text-amber-700' },
 ] as const;
 
-// Catálogo UNSPSC (Colombia Compra Eficiente) curado para SENA — mismo
-// catálogo que usa el sistema hermano de bodega (frontend-proyecto/SGM),
-// copiado 1:1 para que ambos sistemas ofrezcan los mismos códigos. Los que
-// empiezan en '50' (segmento Alimentos y Bebidas) son "de gastronomía": el
-// backend (create-producto.dto.ts) exime el SKU para esos, ver `esGastronomia()`.
-const OPCIONES_UNSPSC: OpcionSelect[] = [
-  { label: '50101501 - Arroz', value: '50101501' },
-  { label: '50101701 - Harina de trigo', value: '50101701' },
-  { label: '50101702 - Harina de maíz', value: '50101702' },
-  { label: '50111501 - Aceite vegetal comestible', value: '50111501' },
-  { label: '50111601 - Mantequilla', value: '50111601' },
-  { label: '50111602 - Margarina', value: '50111602' },
-  { label: '50121501 - Azúcar refinada', value: '50121501' },
-  { label: '50121901 - Sal de mesa', value: '50121901' },
-  { label: '50122001 - Vinagre', value: '50122001' },
-  { label: '50131501 - Leche entera pasteurizada', value: '50131501' },
-  { label: '50131502 - Leche descremada', value: '50131502' },
-  { label: '50131601 - Crema de leche', value: '50131601' },
-  { label: '50131701 - Queso fresco', value: '50131701' },
-  { label: '50141501 - Huevos de gallina', value: '50141501' },
-  { label: '50151501 - Pollo entero fresco', value: '50151501' },
-  { label: '50151502 - Carne de res fresca', value: '50151502' },
-  { label: '50151601 - Cerdo fresco', value: '50151601' },
-  { label: '50171501 - Pescado fresco', value: '50171501' },
-  { label: '50181501 - Camarón fresco', value: '50181501' },
-  { label: '50191501 - Legumbres secas (lentejas, frijoles, garbanzos)', value: '50191501' },
-  { label: '50201501 - Papas frescas', value: '50201501' },
-  { label: '50201502 - Cebollas frescas', value: '50201502' },
-  { label: '50201503 - Tomates frescos', value: '50201503' },
-  { label: '50201701 - Zanahorias frescas', value: '50201701' },
-  { label: '50211501 - Manzanas frescas', value: '50211501' },
-  { label: '50211502 - Plátanos frescos', value: '50211502' },
-  { label: '50221501 - Especias y condimentos', value: '50221501' },
-  { label: '50221502 - Hierbas aromáticas secas', value: '50221502' },
-  { label: '50281501 - Café molido', value: '50281501' },
-  { label: '50281701 - Té en bolsas', value: '50281701' },
-  { label: '50291501 - Agua embotellada', value: '50291501' },
-  { label: '50301701 - Pasta alimentaria', value: '50301701' },
-  { label: '50301801 - Pan industrial', value: '50301801' },
-  { label: '52141501 - Ollas de acero inoxidable', value: '52141501' },
-  { label: '52141502 - Sartenes de acero inoxidable', value: '52141502' },
-  { label: '52141601 - Tablas de cortar plásticas', value: '52141601' },
-  { label: '52141701 - Cuchillos de cocina profesional', value: '52141701' },
-  { label: '52141702 - Juego de cuchillos de chef', value: '52141702' },
-  { label: '52141801 - Cucharones y espumaderas', value: '52141801' },
-  { label: '52141901 - Bowls de acero inoxidable', value: '52141901' },
-  { label: '52142001 - Bandejas de hornear', value: '52142001' },
-  { label: '52142101 - Coladeras y coladores', value: '52142101' },
-  { label: '52142201 - Peladores de verduras', value: '52142201' },
-  { label: '52142301 - Batidores de alambre (globo)', value: '52142301' },
-  { label: '52142401 - Termómetros de cocina', value: '52142401' },
-  { label: '48101701 - Licuadora industrial', value: '48101701' },
-  { label: '48101702 - Batidora de pedestal industrial', value: '48101702' },
-  { label: '48101801 - Horno de convección', value: '48101801' },
-  { label: '48102001 - Freidora industrial', value: '48102001' },
-  { label: '48102101 - Plancha de cocina industrial', value: '48102101' },
-  { label: '26111701 - Baterías recargables', value: '26111701' },
-  { label: '26111702 - Pilas alcalinas', value: '26111702' },
-  { label: '48102301 - Estufa industrial a gas', value: '48102301' },
-  { label: '47131501 - Detergente desengrasante para cocina', value: '47131501' },
-  { label: '47131502 - Desinfectante multiusos para superficies', value: '47131502' },
-  { label: '47131601 - Jabón antibacterial líquido', value: '47131601' },
-  { label: '47131701 - Blanqueador / hipoclorito de sodio', value: '47131701' },
-  { label: '47141501 - Esponjas y estropajos', value: '47141501' },
-  { label: '47141601 - Guantes de caucho para limpieza', value: '47141601' },
-  { label: '47141701 - Traperos y mochos', value: '47141701' },
-  { label: '47141702 - Escobas y cepillos', value: '47141702' },
-  { label: '24111501 - Bolsas plásticas para alimentos', value: '24111501' },
-  { label: '24111601 - Film plástico / vinipel', value: '24111601' },
-  { label: '24111701 - Papel aluminio para cocina', value: '24111701' },
-  { label: '24111801 - Papel encerado para alimentos', value: '24111801' },
-  { label: '31201501 - Recipientes herméticos plásticos', value: '31201501' },
-  { label: '24121501 - Contenedores desechables de icopor', value: '24121501' },
-  { label: '24121601 - Vasos desechables de plástico', value: '24121601' },
-  { label: '24121701 - Cubiertos desechables', value: '24121701' },
-  { label: '43211501 - Computador de escritorio (PC)', value: '43211501' },
-  { label: '43211503 - Computador portátil / laptop', value: '43211503' },
-  { label: '43211507 - Servidor de red', value: '43211507' },
-  { label: '43211604 - Teclado USB', value: '43211604' },
-  { label: '43211605 - Mouse / ratón óptico', value: '43211605' },
-  { label: '43211901 - Memoria USB / pendrive', value: '43211901' },
-  { label: '43211702 - Impresora de inyección de tinta', value: '43211702' },
-  { label: '43211701 - Equipo de lectura de código de barras', value: '43211701' },
-  { label: '43212105 - Tableta electrónica (tablet)', value: '43212105' },
-  { label: '43201401 - Proyector multimedia / video beam', value: '43201401' },
-  { label: '43201405 - Pantalla interactiva / smartboard', value: '43201405' },
-  { label: '43201601 - Monitor de computador', value: '43201601' },
-  { label: '43202201 - Cámara web / webcam', value: '43202201' },
-  { label: '43201801 - Audífonos con micrófono (headset)', value: '43201801' },
-  { label: '43191501 - Disco duro externo', value: '43191501' },
-  { label: '43191602 - Tarjeta de memoria SD', value: '43191602' },
-  { label: '43221501 - Software de sistema operativo', value: '43221501' },
-  { label: '43221502 - Software de ofimática (Office)', value: '43221502' },
-  { label: '43221701 - Software antivirus / seguridad', value: '43221701' },
-  { label: '43222601 - Router / enrutador de red', value: '43222601' },
-  { label: '43222602 - Switch de red', value: '43222602' },
-  { label: '43222603 - Punto de acceso inalámbrico (WiFi)', value: '43222603' },
-  { label: '43222501 - UPS / sistema de alimentación ininterrumpida', value: '43222501' },
-  { label: '43231501 - Cable de red UTP', value: '43231501' },
-];
-
 // Unidades de medida frecuentes en SENA (alimentos, TIC, aseo, herramientas) —
 // select en vez de texto libre. Lista completa, usada como fallback cuando
 // no hay UNSPSC elegido o su familia no está en UNIDADES_POR_FAMILIA de abajo.
@@ -293,7 +192,7 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
 
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Código UNSPSC</label>
-              <app-ss [options]="opcionesUnspsc" placeholder="Buscar código o nombre…" [(ngModel)]="form['codigo_unspsc']"></app-ss>
+              <app-ss [loadOptions]="buscarUnspsc" placeholder="Buscar código o nombre…" [(ngModel)]="form['codigo_unspsc']"></app-ss>
             </div>
 
             @if (form['tipo_material'] === 'DEVOLUTIVO') {
@@ -403,8 +302,17 @@ export class MaterialesProductosComponent implements OnInit, DoCheck {
   puedeVerSitios = computed(() => this.auth.tieneServicio('materiales.sitios.ver'));
 
   opcionesTipoMaterial = OPCIONES_TIPO_MATERIAL;
-  opcionesUnspsc = OPCIONES_UNSPSC;
   opcionesUnidadPeso = OPCIONES_UNIDAD_PESO;
+
+  // Arrow function (no método de clase) para que `this` quede atado al
+  // componente al pasarla como [loadOptions] — <app-ss> la invoca directo,
+  // sin bind. Reemplaza el arreglo hardcodeado OPCIONES_UNSPSC (~95 códigos
+  // curados a mano): ahora busca contra el catálogo UNSPSC real completo
+  // (backend-practica-hexagonal, tabla unspsc_catalogo).
+  buscarUnspsc = async (q: string): Promise<OpcionSelect[]> => {
+    const resultados = await this.api.buscarUnspsc(q);
+    return resultados.map((u) => ({ label: `${u.codigo} - ${u.nombre}`, value: u.codigo }));
+  };
 
   /** SKU se oculta del todo cuando el UNSPSC elegido es de gastronomía (empieza en '50'). */
   esGastronomia(): boolean {

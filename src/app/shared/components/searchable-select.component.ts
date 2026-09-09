@@ -58,7 +58,7 @@ export interface SSOption {
           <input
             class="ss-search-input"
             [ngModel]="_query()"
-            (ngModelChange)="_query.set($event)"
+            (ngModelChange)="_onQueryInput($event)"
             placeholder="Buscar..."
             (keydown.escape)="close()"
             autocomplete="off">
@@ -66,7 +66,11 @@ export interface SSOption {
 
         <!-- Options list -->
         <ul class="ss-list" role="listbox" [style.max-height.px]="_panelPos()!.maxH">
-          @if (_filteredOptions().length === 0) {
+          @if (loadOptions && _query().trim().length < minChars) {
+            <li class="ss-empty">Escribí al menos {{ minChars }} caracteres para buscar…</li>
+          } @else if (_loadingRemote()) {
+            <li class="ss-empty">Buscando…</li>
+          } @else if (_filteredOptions().length === 0) {
             <li class="ss-empty">Sin resultados</li>
           }
           @for (opt of _filteredOptions(); track opt.value) {
@@ -253,11 +257,24 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnChange
   @Input() set options(v: SSOption[]) { this._options.set(v ?? []); }
   @Input() placeholder = 'Seleccionar...';
 
+  // Modo remoto: si se pasa `loadOptions`, el panel deja de filtrar
+  // `[options]` en memoria y en su lugar llama esta función (debounced) con
+  // el texto tipeado — pensado para catálogos demasiado grandes para vivir
+  // como array estático en el frontend (ver UNSPSC en productos.component.ts).
+  // Los usos existentes con `[options]` estático no cambian en nada.
+  @Input() loadOptions?: (query: string) => Promise<SSOption[]>;
+  @Input() minChars = 2;
+  @Input() debounceMs = 300;
+
   // ── Internal signals (all reactive) ──────────────────────────────
   _options  = signal<SSOption[]>([]);
   _query    = signal('');
   _value    = signal<any>(null);
   _open     = signal(false);
+  _remoteOptions = signal<SSOption[]>([]);
+  _loadingRemote = signal(false);
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastRequestId = 0;
 
   /** Posición del panel en coordenadas viewport (position:fixed) */
   _panelPos = signal<{ top?: number; bottom?: number; left: number; width: number; maxH: number } | null>(null);
@@ -266,6 +283,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnChange
 
   // ── Derived state ─────────────────────────────────────────────────
   _filteredOptions = computed(() => {
+    if (this.loadOptions) return this._remoteOptions(); // ya viene filtrado por el backend
     const q = this._query().trim().toLowerCase();
     const opts = this._options();
     if (!q) return opts;
@@ -274,8 +292,14 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnChange
 
   _selectedLabel = computed(() => {
     // Usar == en lugar de === para mitigar desajustes string vs number
-    const found = this._options().find(o => o.value == this._value());
-    return found ? found.label : '';
+    const pool = this.loadOptions ? this._remoteOptions() : this._options();
+    const found = pool.find(o => o.value == this._value());
+    if (found) return found.label;
+    // Modo remoto: el valor puede venir de un writeValue() (ej. editar un
+    // producto ya guardado) sin que su opción esté todavía en _remoteOptions
+    // — mientras writeValue() resuelve el label real, mostramos el código
+    // crudo en vez de dejar el campo vacío.
+    return this.loadOptions && this._value() != null ? String(this._value()) : '';
   });
 
   // ── CVA callbacks ─────────────────────────────────────────────────
@@ -355,6 +379,34 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnChange
   ngOnDestroy() {
     releaseOverlay(this.closeRef);
     if (this.posRafId != null) cancelAnimationFrame(this.posRafId);
+    if (this.debounceTimer) clearTimeout(this.debounceTimer);
+  }
+
+  // ── Modo remoto ───────────────────────────────────────────────────
+  _onQueryInput(v: string): void {
+    this._query.set(v);
+    if (!this.loadOptions) return;
+    if (this.debounceTimer) clearTimeout(this.debounceTimer);
+    const texto = v.trim();
+    if (texto.length < this.minChars) {
+      this._remoteOptions.set([]);
+      this._loadingRemote.set(false);
+      return;
+    }
+    this.debounceTimer = setTimeout(() => this.fetchRemote(texto), this.debounceMs);
+  }
+
+  private async fetchRemote(texto: string): Promise<void> {
+    const reqId = ++this.lastRequestId;
+    this._loadingRemote.set(true);
+    try {
+      const resultados = await this.loadOptions!(texto);
+      if (reqId === this.lastRequestId) this._remoteOptions.set(resultados);
+    } catch {
+      if (reqId === this.lastRequestId) this._remoteOptions.set([]);
+    } finally {
+      if (reqId === this.lastRequestId) this._loadingRemote.set(false);
+    }
   }
 
   select(opt: SSOption) {
@@ -375,6 +427,15 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnChange
   writeValue(v: any) {
     this._value.set(v ?? null);
     this.cdr.markForCheck();
+    if (this.loadOptions && v != null && !this._remoteOptions().some(o => o.value == v)) {
+      // Resuelve el label del valor ya guardado (ej. abrir "Editar producto"
+      // con un codigo_unspsc que no pasó por una búsqueda en esta sesión).
+      this.loadOptions(String(v))
+        .then((resultados) => {
+          if (this._value() === v) this._remoteOptions.set(resultados);
+        })
+        .catch(() => {});
+    }
   }
   registerOnChange(fn: any)    { this.onChange   = fn; }
   registerOnTouched(fn: any)   { this.onTouched  = fn; }
