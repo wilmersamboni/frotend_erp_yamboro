@@ -285,6 +285,8 @@ export interface Solicitud {
   usuario_nombre?: string | null;
   usuario_aprueba_nombre?: string | null;
   usuario_entrega_nombre?: string | null;
+  /** Bodega de la que sale el material (resuelto por el backend). */
+  bodega_nombre?: string | null;
   /** Justificación del rechazo — presente solo si `estado === 'RECHAZADA'`. */
   motivo_rechazo?: string | null;
 }
@@ -361,9 +363,19 @@ export interface Traslado {
 }
 
 export interface CreateTrasladoDto {
-  id_item: string;
+  /** Un ítem (compat). Usar `id_items` para traslado masivo. */
+  id_item?: string;
+  /** Traslado masivo: varios ítems al mismo destino (un traslado por ítem). */
+  id_items?: string[];
   id_sitio_destino: string;
-  justificacion?: string;
+  /** Obligatoria (mín. 10 caracteres). */
+  justificacion: string;
+}
+
+/** Ítems que el backend rechazó en un traslado masivo (respuesta 400, `data.fallidos`). */
+export interface ItemTrasladoFallido {
+  id_item: string;
+  motivo: string;
 }
 
 export type EstadoDevolucion = 'BUENO' | 'REGULAR' | 'DAÑADO' | 'PERDIDO';
