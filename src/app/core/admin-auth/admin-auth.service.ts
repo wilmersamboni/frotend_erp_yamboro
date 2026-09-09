@@ -1,7 +1,7 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, tap } from 'rxjs';
+import { Observable, firstValueFrom, tap } from 'rxjs';
 import { AdminAuthUser, AdminLoginRequest, AdminLoginResponse } from './admin-auth.model';
 
 const TOKEN_KEY = 'tenant_admin_token';
@@ -31,6 +31,18 @@ export class AdminAuthService {
 
   getToken(): string | null {
     return this.tokenSignal();
+  }
+
+  // El id sale del propio token (req.rootUser.sub en el backend) — nunca se
+  // manda por acá, así nadie puede cambiarle la contraseña a otro root user
+  // usando este endpoint (ver PATCH /admin/auth/cambiar-password).
+  cambiarPassword(passwordActual: string, passwordNuevo: string): Promise<{ mensaje: string }> {
+    return firstValueFrom(
+      this.http.patch<{ mensaje: string }>('/api/admin/auth/cambiar-password', {
+        passwordActual,
+        passwordNuevo,
+      }),
+    );
   }
 
   private guardarSesion(resp: AdminLoginResponse): void {

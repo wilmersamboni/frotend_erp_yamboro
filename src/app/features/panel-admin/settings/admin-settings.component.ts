@@ -44,7 +44,7 @@ import { AdminToastService } from '../../../core/admin-auth/admin-toast.service'
                 <input type="password" formControlName="passwordNuevo" placeholder="••••••••"
                   class="w-full text-sm rounded-xl border border-gray-200 outline-none px-3.5 py-2.5 focus:border-[#39A900] transition-colors" />
                 @if (formCambioPassword.controls.passwordNuevo.invalid && formCambioPassword.controls.passwordNuevo.touched) {
-                  <p class="text-xs text-red-500 mt-1">Mínimo 6 caracteres.</p>
+                  <p class="text-xs text-red-500 mt-1">Mínimo 8 caracteres.</p>
                 }
               </div>
               <div>
@@ -116,7 +116,7 @@ export class AdminSettingsComponent {
   readonly formCambioPassword = this.fb.nonNullable.group(
     {
       passwordActual: ['', Validators.required],
-      passwordNuevo:  ['', [Validators.required, Validators.minLength(6)]],
+      passwordNuevo:  ['', [Validators.required, Validators.minLength(8)]],
       confirmar:      ['', Validators.required],
     },
     {
@@ -128,14 +128,19 @@ export class AdminSettingsComponent {
     },
   );
 
-  cambiarPassword(): void {
+  async cambiarPassword(): Promise<void> {
     if (this.formCambioPassword.invalid) { this.formCambioPassword.markAllAsTouched(); return; }
     this.guardando.set(true);
-    setTimeout(() => {
-      this.guardando.set(false);
+    const { passwordActual, passwordNuevo } = this.formCambioPassword.getRawValue();
+    try {
+      await this.authService.cambiarPassword(passwordActual, passwordNuevo);
       this.toast.success('Contraseña actualizada correctamente.');
       this.formCambioPassword.reset();
-    }, 1000);
+    } catch (e: any) {
+      this.toast.error(e?.error?.message ?? 'No se pudo actualizar la contraseña.');
+    } finally {
+      this.guardando.set(false);
+    }
   }
 
   cerrarSesion(): void { this.authService.logout(); }
