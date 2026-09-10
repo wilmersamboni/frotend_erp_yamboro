@@ -41,7 +41,7 @@ const TIPO_COLORS: Record<string, { bg: string; text: string }> = {
       <div class="flex items-center gap-3" style="flex-wrap:wrap">
         <div class="form-group" style="min-width:180px">
           <label class="block text-xs font-semibold text-gray-600 mb-1">Buscar evento</label>
-          <input class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:border-[#39A900]" [ngModel]="searchQ()" (ngModelChange)="searchQ.set($event)" placeholder="Nombre del evento...">
+          <input class="w-full px-3 py-2 border bg-white border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:border-[#39A900]" [ngModel]="searchQ()" (ngModelChange)="searchQ.set($event)" placeholder="Nombre del evento...">
         </div>
         <div class="form-group" style="min-width:140px">
           <label class="block text-xs font-semibold text-gray-600 mb-1">Tipo</label>

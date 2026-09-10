@@ -57,10 +57,22 @@ interface NavGroup {
 
       <!-- ── Hamburguesa: expande/colapsa 100% manual ──────────── -->
       <div class="sb-top" [class.justify-center]="!open" [class.justify-start]="open">
-        <button type="button" class="sb-toggle" (click)="toggle.emit()"
-          [title]="open ? 'Colapsar' : 'Expandir'">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+        <button
+          type="button"
+          class="sb-toggle"
+          (click)="toggle.emit()"
+          (mouseenter)="mostrarTooltip($event, open ? 'Colapsar' : 'Expandir')"
+          (mouseleave)="ocultarTooltip()"
+        >
+        
+          <svg
+            class="w-5 h-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
       </div>
@@ -77,7 +89,7 @@ interface NavGroup {
           </div>
           @if (open) {
             <div class="overflow-hidden">
-              <p class="sb-centro-label">Centro</p>
+              <p class="sb-centro-label">Sede</p>
               <p class="sb-centro-value truncate">{{ centroLabel }}</p>
             </div>
           }
@@ -132,8 +144,8 @@ interface NavGroup {
                 [routerLinkActiveOptions]="{ exact: link.href === '/' }"
                 class="nav-link"
                 [class.justify-center]="!open"
-                (mouseenter)="mostrarTooltip($event, link.label)"
-                (mouseleave)="ocultarTooltip()"
+                (mouseenter)=" !open && mostrarTooltip($event, link.label)"
+                (mouseleave)="!open && ocultarTooltip()"
               >
                 <span class="flex-shrink-0 w-[18px] h-[18px]" [innerHTML]="link.safeIcon"></span>
 
@@ -152,7 +164,7 @@ interface NavGroup {
            nav (ver mostrarTooltip/ocultarTooltip) sin depender de que el nav
            tenga overflow:visible, que antes le impedía encogerse/scrollear
            de verdad y rompía el layout en pantallas chicas o con zoom. -->
-      @if (tooltipVisible() && !open) {
+      @if (tooltipVisible()) {
         <div class="nav-tooltip-fixed" [style.top.px]="tooltipTop()" [style.left.px]="tooltipLeft()">
           {{ tooltipTexto() }}
         </div>
@@ -181,7 +193,8 @@ interface NavGroup {
           class="nav-logout"
           [class.justify-center]="!open"
           (click)="toggleContacto($event)"
-          [title]="!open ? 'Contáctanos' : ''"
+          (mouseenter)="!open && mostrarTooltip($event, open ? '' : 'Contactanos')"
+          (mouseleave)="ocultarTooltip()"
         >
           <svg class="w-[18px] h-[18px] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -200,7 +213,8 @@ interface NavGroup {
           class="nav-logout nav-logout-danger"
           [class.justify-center]="!open"
           (click)="auth.logout()"
-          [title]="!open ? 'Cerrar sesión' : ''"
+          (mouseenter)="!open && mostrarTooltip($event, open ? '' : 'Cerrar Sesion')"
+          (mouseleave)="ocultarTooltip()"
         >
           <svg class="w-[18px] h-[18px] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

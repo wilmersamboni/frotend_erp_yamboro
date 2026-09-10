@@ -60,8 +60,8 @@
   height: 30px;
   border-radius: 9px;
   flex-shrink: 0;
-  background:  #eafbf1;
-  color: var(--epsas-accent, #f9f9f9);
+  
+  color: var(--epsas-accent, #000000);
   display: flex;
   align-items: center;
   justify-content: center;

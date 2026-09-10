@@ -2,6 +2,7 @@
 // table-info.component.ts  — Orquestador (datos + estado + coordinación)
 // ─────────────────────────────────────────────────────────────────────────────
 import { Component, OnInit, signal, computed } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../../../core/services/api.service';
 import { AuthService } from '../../../../core/services/auth.service';
 
@@ -214,8 +215,17 @@ export class TableInfoComponent implements OnInit {
   );
 
   // ── Ciclo de vida ──────────────────────────────────────────────────────────
-  constructor(private api: ApiService, private auth: AuthService) {}
+  /** idPersona pendiente de mostrar (llega por ?persona=... — p.ej. desde la
+   *  campana de notificaciones) hasta que la tabla de aprendices cargue. */
+  private personaIdPendiente: string | null = null;
+
+  constructor(
+    private api: ApiService,
+    private auth: AuthService,
+    private route: ActivatedRoute,
+  ) {}
   ngOnInit(): void {
+    this.personaIdPendiente = this.route.snapshot.queryParamMap.get('persona');
     this.cargar();
   }
 
@@ -248,6 +258,18 @@ export class TableInfoComponent implements OnInit {
 
       this.data.set(vistaFiltrada);
       this.areas.set(areasData.map((a: any) => a.nombre));
+
+      // Deep-link: filtra la tabla a ese aprendiz y le abre de una el modal de
+      // seguimientos — sin esto el destinatario tenía que buscarlo a mano
+      // entre miles de filas.
+      if (this.personaIdPendiente) {
+        const fila = vistaFiltrada.find(a => a.id === this.personaIdPendiente);
+        this.personaIdPendiente = null;
+        if (fila) {
+          this.filterValue.set(fila.age);
+          this.abrirSeguimientos(fila);
+        }
+      }
 
     } catch (e: any) {
       console.error('[TableInfo] Error:', e?.message ?? e);
