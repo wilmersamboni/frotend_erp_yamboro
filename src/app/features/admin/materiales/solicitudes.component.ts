@@ -1,5 +1,7 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
+import { MaterialesLiveService } from '../../../core/services/realtime/materiales-live.service';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -200,9 +202,13 @@ interface LineaForm {
               }
 
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Observación (opcional)</label>
-                <input type="text" [(ngModel)]="observacion"
-                  class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                <label class="block text-xs font-medium text-gray-600 mb-1">Observación <span class="text-red-500">*</span></label>
+                <textarea [(ngModel)]="observacion" rows="2"
+                  placeholder="¿Para qué y en qué ambiente se usará el material? (mín. 10 caracteres)"
+                  class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]"></textarea>
+                @if (observacion.trim().length > 0 && observacion.trim().length < 10) {
+                  <p class="text-[11px] text-amber-600 mt-0.5">Faltan {{ 10 - observacion.trim().length }} caracteres.</p>
+                }
               </div>
             }
           </div>
@@ -233,6 +239,7 @@ interface LineaForm {
           <dl class="space-y-2.5 text-sm">
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Estado</dt><dd class="text-gray-800 text-right">{{ detalle.estado }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Solicitó</dt><dd class="text-gray-800 text-right">{{ detalle.usuario_nombre || '—' }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-gray-500">Bodega (de dónde sale)</dt><dd class="text-gray-800 text-right">{{ detalle.bodega_nombre || '—' }}</dd></div>
             <div>
               <dt class="text-gray-500 mb-1">Ítems solicitados</dt>
               <dd>
@@ -396,6 +403,8 @@ export class MaterialesSolicitudesComponent implements OnInit {
     private api: MaterialesApiService,
     private toast: ToastService,
     private auth: AuthService,
+    private live: MaterialesLiveService,
+    private destroyRef: DestroyRef,
   ) {}
 
   /**
@@ -440,6 +449,11 @@ export class MaterialesSolicitudesComponent implements OnInit {
 
   ngOnInit(): void {
     this.cargar();
+    // Capa 2 realtime: refetch cuando llega una notificación materiales_* (otra
+    // persona aprobó/entregó/rechazó/etc.) — sin recargar la página.
+    this.live.eventos()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.cargar());
   }
 
   // ── Modal multi-línea (Tier SigMat M4) ──────────────────────────────
@@ -533,6 +547,7 @@ export class MaterialesSolicitudesComponent implements OnInit {
   }
 
   puedeGuardar(): boolean {
+    if (this.observacion.trim().length < 10) return false;
     const activas = this.lineas.filter((l) => l.ref && Number(l.cantidad) >= 1);
     if (activas.length === 0) return false;
     for (const l of activas) if (Number(l.cantidad) > this.disponibleDe(l)) return false;
@@ -626,7 +641,9 @@ export class MaterialesSolicitudesComponent implements OnInit {
   async guardar(): Promise<void> {
     // Doble chequeo — no alcanza con deshabilitar el botón, ver Fase 1 del plan.
     if (!this.puedeGuardar()) {
-      this.error = this.requiereFechaDevolucion() && !this.fechaDevolucion
+      this.error = this.observacion.trim().length < 10
+        ? 'La observación es obligatoria (mín. 10 caracteres): indicá para qué y dónde se usará el material.'
+        : this.requiereFechaDevolucion() && !this.fechaDevolucion
         ? 'Alguna línea es devolutiva: indicá la fecha de devolución.'
         : 'Revisá las líneas: cada una necesita producto/lote y una cantidad dentro del stock.';
       return;

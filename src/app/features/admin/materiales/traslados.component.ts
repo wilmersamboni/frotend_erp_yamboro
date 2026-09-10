@@ -1,11 +1,13 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, DestroyRef, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
+import { MaterialesLiveService } from '../../../core/services/realtime/materiales-live.service';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
-import { Item, MaterialesApiService, Sitio, Traslado } from '../../../core/services/materiales/materiales-api.service';
+import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from '../../../core/services/materiales/materiales-api.service';
 
 /**
  * Traslados de ítems entre sitios — PENDIENTE → APROBADO/RECHAZADO, terminal
@@ -73,9 +75,9 @@ import { Item, MaterialesApiService, Sitio, Traslado } from '../../../core/servi
             <tbody class="divide-y divide-gray-100">
               @for (t of traslados; track t.id_traslado) {
                 <tr class="hover:bg-gray-50/80 transition-colors">
-                  <td class="px-4 py-3 text-gray-700">{{ t.item?.codigo_sku ?? '—' }}</td>
-                  <td class="px-4 py-3 text-gray-700">{{ nombreSitio(t.id_sitio_origen) }}</td>
-                  <td class="px-4 py-3 text-gray-700">{{ nombreSitio(t.id_sitio_destino) }}</td>
+                  <td class="px-4 py-3 text-gray-700">{{ t.item?.producto?.nombre ?? t.item?.placa_sena ?? t.item?.codigo_sku ?? '—' }}</td>
+                  <td class="px-4 py-3 text-gray-700">{{ nombreSitioTraslado(t.sitio_origen, t.id_sitio_origen) }}</td>
+                  <td class="px-4 py-3 text-gray-700">{{ nombreSitioTraslado(t.sitio_destino, t.id_sitio_destino) }}</td>
                   <td class="px-4 py-3 text-gray-500 max-w-[200px] truncate">{{ t.justificacion ?? '—' }}</td>
                   <td class="px-4 py-3"><app-status-badge [value]="t.estado" /></td>
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ t.fecha_solicitud | date: 'short' }}</td>
@@ -120,8 +122,9 @@ import { Item, MaterialesApiService, Sitio, Traslado } from '../../../core/servi
           <dl class="space-y-2.5 text-sm">
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Ítem</dt><dd class="text-gray-800 font-medium text-right">{{ detalle.item?.producto?.nombre ?? detalle.item?.codigo_sku ?? '—' }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">SKU / Placa</dt><dd class="text-gray-800 font-mono text-right">{{ detalle.item?.placa_sena || detalle.item?.codigo_sku || '—' }}</dd></div>
-            <div class="flex justify-between gap-4"><dt class="text-gray-500">Origen</dt><dd class="text-gray-800 text-right">{{ nombreSitio(detalle.id_sitio_origen) }}</dd></div>
-            <div class="flex justify-between gap-4"><dt class="text-gray-500">Destino</dt><dd class="text-gray-800 text-right">{{ nombreSitio(detalle.id_sitio_destino) }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-gray-500">Origen</dt><dd class="text-gray-800 text-right">{{ nombreSitioTraslado(detalle.sitio_origen, detalle.id_sitio_origen) }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-gray-500">Encargado del origen</dt><dd class="text-gray-800 text-right">{{ detalle.origen_responsable_nombre ?? detalle.sitio_origen?.id_responsable ?? 'sin responsable' }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-gray-500">Destino</dt><dd class="text-gray-800 text-right">{{ nombreSitioTraslado(detalle.sitio_destino, detalle.id_sitio_destino) }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Estado</dt><dd class="text-gray-800 text-right">{{ detalle.estado }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Justificación</dt><dd class="text-gray-800 text-right">{{ detalle.justificacion || '—' }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Fecha solicitud</dt><dd class="text-gray-800 text-right">{{ detalle.fecha_solicitud | date: 'medium' }}</dd></div>
@@ -148,7 +151,7 @@ import { Item, MaterialesApiService, Sitio, Traslado } from '../../../core/servi
           </div>
           <p class="text-sm text-gray-500 mb-3">
             {{ trasladoARechazar.item?.producto?.nombre ?? trasladoARechazar.item?.codigo_sku ?? 'Ítem' }} →
-            {{ nombreSitio(trasladoARechazar.id_sitio_destino) }}
+            {{ nombreSitioTraslado(trasladoARechazar.sitio_destino, trasladoARechazar.id_sitio_destino) }}
           </p>
           <label class="block text-xs font-medium text-gray-600 mb-1">Motivo (opcional)</label>
           <textarea [(ngModel)]="motivoRechazo" rows="3" placeholder="¿Por qué se rechaza este traslado?"
@@ -174,62 +177,44 @@ import { Item, MaterialesApiService, Sitio, Traslado } from '../../../core/servi
 
           <div class="space-y-3">
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Placa SENA del ítem</label>
-              <div class="flex gap-2">
-                <input type="text" [(ngModel)]="placaBuscar" (keydown.enter)="buscarPorPlaca()"
-                  placeholder="Ej: PS-2024-001" [disabled]="buscando"
-                  class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm uppercase focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
-                <button (click)="buscarPorPlaca()" [disabled]="!placaBuscar.trim() || buscando"
-                  class="px-4 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
-                  style="background-color: #39A900">
-                  {{ buscando ? 'Buscando...' : 'Buscar' }}
-                </button>
-              </div>
-              @if (errorBusqueda) {
-                <p class="text-red-500 text-xs mt-1.5">{{ errorBusqueda }}</p>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Agregar ítems al traslado</label>
+              @if (opcionesItems().length) {
+                <app-ss [options]="opcionesItems()" placeholder="Buscá por placa SENA, SKU o producto..."
+                  [(ngModel)]="itemSeleccionadoId" (ngModelChange)="onItemSeleccionado($event)"></app-ss>
+                <p class="text-[11px] text-gray-400 mt-1">Elegí uno o varios ítems devolutivos con placa SENA. Todos van a la misma bodega de destino.</p>
+              } @else {
+                <p class="text-xs text-gray-400">No hay ítems devolutivos con placa SENA. Asigná las placas desde el módulo de Ítems.</p>
               }
+              @if (buscando) { <p class="text-gray-400 text-xs mt-1.5">Buscando...</p> }
+              @if (errorBusqueda) { <p class="text-red-500 text-xs mt-1.5">{{ errorBusqueda }}</p> }
             </div>
 
-            @if (itemEncontrado) {
-              <div class="rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-xs space-y-1.5">
-                <p class="text-green-700 font-medium uppercase tracking-wide text-[11px]">Ítem encontrado</p>
-                <div class="grid grid-cols-2 gap-x-3 gap-y-1">
-                  <div>
-                    <p class="text-gray-500">Producto</p>
-                    <p class="font-semibold text-gray-800">{{ itemEncontrado.item.producto?.nombre ?? '—' }}</p>
-                  </div>
-                  <div>
-                    <p class="text-gray-500">SKU / Placa</p>
-                    <p class="font-mono font-semibold text-gray-800">{{ itemEncontrado.item.placa_sena || itemEncontrado.item.codigo_sku }}</p>
-                  </div>
-                  <div>
-                    <p class="text-gray-500">Estado</p>
-                    <p class="font-semibold" [class.text-green-700]="itemEncontrado.item.estado === 'DISPONIBLE'" [class.text-amber-700]="itemEncontrado.item.estado !== 'DISPONIBLE'">
-                      {{ itemEncontrado.item.estado }}
-                    </p>
-                  </div>
-                  <div>
-                    <p class="text-gray-500">Ubicación actual (origen)</p>
-                    <p class="font-semibold text-gray-800">{{ sitioOrigen?.nombre ?? 'Sin ubicación' }}</p>
-                  </div>
-                  @if (sitioOrigen?.id_responsable) {
-                    <div class="col-span-2">
-                      <p class="text-gray-500">Responsable (recibirá notificación)</p>
-                      <p class="font-semibold text-gray-800">{{ nombreResponsableOrigen() }}</p>
+            @if (itemsSeleccionados.length) {
+              <ul class="divide-y divide-gray-100 border border-gray-100 rounded-lg text-xs">
+                @for (it of itemsSeleccionados; track it.item.id_item) {
+                  <li class="px-3 py-2"
+                    [class.bg-red-50]="fallidos[it.item.id_item]"
+                    [class.border-l-2]="fallidos[it.item.id_item]"
+                    [class.border-red-400]="fallidos[it.item.id_item]">
+                    <div class="flex items-start justify-between gap-2">
+                      <div>
+                        <span class="font-semibold text-gray-800">{{ it.item.producto?.nombre ?? 'Ítem' }}</span>
+                        <span class="font-mono text-gray-500"> · {{ it.item.placa_sena || it.item.codigo_sku }}</span>
+                        <span class="block text-gray-500">Sale de: <span class="text-gray-800 font-medium">{{ it.ubicacion?.nombre ?? '—' }}</span> · estado {{ it.item.estado }}</span>
+                        <span class="block text-gray-500">Encargado: <span class="text-gray-800">{{ it.ubicacion?.responsable_nombre ?? it.ubicacion?.id_responsable ?? 'sin responsable' }}</span></span>
+                        @if (it.novedad_activa) {
+                          <span class="block text-amber-600">Tiene una novedad activa ({{ it.novedad_activa.tipo }})</span>
+                        }
+                        @if (fallidos[it.item.id_item]) {
+                          <span class="block text-red-600 font-medium">⚠ {{ fallidos[it.item.id_item] }}</span>
+                        }
+                      </div>
+                      <button type="button" (click)="quitarItem(it.item.id_item)"
+                        class="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 text-base leading-none">×</button>
                     </div>
-                  }
-                </div>
-                @if (itemEncontrado.item.estado !== 'DISPONIBLE') {
-                  <p class="mt-1.5 rounded-md bg-amber-100 text-amber-800 px-2 py-1">
-                    Este ítem no está DISPONIBLE ({{ itemEncontrado.item.estado }}) — el traslado igual queda registrado como pendiente.
-                  </p>
+                  </li>
                 }
-                @if (itemEncontrado.novedad_activa) {
-                  <p class="mt-1.5 rounded-md bg-red-100 text-red-700 px-2 py-1">
-                    Tiene una novedad activa ({{ itemEncontrado.novedad_activa.tipo }}).
-                  </p>
-                }
-              </div>
+              </ul>
 
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Destino</label>
@@ -237,10 +222,13 @@ import { Item, MaterialesApiService, Sitio, Traslado } from '../../../core/servi
               </div>
 
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Justificación (opcional)</label>
-                <input type="text" [(ngModel)]="justificacion"
-                  placeholder="Motivo del traslado..."
-                  class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                <label class="block text-xs font-medium text-gray-600 mb-1">Justificación <span class="text-red-500">*</span></label>
+                <textarea [(ngModel)]="justificacion" rows="2"
+                  placeholder="¿Por qué y para qué se traslada? (mín. 10 caracteres)"
+                  class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]"></textarea>
+                @if (justificacion.trim().length > 0 && justificacion.trim().length < 10) {
+                  <p class="text-[11px] text-amber-600 mt-0.5">Faltan {{ 10 - justificacion.trim().length }} caracteres.</p>
+                }
               </div>
             }
           </div>
@@ -251,10 +239,11 @@ import { Item, MaterialesApiService, Sitio, Traslado } from '../../../core/servi
 
           <div class="flex justify-end gap-2 mt-6">
             <button (click)="cerrarCrear()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
-            <button (click)="guardarTraslado()" [disabled]="saving || !itemEncontrado || !idSitioDestino"
+            <button (click)="guardarTraslado()"
+              [disabled]="saving || itemsSeleccionados.length === 0 || !idSitioDestino || justificacion.trim().length < 10"
               class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
               style="background-color: #39A900">
-              {{ saving ? 'Guardando...' : 'Solicitar traslado' }}
+              {{ saving ? 'Guardando...' : (itemsSeleccionados.length > 1 ? 'Solicitar ' + itemsSeleccionados.length + ' traslados' : 'Solicitar traslado') }}
             </button>
           </div>
         </div>
@@ -284,8 +273,12 @@ export class MaterialesTrasladosComponent implements OnInit {
   placaBuscar = '';
   buscando = false;
   errorBusqueda: string | null = null;
-  itemEncontrado: { item: Item; prestamo_activo: any; asignacion_activa: any; novedad_activa: any } | null = null;
-  sitioOrigen: Sitio | undefined;
+  /** Ítems agregados al traslado (masivo). */
+  itemsSeleccionados: ItemDetalleBusqueda[] = [];
+  /** `id_item → motivo` de los que el backend rechazó. */
+  fallidos: Record<string, string> = {};
+  /** Ítem elegido en el selector con búsqueda (por placa/SKU). */
+  itemSeleccionadoId: string | null = null;
   idSitioDestino: string | null = null;
   justificacion = '';
 
@@ -293,6 +286,8 @@ export class MaterialesTrasladosComponent implements OnInit {
     private api: MaterialesApiService,
     private toast: ToastService,
     private auth: AuthService,
+    private live: MaterialesLiveService,
+    private destroyRef: DestroyRef,
   ) {}
 
   /**
@@ -313,27 +308,34 @@ export class MaterialesTrasladosComponent implements OnInit {
   }
 
   /**
-   * Admin: siempre puede. Si no, autorizado solo si es responsable del sitio
-   * origen o del sitio destino; si ninguno de los dos sitios tiene
-   * responsable asignado, cualquiera con el servicio puede actuar — replica
-   * `TrasladosService.assertPuedeResolver` (que sí tiene bypass total de
-   * admin, a diferencia de lo que decía este comentario antes).
+   * "Origen manda con válvula de escape" — replica `TrasladosService.assertPuedeResolver`:
+   * admin siempre; si el ORIGEN tiene responsable, solo él (salvo que sea
+   * además el solicitante → ahí también el responsable del DESTINO); si el
+   * origen no tiene responsable, el del destino, o cualquiera si tampoco hay.
    */
   esResponsableDelSitio(t: Traslado): boolean {
     if (this.auth.isAdmin()) return true;
     const uid = this.auth.user()?.id;
-    const responsableOrigen = t.sitio_origen?.id_responsable;
-    const responsableDestino = t.sitio_destino?.id_responsable;
-    if (!responsableOrigen && !responsableDestino) return true;
-    return responsableOrigen === uid || responsableDestino === uid;
+    const respOrigen = t.sitio_origen?.id_responsable ?? null;
+    const respDestino = t.sitio_destino?.id_responsable ?? null;
+    if (respOrigen) {
+      const origenEsSolicitante = respOrigen === t.id_usuario_solicita;
+      return respOrigen === uid || (origenEsSolicitante && respDestino === uid);
+    }
+    return !respDestino || respDestino === uid;
   }
 
   ngOnInit(): void {
     this.cargar();
+    this.live.eventos()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.cargar());
   }
 
-  nombreSitio(id: string): string {
-    return this.sitios.find((s) => s.id_sitio === id)?.nombre ?? '—';
+  /** Nombre del sitio: primero el que viene embebido en el traslado (siempre
+   *  presente, no depende del scope), luego la lista local, luego "—". */
+  nombreSitioTraslado(sitio: Sitio | undefined, id: string): string {
+    return sitio?.nombre ?? this.sitios.find((s) => s.id_sitio === id)?.nombre ?? '—';
   }
 
   verDetalle(t: Traslado): void {
@@ -341,14 +343,41 @@ export class MaterialesTrasladosComponent implements OnInit {
     this.detalleAbierto = true;
   }
 
-  /** El responsable del sitio origen solo se conoce por su id (`idUsuario`) — sin catálogo de nombres cargado acá, se muestra tal cual. */
-  nombreResponsableOrigen(): string {
-    return this.sitioOrigen?.id_responsable ?? '—';
+  /**
+   * Opciones del selector: SOLO ítems devolutivos CON placa SENA — un traslado
+   * cambia la ubicación física de una unidad identificable. Un consumible
+   * (lote, ej. "pollo") se solicita para consumo, no se traslada; y un
+   * devolutivo sin placa todavía no es rastreable como unidad.
+   */
+  opcionesItems(): { value: string; label: string }[] {
+    return this.items
+      .filter((i) => !!i.placa_sena && i.producto?.tipo_material !== 'CONSUMO' && i.producto?.tipo_material !== 'PERECEDERO')
+      .map((i) => ({
+        value: i.placa_sena!,
+        label: `${i.placa_sena} · ${i.producto?.nombre ?? 'Ítem'} (${i.estado})`,
+      }));
   }
 
-  /** Todos los sitios salvo el de origen actual del ítem. */
+  onItemSeleccionado(placa: string | null): void {
+    if (!placa) return;
+    this.placaBuscar = placa;
+    this.buscarPorPlaca();
+  }
+
+  quitarItem(idItem: string): void {
+    this.itemsSeleccionados = this.itemsSeleccionados.filter((i) => i.item.id_item !== idItem);
+    delete this.fallidos[idItem];
+  }
+
+  /** Bodegas de origen de los ítems agregados (el destino no puede ser una de ellas). */
+  private get idsSitioOrigen(): Set<string> {
+    return new Set(
+      this.itemsSeleccionados.map((i) => i.ubicacion?.id_sitio).filter((x): x is string => !!x),
+    );
+  }
+
   destinosDisponibles(): Sitio[] {
-    return this.sitios.filter((s) => s.id_sitio !== this.sitioOrigen?.id_sitio);
+    return this.sitios.filter((s) => !this.idsSitioOrigen.has(s.id_sitio));
   }
 
   opcionesDestino(): { value: string; label: string }[] {
@@ -377,10 +406,11 @@ export class MaterialesTrasladosComponent implements OnInit {
 
   abrirCrear(): void {
     this.placaBuscar = '';
+    this.itemSeleccionadoId = null;
     this.buscando = false;
     this.errorBusqueda = null;
-    this.itemEncontrado = null;
-    this.sitioOrigen = undefined;
+    this.itemsSeleccionados = [];
+    this.fallidos = {};
     this.idSitioDestino = null;
     this.justificacion = '';
     this.error = null;
@@ -396,23 +426,22 @@ export class MaterialesTrasladosComponent implements OnInit {
     if (!placa) return;
     this.buscando = true;
     this.errorBusqueda = null;
-    this.itemEncontrado = null;
-    this.sitioOrigen = undefined;
-    this.idSitioDestino = null;
     try {
       const detalle = await this.api.buscarItemPorPlaca(placa);
       if (!detalle) {
         this.errorBusqueda = `No se encontró ningún ítem con la placa "${placa}".`;
         return;
       }
-      this.itemEncontrado = detalle;
-      this.sitioOrigen = detalle.item.id_sitio
-        ? this.sitios.find((s) => s.id_sitio === detalle.item.id_sitio)
-        : undefined;
-      if (!detalle.item.id_sitio) {
+      if (!detalle.ubicacion) {
         this.errorBusqueda = 'Este ítem no tiene una ubicación asignada actualmente, no se puede trasladar.';
-        this.itemEncontrado = null;
+        return;
       }
+      if (this.itemsSeleccionados.some((i) => i.item.id_item === detalle.item.id_item)) {
+        this.errorBusqueda = 'Ese ítem ya está en la lista.';
+        return;
+      }
+      this.itemsSeleccionados = [...this.itemsSeleccionados, detalle];
+      this.itemSeleccionadoId = null;
     } catch (e: any) {
       this.errorBusqueda = e?.error?.message ?? `No se encontró ningún ítem con la placa "${placa}".`;
     } finally {
@@ -421,20 +450,31 @@ export class MaterialesTrasladosComponent implements OnInit {
   }
 
   async guardarTraslado(): Promise<void> {
-    if (!this.itemEncontrado || !this.idSitioDestino) return;
+    if (this.itemsSeleccionados.length === 0 || !this.idSitioDestino) return;
+    if (this.justificacion.trim().length < 10) {
+      this.error = 'La justificación es obligatoria (mín. 10 caracteres).';
+      return;
+    }
     this.saving = true;
     this.error = null;
+    this.fallidos = {};
     try {
       await this.api.crearTraslado({
-        id_item: this.itemEncontrado.item.id_item,
+        id_items: this.itemsSeleccionados.map((i) => i.item.id_item),
         id_sitio_destino: this.idSitioDestino,
-        justificacion: this.justificacion.trim() || undefined,
+        justificacion: this.justificacion.trim(),
       });
-      this.toast.ok('Traslado solicitado');
+      this.toast.ok(this.itemsSeleccionados.length > 1 ? 'Traslados solicitados' : 'Traslado solicitado');
       this.crearOpen = false;
       await this.cargar();
     } catch (e: any) {
-      this.error = e?.error?.message ?? 'No se pudo crear el traslado.';
+      const fallidos = e?.error?.data?.fallidos as { id_item: string; motivo: string }[] | undefined;
+      if (fallidos?.length) {
+        this.fallidos = Object.fromEntries(fallidos.map((f) => [f.id_item, f.motivo]));
+        this.error = e?.error?.message ?? 'Algunos ítems no se pueden trasladar. Revisá los marcados en rojo y quitalos.';
+      } else {
+        this.error = e?.error?.message ?? 'No se pudo crear el traslado.';
+      }
     } finally {
       this.saving = false;
     }

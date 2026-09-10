@@ -1,5 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, DestroyRef, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
+import { MaterialesLiveService } from '../../../core/services/realtime/materiales-live.service';
 import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../../core/services/toast.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -63,6 +65,7 @@ interface LineaForm {
               <tr>
                 <th class="px-4 py-3 text-left font-semibold">Solicitud</th>
                 <th class="px-4 py-3 text-left font-semibold">Ítems</th>
+                @if (hayAjenas()) { <th class="px-4 py-3 text-left font-semibold">Solicitó</th> }
                 <th class="px-4 py-3 text-left font-semibold">Estado</th>
                 <th class="px-4 py-3 text-left font-semibold">Fecha</th>
                 <th class="px-4 py-3 text-right font-semibold">Acciones</th>
@@ -73,11 +76,24 @@ interface LineaForm {
                 <tr class="hover:bg-gray-50/80 transition-colors">
                   <td class="px-4 py-3 text-gray-700">{{ s.producto?.nombre ?? '—' }}</td>
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ s.cantidad }} unidad(es)</td>
+                  @if (hayAjenas()) { <td class="px-4 py-3 text-gray-600 text-xs">{{ s.usuario_nombre || '—' }}</td> }
                   <td class="px-4 py-3"><app-status-badge [value]="s.estado" /></td>
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ s.fecha | date: 'short' }}</td>
                   <td class="px-4 py-3">
-                    <div class="flex justify-end gap-2">
+                    <div class="flex flex-wrap justify-end gap-2">
                       <button (click)="verDetalle(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">Ver</button>
+                      @if (s.estado === 'PENDIENTE' && puedeAprobar && puedeGestionar(s)) {
+                        <button (click)="aprobar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-600 bg-white hover:bg-green-50 transition-colors">Aprobar</button>
+                      }
+                      @if (s.estado === 'PENDIENTE' && puedeRechazar && puedeGestionar(s)) {
+                        <button (click)="rechazar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-red-400 hover:text-red-600 transition-colors">Rechazar</button>
+                      }
+                      @if (s.estado === 'APROBADA' && puedeEntregar && puedeGestionar(s)) {
+                        <button (click)="entregar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-blue-200 text-blue-600 bg-white hover:bg-blue-50 transition-colors">Marcar en entrega</button>
+                      }
+                      @if (s.estado === 'APROBADA' && puedeRechazar && puedeGestionar(s)) {
+                        <button (click)="cancelar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">Cancelar</button>
+                      }
                       @if (s.estado === 'EN_ENTREGA' && esSolicitantePropio(s)) {
                         <button (click)="confirmarRecepcion(s)"
                           class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-600 bg-white hover:bg-green-50 transition-colors">
@@ -162,9 +178,13 @@ interface LineaForm {
               }
 
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Observación</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Observación <span class="text-red-500">*</span></label>
                 <textarea [(ngModel)]="observacion" rows="2"
+                  placeholder="¿Para qué y en qué ambiente se usará el material? (mín. 10 caracteres)"
                   class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]"></textarea>
+                @if (observacion.trim().length > 0 && observacion.trim().length < 10) {
+                  <p class="text-[11px] text-amber-600 mt-0.5">Faltan {{ 10 - observacion.trim().length }} caracteres.</p>
+                }
               </div>
             }
           </div>
@@ -194,6 +214,8 @@ interface LineaForm {
           </div>
           <dl class="space-y-2.5 text-sm">
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Estado</dt><dd class="text-gray-800 text-right">{{ detalle.estado }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-gray-500">Solicitó</dt><dd class="text-gray-800 text-right">{{ detalle.usuario_nombre || '—' }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-gray-500">Bodega (de dónde sale)</dt><dd class="text-gray-800 text-right">{{ detalle.bodega_nombre || '—' }}</dd></div>
             <div>
               <dt class="text-gray-500 mb-1">Ítems solicitados</dt>
               <dd>
@@ -234,6 +256,61 @@ interface LineaForm {
         </div>
       </div>
     }
+
+    @if (rechazoAbierto && rechazoSolicitud) {
+      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarRechazo()">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-gray-800">Rechazar solicitud</h2>
+            <button (click)="cerrarRechazo()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+          </div>
+          <p class="text-sm text-gray-500 mb-3">
+            Se le informará al solicitante de
+            "<span class="font-medium text-gray-700">{{ rechazoSolicitud.producto?.nombre ?? 'este material' }}</span>".
+            El motivo es obligatorio.
+          </p>
+          <textarea [(ngModel)]="motivoRechazo" rows="3" maxlength="500"
+            placeholder="Ej: No hay stock disponible para la fecha solicitada."
+            class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400/30 focus:border-red-400 resize-none"></textarea>
+          <div class="text-right text-[11px] text-gray-400 mt-1">{{ motivoRechazo.length }}/500</div>
+          <div class="flex justify-end gap-2 mt-4">
+            <button (click)="cerrarRechazo()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
+            <button (click)="confirmarRechazo()" [disabled]="!motivoRechazo.trim() || rechazando"
+              class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors bg-red-600 hover:bg-red-700">
+              {{ rechazando ? 'Rechazando...' : 'Rechazar' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (aprobarAbierto && aprobarRef) {
+      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarAprobar()">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-gray-800">Aprobar solicitud</h2>
+            <button (click)="cerrarAprobar()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+          </div>
+          <p class="text-sm text-gray-500 mb-3">
+            "<span class="font-medium text-gray-700">{{ aprobarRef.producto?.nombre ?? 'este material' }}</span>"
+            × {{ aprobarRef.cantidad }}.
+          </p>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Fecha de devolución</label>
+          <app-date-input placeholder="DD/MM/AAAA" [min]="hoyTuiDay"
+            [ngModel]="cacheFechaDevAprobar.get(fechaDevAprobar)"
+            (ngModelChange)="fechaDevAprobar = tuiDayToIso($event)"></app-date-input>
+          <p class="text-[11px] text-gray-400 mt-1">Podés ajustar la fecha que puso el solicitante. Se le avisa si cambia.</p>
+          <div class="flex justify-end gap-2 mt-4">
+            <button (click)="cerrarAprobar()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
+            <button (click)="confirmarAprobar()" [disabled]="aprobando"
+              class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
+              style="background-color: #39A900">
+              {{ aprobando ? 'Aprobando...' : 'Aprobar' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
   `,
 })
 export class AprendizMaterialesSolicitudesComponent implements OnInit {
@@ -265,18 +342,70 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
   /** Bodega elegida en el paso 1 del modal. */
   idSitioSeleccionado: string | null = null;
 
+  /** Gestión de solicitudes ajenas — solo visible para el aprendiz encargado de bodega. */
+  rechazoAbierto = false;
+  rechazoSolicitud: Solicitud | null = null;
+  motivoRechazo = '';
+  rechazando = false;
+
+  aprobarAbierto = false;
+  aprobarRef: Solicitud | null = null;
+  fechaDevAprobar = '';
+  aprobando = false;
+  readonly hoyISO = new Date().toISOString().slice(0, 10);
+  readonly hoyTuiDay = TuiDayCache.fromIso(this.hoyISO);
+  readonly cacheFechaDevAprobar = new TuiDayCache();
+
   constructor(
     private api: MaterialesApiService,
     private toast: ToastService,
     private auth: AuthService,
+    private live: MaterialesLiveService,
+    private destroyRef: DestroyRef,
   ) {}
 
   ngOnInit(): void {
     this.cargar();
+    this.live.eventos()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.cargar());
   }
 
   esSolicitantePropio(s: Solicitud): boolean {
     return s.id_usuario === this.auth.user()?.id;
+  }
+
+  /**
+   * ¿Hay al menos una solicitud pedida por otra persona? Solo entonces tiene
+   * sentido la columna "Solicitó" en la tabla — un aprendiz encargado de
+   * bodega ve solicitudes ajenas (las de su bodega); uno normal, solo las suyas.
+   */
+  hayAjenas(): boolean {
+    const uid = this.auth.user()?.id;
+    return this.solicitudes.some((s) => s.id_usuario !== uid);
+  }
+
+  // ── Gestión (aprendiz encargado de bodega) ──────────────────────────────
+  get puedeAprobar(): boolean {
+    return this.auth.tieneServicio('materiales.solicitudes.aprobar');
+  }
+  get puedeRechazar(): boolean {
+    return this.auth.tieneServicio('materiales.solicitudes.rechazar');
+  }
+  get puedeEntregar(): boolean {
+    return this.auth.tieneServicio('materiales.solicitudes.entregar');
+  }
+
+  /**
+   * Nunca su propia solicitud; admin siempre (nunca acá); si no, solo si es el
+   * responsable del sitio del producto — replica `SolicitudesService`.
+   */
+  puedeGestionar(s: Solicitud): boolean {
+    if (this.esSolicitantePropio(s)) return false;
+    if (this.auth.isAdmin()) return true;
+    const idSitio = s.producto?.id_sitio;
+    const sitio = idSitio ? this.sitios.find((x) => x.id_sitio === idSitio) : undefined;
+    return !!sitio?.id_responsable && sitio.id_responsable === this.auth.user()?.id;
   }
 
   /** ¿Se muestra el paso "Bodega"? Solo si tenemos el catálogo de sitios. */
@@ -389,6 +518,7 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
   }
 
   puedeGuardar(): boolean {
+    if (this.observacion.trim().length < 10) return false;
     const activas = this.lineas.filter((l) => l.ref && Number(l.cantidad) >= 1);
     if (activas.length === 0) return false;
     for (const l of activas) {
@@ -452,7 +582,9 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
 
   async guardar(): Promise<void> {
     if (!this.puedeGuardar()) {
-      this.error = this.requiereFechaDevolucion() && !this.fechaDevolucion
+      this.error = this.observacion.trim().length < 10
+        ? 'La observación es obligatoria (mín. 10 caracteres): indicá para qué y dónde se usará el material.'
+        : this.requiereFechaDevolucion() && !this.fechaDevolucion
         ? 'Alguna línea es devolutiva: indicá la fecha de devolución.'
         : 'Revisá las líneas: cada una necesita producto/lote y una cantidad dentro del stock.';
       return;
@@ -491,6 +623,89 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
       await this.cargar();
     } catch (e) {
       this.toast.httpError(e, 'No se pudo confirmar la recepción.');
+    }
+  }
+
+  // ── Aprobar / rechazar / entregar / cancelar (encargado de bodega) ──────
+
+  aprobar(s: Solicitud): void {
+    this.aprobarRef = s;
+    this.fechaDevAprobar = s.fecha_devolucion ? String(s.fecha_devolucion).slice(0, 10) : '';
+    this.aprobarAbierto = true;
+  }
+
+  cerrarAprobar(): void {
+    this.aprobarAbierto = false;
+    this.aprobarRef = null;
+    this.fechaDevAprobar = '';
+  }
+
+  async confirmarAprobar(): Promise<void> {
+    const s = this.aprobarRef;
+    if (!s) return;
+    this.aprobando = true;
+    try {
+      await this.api.aprobarSolicitud(s.id_solicitud, { fecha_devolucion: this.fechaDevAprobar || undefined });
+      this.toast.ok('Solicitud aprobada');
+      this.cerrarAprobar();
+      await this.cargar();
+    } catch (e) {
+      this.toast.httpError(e, 'No se pudo aprobar la solicitud.');
+    } finally {
+      this.aprobando = false;
+    }
+  }
+
+  rechazar(s: Solicitud): void {
+    this.rechazoSolicitud = s;
+    this.motivoRechazo = '';
+    this.rechazoAbierto = true;
+  }
+
+  cerrarRechazo(): void {
+    this.rechazoAbierto = false;
+    this.rechazoSolicitud = null;
+    this.motivoRechazo = '';
+  }
+
+  async confirmarRechazo(): Promise<void> {
+    const s = this.rechazoSolicitud;
+    const motivo = this.motivoRechazo.trim();
+    if (!s || !motivo) return;
+    this.rechazando = true;
+    try {
+      await this.api.rechazarSolicitud(s.id_solicitud, motivo);
+      this.toast.ok('Solicitud rechazada');
+      this.cerrarRechazo();
+      await this.cargar();
+    } catch (e) {
+      this.toast.httpError(e, 'No se pudo rechazar la solicitud.');
+    } finally {
+      this.rechazando = false;
+    }
+  }
+
+  async entregar(s: Solicitud): Promise<void> {
+    try {
+      await this.api.entregarSolicitud(s.id_solicitud);
+      this.toast.ok('Solicitud marcada en entrega');
+      await this.cargar();
+    } catch (e) {
+      this.toast.httpError(e, 'No se pudo marcar en entrega.');
+    }
+  }
+
+  async cancelar(s: Solicitud): Promise<void> {
+    if (!confirm(
+      `¿Cancelar esta solicitud aprobada de "${s.producto?.nombre ?? 'este producto'}"?\n\n` +
+      `El solicitante será notificado y no se entregará. No afecta el inventario.`,
+    )) return;
+    try {
+      await this.api.cancelarSolicitud(s.id_solicitud);
+      this.toast.ok('Solicitud cancelada');
+      await this.cargar();
+    } catch (e) {
+      this.toast.httpError(e, 'No se pudo cancelar la solicitud.');
     }
   }
 }

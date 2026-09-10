@@ -1,9 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AdminTableComponent } from '../../../shared/components/admin-table.component';
-import { StatCardComponent } from '../../../shared/components/stat-card.component';
-import { ToastService } from '../../../core/services/toast.service';
-import { Acta, MaterialesApiService } from '../../../core/services/materiales/materiales-api.service';
+import { AdminTableComponent } from '../../shared/components/admin-table.component';
+import { StatCardComponent } from '../../shared/components/stat-card.component';
+import { ToastService } from '../../core/services/toast.service';
+import { Acta, MaterialesApiService } from '../../core/services/materiales/materiales-api.service';
 
 /**
  * Actas de entrega/devolución — solo lectura. El backend las genera solo

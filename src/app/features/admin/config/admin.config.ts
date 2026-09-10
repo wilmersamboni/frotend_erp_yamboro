@@ -29,6 +29,11 @@ export interface Selector {
    * Ejemplo: { cargo: 'aprendiz' }
    */
   filtro?: Record<string, any>;
+  /**
+   * Si es true, antepone una opción "— Sin … —" con valor `null` para poder
+   * dejar el FK vacío (ej. líder de área, que es opcional).
+   */
+  opcional?: boolean;
 }
 
 export interface ModuloConfig {
@@ -346,7 +351,8 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     selectores: {
       areaId:     { modulo: 'areas',     label: 'nombre', value: 'idArea'     },
       programaId: { modulo: 'programas', label: 'nombre', value: 'idPrograma' },
-      liderId:    { modulo: 'personas',  label: 'nombre', value: 'idPersona'  },
+      // El líder de un curso es un instructor — antes el select listaba TODOS los usuarios.
+      liderId:    { modulo: 'personas',  label: 'nombre', value: 'idPersona', filtro: { cargo: 'instructor' } },
     },
     tiposCampo: {
       fechaInicio: 'date',
@@ -380,14 +386,18 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     listar: `${BASE}/areas`, crear: `${BASE}/areas`,
     actualizar: id => `${BASE}/areas/${id}`,
     eliminar:   id => `${BASE}/areas/${id}`,
+    usePatch: true,
     grupo: 'epsas', categoria: 'Organización',
     servicioEscritura: 'organizacion.gestionar',
     servicioEliminar: 'organizacion.gestionar',
-    // sede viene como objeto anidado (eager); aplanarFila extrae 'nombre'
-    columnas: ['nombre', 'sede'],
-    campos: ['nombre', 'sedeId'],
+    // sede y lider vienen como objetos anidados (eager); aplanarFila extrae 'nombre'
+    columnas: ['nombre', 'sede', 'lider'],
+    campos: ['nombre', 'sedeId', 'liderId'],
+    columnLabels: { liderId: 'Líder de área (instructor)' },
     selectores: {
-      sedeId: { modulo: 'sedes', label: 'nombre', value: 'idSede' },
+      sedeId:  { modulo: 'sedes',    label: 'nombre', value: 'idSede' },
+      // "Encargado de área": Materiales lo usa para el scope del catálogo. Opcional.
+      liderId: { modulo: 'personas', label: 'nombre', value: 'idPersona', filtro: { cargo: 'instructor' }, opcional: true },
     },
   },
 

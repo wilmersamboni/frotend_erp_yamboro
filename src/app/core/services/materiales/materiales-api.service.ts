@@ -64,6 +64,8 @@ export interface Producto {
   modelo?: string | null;
   /** Solo DEVOLUTIVO. true (default) = los ítems no llevan el SKU copiado, se identifican por su placa SENA. */
   usa_placa_sena?: boolean;
+  /** B1 — false = producto desactivado (soft-delete). Solo llega cuando se pide `incluirInactivos`. */
+  activo?: boolean;
 }
 
 export interface Lote {
@@ -118,12 +120,65 @@ export interface CreateSitioDto {
   estado?: boolean;
 }
 
-/** #5 — resultado de la importación masiva de productos. */
+/** #5 — resultado del PASO 2 (confirmar): acá sí se registró en la base. */
 export interface ResultadoImportacion {
   total: number;
   productos_creados: number;
   stock_agregado: number;
   errores: { fila: number; error: string }[];
+}
+
+/** #5 — una fila parseada del archivo, para que el encargado la revise (PASO 1). */
+export interface FilaImportacion {
+  fila: number;
+  nombre: string;
+  descripcion: string | null;
+  codigo_unspsc: string | null;
+  unidad_medida: string;
+  marca: string | null;
+  modelo: string | null;
+  stock_minimo: number;
+  cantidad: number;
+  codigo_lote: string | null;
+  fecha_vencimiento: string | null;
+  sku: string;
+  tipo_material: TipoMaterial | null;
+  sitio_sugerido: string | null;
+  id_sitio_sugerido: string | null;
+  advertencias: string[];
+  ya_existe_nombre: boolean;
+}
+
+/** #5 — resultado del PASO 1 (previsualizar): NADA se escribió todavía. */
+export interface ResultadoPrevisualizacion {
+  archivo: string;
+  total: number;
+  filas: FilaImportacion[];
+  errores: { fila: number; error: string }[];
+  catalogos: {
+    sitios: { id_sitio: string; nombre: string }[];
+    categorias: { id_categoria: string; nombre: string }[];
+  };
+}
+
+/** #5 — fila ya revisada por el encargado que se manda en el PASO 2. */
+export interface FilaConfirmada {
+  nombre: string;
+  descripcion?: string | null;
+  codigo_unspsc?: string | null;
+  unidad_medida: string;
+  tipo_material: TipoMaterial;
+  id_categoria: string;
+  id_sitio?: string | null;
+  sku?: string;
+  marca?: string | null;
+  modelo?: string | null;
+  stock_minimo?: number;
+  cantidad?: number;
+  codigo_lote?: string | null;
+  fecha_vencimiento?: string | null;
+  placas_sena?: string[];
+  fila_origen?: number;
 }
 
 export interface CreateProductoDto {
@@ -181,6 +236,9 @@ export interface Novedad {
   estado: EstadoNovedad;
   fecha: string;
   id_usuario: string;
+  /** "Nombre Apellido" de quien reportó, resuelto por el backend (el frontend no
+   *  puede bulk-cargar `/api/usuarios`). Null si no se pudo resolver. */
+  usuario_nombre?: string | null;
   id_item: string | null;
   item?: Item;
 }
@@ -227,6 +285,8 @@ export interface Solicitud {
   usuario_nombre?: string | null;
   usuario_aprueba_nombre?: string | null;
   usuario_entrega_nombre?: string | null;
+  /** Bodega de la que sale el material (resuelto por el backend). */
+  bodega_nombre?: string | null;
   /** Justificación del rechazo — presente solo si `estado === 'RECHAZADA'`. */
   motivo_rechazo?: string | null;
 }
@@ -269,6 +329,22 @@ export interface CreateSolicitudDto {
   fecha_devolucion?: string;
 }
 
+/** Ubicación (bodega) real del ítem + responsable con nombre resuelto por el backend. */
+export interface UbicacionItem {
+  id_sitio: string;
+  nombre: string;
+  id_responsable: string | null;
+  responsable_nombre: string | null;
+}
+
+export interface ItemDetalleBusqueda {
+  item: Item;
+  prestamo_activo: any;
+  asignacion_activa: any;
+  novedad_activa: any;
+  ubicacion: UbicacionItem | null;
+}
+
 export interface Traslado {
   id_traslado: string;
   id_item: string;
@@ -284,12 +360,25 @@ export interface Traslado {
   item?: Item;
   sitio_origen?: Sitio;
   sitio_destino?: Sitio;
+  /** Nombre del encargado de cada bodega, resuelto por el backend. */
+  origen_responsable_nombre?: string | null;
+  destino_responsable_nombre?: string | null;
 }
 
 export interface CreateTrasladoDto {
-  id_item: string;
+  /** Un ítem (compat). Usar `id_items` para traslado masivo. */
+  id_item?: string;
+  /** Traslado masivo: varios ítems al mismo destino (un traslado por ítem). */
+  id_items?: string[];
   id_sitio_destino: string;
-  justificacion?: string;
+  /** Obligatoria (mín. 10 caracteres). */
+  justificacion: string;
+}
+
+/** Ítems que el backend rechazó en un traslado masivo (respuesta 400, `data.fallidos`). */
+export interface ItemTrasladoFallido {
+  id_item: string;
+  motivo: string;
 }
 
 export type EstadoDevolucion = 'BUENO' | 'REGULAR' | 'DAÑADO' | 'PERDIDO';
@@ -323,12 +412,14 @@ export interface DevolucionItemInput {
 }
 
 /**
- * Devolución por LOTE (M10a): `estado_general` se aplica a todas las unidades
- * pendientes del préstamo; `items` lleva solo las excepciones.
+ * Devolución por LOTE (M10a) + parcial (M9):
+ *  - `estado_general` sin `items` → cierre total (todas las pendientes).
+ *  - `items` presente → devolución PARCIAL: solo esas unidades vuelven; el
+ *    préstamo sigue ENTREGADO hasta que vuelvan todas.
  */
 export interface CreateDevolucionDto {
   id_solicitud: string;
-  estado_general: EstadoDevolucion;
+  estado_general?: EstadoDevolucion;
   observacion?: string;
   items?: DevolucionItemInput[];
 }
@@ -460,8 +551,10 @@ export class MaterialesApiService {
   }
 
   // ── Productos ──────────────────────────────────────────────────────
-  listarProductos() {
-    return this.unwrap(this.http.get<Envelope<Producto[]>>(`${BASE}/productos`));
+  /** `incluirInactivos` (B1) trae también los desactivados (soft-delete). */
+  listarProductos(incluirInactivos = false) {
+    const params = incluirInactivos ? { incluirInactivos: 'true' } : undefined;
+    return this.unwrap(this.http.get<Envelope<Producto[]>>(`${BASE}/productos`, { params }));
   }
   /**
    * Búsqueda remota en el catálogo UNSPSC (reemplaza el arreglo hardcodeado
@@ -490,14 +583,33 @@ export class MaterialesApiService {
       this.http.get(`${BASE}/productos/importar/plantilla`, { responseType: 'blob' }),
     );
   }
-  /** #5 — sube un .xlsx/.csv y devuelve el resumen + errores por fila. */
-  importarProductos(archivo: File) {
+  /** #5 PASO 1 — sube un .xlsx/.csv y devuelve el RESUMEN para revisar. No registra nada. */
+  previsualizarImportacion(archivo: File) {
     const fd = new FormData();
     fd.append('archivo', archivo);
-    return this.unwrap(this.http.post<Envelope<ResultadoImportacion>>(`${BASE}/productos/importar`, fd));
+    return this.unwrap(
+      this.http.post<Envelope<ResultadoPrevisualizacion>>(
+        `${BASE}/productos/importar/previsualizar`,
+        fd,
+      ),
+    );
   }
+  /** #5 PASO 2 — el encargado ya revisó: registra productos + stock. */
+  confirmarImportacion(filas: FilaConfirmada[]) {
+    return this.unwrap(
+      this.http.post<Envelope<ResultadoImportacion>>(
+        `${BASE}/productos/importar/confirmar`,
+        { filas },
+      ),
+    );
+  }
+  /** B1 — soft-delete: marca el producto como inactivo (no borra nada). */
   eliminarProducto(id: string) {
     return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/productos/${id}`));
+  }
+  /** B1 — reactiva un producto desactivado. */
+  activarProducto(id: string) {
+    return this.unwrap(this.http.patch<Envelope<Producto>>(`${BASE}/productos/${id}/activar`, {}));
   }
   /** Agrega un ítem suelto al lote de un producto existente (mismo SKU, estado DISPONIBLE). */
   agregarItemAProducto(idProducto: string, placaSena?: string) {
@@ -529,7 +641,7 @@ export class MaterialesApiService {
   }
   buscarItemPorPlaca(placa: string) {
     return this.unwrap(
-      this.http.get<Envelope<{ item: Item; prestamo_activo: any; asignacion_activa: any; novedad_activa: any } | null>>(
+      this.http.get<Envelope<ItemDetalleBusqueda | null>>(
         `${BASE}/items/buscar/${encodeURIComponent(placa)}`,
       ),
     );

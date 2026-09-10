@@ -1,5 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, DestroyRef, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
+import { MaterialesLiveService } from '../../../core/services/realtime/materiales-live.service';
 import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../../core/services/toast.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
@@ -23,6 +25,8 @@ const ESTADOS_DEVOLUCION: { value: EstadoDevolucion; label: string; desc: string
 
 interface FilaDevolucion extends ItemPendienteDevolucion {
   estadoDev: EstadoDevolucion;
+  /** M9 — ¿esta unidad volvió? Destildar = queda pendiente (devolución parcial). */
+  volvio: boolean;
 }
 
 /**
@@ -110,7 +114,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                 </p>
               } @else {
                 <div>
-                  <label class="block text-xs font-medium text-gray-600 mb-1">Estado de todas las unidades</label>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Estado de las unidades que volvieron</label>
                   <select [(ngModel)]="estadoGeneral" (ngModelChange)="aplicarATodas()"
                     class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
                     @for (op of estadosDevolucion; track op.value) {
@@ -118,21 +122,24 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                     }
                   </select>
                   <p class="text-[11px] text-gray-400 mt-1">
-                    Se aplica a las {{ filas.length }} unidad(es). Cambiá abajo solo las que vuelven distinto.
+                    Destildá las unidades que <b>todavía no volvieron</b>: el préstamo queda abierto hasta registrarlas.
+                    Cambiá el estado fila por fila solo si alguna vuelve distinto.
                   </p>
                 </div>
 
                 <div class="rounded-lg border border-gray-100 divide-y divide-gray-50 max-h-56 overflow-y-auto">
                   @for (f of filas; track f.id_item) {
-                    <div class="flex items-center gap-3 px-3 py-2">
+                    <div class="flex items-center gap-3 px-3 py-2" [class.opacity-40]="!f.volvio">
+                      <input type="checkbox" [(ngModel)]="f.volvio"
+                        class="w-4 h-4 accent-[#39A900] flex-none" title="¿Volvió esta unidad?" />
                       <div class="flex-1 min-w-0">
                         <p class="text-xs font-semibold text-gray-800 truncate">{{ f.producto_nombre || 'Unidad' }}</p>
                         <p class="font-mono text-[11px] text-gray-400 truncate">
                           {{ f.placa_sena || f.codigo_sku || '' }}{{ f.placa_sena && f.codigo_sku ? ' · ' + f.codigo_sku : '' }}
                         </p>
                       </div>
-                      <select [(ngModel)]="f.estadoDev"
-                        class="px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]"
+                      <select [(ngModel)]="f.estadoDev" [disabled]="!f.volvio"
+                        class="px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] disabled:opacity-50"
                         [class.border-red-300]="f.estadoDev === 'DAÑADO' || f.estadoDev === 'PERDIDO'"
                         [class.border-amber-300]="f.estadoDev === 'REGULAR'">
                         @for (op of estadosDevolucion; track op.value) {
@@ -142,6 +149,11 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                     </div>
                   }
                 </div>
+                @if (marcadas.length && marcadas.length < filas.length) {
+                  <p class="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+                    Devolución parcial: {{ marcadas.length }} de {{ filas.length }}. El préstamo sigue ENTREGADO hasta que vuelvan todas.
+                  </p>
+                }
 
                 <div>
                   <label class="block text-xs font-medium text-gray-600 mb-1">Observación general (opcional)</label>
@@ -190,6 +202,8 @@ export class AprendizMaterialesDevolucionesComponent implements OnInit {
   constructor(
     private api: MaterialesApiService,
     private toast: ToastService,
+    private live: MaterialesLiveService,
+    private destroyRef: DestroyRef,
   ) {}
 
   /** Ver docblock de la versión admin. */
@@ -206,6 +220,9 @@ export class AprendizMaterialesDevolucionesComponent implements OnInit {
 
   ngOnInit(): void {
     this.cargar();
+    this.live.eventos()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.cargar());
   }
 
   nombreItem(id: string): string {
@@ -266,7 +283,7 @@ export class AprendizMaterialesDevolucionesComponent implements OnInit {
     this.cargandoPendientes = true;
     try {
       const pendientes = await this.api.itemsPendientesDevolucion(this.idSolicitud);
-      this.filas = pendientes.map((p) => ({ ...p, estadoDev: this.estadoGeneral }));
+      this.filas = pendientes.map((p) => ({ ...p, estadoDev: this.estadoGeneral, volvio: true }));
     } catch (e: any) {
       this.error = e?.error?.message ?? 'No se pudieron cargar las unidades del préstamo.';
     } finally {
@@ -275,25 +292,48 @@ export class AprendizMaterialesDevolucionesComponent implements OnInit {
   }
 
   aplicarATodas(): void {
-    for (const f of this.filas) f.estadoDev = this.estadoGeneral;
+    for (const f of this.filas) if (f.volvio) f.estadoDev = this.estadoGeneral;
+  }
+
+  /** Unidades tildadas como "volvió" — usado por el template y el submit. */
+  get marcadas(): any[] {
+    return this.filas.filter((f) => f.volvio);
   }
 
   async guardarDevolucion(): Promise<void> {
     if (!this.idSolicitud || this.filas.length === 0) return;
+    const marcadas = this.marcadas;
+    if (marcadas.length === 0) {
+      this.error = 'Marcá al menos una unidad que haya vuelto.';
+      return;
+    }
+    const parcial = marcadas.length < this.filas.length;
     this.saving = true;
     this.error = null;
     try {
-      const excepciones = this.filas
-        .filter((f) => f.estadoDev !== this.estadoGeneral)
-        .map((f) => ({ id_item: f.id_item, estado: f.estadoDev }));
-      const dto: CreateDevolucionDto = {
-        id_solicitud: this.idSolicitud,
-        estado_general: this.estadoGeneral,
-        observacion: this.observacion.trim() || undefined,
-        items: excepciones.length > 0 ? excepciones : undefined,
-      };
+      const dto: CreateDevolucionDto = parcial
+        ? {
+            id_solicitud: this.idSolicitud,
+            observacion: this.observacion.trim() || undefined,
+            items: marcadas.map((f) => ({ id_item: f.id_item, estado: f.estadoDev })),
+          }
+        : {
+            id_solicitud: this.idSolicitud,
+            estado_general: this.estadoGeneral,
+            observacion: this.observacion.trim() || undefined,
+            items: (() => {
+              const exc = marcadas
+                .filter((f) => f.estadoDev !== this.estadoGeneral)
+                .map((f) => ({ id_item: f.id_item, estado: f.estadoDev }));
+              return exc.length > 0 ? exc : undefined;
+            })(),
+          };
       await this.api.crearDevolucion(dto);
-      this.toast.ok('Devolución registrada');
+      this.toast.ok(
+        parcial
+          ? `Devolución parcial registrada — quedan ${this.filas.length - marcadas.length} unidad(es)`
+          : 'Devolución registrada',
+      );
       this.crearOpen = false;
       await this.cargar();
     } catch (e: any) {
