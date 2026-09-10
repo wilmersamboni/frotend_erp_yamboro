@@ -360,6 +360,9 @@ export interface Traslado {
   item?: Item;
   sitio_origen?: Sitio;
   sitio_destino?: Sitio;
+  /** Nombre del encargado de cada bodega, resuelto por el backend. */
+  origen_responsable_nombre?: string | null;
+  destino_responsable_nombre?: string | null;
 }
 
 export interface CreateTrasladoDto {

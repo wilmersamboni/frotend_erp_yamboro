@@ -123,6 +123,7 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Ítem</dt><dd class="text-gray-800 font-medium text-right">{{ detalle.item?.producto?.nombre ?? detalle.item?.codigo_sku ?? '—' }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">SKU / Placa</dt><dd class="text-gray-800 font-mono text-right">{{ detalle.item?.placa_sena || detalle.item?.codigo_sku || '—' }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Origen</dt><dd class="text-gray-800 text-right">{{ nombreSitioTraslado(detalle.sitio_origen, detalle.id_sitio_origen) }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-gray-500">Encargado del origen</dt><dd class="text-gray-800 text-right">{{ detalle.origen_responsable_nombre ?? detalle.sitio_origen?.id_responsable ?? 'sin responsable' }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Destino</dt><dd class="text-gray-800 text-right">{{ nombreSitioTraslado(detalle.sitio_destino, detalle.id_sitio_destino) }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Estado</dt><dd class="text-gray-800 text-right">{{ detalle.estado }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Justificación</dt><dd class="text-gray-800 text-right">{{ detalle.justificacion || '—' }}</dd></div>
@@ -199,7 +200,11 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
                       <div>
                         <span class="font-semibold text-gray-800">{{ it.item.producto?.nombre ?? 'Ítem' }}</span>
                         <span class="font-mono text-gray-500"> · {{ it.item.placa_sena || it.item.codigo_sku }}</span>
-                        <span class="block text-gray-400">Origen: {{ it.ubicacion?.nombre ?? '—' }} · {{ it.item.estado }}</span>
+                        <span class="block text-gray-500">Sale de: <span class="text-gray-800 font-medium">{{ it.ubicacion?.nombre ?? '—' }}</span> · estado {{ it.item.estado }}</span>
+                        <span class="block text-gray-500">Encargado: <span class="text-gray-800">{{ it.ubicacion?.responsable_nombre ?? it.ubicacion?.id_responsable ?? 'sin responsable' }}</span></span>
+                        @if (it.novedad_activa) {
+                          <span class="block text-amber-600">Tiene una novedad activa ({{ it.novedad_activa.tipo }})</span>
+                        }
                         @if (fallidos[it.item.id_item]) {
                           <span class="block text-red-600 font-medium">⚠ {{ fallidos[it.item.id_item] }}</span>
                         }

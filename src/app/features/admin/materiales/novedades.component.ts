@@ -31,6 +31,10 @@ const OPCIONES_TIPO: OpcionSelect[] = [
   { label: 'Otro', value: 'OTRO' },
 ];
 
+/** Tipos donde la novedad SIEMPRE es sobre un ítem concreto → `id_item` obligatorio.
+ *  `DISCREPANCIA` (conteo) y `OTRO` (general) lo dejan opcional. */
+const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
+
 /**
  * Reportes de novedades sobre ítems (daño/pérdida/etc). Cadena de estados
  * PENDIENTE → EN_PROCESO → RESUELTA — el botón de fila cambia según el
@@ -253,7 +257,15 @@ export class MaterialesNovedadesComponent implements OnInit {
 
   placeholders: Record<string, string> = { descripcion: 'Ej: La carcasa llegó rajada / falta 1 unidad respecto al conteo' };
 
-  columnLabels: Record<string, string> = { id_item: 'Ítem (opcional)' };
+  /** El label del ítem cambia según el tipo elegido (obligatorio vs opcional). */
+  get columnLabels(): Record<string, string> {
+    return { id_item: this.itemRequerido ? 'Ítem *' : 'Ítem (opcional)' };
+  }
+
+  /** ¿El tipo actualmente elegido en el form exige indicar el ítem? */
+  get itemRequerido(): boolean {
+    return TIPOS_REQUIEREN_ITEM.includes(this.form['tipo']);
+  }
 
   /** `?id_item=` de la navegación cruzada (Ítems → Novedades). */
   idItemFiltro: string | null = null;
@@ -304,11 +316,10 @@ export class MaterialesNovedadesComponent implements OnInit {
   get opciones(): Record<string, OpcionSelect[]> {
     return {
       tipo: OPCIONES_TIPO,
-      // El ítem es opcional (ej. daño general al sitio, discrepancia de conteo):
-      // el backend acepta `id_item` nulo. La opción "— Sin ítem —" deja
-      // reportar sin ninguno y volver a quitarlo si se eligió por error.
+      // Daño / Pérdida / Mantenimiento son SIEMPRE sobre un ítem concreto → sin
+      // opción "— Sin ítem —". Discrepancia (conteo) y Otro (general) sí la tienen.
       id_item: [
-        { label: '— Sin ítem —', value: null },
+        ...(this.itemRequerido ? [] : [{ label: '— Sin ítem —', value: null }]),
         ...this.items.map((i) => ({ label: `${i.codigo_sku}${i.placa_sena ? ' — ' + i.placa_sena : ''}`, value: i.id_item })),
       ],
     };
@@ -377,6 +388,10 @@ export class MaterialesNovedadesComponent implements OnInit {
   async guardar(form: Record<string, any>): Promise<void> {
     if (!form['descripcion']?.trim()) {
       this.error = 'La descripción es obligatoria.';
+      return;
+    }
+    if (TIPOS_REQUIEREN_ITEM.includes(form['tipo']) && !form['id_item']) {
+      this.error = `Una novedad de tipo "${form['tipo']}" tiene que indicar sobre qué ítem es.`;
       return;
     }
     this.saving = true;
