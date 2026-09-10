@@ -1,6 +1,7 @@
 import {
-  Component, inject, signal, computed,
+  Component, inject, signal, computed, OnInit,
 } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import {
@@ -224,11 +225,24 @@ type Estado = 'idle' | 'loading' | 'success' | 'error';
     </section>
   `,
 })
-export class HistorialComponent {
+export class HistorialComponent implements OnInit {
   private svc          = inject(HistorialService);
   private practicaSvc  = inject(PracticaService);
   private exportService = inject(ExportService);
   private toast        = inject(ToastService);
+  private route        = inject(ActivatedRoute);
+
+  /** idPersona pendiente de auto-buscar (llega por ?persona=... — p.ej. desde
+   *  la campana de notificaciones) hasta que la lista de personas cargue. */
+  private personaIdPendiente: string | null = null;
+
+  ngOnInit(): void {
+    const personaId = this.route.snapshot.queryParamMap.get('persona');
+    if (personaId) {
+      this.personaIdPendiente = personaId;
+      this.cargarPersonasLazy();
+    }
+  }
 
   // ── Estado ────────────────────────────────────────────────────────────────
   estado: Estado                      = 'idle';
@@ -313,13 +327,17 @@ export class HistorialComponent {
   }
 
   cargarPersonasLazy(): void {
-    if (this.personasCargadas) return;
+    if (this.personasCargadas) {
+      this.resolverPersonaPendiente();
+      return;
+    }
     this.cargandoPersonas.set(true);
     this.svc.listarActivos().subscribe({
       next: (lista) => {
         this.personas.set(lista);
         this.personasCargadas = true;
         this.cargandoPersonas.set(false);
+        this.resolverPersonaPendiente();
       },
       error: (err) => {
         // El autocomplete queda vacío pero avisamos y el próximo intento reintenta
@@ -329,6 +347,16 @@ export class HistorialComponent {
         this.toast.error('Error', 'No se pudo cargar la lista de aprendices. Intenta de nuevo.');
       },
     });
+  }
+
+  /** Busca automáticamente el aprendiz que llegó por ?persona=... una vez la
+   *  lista de personas ya está disponible (recién cargada, o ya en caché). */
+  private resolverPersonaPendiente(): void {
+    if (!this.personaIdPendiente) return;
+    const id = this.personaIdPendiente;
+    this.personaIdPendiente = null;
+    const persona = this.personas().find(p => (p.idPersona ?? p.id_persona ?? p.id) === id);
+    if (persona) this.seleccionarPersona(persona);
   }
 
   // ── Exportar ──────────────────────────────────────────────────────────────

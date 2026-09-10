@@ -95,7 +95,7 @@
                 </svg>
               </span>
               <input type="text" [(ngModel)]="credentials.login" name="login"
-                placeholder="usuario1" required class="form-input" />
+                placeholder="Ingresa tu Usuario" required class="form-input" />
             </div>
           </div>
 
@@ -110,7 +110,7 @@
                 </svg>
               </span>
               <input [type]="showPassword() ? 'text' : 'password'" [(ngModel)]="credentials.password"
-                name="password" placeholder="••••••••" required class="form-input form-input-pw" />
+                name="password" placeholder="Ingresa tu Contraseña" required class="form-input form-input-pw" />
               <button type="button" (click)="showPassword.set(!showPassword())" class="toggle-pw">
                 @if (showPassword()) {
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

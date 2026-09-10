@@ -1,4 +1,5 @@
 import { Component, OnInit, signal, computed, effect } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { AuthService } from '../../../core/services/auth.service';
@@ -515,6 +516,7 @@ export class AdminPanelComponent implements OnInit {
     private msg: MessageService,
     public auth: AuthService,
     private api: ApiService,
+    private route: ActivatedRoute,
   ) {
     // Mantiene siempre visible la categoría del módulo activo, sin forzar
     // abiertas las demás — así el sidebar se siente ordenado en vez de
@@ -543,6 +545,15 @@ export class AdminPanelComponent implements OnInit {
     }
     if (this.auth.perteneceAplicativo('Etapa Práctica')) {
       this.cargarAprendicesParaEtapa();
+    }
+
+    // Deep-link a una pestaña puntual (p.ej. /admin?tab=etapas desde la
+    // campana de notificaciones) — va DESPUÉS del bloque de arriba para que
+    // gane sobre el 'personas'/MODULOS_ADMIN[0] por defecto, para cualquier
+    // rol admin. Se ignora silenciosamente si el valor no es una pestaña real.
+    const tabSolicitada = this.route.snapshot.queryParamMap.get('tab');
+    if (tabSolicitada && (MODULOS as string[]).includes(tabSolicitada)) {
+      this.admin.activeTab.set(tabSolicitada as Modulo);
     }
   }
 

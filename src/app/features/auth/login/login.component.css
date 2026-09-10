@@ -171,11 +171,11 @@
 
 .left-dots {
   position: absolute;
-  top: 28px;
-  right: 28px;
+  top: 29px;
+  right: 29px;
   z-index: 3;
   display: flex;
-  gap: 6px;
+  gap: 9px;
 }
 
 .dot {
@@ -195,9 +195,11 @@
 }
 
 .dot.is-active {
-  width: 16px;
-  border-radius: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   background: #39A900;
+  
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -216,7 +218,7 @@
   font-size: 28px;
   font-weight: 700;
   color: #071a0a;
-  margin: 0 0 8px;
+  margin: 0 0 15px;
   letter-spacing: -.01em;
 }
 

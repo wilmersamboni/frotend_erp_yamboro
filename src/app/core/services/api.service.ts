@@ -443,11 +443,14 @@ async subirEvidenciaObservacion(file: File): Promise<string> {
   }
 
   // ── Notificaciones ────────────────────────────────────────────────────────
+  // Antes tragaba cualquier error y devolvía [] — la campana no tenía forma
+  // de distinguir "no hay notificaciones" de "no pude consultarlas" (backend
+  // caído, timeout, etc.), así que un fallo pasajero se veía igual que una
+  // bandeja vacía. Se deja propagar para que NotificacionesCampanaComponent
+  // pueda mostrar un estado de error real.
   async listarNotificaciones(): Promise<any[]> {
-    try {
-      const resp: any = await firstValueFrom(this.http.get(`${BASE}/notificaciones`));
-      return Array.isArray(resp) ? resp : [];
-    } catch { return []; }
+    const resp: any = await firstValueFrom(this.http.get(`${BASE}/notificaciones`));
+    return Array.isArray(resp) ? resp : [];
   }
 
   async contarNotificacionesNoLeidas(): Promise<number> {
@@ -463,6 +466,10 @@ async subirEvidenciaObservacion(file: File): Promise<string> {
 
   async marcarTodasNotificacionesLeidas(): Promise<void> {
     await firstValueFrom(this.http.patch(`${BASE}/notificaciones/leer-todas`, {}));
+  }
+
+  async eliminarNotificacion(id: string): Promise<void> {
+    await firstValueFrom(this.http.delete(`${BASE}/notificaciones/${id}`));
   }
 
   async crearNotificacion(payload: {
