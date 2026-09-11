@@ -33,7 +33,7 @@ import { StatCardComponent } from '../../shared/components/stat-card.component';
   template: `
     <div class="p-6">
       <div class="mb-5">
-        <h1 class="text-xl font-bold text-gray-800">Existencias</h1>
+        <h1 class="text-xl font-bold text-gray-800 mb-3">Existencias</h1>
         <p class="text-sm text-gray-400">Vista de solo lectura. El stock se mueve con solicitudes, traslados, novedades y devoluciones.</p>
       </div>
 
@@ -65,9 +65,44 @@ import { StatCardComponent } from '../../shared/components/stat-card.component';
         </div>
 
         <div class="flex flex-wrap items-center gap-2 mb-3">
-          <input type="text" [(ngModel)]="q" (ngModelChange)="filtro.set($event)"
+          <input type="text" [(ngModel)]="q" (ngModelChange)="filtro.set($event); page.set(0)"
             placeholder="Buscar por producto, SKU o bodega…"
-            class="w-full md:w-96 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+            class="w-full md:w-96 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] bg-white" />
+          <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
+            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filas</span>
+            <div class="relative">
+              <button
+                type="button"
+                (click)="pageSizeDropdownOpen.update(v => !v)"
+                class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer">
+                <span>{{ pageSize() }}</span>
+                <svg class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" [class.rotate-180]="pageSizeDropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              @if (pageSizeDropdownOpen()) {
+                <div class="fixed inset-0 z-10" (click)="pageSizeDropdownOpen.set(false)"></div>
+
+                <div class="absolute left-0 top-full mt-2 z-20 w-20 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <div class="p-1 space-y-0.5">
+                    @for (size of [10, 20, 50, 100]; track size) {
+                      <button
+                        type="button"
+                        (click)="seleccionarPageSize(size)"
+                        class="w-full px-3 py-1.5 text-sm text-center rounded-lg transition-colors font-medium"
+                        [class.bg-green-50]="pageSize() === size"
+                        [class.text-green-700]="pageSize() === size"
+                        [class.text-gray-600]="pageSize() !== size"
+                        [class.hover:bg-gray-50]="pageSize() !== size">
+                        {{ size }}
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
           @if (idProductoFiltro()) {
             <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#39A900]/10 text-[#2d8000] border border-[#39A900]/20">
               Filtrando por producto
@@ -96,7 +131,7 @@ import { StatCardComponent } from '../../shared/components/stat-card.component';
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100">
-                @for (r of filtradas(); track r.id_producto) {
+                @for (r of paginadas(); track r.id_producto) {
                   <tr class="hover:bg-gray-50/80 transition-colors">
                     <td class="px-4 py-3">
                       <div class="text-gray-800 font-medium">{{ r.nombre }}</div>
@@ -125,6 +160,26 @@ import { StatCardComponent } from '../../shared/components/stat-card.component';
               </tbody>
             </table>
             </div>
+
+            @if (filtradas().length > pageSize()) {
+              <div class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 bg-gray-50/60">
+                <span class="text-sm text-gray-500">
+                  Mostrando <strong class="text-gray-800">{{ paginadas().length }}</strong>
+                  de <strong class="text-gray-800">{{ filtradas().length }}</strong> registros
+                </span>
+                <div class="flex items-center gap-2">
+                  <button (click)="page.set(page() - 1)" [disabled]="page() === 0"
+                    class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                  </button>
+                  <span class="px-4 py-1.5 text-sm font-semibold text-[#39A900] bg-[#39A900]/10 rounded-lg border border-[#39A900]/20">{{ page() + 1 }} / {{ totalPaginas() }}</span>
+                  <button (click)="page.set(page() + 1)" [disabled]="page() + 1 >= totalPaginas()"
+                    class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                  </button>
+                </div>
+              </div>
+            }
           </div>
         }
       }
@@ -140,6 +195,17 @@ export class MaterialesExistenciasComponent implements OnInit {
   /** `?id_producto=` de la navegación cruzada — filtro exacto, independiente del buscador de texto. */
   idProductoFiltro = signal<string | null>(null);
 
+  // ── Paginación de la tabla (client-side) ────────────────────────────
+  pageSize = signal(20);
+  pageSizeDropdownOpen = signal(false);
+  page = signal(0);
+
+  seleccionarPageSize(size: number): void {
+    this.pageSize.set(size);
+    this.page.set(0);
+    this.pageSizeDropdownOpen.set(false);
+  }
+
   filtradas = computed(() => {
     const t = this.filtro().trim().toLowerCase();
     const idProducto = this.idProductoFiltro();
@@ -150,6 +216,12 @@ export class MaterialesExistenciasComponent implements OnInit {
         .filter(Boolean)
         .some((v) => (v as string).toLowerCase().includes(t)),
     );
+  });
+
+  totalPaginas = computed(() => Math.max(1, Math.ceil(this.filtradas().length / this.pageSize())));
+  paginadas = computed(() => {
+    const start = this.page() * this.pageSize();
+    return this.filtradas().slice(start, start + this.pageSize());
   });
 
   tot = computed(() =>
@@ -185,6 +257,7 @@ export class MaterialesExistenciasComponent implements OnInit {
 
   quitarFiltroProducto(): void {
     this.idProductoFiltro.set(null);
+    this.page.set(0);
     this.router.navigate([], { relativeTo: this.route, queryParams: {} });
   }
 

@@ -30,7 +30,7 @@ import { Acta, MaterialesApiService } from '../../core/services/materiales/mater
           <p class="text-sm text-gray-500 mt-0.5">Generadas automáticamente al entregar o devolver un préstamo.</p>
         </div>
         <input [(ngModel)]="filtroTexto" placeholder="Buscar por solicitud…"
-          class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+          class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] bg-white" />
       </div>
 
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">

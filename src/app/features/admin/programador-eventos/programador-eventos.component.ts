@@ -27,7 +27,7 @@ const TIPO_COLORS: Record<string, { bg: string; text: string }> = {
 
     <div class="page-header">
       <div>
-        <h2 class="text-2xl font-bold text-gray-900 tracking-tight">Programador de Eventos</h2>
+        <h2 class="text-2xl font-bold text-gray-900 tracking-tight mb-3">Programador de Eventos</h2>
         <p class="text-muted text-sm">Gestiona eventos especiales del calendario académico</p>
       </div>
       <button class="bg-sena-gradient hover:opacity-90 text-white font-semibold rounded-xl px-5 py-2 transition-all flex items-center gap-2" (click)="evento.abrirNuevo()">
@@ -41,7 +41,7 @@ const TIPO_COLORS: Record<string, { bg: string; text: string }> = {
       <div class="flex items-center gap-3" style="flex-wrap:wrap">
         <div class="form-group" style="min-width:180px">
           <label class="block text-xs font-semibold text-gray-600 mb-1">Buscar evento</label>
-          <input class="w-full px-3 py-2 border bg-white border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:border-[#39A900]" [ngModel]="searchQ()" (ngModelChange)="searchQ.set($event)" placeholder="Nombre del evento...">
+          <input class="w-full px-3 py-2 border bg-white border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:border-[#39A900]" [ngModel]="searchQ()" (ngModelChange)="searchQ.set($event)" placeholder="Nombre del evento...">
         </div>
         <div class="form-group" style="min-width:140px">
           <label class="block text-xs font-semibold text-gray-600 mb-1">Tipo</label>
@@ -63,68 +63,81 @@ const TIPO_COLORS: Record<string, { bg: string; text: string }> = {
       (eventoClick)="evento.abrirEditar($event)" />
 
     <!-- Lista de Eventos -->
-    <div class="card mt-4 table-wrap">
-      <div class="flex items-center justify-between p-4" style="border-bottom:1px solid var(--border)">
-        <h3 class="text-sm font-semibold text-gray-700">Eventos — <span class="font-normal text-gray-400">{{ filteredEventos().length }} registros</span></h3>
+    <div class="table-card mt-4">
+      <div class="table-card-header">
+        <lucide-icon name="calendar" [size]="15" style="color:var(--text-muted)"></lucide-icon>
+        <h3 class="text-sm font-semibold text-gray-700">Eventos <span class="font-normal text-gray-400">— {{ filteredEventos().length }} {{ filteredEventos().length === 1 ? 'registro' : 'registros' }}</span></h3>
       </div>
-      <table class="data-table">
-        <thead><tr>
-          <th>Evento</th><th>Tipo</th><th>Fecha</th><th>Horario</th><th>Lugar</th>
-          <th class="col-fichas">Fichas invitadas</th><th class="col-desc">Descripción</th><th>Acciones</th>
-        </tr></thead>
-        <tbody>
-          @if (filteredEventos().length === 0) {
-            <tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted)">
-              Sin eventos registrados
-            </td></tr>
-          }
-          @for (ev of filteredEventos(); track ev.id) {
-          <tr>
-            <td>
-              <div [class]="'ev-badge ev-tipo-' + ev.tipo" [title]="ev.nombre">
-                <lucide-icon [name]="tipoIcon(ev.tipo)" [size]="13"></lucide-icon>
-                <strong>{{ ev.nombre }}</strong>
-              </div>
-            </td>
-            <td><span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold" [class]="'tipo-badge-' + ev.tipo">{{ tipoLabel(ev.tipo) }}</span></td>
-            <td style="white-space:nowrap">
-              {{ formatFecha(ev.fechaInicio) }}
-              @if (ev.fechaFin && ev.fechaFin !== ev.fechaInicio) {
-                <br><span class="text-xs text-muted">→ {{ formatFecha(ev.fechaFin) }}</span>
-              }
-            </td>
-            <td style="white-space:nowrap;font-size:12px;">
-              @if (ev.horaInicio) {
-                {{ to12h(ev.horaInicio) }} — {{ to12h(ev.horaFin) }}
-              } @else { — }
-            </td>
-            <td>
-              @if (ev.lugar) {
-                <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;">
-                  <lucide-icon name="map-pin" [size]="11"></lucide-icon>{{ ev.lugar }}
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr>
+            <th>Evento</th><th>Tipo</th><th>Fecha</th><th>Horario</th><th>Lugar</th>
+            <th class="col-fichas">Fichas invitadas</th><th class="col-desc">Descripción</th><th class="col-acciones">Acciones</th>
+          </tr></thead>
+          <tbody>
+            @if (filteredEventos().length === 0) {
+              <tr><td colspan="8" style="padding:0;border-bottom:none">
+                <div class="empty-state">
+                  <lucide-icon name="calendar-x" [size]="30"></lucide-icon>
+                  <span>Sin eventos registrados</span>
+                </div>
+              </td></tr>
+            }
+            @for (ev of filteredEventos(); track ev.id) {
+            <tr>
+              <td>
+                <div class="ev-name-cell">
+                  <span [class]="'ev-icon-avatar ev-tipo-' + ev.tipo">
+                    <lucide-icon [name]="tipoIcon(ev.tipo)" [size]="13"></lucide-icon>
+                  </span>
+                  <strong [title]="ev.nombre">{{ ev.nombre }}</strong>
+                </div>
+              </td>
+              <td><span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold" [class]="'tipo-badge-' + ev.tipo">{{ tipoLabel(ev.tipo) }}</span></td>
+              <td style="white-space:nowrap">
+                {{ formatFecha(ev.fechaInicio) }}
+                @if (ev.fechaFin && ev.fechaFin !== ev.fechaInicio) {
+                  <br><span class="text-xs text-muted">→ {{ formatFecha(ev.fechaFin) }}</span>
+                }
+              </td>
+              <td style="white-space:nowrap;font-size:12px;">
+                @if (ev.horaInicio) {
+                  <span style="display:inline-flex;align-items:center;gap:4px;">
+                    <lucide-icon name="clock" [size]="11" style="color:var(--text-muted)"></lucide-icon>{{ to12h(ev.horaInicio) }} — {{ to12h(ev.horaFin) }}
+                  </span>
+                } @else { <span class="text-muted">—</span> }
+              </td>
+              <td>
+                @if (ev.lugar) {
+                  <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;">
+                    <lucide-icon name="map-pin" [size]="11" style="color:var(--text-muted)"></lucide-icon>{{ ev.lugar }}
+                  </span>
+                } @else { <span class="text-muted text-sm">—</span> }
+              </td>
+              <td class="col-fichas">
+                <span class="fichas-count-chip" [class.fichas-count-chip--empty]="(ev.fichasParticipantes ?? []).length === 0">
+                  <lucide-icon name="users" [size]="10"></lucide-icon>
+                  {{ (ev.fichasParticipantes ?? []).length }} ficha{{ (ev.fichasParticipantes ?? []).length !== 1 ? 's' : '' }}
                 </span>
-              } @else { <span class="text-muted text-sm">—</span> }
-            </td>
-            <td class="col-fichas">
-              <span class="fichas-count-chip">{{ (ev.fichasParticipantes ?? []).length }} ficha{{ (ev.fichasParticipantes ?? []).length !== 1 ? 's' : '' }}</span>
-            </td>
-            <td class="col-desc"><span class="ev-desc-cell text-sm text-muted" [title]="ev.descripcion ?? ''">{{ ev.descripcion ?? '—' }}</span></td>
-            <td>
-              <div class="flex gap-2">
-                <button class="btn btn-icon" [disabled]="evento.esEventoPasado(ev)"
-                        (click)="evento.abrirEditar(ev)"
-                        [title]="evento.esEventoPasado(ev) ? 'Este evento ya pasó y no se puede editar' : 'Editar'">
-                  <lucide-icon name="pencil" [size]="14"></lucide-icon>
-                </button>
-                <button class="w-8 h-8 inline-flex items-center justify-center rounded-lg hover:bg-red-50 text-red-600 transition-colors" (click)="remove(ev.id)" title="Eliminar">
-                  <lucide-icon name="trash-2" [size]="14"></lucide-icon>
-                </button>
-              </div>
-            </td>
-          </tr>
-          }
-        </tbody>
-      </table>
+              </td>
+              <td class="col-desc"><span class="ev-desc-cell text-sm text-muted" [title]="ev.descripcion ?? ''">{{ ev.descripcion ?? '—' }}</span></td>
+              <td class="col-acciones">
+                <div class="flex gap-1.5 justify-end">
+                  <button class="btn btn-icon" [disabled]="evento.esEventoPasado(ev)"
+                          (click)="evento.abrirEditar(ev)"
+                          [title]="evento.esEventoPasado(ev) ? 'Este evento ya pasó y no se puede editar' : 'Editar'">
+                    <lucide-icon name="pencil" [size]="14"></lucide-icon>
+                  </button>
+                  <button class="btn btn-icon btn-icon-danger" (click)="remove(ev.id)" title="Eliminar">
+                    <lucide-icon name="trash-2" [size]="14"></lucide-icon>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            }
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Modal crear/editar — extraído a su propio componente -->
