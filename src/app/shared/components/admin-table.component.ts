@@ -1,7 +1,8 @@
-import { Component, DoCheck, Input, Output, EventEmitter } from '@angular/core';
+import { Component, DoCheck, Input, Output, EventEmitter, Signal, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { StatusBadgeComponent } from './status-badge.component';
+
 
 /** Enlace de navegación cruzada por fila (ej. Producto → Existencias filtradas por ese producto). */
 export interface TableRowLink {
@@ -68,27 +69,87 @@ export interface TableRowLink {
           </div>
 
           <!-- Filas por página -->
+          <!-- Filas por página -->
           <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
             <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filas</span>
-            <select [(ngModel)]="pageSize" (ngModelChange)="page = 0"
-              class="text-sm font-semibold bg-transparent border-none focus:ring-0 text-gray-700 cursor-pointer">
-              <option [ngValue]="10">10</option>
-              <option [ngValue]="20">20</option>
-              <option [ngValue]="50">50</option>
-              <option [ngValue]="100">100</option>
-            </select>
+            
+            <!-- Dropdown personalizado para filas -->
+            <div class="relative">
+              <button 
+                type="button"
+                (click)="pageSizeDropdownOpen.update(v => !v)"
+                class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer">
+                <span>{{ pageSize() }}</span>
+                <svg class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" [class.rotate-180]="pageSizeDropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              @if (pageSizeDropdownOpen()) {
+                <!-- Backdrop para cerrar al hacer clic afuera -->
+                <div class="fixed inset-0 z-10" (click)="pageSizeDropdownOpen.set(false)"></div>
+
+                <!-- Menú flotante compacto -->
+                <div class="absolute left-0 top-full mt-2 z-20 w-20 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <div class="p-1 space-y-0.5">
+                    @for (size of [10, 20, 50, 100]; track size) {
+                      <button
+                        type="button"
+                        (click)="seleccionarPageSize(size)"
+                        class="w-full px-3 py-1.5 text-sm text-center rounded-lg transition-colors font-medium"
+                        [class.bg-green-50]="pageSize() === size"
+                        [class.text-green-700]="pageSize() === size"
+                        [class.text-gray-600]="pageSize() !== size"
+                        [class.hover:bg-gray-50]="pageSize() !== size">
+                        {{ size }}
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
           </div>
 
           <!-- Filtro opcional (ej. estado activo/desactivado) — lo controla el padre -->
           @if (filterOptions && filterOptions.length) {
             <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
               <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">{{ filterLabel }}</span>
-              <select [ngModel]="filterValue" (ngModelChange)="filterValueChange.emit($event); page = 0"
-                class="text-sm font-semibold bg-transparent border-none focus:ring-0 text-gray-700 cursor-pointer">
-                @for (o of filterOptions; track o.value) {
-                  <option [ngValue]="o.value">{{ o.label }}</option>
+
+              <!-- Dropdown personalizado para el filtro -->
+              <div class="relative">
+                <button
+                  type="button"
+                  (click)="filterDropdownOpen.update(v => !v)"
+                  class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer">
+                  <span>{{ filterValueLabel() }}</span>
+                  <svg class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" [class.rotate-180]="filterDropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                @if (filterDropdownOpen()) {
+                  <!-- Backdrop para cerrar al hacer clic afuera -->
+                  <div class="fixed inset-0 z-10" (click)="filterDropdownOpen.set(false)"></div>
+
+                  <!-- Menú flotante -->
+                  <div class="absolute left-0 top-full mt-2 z-20 w-44 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                    <div class="p-1 space-y-0.5 max-h-64 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                      @for (o of filterOptions; track o.value) {
+                        <button
+                          type="button"
+                          (click)="seleccionarFiltro(o.value)"
+                          class="w-full px-3 py-1.5 text-sm text-left rounded-lg transition-colors font-medium"
+                          [class.bg-green-50]="filterValue === o.value"
+                          [class.text-green-700]="filterValue === o.value"
+                          [class.text-gray-600]="filterValue !== o.value"
+                          [class.hover:bg-gray-50]="filterValue !== o.value">
+                          {{ o.label }}
+                        </button>
+                      }
+                    </div>
+                  </div>
                 }
-              </select>
+              </div>
             </div>
           }
 
@@ -187,7 +248,7 @@ export interface TableRowLink {
           </table>
         </div>
 
-        @if (searchable && filasVisibles.length > pageSize) {
+        @if (searchable && filasVisibles.length > pageSize()) {
           <div class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 bg-gray-50/60">
             <span class="text-sm text-gray-500">
               Mostrando <strong class="text-gray-800">{{ pageRows.length }}</strong>
@@ -250,10 +311,29 @@ export class AdminTableComponent implements DoCheck {
   @Input() filterLabel = 'Estado';
   @Output() filterValueChange = new EventEmitter<string>();
 
+  filterDropdownOpen = signal(false);
+
+  seleccionarFiltro(valor: string): void {
+    this.filterValueChange.emit(valor);
+    this.page = 0;
+    this.filterDropdownOpen.set(false);
+  }
+
+  filterValueLabel(): string {
+    return this.filterOptions?.find((o) => o.value === this.filterValue)?.label ?? this.filterValue;
+  }
+
   /** Estado interno del buscador/paginador (solo activo con `searchable`). */
   busqueda = '';
   page = 0;
-  pageSize = 20;
+  pageSize = signal(20)
+  pageSizeDropdownOpen= signal(false)
+
+  seleccionarPageSize(size:number):void{
+    this.pageSize.set(size)
+    this.page=0
+    this.pageSizeDropdownOpen.set(false)
+  }
 
   /** Si está en true, las filas son clicables (cursor + resaltado) y emiten rowSelected. */
   @Input() selectable = false;
@@ -326,7 +406,7 @@ export class AdminTableComponent implements DoCheck {
   }
 
   get totalPaginas(): number {
-    return Math.max(1, Math.ceil(this.filasVisibles.length / this.pageSize));
+    return Math.max(1, Math.ceil(this.filasVisibles.length / this.pageSize()));
   }
 
   /** Filas de la página actual (o todas, sin `searchable`). */
@@ -334,8 +414,8 @@ export class AdminTableComponent implements DoCheck {
     const all = this.filasVisibles;
     if (!this.searchable) return all;
     const p = Math.min(this.page, this.totalPaginas - 1);
-    const start = p * this.pageSize;
-    return all.slice(start, start + this.pageSize);
+    const start = p * this.pageSize();
+    return all.slice(start, start + this.pageSize());
   }
 
   isSelected(row: any): boolean {

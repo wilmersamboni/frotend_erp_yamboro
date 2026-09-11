@@ -46,18 +46,55 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
   template: `
     <div class="p-6 space-y-5">
       <div class="flex flex-wrap items-center gap-3">
-        <h1 class="text-xl font-bold text-gray-800">Mi Bodega</h1>
-        @if (bodegas().length > 1) {
-          <select class="border rounded-lg px-3 py-1.5 text-sm bg-white"
-                  [ngModel]="bodegaSel()" (ngModelChange)="bodegaSel.set($event)">
+  <h1 class="text-xl font-bold text-gray-800">Mi Bodega</h1>
+  @if (bodegas().length > 1) {
+    <!-- Dropdown Moderno Personalizado -->
+    <div class="relative">
+      <button 
+        type="button"
+        (click)="toggleDropdown()"
+        class="flex items-center justify-between gap-3 w-64 px-4 py-2 text-sm bg-white border border-gray-200 rounded-xl shadow-sm hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-600 transition-all">
+        <span class="font-medium text-gray-700 truncate">
+          {{ bodegaActual()?.nombre ?? 'Seleccionar bodega...' }}
+        </span>
+        <svg class="w-4 h-4 text-gray-400 transition-transform duration-200" [class.rotate-180]="dropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      @if (dropdownOpen()) {
+        <!-- Backdrop para cerrar al hacer clic afuera -->
+        <div class="fixed inset-0 z-10" (click)="dropdownOpen.set(false)"></div>
+
+        <!-- Menú flotante -->
+        <div class="absolute left-0 z-20 w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+          <div class="p-1 space-y-0.5">
             @for (b of bodegas(); track b.id_sitio) {
-              <option [value]="b.id_sitio">{{ b.nombre }}</option>
+              <button
+                type="button"
+                (click)="seleccionarBodega(b.id_sitio)"
+                class="w-full flex items-center justify-between px-3 py-2 text-sm text-left rounded-lg transition-colors"
+                [class.bg-green-50]="bodegaSel() === b.id_sitio"
+                [class.text-green-700]="bodegaSel() === b.id_sitio"
+                [class.font-medium]="bodegaSel() === b.id_sitio"
+                [class.text-gray-600]="bodegaSel() !== b.id_sitio"
+                [class.hover:bg-gray-50]="bodegaSel() !== b.id_sitio">
+                <span class="truncate">{{ b.nombre }}</span>
+                @if (bodegaSel() === b.id_sitio) {
+                  <svg class="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                }
+              </button>
             }
-          </select>
-        } @else if (bodegaActual()) {
-          <span class="text-sm text-gray-500">— {{ bodegaActual()!.nombre }}</span>
-        }
-      </div>
+          </div>
+        </div>
+      }
+    </div>
+  } @else if (bodegaActual()) {
+    <span class="text-sm text-gray-500">— {{ bodegaActual()!.nombre }}</span>
+  }
+</div>
 
       @if (bodegas().length === 0 && !loading()) {
         <div class="rounded-2xl border bg-white p-8 text-center text-gray-500">
@@ -137,6 +174,18 @@ export class MiBodegaComponent implements OnInit {
   items = signal<Item[]>([]);
   lotes = signal<Lote[]>([]);
   categorias = signal<Categoria[]>([]);
+
+  // Agrega esta signal junto a tus otras declaraciones
+dropdownOpen = signal(false);
+
+toggleDropdown(): void {
+  this.dropdownOpen.update((v) => !v);
+}
+
+seleccionarBodega(idSitio: string): void {
+  this.bodegaSel.set(idSitio);
+  this.dropdownOpen.set(false);
+}
 
   tab = signal<Tab>('productos');
   tabs = [
