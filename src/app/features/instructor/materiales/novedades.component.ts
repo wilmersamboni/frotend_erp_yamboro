@@ -248,7 +248,7 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
 
   /** El label del ítem cambia según el tipo elegido (obligatorio vs opcional). */
   get columnLabels(): Record<string, string> {
-    return { id_item: this.itemRequerido ? 'Ítem *' : 'Ítem (opcional)' };
+    return { id_item: this.itemRequerido ? 'Ítem *' : 'Ítem' };
   }
 
   /** ¿El tipo actualmente elegido en el form exige indicar el ítem? */

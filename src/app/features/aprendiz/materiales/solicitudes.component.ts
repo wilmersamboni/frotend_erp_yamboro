@@ -147,7 +147,11 @@ interface LineaForm {
                 <div class="space-y-2">
                   @for (linea of lineas; track $index) {
                     <div class="flex gap-2 items-start">
-                      <div class="flex-1">
+                      <!-- min-w-0: un flex item con flex-1 no se achica por debajo del
+                           ancho de SU contenido a menos que se le fuerce — sin esto, un
+                           label largo (nombre + lote + cantidad + unidad) empujaba el
+                           input de cantidad fuera del modal (reporte QA 2026-09-11). -->
+                      <div class="flex-1 min-w-0">
                         <app-ss [options]="opcionesLinea(linea)" placeholder="— Selecciona producto o lote —"
                           [(ngModel)]="linea.ref" (ngModelChange)="onRefChange(linea)"></app-ss>
                         @if (linea.ref) {
@@ -400,12 +404,16 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
    * Nunca su propia solicitud; admin siempre (nunca acá); si no, solo si es el
    * responsable del sitio del producto — replica `SolicitudesService`.
    */
+  /**
+   * `bodega_responsable_id` viene resuelto por el backend a partir de la
+   * bodega REAL de la solicitud (línea por línea, no `producto?.id_sitio` —
+   * la "bodega de casa" del producto puede no ser de dónde sale ESTA
+   * solicitud; reporte QA 2026-09-11, caso "Pollo" con lote en otra bodega).
+   */
   puedeGestionar(s: Solicitud): boolean {
     if (this.esSolicitantePropio(s)) return false;
     if (this.auth.isAdmin()) return true;
-    const idSitio = s.producto?.id_sitio;
-    const sitio = idSitio ? this.sitios.find((x) => x.id_sitio === idSitio) : undefined;
-    return !!sitio?.id_responsable && sitio.id_responsable === this.auth.user()?.id;
+    return !!s.bodega_responsable_id && s.bodega_responsable_id === this.auth.user()?.id;
   }
 
   /** ¿Se muestra el paso "Bodega"? Solo si tenemos el catálogo de sitios. */
@@ -415,11 +423,20 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
 
   // ── Opciones de línea (productos devolutivos + lotes consumibles) ─────
 
+  /**
+   * Solo DEVOLUTIVO — un consumible/perecedero se solicita por LOTE (única
+   * unidad realmente disponible: `producto.stock` no existe, vive en
+   * `lote.cantidad_disponible`), nunca como "el producto pelado". Antes esto
+   * listaba cualquier producto de la bodega sin filtrar por tipo, así que un
+   * consumible con lote aparecía DOS VECES en el selector: una como producto
+   * suelto (opción rota — no había nada que entregar) y otra como su lote
+   * (reporte QA 2026-09-11: "Abono orgánico" salía duplicado al buscar).
+   */
   private productosDeBodega(): Producto[] {
-    if (this.pasoBodega && this.idSitioSeleccionado) {
-      return this.productos.filter((p) => p.id_sitio === this.idSitioSeleccionado);
-    }
-    return this.pasoBodega ? [] : this.productos;
+    const base = this.pasoBodega && this.idSitioSeleccionado
+      ? this.productos.filter((p) => p.id_sitio === this.idSitioSeleccionado)
+      : this.pasoBodega ? [] : this.productos;
+    return base.filter((p) => p.tipo_material === 'DEVOLUTIVO');
   }
 
   private lotesDeBodega(): Lote[] {
@@ -439,7 +456,9 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
     }));
     const lotes = this.lotesDeBodega().map((l) => ({
       ref: `l:${l.id_lote}`,
-      label: `${l.producto?.nombre ?? 'Lote'}${l.codigo_lote ? ' · ' + l.codigo_lote : ''} (lote, ${l.cantidad_disponible})`,
+      // La cantidad SIEMPRE con su unidad — un "250" pelado no dice si son
+      // kg, litros o unidades (reporte QA 2026-09-11).
+      label: `${l.producto?.nombre ?? 'Lote'}${l.codigo_lote ? ' · ' + l.codigo_lote : ''} (lote, ${l.cantidad_disponible} ${(l.producto?.unidad_medida ?? l.unidad_medida ?? '').toLowerCase() || 'und'})`,
     }));
     return [...prods, ...lotes];
   }

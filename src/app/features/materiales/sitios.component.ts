@@ -162,10 +162,27 @@ export class MaterialesSitiosComponent implements OnInit {
     this.cargar();
   }
 
+  /**
+   * Candidatos a responsable de bodega: instructores y administradores por
+   * defecto. Un aprendiz solo aparece si YA es responsable de algún sitio
+   * (un "aprendiz encargado de bodega" — el bundle B3 se le da justamente
+   * asignándolo como `id_responsable`), para no perder ni impedir re-elegir
+   * esas asignaciones. Antes la lista incluía a TODOS los aprendices.
+   */
+  private get responsablesElegibles(): any[] {
+    const yaResponsables = new Set(
+      this.sitios.map((s) => s.id_responsable).filter((x): x is string => !!x),
+    );
+    const staff = ['administrador', 'administrador_erp', 'instructor'];
+    return this.responsables.filter(
+      (u) => staff.includes(u.persona?.cargo) || yaResponsables.has(u.idUsuario),
+    );
+  }
+
   get opciones(): Record<string, OpcionSelect[]> {
     return {
       tipo: OPCIONES_TIPO,
-      id_responsable: this.responsables.map((u) => ({
+      id_responsable: this.responsablesElegibles.map((u) => ({
         label: `${u.persona?.nombre ?? ''} ${u.persona?.apellido ?? ''} — ${this.etiquetaCargo(u.persona?.cargo)}`.trim(),
         value: u.idUsuario,
       })),

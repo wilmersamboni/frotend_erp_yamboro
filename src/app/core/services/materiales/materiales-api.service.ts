@@ -80,7 +80,7 @@ export interface Lote {
   fecha_vencimiento?: string | null;
   id_sitio?: string | null;
   id_responsable?: string | null;
-  producto?: { id_producto: string; nombre: string; SKU: string | null; tipo_material: string };
+  producto?: { id_producto: string; nombre: string; SKU: string | null; tipo_material: string; unidad_medida?: string };
 }
 
 export interface CreateLoteDto {
@@ -220,7 +220,10 @@ export interface ResumenExistencias {
   perdidos: number;
   mantenimiento: number;
   total: number;
+  /** Saldo de lotes (consumibles) — SUM(lote.cantidad_disponible). */
   lote_disponible: number;
+  /** Alta total de lotes (consumibles) — SUM(lote.cantidad_inicial). */
+  lote_total: number;
   lotes_por_vencer: number;
 }
 
@@ -287,6 +290,10 @@ export interface Solicitud {
   usuario_entrega_nombre?: string | null;
   /** Bodega de la que sale el material (resuelto por el backend). */
   bodega_nombre?: string | null;
+  /** `sitio.id_responsable` de esa misma bodega — usar esto para el gating de
+   *  Aprobar/Rechazar/Entregar/Cancelar, no `producto?.id_sitio` (la "bodega
+   *  de casa" del producto puede no ser de dónde sale ESTA solicitud). */
+  bodega_responsable_id?: string | null;
   /** Justificación del rechazo — presente solo si `estado === 'RECHAZADA'`. */
   motivo_rechazo?: string | null;
 }
@@ -386,11 +393,39 @@ export type EstadoDevolucion = 'BUENO' | 'REGULAR' | 'DAÑADO' | 'PERDIDO';
 export interface Devolucion {
   id_devolucion: string;
   fecha: string;
-  estado: EstadoDevolucion;
+  estado: EstadoDevolucion | 'DEVUELTO';
   observacion: string | null;
   id_solicitud: string;
-  id_item: string;
+  /** Exactamente uno de los dos: `id_item` (devolutivo) o `id_lote`+`cantidad` (consumible/perecedero). */
+  id_item: string | null;
+  id_lote?: string | null;
+  cantidad?: number | null;
   solicitud?: Solicitud;
+}
+
+/**
+ * Línea de LOTE (consumible/perecedero) de una solicitud con sobrante
+ * pendiente de devolver (2026-09-11) — "un consumible mayormente no vuelve
+ * (ej. un pollo), pero a veces sí un sobrante parcial (ej. 1-2kg de 250kg de
+ * abono)". `cantidad_pendiente` es lo máximo acreditable de vuelta al lote.
+ */
+export interface LineaConsumiblePendiente {
+  id_lote: string;
+  id_detalle: string | null;
+  id_producto: string | null;
+  producto_nombre: string | null;
+  unidad_medida: string | null;
+  codigo_lote: string | null;
+  cantidad_entregada: number;
+  cantidad_ya_devuelta: number;
+  cantidad_pendiente: number;
+}
+
+export interface CreateDevolucionConsumibleDto {
+  id_solicitud: string;
+  id_lote: string;
+  cantidad: number;
+  observacion?: string;
 }
 
 /** Unidad de un préstamo pendiente de devolver (M10a). */
@@ -758,6 +793,16 @@ export class MaterialesApiService {
   /** Registra la devolución de todas las unidades pendientes de un préstamo. */
   crearDevolucion(dto: CreateDevolucionDto) {
     return this.unwrap(this.http.post<Envelope<Devolucion[]>>(`${BASE}/devoluciones`, dto));
+  }
+  /** Líneas de LOTE (consumible/perecedero) con sobrante pendiente de devolver. */
+  lineasConsumiblesPendientes(idSolicitud: string) {
+    return this.unwrap(
+      this.http.get<Envelope<LineaConsumiblePendiente[]>>(`${BASE}/devoluciones/pendientes-consumible/${idSolicitud}`),
+    );
+  }
+  /** Acredita un sobrante parcial de consumible/perecedero de vuelta al lote de origen. */
+  registrarDevolucionConsumible(dto: CreateDevolucionConsumibleDto) {
+    return this.unwrap(this.http.post<Envelope<Devolucion>>(`${BASE}/devoluciones/consumible`, dto));
   }
 
   // ── Chequeos ───────────────────────────────────────────────────────

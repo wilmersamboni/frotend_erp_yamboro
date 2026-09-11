@@ -187,8 +187,13 @@ export class MaterialesAsignacionesComponent implements OnInit {
   get opcionesFicha() {
     return this.fichas.map((f) => ({ value: f.idCurso, label: `${f.codigo}${f.programa ? ' — ' + f.programa : ''}` }));
   }
+  /** Solo DEVOLUTIVO: una asignación a ficha presta activos con placa que
+   *  luego vuelven. Un consumible se saca por solicitud, no se asigna. */
+  get productosAsignables(): Producto[] {
+    return this.productos.filter((p) => p.tipo_material === 'DEVOLUTIVO');
+  }
   get opcionesProducto() {
-    return this.productos.map((p) => ({ value: p.id_producto, label: p.nombre }));
+    return this.productosAsignables.map((p) => ({ value: p.id_producto, label: p.nombre }));
   }
 
   loading = false;
@@ -265,13 +270,13 @@ export class MaterialesAsignacionesComponent implements OnInit {
   }
 
   nuevo(): void {
-    if (this.productos.length === 0 || this.fichas.length === 0) {
-      this.toast.warn('Faltan datos', 'Necesitás al menos un producto y una ficha para crear una asignación.');
+    if (this.productosAsignables.length === 0 || this.fichas.length === 0) {
+      this.toast.warn('Faltan datos', 'Necesitás al menos un producto devolutivo y una ficha para crear una asignación.');
       return;
     }
     this.form = {
       id_curso: this.fichas[0].idCurso,
-      id_producto: this.productos[0].id_producto,
+      id_producto: this.productosAsignables[0].id_producto,
       cantidad: 1,
       fecha_devolucion: '',
       observacion: '',
