@@ -54,9 +54,9 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
     @media (max-width:640px){ .revisar-shell { height:auto; } }
   `],
   template: `
-    <div class="p-6 mx-auto" [class.max-w-xl]="fase === 'subir'" [class.max-w-7xl]="fase !== 'subir'" [class.revisar-shell]="fase === 'revisar'">
+    <div class="p-6 w-full max-w-7xl mx-auto" [class.revisar-shell]="fase === 'revisar'">
 
-      <header class="mb-4 shrink-0">
+      <header class="mb-4 shrink-0 max-w-5xl mx-auto w-full">
         <a routerLink="/materiales/productos"
           class="group inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-full pl-2.5 pr-3.5 py-2 shadow-sm hover:border-[#39A900] hover:text-[#2d8000] hover:bg-[#39A900]/[0.06] hover:shadow transition-all mb-2.5">
           <svg class="w-4 h-4 transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -64,15 +64,15 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
           </svg>
           Volver a Productos
         </a>
-        <h1 class="text-[1.35rem] font-bold text-gray-900 tracking-tight">Importar productos</h1>
-        <p class="text-sm text-gray-500 mt-0.5">
+        <h1 class="text-[1.35rem] font-bold text-gray-900 tracking-tight mb-5">Importar productos</h1>
+        <p class="text-sm text-gray-500 mt-0.5 mb-5">
           Carga masiva desde Excel o CSV. Siempre revisás un resumen antes de que se registre nada.
         </p>
       </header>
 
       <!-- ═══════════════ PASO 1 · SUBIR ═══════════════ -->
       @if (fase === 'subir') {
-        <div class="card p-6 shadow-sm">
+        <div class="card p-6 shadow-sm max-w-5xl w-full mx-auto">
           <label
             class="dropzone group relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center cursor-pointer transition-colors"
             [class.dropzone--drag]="arrastrando"
@@ -122,14 +122,14 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
           </div>
         </div>
 
-        <div class="mt-5 grid grid-cols-3 gap-3">
+        <div class="mt-5 grid grid-cols-3 gap-3 max-w-5xl mx-auto h-30  ">
           @for (p of pasos; track p.n) {
-            <div class="card px-3 py-3 flex items-start gap-2.5">
-              <span class="flex-none grid place-items-center w-6 h-6 rounded-full text-[11px] font-bold"
+            <div class="card px-3 py-3 flex items-center  gap-2.5 ">
+              <span class="flex-none grid place-items-center w-6 h-6 rounded-full text-[16px] font-bold"
                 [class]="p.n === 1 ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-400'">{{ p.n }}</span>
               <div>
-                <p class="text-xs font-semibold text-gray-700 leading-tight">{{ p.t }}</p>
-                <p class="text-[11px] text-gray-400 leading-tight mt-0.5">{{ p.d }}</p>
+                <p class="text-[14px] font-semibold text-gray-700 leading-tight">{{ p.t }}</p>
+                <p class="text-[13px] text-gray-400 leading-tight mt-0.5">{{ p.d }}</p>
               </div>
             </div>
           }

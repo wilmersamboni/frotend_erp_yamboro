@@ -76,7 +76,7 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
 
     <div class="page-header" style="display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:16px;">
       <div>
-        <h2 class="text-2xl font-bold text-gray-900 tracking-tight">{{ pageTitle() }}</h2>
+        <h2 class="text-2xl font-bold text-gray-900 tracking-tight mb-3">{{ pageTitle() }}</h2>
         <p class="text-muted text-sm">{{ pageSubtitle() }} — {{ tableRows().length }} total</p>
       </div>
 

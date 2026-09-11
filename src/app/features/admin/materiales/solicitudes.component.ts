@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, Signal, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { MaterialesLiveService } from '../../../core/services/realtime/materiales-live.service';
@@ -11,7 +11,7 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
 import { TuiDayCache } from '../../../shared/utils/tui-day.util';
 import type { TuiDay } from '@taiga-ui/cdk';
-import { MaterialesApiService, Lote, Producto, Sitio, Solicitud } from '../../../core/services/materiales/materiales-api.service';
+import { MaterialesApiService, Lote, Producto, Sitio, Solicitud, EstadoSolicitud } from '../../../core/services/materiales/materiales-api.service';
 
 /** Línea del modal "Nueva solicitud" — `p:<id>` producto devolutivo, `l:<id>` lote consumible. */
 interface LineaForm {
@@ -69,74 +69,220 @@ interface LineaForm {
         <p class="text-center text-gray-400 text-sm py-10">No hay solicitudes registradas</p>
       } @else {
         <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
-          <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
-              <tr>
-                <th class="px-4 py-3 text-left font-semibold">Producto</th>
-                <th class="px-4 py-3 text-left font-semibold">Solicitó</th>
-                <th class="px-4 py-3 text-left font-semibold">Cantidad</th>
-                <th class="px-4 py-3 text-left font-semibold">Disponible</th>
-                <th class="px-4 py-3 text-left font-semibold">Observación</th>
-                <th class="px-4 py-3 text-left font-semibold">Estado</th>
-                <th class="px-4 py-3 text-left font-semibold">Fecha</th>
-                <th class="px-4 py-3 text-right font-semibold">Acciones</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-              @for (s of solicitudes; track s.id_solicitud) {
-                <tr class="hover:bg-gray-50/80 transition-colors">
-                  <td class="px-4 py-3 text-gray-700">{{ s.producto?.nombre ?? '—' }}</td>
-                  <td class="px-4 py-3 text-gray-600">{{ s.usuario_nombre || '—' }}</td>
-                  <td class="px-4 py-3 text-gray-700">{{ s.cantidad }}</td>
-                  <td class="px-4 py-3">
-                    @if ((s.estado === 'PENDIENTE' || s.estado === 'APROBADA') && stockDe(s); as st) {
-                      <span class="text-xs font-medium"
-                        [class.text-red-600]="st.disponibles < s.cantidad"
-                        [class.text-green-700]="st.disponibles >= s.cantidad">
-                        {{ st.disponibles }} / {{ st.total }}
-                      </span>
-                      @if (st.disponibles < s.cantidad) {
-                        <span class="block text-[11px] text-red-500">faltan {{ s.cantidad - st.disponibles }}</span>
-                      }
-                    } @else {
-                      <span class="text-xs text-gray-300">—</span>
-                    }
-                  </td>
-                  <td class="px-4 py-3 text-gray-500 max-w-[220px] truncate">{{ s.observacion ?? '—' }}</td>
-                  <td class="px-4 py-3"><app-status-badge [value]="s.estado" /></td>
-                  <td class="px-4 py-3 text-gray-500 text-xs">{{ s.fecha | date: 'short' }}</td>
-                  <td class="px-4 py-3">
-                    <div class="flex flex-wrap justify-end gap-2">
-                      <button (click)="verDetalle(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">Ver</button>
-                      @if (s.estado === 'PENDIENTE' && puedeGestionar(s)) {
-                        @if (puedeAprobar) {
-                          <button (click)="aprobar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-600 bg-white hover:bg-green-50 transition-colors">Aprobar</button>
-                        }
-                        @if (puedeRechazar) {
-                          <button (click)="rechazar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-red-400 hover:text-red-600 transition-colors">Rechazar</button>
-                        }
-                      }
-                      @if (s.estado === 'APROBADA' && puedeEntregar && puedeGestionar(s)) {
-                        <button (click)="entregar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-blue-200 text-blue-600 bg-white hover:bg-blue-50 transition-colors">Marcar en entrega</button>
-                      }
-                      @if (s.estado === 'APROBADA' && puedeRechazar && puedeGestionar(s)) {
-                        <button (click)="cancelar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">Cancelar</button>
-                      }
-                      @if (s.estado === 'EN_ENTREGA' && puedeConfirmar && esSolicitantePropio(s)) {
-                        <button (click)="confirmarRecepcion(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-600 bg-white hover:bg-green-50 transition-colors">Confirmar recepción</button>
+          <!-- Toolbar: búsqueda + filtro de estado + filas por página -->
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+            <div class="relative flex-1 max-w-sm">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+              </div>
+              <input type="text" [(ngModel)]="filtroTexto" (ngModelChange)="page = 0"
+                placeholder="Buscar por producto o solicitante..."
+                class="w-full pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:border-[#39A900] focus:bg-white transition-all text-gray-900 placeholder:text-gray-400" />
+              @if (filtroTexto) {
+                <button (click)="filtroTexto = ''; page = 0" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              }
+            </div>
+            <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
+              <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</span>
+
+              <!-- Dropdown personalizado para estado -->
+              <div class="relative">
+                <button
+                  type="button"
+                  (click)="estadoDropdownOpen.update(v => !v)"
+                  class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer">
+                  <span>{{ filtroEstado || 'Todos' }}</span>
+                  <svg class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" [class.rotate-180]="estadoDropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                @if (estadoDropdownOpen()) {
+                  <!-- Backdrop para cerrar al hacer clic afuera -->
+                  <div class="fixed inset-0 z-10" (click)="estadoDropdownOpen.set(false)"></div>
+
+                  <!-- Menú flotante -->
+                  <div class="absolute left-0 top-full mt-2 z-20 w-40 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                    <div class="p-1 space-y-0.5 max-h-64 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                      <button
+                        type="button"
+                        (click)="seleccionarEstado('')"
+                        class="w-full px-3 py-1.5 text-sm text-left rounded-lg transition-colors font-medium"
+                        [class.bg-green-50]="filtroEstado === ''"
+                        [class.text-green-700]="filtroEstado === ''"
+                        [class.text-gray-600]="filtroEstado !== ''"
+                        [class.hover:bg-gray-50]="filtroEstado !== ''">
+                        Todos
+                      </button>
+                      @for (e of estadosSolicitud; track e) {
+                        <button
+                          type="button"
+                          (click)="seleccionarEstado(e)"
+                          class="w-full px-3 py-1.5 text-sm text-left rounded-lg transition-colors font-medium"
+                          [class.bg-green-50]="filtroEstado === e"
+                          [class.text-green-700]="filtroEstado === e"
+                          [class.text-gray-600]="filtroEstado !== e"
+                          [class.hover:bg-gray-50]="filtroEstado !== e">
+                          {{ e }}
+                        </button>
                       }
                     </div>
-                  </td>
-                </tr>
+                  </div>
+                }
+              </div>
+            </div>
+            <!-- Filas por página -->
+          <!-- Filas por página -->
+          <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
+            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filas</span>
+            
+            <!-- Dropdown personalizado para filas -->
+            <div class="relative">
+              <button 
+                type="button"
+                (click)="pageSizeDropdownOpen.update(v => !v)"
+                class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer">
+                <span>{{ pageSize() }}</span>
+                <svg class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" [class.rotate-180]="pageSizeDropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              @if (pageSizeDropdownOpen()) {
+                <!-- Backdrop para cerrar al hacer clic afuera -->
+                <div class="fixed inset-0 z-10" (click)="pageSizeDropdownOpen.set(false)"></div>
+
+                <!-- Menú flotante compacto -->
+                <div class="absolute left-0 top-full mt-2 z-20 w-20 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <div class="p-1 space-y-0.5">
+                    @for (size of [10, 20, 50, 100]; track size) {
+                      <button
+                        type="button"
+                        (click)="seleccionarPageSize(size)"
+                        class="w-full px-3 py-1.5 text-sm text-center rounded-lg transition-colors font-medium"
+                        [class.bg-green-50]="pageSize() === size"
+                        [class.text-green-700]="pageSize() === size"
+                        [class.text-gray-600]="pageSize() !== size"
+                        [class.hover:bg-gray-50]="pageSize() !== size">
+                        {{ size }}
+                      </button>
+                    }
+                  </div>
+                </div>
               }
-            </tbody>
-          </table>
+            </div>
           </div>
+          </div>
+
+          @if (solicitudesFiltradas.length === 0) {
+            <p class="text-center text-gray-400 text-sm py-10">Sin resultados para estos filtros</p>
+          } @else {
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
+                  <tr>
+                    <th class="px-4 py-3 text-left font-semibold">Producto</th>
+                    <th class="px-4 py-3 text-left font-semibold">Solicitó</th>
+                    <th class="px-4 py-3 text-left font-semibold">Cantidad</th>
+                    <th class="px-4 py-3 text-left font-semibold">Disponible</th>
+                    <th class="px-4 py-3 text-left font-semibold">Observación</th>
+                    <th class="px-4 py-3 text-left font-semibold">Estado</th>
+                    <th class="px-4 py-3 text-left font-semibold">Fecha</th>
+                    <th class="px-4 py-3 text-right font-semibold">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  @for (s of solicitudesPaginadas; track s.id_solicitud) {
+                    <tr class="hover:bg-gray-50/80 transition-colors">
+                      <td class="px-4 py-3 text-gray-700">{{ s.producto?.nombre ?? '—' }}</td>
+                      <td class="px-4 py-3 text-gray-600">{{ s.usuario_nombre || '—' }}</td>
+                      <td class="px-4 py-3 text-gray-700">{{ s.cantidad }}</td>
+                      <td class="px-4 py-3">
+                        @if ((s.estado === 'PENDIENTE' || s.estado === 'APROBADA') && stockDe(s); as st) {
+                          <span class="text-xs font-medium"
+                            [class.text-red-600]="st.disponibles < s.cantidad"
+                            [class.text-green-700]="st.disponibles >= s.cantidad">
+                            {{ st.disponibles }} / {{ st.total }}
+                          </span>
+                          @if (st.disponibles < s.cantidad) {
+                            <span class="block text-[11px] text-red-500">faltan {{ s.cantidad - st.disponibles }}</span>
+                          }
+                        } @else {
+                          <span class="text-xs text-gray-300">—</span>
+                        }
+                      </td>
+                      <td class="px-4 py-3 text-gray-500 max-w-[220px] truncate">{{ s.observacion ?? '—' }}</td>
+                      <td class="px-4 py-3"><app-status-badge [value]="s.estado" /></td>
+                      <td class="px-4 py-3 text-gray-500 text-xs">{{ s.fecha | date: 'short' }}</td>
+                      <td class="px-4 py-3">
+                        <div class="flex flex-wrap justify-end gap-2">
+                          <button (click)="verDetalle(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">Ver</button>
+                          @if (s.estado === 'PENDIENTE' && puedeGestionar(s)) {
+                            @if (puedeAprobar) {
+                              <button (click)="aprobar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-600 bg-white hover:bg-green-50 transition-colors">Aprobar</button>
+                            }
+                            @if (puedeRechazar) {
+                              <button (click)="rechazar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-red-400 hover:text-red-600 transition-colors">Rechazar</button>
+                            }
+                          }
+                          @if (s.estado === 'APROBADA' && puedeEntregar && puedeGestionar(s)) {
+                            <button (click)="entregar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-blue-200 text-blue-600 bg-white hover:bg-blue-50 transition-colors">Marcar en entrega</button>
+                          }
+                          @if (s.estado === 'APROBADA' && puedeRechazar && puedeGestionar(s)) {
+                            <button (click)="cancelar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">Cancelar</button>
+                          }
+                          @if (s.estado === 'EN_ENTREGA' && puedeConfirmar && esSolicitantePropio(s)) {
+                            <button (click)="confirmarRecepcion(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-600 bg-white hover:bg-green-50 transition-colors">Confirmar recepción</button>
+                          }
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+                       @if (solicitudesFiltradas.length > pageSize()) {
+              <div class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 bg-gray-50/60">
+                <span class="text-sm text-gray-500">
+                  Mostrando <strong class="text-gray-800">{{ solicitudesPaginadas.length }}</strong>
+                  de <strong class="text-gray-800">{{ solicitudesFiltradas.length }}</strong> registros
+                </span>
+
+                <div class="flex items-center gap-2">
+                  <button
+                    (click)="page = page - 1"
+                    [disabled]="page === 0"
+                    class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                  </button>
+
+                  <span class="px-4 py-1.5 text-sm font-semibold text-[#39A900] bg-[#39A900]/10 rounded-lg border border-[#39A900]/20">
+                    {{ page + 1 }} / {{ totalPaginas }}
+                  </span>
+
+                  <button
+                    (click)="page = page + 1"
+                    [disabled]="page + 1 >= totalPaginas"
+                    class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            }
+          }
         </div>
       }
-    </div>
-
     @if (modalOpen) {
       <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarModal()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
@@ -353,6 +499,47 @@ export class MaterialesSolicitudesComponent implements OnInit {
   loading = false;
   saving = false;
   error: string | null = null;
+
+  // ── Filtros y paginación de la tabla (client-side) ──────────────────
+  filtroTexto = '';
+  filtroEstado: EstadoSolicitud | '' = '';
+  /** Estado interno del buscador/paginador (solo activo con `searchable`). */
+busqueda = '';
+page = 0;
+pageSize = signal(20);
+pageSizeDropdownOpen = signal(false);
+estadoDropdownOpen = signal(false);
+
+seleccionarPageSize(size: number): void {
+  this.pageSize.set(size);
+  this.page = 0;
+  this.pageSizeDropdownOpen.set(false);
+}
+
+seleccionarEstado(valor: EstadoSolicitud | ''): void {
+  this.filtroEstado = valor;
+  this.page = 0;
+  this.estadoDropdownOpen.set(false);
+}
+  readonly estadosSolicitud: EstadoSolicitud[] =
+    ['PENDIENTE', 'APROBADA', 'EN_ENTREGA', 'ENTREGADA', 'DEVUELTA', 'RECHAZADA', 'CANCELADA'];
+
+  get solicitudesFiltradas(): Solicitud[] {
+    const q = this.filtroTexto.trim().toLowerCase();
+    return this.solicitudes.filter((s) => {
+      if (this.filtroEstado && s.estado !== this.filtroEstado) return false;
+      if (!q) return true;
+      return (s.producto?.nombre?.toLowerCase().includes(q) ?? false) ||
+        (s.usuario_nombre?.toLowerCase().includes(q) ?? false);
+    });
+  }
+  get totalPaginas(): number {
+    return Math.max(1, Math.ceil(this.solicitudesFiltradas.length / this.pageSize()));
+  }
+  get solicitudesPaginadas(): Solicitud[] {
+    const start = this.page * this.pageSize();
+    return this.solicitudesFiltradas.slice(start, start + this.pageSize());
+  }
 
   modalOpen = false;
 
