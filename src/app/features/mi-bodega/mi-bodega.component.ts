@@ -6,7 +6,7 @@ import { OpcionSelect } from '../admin/services/admin.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 import {
-  Categoria, Item, MaterialesApiService, Producto, Sitio,
+  Categoria, Item, Lote, MaterialesApiService, Producto, Sitio,
 } from '../../core/services/materiales/materiales-api.service';
 
 type Tab = 'productos' | 'items';
@@ -172,6 +172,7 @@ export class MiBodegaComponent implements OnInit {
 
   productos = signal<Producto[]>([]);
   items = signal<Item[]>([]);
+  lotes = signal<Lote[]>([]);
   categorias = signal<Categoria[]>([]);
 
   // Agrega esta signal junto a tus otras declaraciones
@@ -198,16 +199,47 @@ seleccionarBodega(idSitio: string): void {
   form: Record<string, any> = {};
 
   private itemsDe = (idProducto: string) => this.items().filter((i) => i.id_producto === idProducto);
+  private lotesDe = (idProducto: string) => this.lotes().filter((l) => l.id_producto === idProducto && l.estado === 'ACTIVO');
 
-  filasProd = computed(() =>
-    this.productos()
-      .filter((p) => p.id_sitio === this.bodegaSel())
-      .map((p) => {
-        const units = this.itemsDe(p.id_producto);
-        const disp = units.filter((i) => i.estado === 'DISPONIBLE').length;
-        return { ...p, stock_txt: `${disp} / ${units.length}` };
-      }),
-  );
+  /**
+   * ¿Este producto tiene presencia real en `idSitio`? Un consumible/perecedero
+   * puede tener lotes en varias bodegas distintas de su `producto.id_sitio`
+   * "de casa" — filtrar solo por `p.id_sitio === bodega` (como antes) dejaba
+   * afuera productos con stock real en la bodega del encargado (reporte QA
+   * 2026-09-11: Pollo con lote en "Cocina Fría" invisible ahí porque su
+   * `id_sitio` propio apunta a "Cuarto Frío", aunque el backend ya lo incluye
+   * en `/productos` desde el fix homónimo en `ProductosRepositoryAdapter`).
+   * Sin ningún ítem/lote todavía, cae al `id_sitio` propio como único dato
+   * disponible — mismo criterio que `UBICACIONES_SQL` en el backend.
+   */
+  private estaEnBodega(p: Producto, idSitio: string): boolean {
+    if (p.tipo_material === 'DEVOLUTIVO') {
+      const units = this.itemsDe(p.id_producto);
+      return units.length > 0 ? units.some((i) => i.id_sitio === idSitio) : p.id_sitio === idSitio;
+    }
+    const lotesDe = this.lotesDe(p.id_producto);
+    return lotesDe.length > 0 ? lotesDe.some((l) => l.id_sitio === idSitio) : p.id_sitio === idSitio;
+  }
+
+  /** Stock EN ESTA bodega puntual (no el total del producto en todo el tenant). */
+  private stockEnBodega(p: Producto, idSitio: string): string {
+    if (p.tipo_material === 'DEVOLUTIVO') {
+      const units = this.itemsDe(p.id_producto).filter((i) => i.id_sitio === idSitio);
+      const disp = units.filter((i) => i.estado === 'DISPONIBLE').length;
+      return `${disp} / ${units.length}`;
+    }
+    const lotesDe = this.lotesDe(p.id_producto).filter((l) => l.id_sitio === idSitio);
+    const disp = lotesDe.reduce((a, l) => a + l.cantidad_disponible, 0);
+    const total = lotesDe.reduce((a, l) => a + l.cantidad_inicial, 0);
+    return `${disp} / ${total}`;
+  }
+
+  filasProd = computed(() => {
+    const sel = this.bodegaSel();
+    return this.productos()
+      .filter((p) => this.estaEnBodega(p, sel))
+      .map((p) => ({ ...p, stock_txt: this.stockEnBodega(p, sel) }));
+  });
   filasItems = computed(() =>
     this.items()
       .filter((i) => i.id_sitio === this.bodegaSel())
@@ -241,13 +273,15 @@ seleccionarBodega(idSitio: string): void {
       if (bodegas.length && !this.bodegaSel()) this.bodegaSel.set(bodegas[0].id_sitio);
       if (!bodegas.length) return;
 
-      const [prod, items, cats] = await Promise.all([
+      const [prod, items, lotes, cats] = await Promise.all([
         this.api.listarProductos().catch(() => []),
         this.api.listarItems().catch(() => []),
+        this.api.listarLotes().catch(() => []),
         this.api.listarCategorias().catch(() => []),
       ]);
       this.productos.set(prod);
       this.items.set(items);
+      this.lotes.set(lotes);
       this.categorias.set(cats);
     } catch (e) {
       this.toast.httpError(e, 'No se pudo cargar Mi Bodega.');

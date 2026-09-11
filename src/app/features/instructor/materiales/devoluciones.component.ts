@@ -7,11 +7,14 @@ import { ToastService } from '../../../core/services/toast.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
 import {
+  CreateDevolucionConsumibleDto,
   CreateDevolucionDto,
   Devolucion,
   EstadoDevolucion,
   Item,
   ItemPendienteDevolucion,
+  LineaConsumiblePendiente,
+  Lote,
   MaterialesApiService,
   Solicitud,
 } from '../../../core/services/materiales/materiales-api.service';
@@ -183,7 +186,13 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
               @for (d of devolucionesPaginadas; track d.id_devolucion) {
                 <tr class="hover:bg-gray-50/80 transition-colors">
                   <td class="px-4 py-3 text-gray-700">{{ nombreProducto(d) }}</td>
-                  <td class="px-4 py-3 text-gray-700">{{ nombreItem(d.id_item) }}</td>
+                  <td class="px-4 py-3 text-gray-700">
+                    @if (d.id_item) {
+                      {{ nombreItem(d.id_item) }}
+                    } @else {
+                      <span class="text-gray-500">Sobrante: {{ d.cantidad }} {{ unidadDeLote(d) }}</span>
+                    }
+                  </td>
                   <td class="px-4 py-3"><app-status-badge [value]="d.estado" /></td>
                   <td class="px-4 py-3 text-gray-500 max-w-[220px] truncate">{{ d.observacion ?? '—' }}</td>
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ d.fecha | date: 'short' }}</td>
@@ -289,6 +298,49 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                     class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
                 </div>
               }
+
+              <!-- Sobrante de consumible/perecedero (2026-09-11): un consumible
+                   mayormente NO vuelve, pero a veces sí un sobrante parcial (ej.
+                   de 250kg de abono prestados, 1-2kg). Independiente de la
+                   grilla por unidad de arriba: no cierra ni exige nada de la
+                   solicitud, cada línea se registra por separado. -->
+              @if (cargandoConsumibles) {
+                <p class="text-gray-400 text-xs">Revisando sobrantes…</p>
+              } @else if (lineasConsumibles.length > 0) {
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Sobrante a devolver</label>
+                  <p class="text-[11px] text-gray-400 mb-2">
+                    Un consumible/perecedero normalmente NO vuelve. Si sobró algo sin usar, registralo acá.
+                  </p>
+                  <div class="space-y-2">
+                    @for (l of lineasConsumibles; track l.id_lote) {
+                      <div class="rounded-lg border border-gray-100 p-2.5">
+                        <div class="flex items-center justify-between mb-1.5 gap-2">
+                          <p class="text-xs font-semibold text-gray-800 truncate">
+                            {{ l.producto_nombre || 'Lote' }}{{ l.codigo_lote ? ' · ' + l.codigo_lote : '' }}
+                          </p>
+                          <span class="text-[11px] text-gray-400 flex-none">{{ l.cantidad_pendiente }} {{ l.unidad_medida || '' }} pendiente(s)</span>
+                        </div>
+                        <div class="flex gap-2">
+                          <input type="number" min="1" [max]="l.cantidad_pendiente"
+                            [(ngModel)]="formConsumible[l.id_lote].cantidad"
+                            placeholder="Cantidad"
+                            class="w-24 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                          <input type="text" [(ngModel)]="formConsumible[l.id_lote].observacion"
+                            placeholder="Observación (opcional)"
+                            class="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                          <button type="button" (click)="registrarSobrante(l)"
+                            [disabled]="guardandoConsumible[l.id_lote] || !formConsumible[l.id_lote].cantidad"
+                            class="px-3 py-1.5 text-white text-xs font-medium rounded-lg disabled:opacity-60 transition-colors flex-none"
+                            style="background-color: #39A900">
+                            {{ guardandoConsumible[l.id_lote] ? 'Guardando…' : 'Registrar' }}
+                          </button>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
             }
           </div>
 
@@ -313,6 +365,7 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
   devoluciones: Devolucion[] = [];
   solicitudes: Solicitud[] = [];
   items: Item[] = [];
+  lotes: Lote[] = [];
   loading = false;
   saving = false;
   error: string | null = null;
@@ -367,6 +420,12 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
   estadoGeneral: EstadoDevolucion = 'BUENO';
   observacion = '';
 
+  // ── Sobrante de consumible/perecedero (2026-09-11) — ver docblock del componente ──
+  lineasConsumibles: LineaConsumiblePendiente[] = [];
+  cargandoConsumibles = false;
+  formConsumible: Record<string, { cantidad: number | null; observacion: string }> = {};
+  guardandoConsumible: Record<string, boolean> = {};
+
   constructor(
     private api: MaterialesApiService,
     private toast: ToastService,
@@ -393,15 +452,25 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
       .subscribe(() => this.cargar());
   }
 
-  nombreItem(id: string): string {
+  nombreItem(id: string | null): string {
+    if (!id) return '—';
     const item = this.items.find((i) => i.id_item === id);
     return item ? `${item.codigo_sku}${item.placa_sena ? ' — ' + item.placa_sena : ''}` : '—';
   }
 
+  /** Unidad del lote de una devolución de sobrante — para la tabla de historial. */
+  unidadDeLote(d: Devolucion): string {
+    if (!d.id_lote) return '';
+    const lote = this.lotes.find((l) => l.id_lote === d.id_lote);
+    return lote?.producto?.unidad_medida ?? lote?.unidad_medida ?? '';
+  }
+
   nombreProducto(d: Devolucion): string {
     const item = this.items.find((i) => i.id_item === d.id_item);
+    const lote = d.id_lote ? this.lotes.find((l) => l.id_lote === d.id_lote) : undefined;
     return (
       item?.producto?.nombre ??
+      lote?.producto?.nombre ??
       this.solicitudes.find((s) => s.id_solicitud === d.id_solicitud)?.producto?.nombre ??
       '—'
     );
@@ -412,14 +481,16 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
     try {
       // M9 — solo `listarDevoluciones()` es crítico; si una secundaria da 403
       // (excepción personal) no debe tumbar la tabla entera.
-      const [devoluciones, solicitudes, items] = await Promise.all([
+      const [devoluciones, solicitudes, items, lotes] = await Promise.all([
         this.api.listarDevoluciones(),
         this.api.listarSolicitudes().catch(() => [] as Solicitud[]),
         this.api.listarItems().catch(() => [] as Item[]),
+        this.api.listarLotes().catch(() => [] as Lote[]),
       ]);
       this.devoluciones = devoluciones;
       this.solicitudes = solicitudes;
       this.items = items;
+      this.lotes = lotes;
     } catch (e) {
       this.toast.httpError(e, 'No se pudieron cargar las devoluciones.');
     } finally {
@@ -436,6 +507,9 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
     this.filas = [];
     this.estadoGeneral = 'BUENO';
     this.observacion = '';
+    this.lineasConsumibles = [];
+    this.formConsumible = {};
+    this.guardandoConsumible = {};
     this.error = null;
     this.crearOpen = true;
   }
@@ -446,16 +520,57 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
 
   async onSolicitudChange(): Promise<void> {
     this.filas = [];
+    this.lineasConsumibles = [];
     this.error = null;
     if (!this.idSolicitud) return;
     this.cargandoPendientes = true;
+    this.cargandoConsumibles = true;
     try {
-      const pendientes = await this.api.itemsPendientesDevolucion(this.idSolicitud);
+      const [pendientes, consumibles] = await Promise.all([
+        this.api.itemsPendientesDevolucion(this.idSolicitud),
+        this.api.lineasConsumiblesPendientes(this.idSolicitud).catch(() => [] as LineaConsumiblePendiente[]),
+      ]);
       this.filas = pendientes.map((p) => ({ ...p, estadoDev: this.estadoGeneral, volvio: true }));
+      this.lineasConsumibles = consumibles;
+      for (const l of consumibles) {
+        this.formConsumible[l.id_lote] ??= { cantidad: null, observacion: '' };
+      }
     } catch (e: any) {
       this.error = e?.error?.message ?? 'No se pudieron cargar las unidades del préstamo.';
     } finally {
       this.cargandoPendientes = false;
+      this.cargandoConsumibles = false;
+    }
+  }
+
+  /** Registra el sobrante de UNA línea de lote — independiente del resto del
+   *  formulario: no cierra ni exige nada de la solicitud. */
+  async registrarSobrante(linea: LineaConsumiblePendiente): Promise<void> {
+    if (!this.idSolicitud) return;
+    const f = this.formConsumible[linea.id_lote];
+    const cantidad = Number(f?.cantidad) || 0;
+    if (cantidad <= 0) return;
+    if (cantidad > linea.cantidad_pendiente) {
+      this.toast.warn('Cantidad inválida', `Como máximo podés devolver ${linea.cantidad_pendiente} ${linea.unidad_medida ?? ''}.`);
+      return;
+    }
+    this.guardandoConsumible[linea.id_lote] = true;
+    try {
+      const dto: CreateDevolucionConsumibleDto = {
+        id_solicitud: this.idSolicitud,
+        id_lote: linea.id_lote,
+        cantidad,
+        observacion: f?.observacion?.trim() || undefined,
+      };
+      await this.api.registrarDevolucionConsumible(dto);
+      this.toast.ok(`Se registraron ${cantidad} ${linea.unidad_medida ?? ''} devueltos de "${linea.producto_nombre ?? 'material'}"`);
+      delete this.formConsumible[linea.id_lote];
+      await this.onSolicitudChange();
+      await this.cargar();
+    } catch (e: any) {
+      this.toast.httpError(e, 'No se pudo registrar el sobrante.');
+    } finally {
+      this.guardandoConsumible[linea.id_lote] = false;
     }
   }
 
