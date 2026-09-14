@@ -199,8 +199,15 @@ export class MaterialesExistenciasComponent implements OnInit {
   idProductoFiltro = signal<string | null>(null);
 
   /** Paginación client-side (los datos ya llegan completos del backend). */
-  readonly porPagina = 25;
+  pageSize = signal(20);
+  pageSizeDropdownOpen = signal(false);
   pagina = signal(1);
+
+  seleccionarPageSize(size: number): void {
+    this.pageSize.set(size);
+    this.pagina.set(1);
+    this.pageSizeDropdownOpen.set(false);
+  }
 
   esDevolutivo = (r: ResumenExistencias): boolean => r.tipo_material === 'DEVOLUTIVO';
   dispEfectiva = (r: ResumenExistencias): number => (this.esDevolutivo(r) ? r.disponibles : r.lote_disponible);
@@ -218,15 +225,15 @@ export class MaterialesExistenciasComponent implements OnInit {
     );
   });
 
-  totalPaginas = computed(() => Math.max(1, Math.ceil(this.filtradas().length / this.porPagina)));
+  totalPaginas = computed(() => Math.max(1, Math.ceil(this.filtradas().length / this.pageSize())));
 
   /** `pagina()` acotada a [1, totalPaginas] — evita quedar en una página que ya
    *  no existe tras achicar el resultado con el buscador. */
   paginaActual = computed(() => Math.min(Math.max(1, this.pagina()), this.totalPaginas()));
 
   paginadas = computed(() => {
-    const inicio = (this.paginaActual() - 1) * this.porPagina;
-    return this.filtradas().slice(inicio, inicio + this.porPagina);
+    const inicio = (this.paginaActual() - 1) * this.pageSize();
+    return this.filtradas().slice(inicio, inicio + this.pageSize());
   });
 
   tot = computed(() =>
