@@ -111,9 +111,16 @@ export const routes: Routes = [
           { path: 'encuestas/preguntas', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['encuestas.gestionar'] }, loadComponent: () => import('./features/admin/encuestas/preguntas.component').then((m) => m.PreguntasComponent) },
 
           // ── Mi Bodega — consola del encargado de bodega (sitio.id_responsable),
-          // cualquier cargo. Sin gate de `roles`; el guard mira si es responsable
-          // de ≥1 sitio. Ver plan "Encargado de bodega", Fase B4.
+          // cualquier cargo salvo admin (tiene su propia vista de abajo). Sin
+          // gate de `roles`; el guard mira si es responsable de ≥1 sitio y
+          // excluye admin explícitamente. Ver plan "Encargado de bodega", Fase B4.
           { path: 'mi-bodega', canActivate: [miBodegaGuard], loadComponent: () => import('./features/mi-bodega/mi-bodega.component').then((m) => m.MiBodegaComponent) },
+
+          // ── Todas las bodegas — misma consola de Mi Bodega, pero admin-only
+          // y sin recortar a "las mías": `data.todasLasBodegas` le dice al
+          // componente que traiga TODOS los sitios (`listarSitios()`) en vez
+          // de `sitiosACargo()`.
+          { path: 'materiales/bodegas', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], todasLasBodegas: true }, loadComponent: () => import('./features/mi-bodega/mi-bodega.component').then((m) => m.MiBodegaComponent) },
 
           // ── Materiales (bodega) — pantallas compartidas por los 3 cargos
           // (ítem 5, "extraer componentes repetidos"): un solo componente y

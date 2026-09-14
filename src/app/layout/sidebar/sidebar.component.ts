@@ -13,8 +13,9 @@ interface NavLink  {
   soloAprendizConEtapa?: boolean;
   /** Solo para rol aprendiz: mostrar únicamente si NO tiene etapa práctica creada. */
   soloAprendizSinEtapa?: boolean;
-  /** Mostrar solo si el usuario es `id_responsable` de ≥1 bodega (cualquier
-   * cargo). El admin NO ve el link salvo que además sea responsable de una. */
+  /** Mostrar solo si el usuario es `id_responsable` de ≥1 bodega. Admin NUNCA
+   * lo ve (aunque además sea responsable de una) — tiene su propia consola
+   * "Todas las bodegas" (`/materiales/bodegas`) que no recorta a "las mías". */
   soloResponsableBodega?: boolean;
   /** Servicio del sistema de permisos dinámico que también habilita este link,
    * aunque el cargo no esté en `roles` (ver AuthService.tieneServicio). OR con
@@ -493,6 +494,14 @@ export class SidebarComponent implements OnChanges, OnInit {
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`),
           },
           {
+            // Consola de "Mi Bodega" pero sin recortar a "las mías" — trae
+            // TODOS los sitios (`data.todasLasBodegas` en app.routes.ts).
+            label: 'Bodegas', href: '/materiales/bodegas',
+            roles: ['administrador', 'administrador_erp'],
+            aplicativo: 'Materiales',
+            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V9a2 2 0 00-2-2h-2V5a2 2 0 00-2-2H9a2 2 0 00-2 2v2H5a2 2 0 00-2 2v12h18zM9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4"/></svg>`),
+          },
+          {
             label: 'Novedades', href: '/materiales/novedades',
             roles: ['administrador', 'administrador_erp'],
             aplicativo: 'Materiales',
@@ -572,12 +581,10 @@ export class SidebarComponent implements OnChanges, OnInit {
             servicioEstricto: 'materiales.sitios.ver',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V9a2 2 0 00-2-2h-2V5a2 2 0 00-2-2H9a2 2 0 00-2 2v2H5a2 2 0 00-2 2v12h18zM9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4"/></svg>`),
           },
-          {
-            label: 'Productos', href: '/materiales/productos',
-            roles: ['instructor'],
-            servicioEstricto: 'materiales.productos.ver',
-            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`),
-          },
+          // "Productos" ya no tiene link propio para instructor (2026-09-14):
+          // "Mi Bodega" ya lista sus productos con el mismo formulario — tener
+          // las dos pantallas era redundante y confuso. La ruta
+          // `/materiales/productos` sigue existiendo (admin y aprendiz la usan).
           {
             label: 'Existencias', href: '/materiales/existencias',
             roles: ['instructor'],
@@ -745,7 +752,7 @@ export class SidebarComponent implements OnChanges, OnInit {
           // por un instante y luego cambiarlo.
           if (esAprendiz && l.soloAprendizConEtapa && tieneEtapa !== true) return false;
           if (esAprendiz && l.soloAprendizSinEtapa && tieneEtapa !== false) return false;
-          if (l.soloResponsableBodega && !this.esResponsableBodega()) return false;
+          if (l.soloResponsableBodega && (this.auth.isAdmin() || !this.esResponsableBodega())) return false;
           return true;
         }),
       }))
