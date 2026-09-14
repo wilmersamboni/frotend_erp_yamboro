@@ -83,14 +83,15 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
   imports: [FormsModule, SearchableSelectComponent],
   template: `
     @if (open) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="closed.emit()">
-        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
-          <div class="flex items-center justify-between mb-5">
+      <div class="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 overflow-y-auto p-2 sm:p-4" (click)="closed.emit()">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg my-auto max-h-[calc(100dvh-1rem)] sm:max-h-[90vh] flex flex-col overflow-hidden" (click)="$event.stopPropagation()">
+          <div class="flex items-center justify-between shrink-0 px-4 pt-4 pb-3 sm:px-6 sm:pt-6">
             <h2 class="text-lg font-bold text-gray-800">{{ editando ? 'Editar producto' : 'Nuevo producto' }}</h2>
             <button (click)="closed.emit()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 
-          <div class="space-y-4">
+          <div class="producto-form-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-2 sm:px-6">
+            <div class="space-y-4">
             <!-- Tipo de material: pills de color, primera decisión del form.
                  Inmutable al editar (M4): cambiar el tipo dejaba ítems/lotes huérfanos. -->
             <div>
@@ -122,7 +123,7 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
                 class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
             </div>
 
-            <div [class]="form['tipo_material'] === 'DEVOLUTIVO' ? 'grid grid-cols-2 gap-3' : ''">
+            <div [class]="form['tipo_material'] === 'DEVOLUTIVO' ? 'grid grid-cols-1 sm:grid-cols-2 gap-3' : ''">
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Marca</label>
                 <input type="text" [(ngModel)]="form['marca']" placeholder="Ej: Bosch, 3M…"
@@ -161,7 +162,7 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
               </div>
             }
 
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Unidad de medida <span class="text-red-500">*</span></label>
                 <app-ss [options]="opcionesUnidadMedida()" placeholder="— Selecciona —" [(ngModel)]="form['unidad_medida']"></app-ss>
@@ -172,7 +173,7 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
               </div>
             </div>
 
-            <div [class]="sitioFijo ? '' : 'grid grid-cols-2 gap-3'">
+            <div [class]="sitioFijo ? '' : 'grid grid-cols-1 sm:grid-cols-2 gap-3'">
               @if (!sitioFijo) {
                 <div>
                   <label class="block text-xs font-medium text-gray-600 mb-1">Bodega por defecto</label>
@@ -202,7 +203,7 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
             }
 
             @if (esBulto()) {
-              <div class="grid grid-cols-2 gap-3">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label class="block text-xs font-medium text-gray-600 mb-1">Unidad de peso por bulto</label>
                   <app-ss [options]="opcionesUnidadPeso" placeholder="— Selecciona —" [(ngModel)]="form['unidad_peso_bulto']"></app-ss>
@@ -219,11 +220,12 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
           @if (error) {
             <p class="text-red-500 text-xs mt-3 p-2 bg-red-50 rounded-lg">{{ error }}</p>
           }
+          </div>
 
-          <div class="flex justify-end gap-2 mt-6">
-            <button (click)="closed.emit()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
+          <div class="shrink-0 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 border-t border-gray-100 px-4 py-4 sm:px-6">
+            <button (click)="closed.emit()" class="w-full sm:w-auto px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
             <button (click)="guardar()" [disabled]="saving"
-              class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
+              class="w-full sm:w-auto px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
               style="background-color: #39A900">
               {{ saving ? 'Guardando...' : (editando ? 'Guardar' : 'Crear producto') }}
             </button>
@@ -232,6 +234,16 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
       </div>
     }
   `,
+  styles: [`
+    .producto-form-scroll {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    .producto-form-scroll::-webkit-scrollbar {
+      display: none;
+    }
+  `],
 })
 export class ProductoFormModalComponent implements OnChanges, DoCheck {
   private readonly api = inject(MaterialesApiService);
