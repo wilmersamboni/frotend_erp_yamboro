@@ -149,10 +149,15 @@ export class MaterialesLotesComponent implements OnInit {
     return this.productos.filter((p) => p.tipo_material !== 'DEVOLUTIVO');
   }
 
-  /** El producto elegido (alta) o el del lote en edición. */
-  private get productoDelForm(): Producto | undefined {
+  /**
+   * El producto elegido (alta) o el del lote en edición. Al editar se usa la
+   * relación incluida en el lote como respaldo: la lista auxiliar de
+   * productos puede venir recortada por permisos o alcance y no debe ocultar
+   * la fecha de vencimiento de un lote perecedero ya existente.
+   */
+  private get productoDelForm(): { tipo_material: string; unidad_medida?: string } | undefined {
     const id = this.editando ? this.editando.id_producto : this.form['id_producto'];
-    return this.productos.find((p) => p.id_producto === id);
+    return this.productos.find((p) => p.id_producto === id) ?? this.editando?.producto;
   }
 
   get esPerecedero(): boolean {
@@ -243,7 +248,9 @@ export class MaterialesLotesComponent implements OnInit {
     this.editando = l;
     this.form = {
       codigo_lote: l.codigo_lote ?? '',
-      fecha_vencimiento: l.fecha_vencimiento ? String(l.fecha_vencimiento).slice(0, 10) : null,
+      // El calendario recibe siempre `YYYY-MM-DD`; la API puede serializar el
+      // DATE de PostgreSQL como ISO con hora, por eso se descarta ese sufijo.
+      fecha_vencimiento: this.fechaParaFormulario(l.fecha_vencimiento),
       id_sitio: l.id_sitio ?? null, cantidad_disponible: l.cantidad_disponible, estado: l.estado,
     };
     this.error = null;
@@ -251,6 +258,11 @@ export class MaterialesLotesComponent implements OnInit {
   }
 
   cerrarModal(): void { this.modalOpen = false; }
+
+  private fechaParaFormulario(fecha: string | null | undefined): string | null {
+    const coincidencia = String(fecha ?? '').match(/^\d{4}-\d{2}-\d{2}/);
+    return coincidencia?.[0] ?? null;
+  }
 
   async guardar(form: Record<string, any>): Promise<void> {
     if (this.editando ? !this.puedeEditar() : !this.puedeCrear()) return;
