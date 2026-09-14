@@ -2,6 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AdminTableComponent } from '../../shared/components/admin-table.component';
 import { AdminModalComponent } from '../../shared/components/admin-modal.component';
+import { ProductoFormModalComponent } from '../../shared/components/producto-form-modal.component';
 import { OpcionSelect } from '../admin/services/admin.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
@@ -11,15 +12,6 @@ import {
 
 type Tab = 'productos' | 'items';
 
-const OPCIONES_TIPO_MATERIAL: OpcionSelect[] = [
-  { label: 'Consumo', value: 'CONSUMO' },
-  { label: 'Devolutivo', value: 'DEVOLUTIVO' },
-  { label: 'Perecedero', value: 'PERECEDERO' },
-];
-const OPCIONES_UNIDAD: OpcionSelect[] = [
-  'UNIDAD', 'PAR', 'KIT', 'JUEGO', 'METRO', 'ROLLO', 'LITRO', 'MILILITRO', 'GALÓN',
-  'KILOGRAMO', 'GRAMO', 'LIBRA', 'BULTO', 'PAQUETE', 'CAJA', 'BOLSA', 'LICENCIA',
-].map((u) => ({ label: u, value: u }));
 const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
   { label: 'Disponible', value: 'DISPONIBLE' },
   { label: 'Prestado', value: 'PRESTADO' },
@@ -42,7 +34,7 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
 @Component({
   selector: 'app-mi-bodega',
   standalone: true,
-  imports: [FormsModule, AdminTableComponent, AdminModalComponent],
+  imports: [FormsModule, AdminTableComponent, AdminModalComponent, ProductoFormModalComponent],
   template: `
     <div class="p-6 space-y-5">
       <div class="flex flex-wrap items-center gap-3">
@@ -143,14 +135,26 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
       }
     </div>
 
+    <!-- Producto: mismo formulario único que usa /materiales/productos (no una
+         versión reducida propia) — ver docblock de <app-producto-form-modal>. -->
+    <app-producto-form-modal
+      [open]="modalKind() === 'producto' && modalOpen()"
+      [editando]="editandoProducto()"
+      [categorias]="categorias()"
+      [productosExistentes]="productos()"
+      [sitioFijo]="bodegaSel()"
+      (closed)="modalOpen.set(false)"
+      (guardado)="onProductoGuardado()" />
+
+    <!-- Ítem: sigue en el modal genérico (placa SENA + estado, nada que unificar). -->
     <app-admin-modal
-      [open]="modalOpen()"
+      [open]="modalKind() === 'item' && modalOpen()"
       [editando]="editando()"
-      [labelSingular]="modalKind() === 'producto' ? 'producto' : 'ítem'"
+      labelSingular="ítem"
       [columns]="modalColumns"
       [form]="form"
       [opciones]="opcionesModal()"
-      [columnLabels]="{ tipo_material: 'Tipo', unidad_medida: 'Unidad de medida', id_categoria: 'Categoría', stock_minimo: 'Stock mínimo', codigo_sku: 'SKU', placa_sena: 'Placa SENA' }"
+      [columnLabels]="{ codigo_sku: 'SKU', placa_sena: 'Placa SENA' }"
       [saving]="saving()"
       [error]="error()"
       (closed)="modalOpen.set(false)"
@@ -196,6 +200,10 @@ seleccionarBodega(idSitio: string): void {
   modalOpen = signal(false);
   modalKind = signal<'producto' | 'item'>('producto');
   editando = signal<Producto | Item | null>(null);
+  /** Vista tipada de `editando` para <app-producto-form-modal>, que espera `Producto | null`. */
+  editandoProducto = computed<Producto | null>(() =>
+    this.modalKind() === 'producto' ? (this.editando() as Producto | null) : null,
+  );
   form: Record<string, any> = {};
 
   private itemsDe = (idProducto: string) => this.items().filter((i) => i.id_producto === idProducto);
@@ -243,22 +251,20 @@ seleccionarBodega(idSitio: string): void {
   filasItems = computed(() =>
     this.items()
       .filter((i) => i.id_sitio === this.bodegaSel())
-      .map((i) => ({ ...i, producto_nombre: i.producto?.nombre ?? this.productos().find((p) => p.id_producto === i.id_producto)?.nombre ?? '—' })),
+      .map((i) => {
+        const producto = i.producto ?? this.productos().find((p) => p.id_producto === i.id_producto);
+        return {
+          ...i,
+          codigo_sku: i.codigo_sku ?? producto?.SKU ?? '—',
+          producto_nombre: producto?.nombre ?? '—',
+        };
+      }),
   );
 
-  // Getter (no computed): tiene que reaccionar a form['tipo_material'], que es
-  // un objeto plano, no un signal. Se re-evalúa en cada CD igual que en lotes/productos.
-  get modalColumns(): string[] {
-    if (this.modalKind() === 'item') return ['placa_sena', 'estado'];
-    const base = ['nombre', 'tipo_material', 'SKU', 'unidad_medida', 'id_categoria', 'stock_minimo'];
-    // "cantidad" solo al crear un DEVOLUTIVO (genera N ítems). CONSUMO/PERECEDERO carga su stock en Lotes.
-    return !this.editando() && this.form['tipo_material'] === 'DEVOLUTIVO' ? [...base, 'cantidad'] : base;
-  }
+  /** Columnas del modal genérico — ya solo sirve para ítems (placa SENA + estado). */
+  readonly modalColumns: string[] = ['placa_sena', 'estado'];
   opcionesModal = computed<Record<string, OpcionSelect[]>>(() => ({
-    tipo_material: OPCIONES_TIPO_MATERIAL,
-    unidad_medida: OPCIONES_UNIDAD,
     estado: OPCIONES_ESTADO_ITEM,
-    id_categoria: this.categorias().map((c) => ({ label: c.nombre, value: c.id_categoria })),
   }));
 
   ngOnInit(): void {
@@ -290,7 +296,7 @@ seleccionarBodega(idSitio: string): void {
     }
   }
 
-  // ── Productos ──
+  // ── Productos (formulario en <app-producto-form-modal>) ──
   nuevoProd(): void {
     if (this.categorias().length === 0) {
       this.toast.warn('Sin categorías', 'No hay categorías creadas. Pedile a un administrador que cree al menos una.');
@@ -298,11 +304,6 @@ seleccionarBodega(idSitio: string): void {
     }
     this.modalKind.set('producto');
     this.editando.set(null);
-    this.form = {
-      nombre: '', SKU: '', tipo_material: 'CONSUMO', unidad_medida: 'UNIDAD',
-      id_categoria: this.categorias()[0].id_categoria, stock_minimo: 0, cantidad: 1,
-    };
-    this.error.set(null);
     this.modalOpen.set(true);
   }
 
@@ -311,12 +312,12 @@ seleccionarBodega(idSitio: string): void {
     if (!p) return;
     this.modalKind.set('producto');
     this.editando.set(p);
-    this.form = {
-      nombre: p.nombre, SKU: p.SKU ?? '', tipo_material: p.tipo_material,
-      unidad_medida: p.unidad_medida, id_categoria: p.id_categoria, stock_minimo: p.stock_minimo,
-    };
-    this.error.set(null);
     this.modalOpen.set(true);
+  }
+
+  async onProductoGuardado(): Promise<void> {
+    this.modalOpen.set(false);
+    await this.cargar();
   }
 
   async eliminarProd(fila: any): Promise<void> {
@@ -341,56 +342,20 @@ seleccionarBodega(idSitio: string): void {
     this.modalOpen.set(true);
   }
 
-  // ── Guardado del modal ──
+  // ── Guardado del modal genérico — ya solo ítems (producto se guarda solo,
+  // ver (guardado) de <app-producto-form-modal> arriba) ──
   async guardarModal(form: Record<string, any>): Promise<void> {
     this.saving.set(true);
     this.error.set(null);
     try {
-      if (this.modalKind() === 'item') {
-        const it = this.editando() as Item;
-        if ((form['placa_sena'] || '') !== (it.placa_sena ?? '')) {
-          await this.api.actualizarItem(it.id_item, { placa_sena: form['placa_sena'] || undefined });
-        }
-        if (form['estado'] !== it.estado) {
-          await this.api.actualizarEstadoItem(it.id_item, form['estado']);
-        }
-        this.toast.ok('Ítem actualizado');
-      } else if (this.editando()) {
-        const p = this.editando() as Producto;
-        await this.api.actualizarProducto(p.id_producto, {
-          nombre: form['nombre'], SKU: form['SKU'] || null, tipo_material: form['tipo_material'],
-          unidad_medida: form['unidad_medida'], id_categoria: form['id_categoria'],
-          stock_minimo: Number(form['stock_minimo']) || 0,
-        });
-        this.toast.ok('Producto actualizado');
-      } else {
-        const esDevolutivo = form['tipo_material'] === 'DEVOLUTIVO';
-        const { items_generados } = await this.api.crearProducto({
-          nombre: form['nombre'], SKU: form['SKU'] || undefined, tipo_material: form['tipo_material'],
-          unidad_medida: form['unidad_medida'], id_categoria: form['id_categoria'],
-          stock_minimo: Number(form['stock_minimo']) || 0,
-          // Solo DEVOLUTIVO genera ítems; CONSUMO/PERECEDERO carga su stock aparte como lote.
-          cantidad: esDevolutivo ? (Number(form['cantidad']) || 1) : 0,
-          es_psd: form['tipo_material'] === 'PERECEDERO',
-          id_sitio: this.bodegaSel(),
-        } as any);
-        this.toast.ok('Producto creado');
-        // DEVOLUTIVO usa placa SENA por defecto (usa_placa_sena=true) — sin
-        // SKU copiado en el ítem, hay que asignarla a mano después.
-        if (esDevolutivo && items_generados?.length > 0) {
-          this.toast.warn(
-            'Falta la placa SENA',
-            `Recordá agregar la placa SENA a los ${items_generados.length} ítem(s) de "${form['nombre']}" en el módulo de Ítems.`,
-            7000,
-          );
-        } else if (!esDevolutivo) {
-          this.toast.warn(
-            'Falta el stock',
-            `Registrá el stock inicial de "${form['nombre']}" como lote en el módulo de Lotes.`,
-            7000,
-          );
-        }
+      const it = this.editando() as Item;
+      if ((form['placa_sena'] || '') !== (it.placa_sena ?? '')) {
+        await this.api.actualizarItem(it.id_item, { placa_sena: form['placa_sena'] || undefined });
       }
+      if (form['estado'] !== it.estado) {
+        await this.api.actualizarEstadoItem(it.id_item, form['estado']);
+      }
+      this.toast.ok('Ítem actualizado');
       this.modalOpen.set(false);
       await this.cargar();
     } catch (e: any) {

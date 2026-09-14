@@ -63,7 +63,8 @@ import { TuiDay } from '@taiga-ui/cdk';
                   <!-- FECHA: calendario -->
                   <app-date-input
                     [ngModel]="dateValue(col)"
-                    (ngModelChange)="setDateValue(col, $event)"></app-date-input>
+                    (ngModelChange)="setDateValue(col, $event)"
+                    [min]="minDateFields[col] ? dateValue(minDateFields[col]) : null"></app-date-input>
 
                 } @else if (tiposCampo[col] === 'tel') {
                   <!-- TELÉFONO: solo dígitos y un "+" inicial (ej. +573212327xx) -->
@@ -153,6 +154,9 @@ export class AdminModalComponent {
 
   /** Etiqueta legible opcional por campo — si falta, se calcula con formatLabel(col). */
   @Input() columnLabels: Record<string, string> = {};
+
+  /** Para un campo de fecha, el nombre de otro campo cuyo valor es la fecha mínima seleccionable. */
+  @Input() minDateFields: Record<string, string> = {};
 
   /**
    * Placeholder de ejemplo opcional por campo, para el `<input>` normal

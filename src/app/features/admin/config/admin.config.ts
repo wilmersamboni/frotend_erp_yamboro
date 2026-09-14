@@ -84,6 +84,13 @@ export interface ModuloConfig {
   /** Etiqueta legible opcional por columna/campo — cabecera de tabla y label del modal. */
   columnLabels?: Record<string, string>;
   /**
+   * Para un campo de fecha, el nombre de OTRO campo de fecha cuyo valor actúa
+   * como mínimo seleccionable (ej. `fechaFin` no puede ser anterior a
+   * `fechaInicio`) — deshabilita esas fechas en el calendario y el backend
+   * además lo valida al guardar.
+   */
+  minDateFields?: Record<string, string>;
+  /**
    * Valor inicial explícito para un campo al abrir "Nuevo" — sobrescribe el
    * default genérico de abrirModal() (booleans → false, resto → ''). Usar
    * cuando `false` no es un valor neutro para ese campo (ver 'activo' en
@@ -312,7 +319,9 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     columnas: ['estudiante', 'curso', 'estado', 'resultadosAprobados'],
     campos: ['persona', 'curso', 'estado', 'resultadosAprobados'],
     selectores: {
-      persona: { modulo: 'personas', label: 'nombre', value: 'idPersona' },
+      // Solo aprendices pueden matricularse — antes listaba TODAS las personas
+      // (admin/instructor incluidos), que nunca deberían aparecer acá.
+      persona: { modulo: 'personas', label: 'nombre', value: 'idPersona', filtro: { cargo: 'aprendiz' } },
       curso:   { modulo: 'cursos',   label: 'codigo', value: 'idCurso'  },
     },
     opcionesEstaticas: {
@@ -358,6 +367,10 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
       fechaInicio: 'date',
       fechaFin:    'date',
       finLectiva:  'date',
+    },
+    minDateFields: {
+      fechaFin:   'fechaInicio',
+      finLectiva: 'fechaInicio',
     },
   },
 
