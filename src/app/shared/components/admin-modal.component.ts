@@ -5,6 +5,7 @@ import { CoordenadasMapComponent } from '../../features/admin/components/coorden
 import { SearchableSelectComponent } from './searchable-select.component';
 import { DateInputComponent } from './date-input.component';
 import { TuiDay } from '@taiga-ui/cdk';
+import { TuiDayCache } from '../utils/tui-day.util';
 
 /**
  * Modal genérico para crear/editar registros.
@@ -64,7 +65,7 @@ import { TuiDay } from '@taiga-ui/cdk';
                   <app-date-input
                     [ngModel]="dateValue(col)"
                     (ngModelChange)="setDateValue(col, $event)"
-                    [min]="minDateFields[col] ? dateValue(minDateFields[col]) : null"></app-date-input>
+                    [min]="minParaFecha(col)"></app-date-input>
 
                 } @else if (tiposCampo[col] === 'tel') {
                   <!-- TELÉFONO: solo dígitos y un "+" inicial (ej. +573212327xx) -->
@@ -158,6 +159,9 @@ export class AdminModalComponent {
   /** Para un campo de fecha, el nombre de otro campo cuyo valor es la fecha mínima seleccionable. */
   @Input() minDateFields: Record<string, string> = {};
 
+  /** Campos de fecha que no pueden quedar en el pasado (ej. `fecha_vencimiento` de un lote). */
+  @Input() minDateToday: string[] = [];
+
   /**
    * Placeholder de ejemplo opcional por campo, para el `<input>` normal
    * (Ronda 6). Los `<select>` (`app-ss`) no lo necesitan.
@@ -219,6 +223,25 @@ export class AdminModalComponent {
     const m = String(day.month + 1).padStart(2, '0');
     const d = String(day.day).padStart(2, '0');
     this.form[col] = `${day.year}-${m}-${d}`;
+  }
+
+  /**
+   * Mínimo seleccionable para un campo de fecha: combina `minDateFields`
+   * (otro campo del mismo form) y `minDateToday` (no puede ser pasado) — si
+   * aplican los dos, gana el más restrictivo (el más tarde de los dos).
+   */
+  minParaFecha(col: string): TuiDay | null {
+    const candidatosIso: string[] = [];
+    const otroCampo = this.minDateFields[col];
+    if (otroCampo && this.form[otroCampo]) {
+      candidatosIso.push(String(this.form[otroCampo]).slice(0, 10));
+    }
+    if (this.minDateToday.includes(col)) {
+      candidatosIso.push(new Date().toISOString().slice(0, 10));
+    }
+    if (candidatosIso.length === 0) return null;
+    const maxIso = candidatosIso.reduce((a, b) => (a > b ? a : b));
+    return TuiDayCache.fromIso(maxIso);
   }
 
   // ── Formato de etiquetas ──────────────────────────────────────

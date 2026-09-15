@@ -2,6 +2,7 @@ import { Component, DoCheck, Input, Output, EventEmitter, Signal, signal } from 
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { StatusBadgeComponent } from './status-badge.component';
+import { TableFilterComponent } from './table-filter.component';
 
 
 /** Enlace de navegación cruzada por fila (ej. Producto → Existencias filtradas por ese producto). */
@@ -40,7 +41,7 @@ export interface TableRowLink {
 @Component({
   selector: 'app-admin-table',
   standalone: true,
-  imports: [FormsModule, RouterLink, StatusBadgeComponent],
+  imports: [FormsModule, RouterLink, StatusBadgeComponent, TableFilterComponent],
   template: `
     <div [class]="searchable
         ? 'bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden'
@@ -112,80 +113,12 @@ export interface TableRowLink {
 
           <!-- Filtro opcional (ej. estado activo/desactivado) — lo controla el padre -->
           @if (filterOptions && filterOptions.length) {
-            <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
-              <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">{{ filterLabel }}</span>
-
-              <!-- Dropdown personalizado para el filtro -->
-              <div class="relative">
-                <button
-                  type="button"
-                  (click)="filterDropdownOpen.update(v => !v)"
-                  class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer">
-                  <span>{{ filterValueLabel() }}</span>
-                  <svg class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" [class.rotate-180]="filterDropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                @if (filterDropdownOpen()) {
-                  <!-- Backdrop para cerrar al hacer clic afuera -->
-                  <div class="fixed inset-0 z-10" (click)="filterDropdownOpen.set(false)"></div>
-
-                  <!-- Menú flotante -->
-                  <div class="absolute left-0 top-full mt-2 z-20 w-44 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                    <div class="p-1 space-y-0.5 max-h-64 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                      @for (o of filterOptions; track o.value) {
-                        <button
-                          type="button"
-                          (click)="seleccionarFiltro(o.value)"
-                          class="w-full px-3 py-1.5 text-sm text-left rounded-lg transition-colors font-medium"
-                          [class.bg-green-50]="filterValue === o.value"
-                          [class.text-green-700]="filterValue === o.value"
-                          [class.text-gray-600]="filterValue !== o.value"
-                          [class.hover:bg-gray-50]="filterValue !== o.value">
-                          {{ o.label }}
-                        </button>
-                      }
-                    </div>
-                  </div>
-                }
-              </div>
-            </div>
+            <app-table-filter [options]="filterOptions" [value]="filterValue" [label]="filterLabel" (valueChange)="seleccionarFiltro($event)" />
           }
-
           @if (secondaryFilterOptions && secondaryFilterOptions.length) {
-            <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
-              <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">{{ secondaryFilterLabel }}</span>
-              <div class="relative">
-                <button type="button" (click)="secondaryFilterDropdownOpen.update(v => !v)"
-                  class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer">
-                  <span>{{ secondaryFilterValueLabel() }}</span>
-                  <svg class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" [class.rotate-180]="secondaryFilterDropdownOpen()" fill="none" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                @if (secondaryFilterDropdownOpen()) {
-                  <div class="fixed inset-0 z-10" (click)="secondaryFilterDropdownOpen.set(false)"></div>
-                  <div class="absolute left-0 top-full mt-2 z-20 w-52 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                    <div class="p-1 space-y-0.5 max-h-64 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                      @for (o of secondaryFilterOptions; track o.value) {
-                        <button type="button" (click)="seleccionarFiltroSecundario(o.value)"
-                          class="w-full px-3 py-1.5 text-sm text-left rounded-lg transition-colors font-medium"
-                          [class.bg-green-50]="secondaryFilterValue === o.value"
-                          [class.text-green-700]="secondaryFilterValue === o.value"
-                          [class.text-gray-600]="secondaryFilterValue !== o.value"
-                          [class.hover:bg-gray-50]="secondaryFilterValue !== o.value">
-                          {{ o.label }}
-                        </button>
-                      }
-                    </div>
-                  </div>
-                }
-              </div>
-            </div>
+            <app-table-filter [options]="secondaryFilterOptions" [value]="secondaryFilterValue" [label]="secondaryFilterLabel" (valueChange)="seleccionarFiltroSecundario($event)" />
           }
 
-          <!-- Botón de alta (opcional) — a la derecha, misma fila que buscador/filas -->
           @if (addLabel) {
             <button (click)="add.emit()"
               class="sm:ml-auto shrink-0 flex items-center justify-center gap-1.5 px-4 py-2 text-white text-sm font-semibold rounded-xl transition-colors"
@@ -349,27 +282,14 @@ export class AdminTableComponent implements DoCheck {
   @Input() secondaryFilterLabel = 'Filtro';
   @Output() secondaryFilterValueChange = new EventEmitter<string>();
 
-  filterDropdownOpen = signal(false);
-  secondaryFilterDropdownOpen = signal(false);
-
   seleccionarFiltro(valor: string): void {
     this.filterValueChange.emit(valor);
     this.page = 0;
-    this.filterDropdownOpen.set(false);
-  }
-
-  filterValueLabel(): string {
-    return this.filterOptions?.find((o) => o.value === this.filterValue)?.label ?? this.filterValue;
   }
 
   seleccionarFiltroSecundario(valor: string): void {
     this.secondaryFilterValueChange.emit(valor);
     this.page = 0;
-    this.secondaryFilterDropdownOpen.set(false);
-  }
-
-  secondaryFilterValueLabel(): string {
-    return this.secondaryFilterOptions?.find((o) => o.value === this.secondaryFilterValue)?.label ?? this.secondaryFilterValue;
   }
 
   /** Estado interno del buscador/paginador (solo activo con `searchable`). */

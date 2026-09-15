@@ -7,6 +7,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { StatCardComponent } from '../../../shared/components/stat-card.component';
+import { TableFilterComponent } from '../../../shared/components/table-filter.component';
 import { OpcionSelect } from '../../admin/services/admin.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
@@ -50,7 +51,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
 @Component({
   selector: 'app-instructor-materiales-novedades',
   standalone: true,
-  imports: [FormsModule, DatePipe, AdminModalComponent, StatusBadgeComponent, StatCardComponent],
+  imports: [FormsModule, DatePipe, AdminModalComponent, StatusBadgeComponent, StatCardComponent, TableFilterComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -68,6 +69,12 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
           style="background-color: #39A900">
           + Nueva novedad
         </button>
+      </div>
+
+      <div class="flex flex-wrap gap-2 mb-5">
+        <app-table-filter label="Tipo" [options]="opcionesTipoFiltro" [value]="tipoFiltro" (valueChange)="tipoFiltro = $event" />
+        <app-table-filter label="Estado" [options]="opcionesEstadoFiltro" [value]="estadoFiltro" (valueChange)="estadoFiltro = $event" />
+        <app-table-filter label="Sitio" [options]="opcionesSitioFiltro" [value]="sitioFiltro" (valueChange)="sitioFiltro = $event" />
       </div>
 
       @if (loading) {
@@ -154,7 +161,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
       [open]="modalOpen"
       [editando]="null"
       labelSingular="novedad"
-      [columns]="['tipo', 'descripcion', 'id_item']"
+      [columns]="camposModal"
       [form]="form"
       [opciones]="opciones"
       [columnLabels]="columnLabels"
@@ -162,6 +169,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
       [saving]="saving"
       [error]="error"
       (closed)="cerrarModal()"
+      (fieldChange)="onCampoModal($event)"
       (saved)="guardar($event)" />
 
     @if (resolverAbierto && resolverNovedad) {
@@ -248,7 +256,7 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
 
   /** El label del ítem cambia según el tipo elegido (obligatorio vs opcional). */
   get columnLabels(): Record<string, string> {
-    return { id_item: this.itemRequerido ? 'Ítem *' : 'Ítem' };
+    return { id_item: this.itemRequerido ? 'Placa SENA *' : 'Placa SENA' };
   }
 
   /** ¿El tipo actualmente elegido en el form exige indicar el ítem? */
@@ -256,8 +264,23 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
     return TIPOS_REQUIEREN_ITEM.includes(this.form['tipo']);
   }
 
+  /** Una novedad "Otro" describe un hecho general y no se enlaza a un ítem. */
+  get esNovedadGeneral(): boolean {
+    return this.form['tipo'] === 'OTRO';
+  }
+
+  get camposModal(): string[] {
+    return this.esNovedadGeneral ? ['tipo', 'descripcion'] : ['tipo', 'descripcion', 'id_item'];
+  }
+
   /** `?id_item=` de la navegación cruzada (Ítems → Novedades). */
   idItemFiltro: string | null = null;
+  tipoFiltro = '';
+  estadoFiltro = '';
+  sitioFiltro = '';
+
+  readonly opcionesTipoFiltro = [{ label: 'Todos los tipos', value: '' }, ...OPCIONES_TIPO];
+  readonly opcionesEstadoFiltro = [{ label: 'Todos los estados', value: '' }, { label: 'Pendiente', value: 'PENDIENTE' }, { label: 'En proceso', value: 'EN_PROCESO' }, { label: 'Resuelta', value: 'RESUELTA' }];
 
   constructor(
     private api: MaterialesApiService,
@@ -272,7 +295,25 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
   ) {}
 
   get novedadesFiltradas(): Novedad[] {
-    return this.idItemFiltro ? this.novedades.filter((n) => n.id_item === this.idItemFiltro) : this.novedades;
+    return this.novedades.filter((n) => {
+      if (this.idItemFiltro && n.id_item !== this.idItemFiltro) return false;
+      if (this.tipoFiltro && n.tipo !== this.tipoFiltro) return false;
+      if (this.estadoFiltro && n.estado !== this.estadoFiltro) return false;
+      return !this.sitioFiltro || this.idSitioNovedad(n) === this.sitioFiltro;
+    });
+  }
+
+  get opcionesSitioFiltro(): { label: string; value: string }[] {
+    return [{ label: 'Todos los sitios', value: '' }, ...this.sitiosConNovedades.map((sitio) => ({ label: sitio.nombre, value: sitio.id_sitio }))];
+  }
+
+  get sitiosConNovedades(): Sitio[] {
+    const ids = new Set(this.novedades.map((n) => this.idSitioNovedad(n)).filter((id): id is string => !!id));
+    return this.sitios.filter((sitio) => ids.has(sitio.id_sitio));
+  }
+
+  private idSitioNovedad(novedad: Novedad): string | null {
+    return novedad.item?.id_sitio ?? novedad.item?.producto?.id_sitio ?? null;
   }
 
   quitarFiltroItem(): void {
@@ -302,11 +343,11 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
   get opciones(): Record<string, OpcionSelect[]> {
     return {
       tipo: OPCIONES_TIPO,
-      // Daño / Pérdida / Mantenimiento son SIEMPRE sobre un ítem concreto → sin
-      // opción "— Sin ítem —". Discrepancia (conteo) y Otro (general) sí la tienen.
+      // Daño / Pérdida / Mantenimiento son siempre sobre un ítem concreto. La
+      // placa SENA es el identificador operativo para localizarlo.
       id_item: [
         ...(this.itemRequerido ? [] : [{ label: '— Sin ítem —', value: null }]),
-        ...this.items.map((i) => ({ label: `${i.codigo_sku}${i.placa_sena ? ' — ' + i.placa_sena : ''}`, value: i.id_item })),
+        ...this.items.map((i) => ({ label: this.etiquetaPlaca(i), value: i.id_item })),
       ],
     };
   }
@@ -371,6 +412,15 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
 
   cerrarModal(): void {
     this.modalOpen = false;
+  }
+
+  onCampoModal(e: { col: string; value: any }): void {
+    // Al pasar a "Otro", se descarta el ítem elegido en un tipo anterior.
+    if (e.col === 'tipo' && e.value === 'OTRO') this.form['id_item'] = null;
+  }
+
+  private etiquetaPlaca(item: Item): string {
+    return item.placa_sena?.trim() || `Sin placa SENA (${item.codigo_sku || item.id_item})`;
   }
 
   async guardar(form: Record<string, any>): Promise<void> {

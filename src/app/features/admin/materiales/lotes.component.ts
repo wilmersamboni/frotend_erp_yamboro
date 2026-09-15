@@ -67,6 +67,8 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
       [form]="form"
       [opciones]="opciones"
       [tiposCampo]="tiposCampo"
+      [minDateToday]="['fecha_vencimiento']"
+      [minDateFields]="{ fecha_vencimiento: 'fecha_ingreso' }"
       [placeholders]="placeholders"
       [columnLabels]="columnLabels"
       [saving]="saving"
@@ -82,6 +84,8 @@ export class MaterialesLotesComponent implements OnInit {
   lotes: Lote[] = [];
   productos: Producto[] = [];
   sitios: Sitio[] = [];
+  /** Sitios donde el usuario puede crear o mover lotes: sus bodegas o su área liderada. */
+  sitiosGestionables: Sitio[] = [];
   loading = false;
   saving = false;
   error: string | null = null;
@@ -176,7 +180,7 @@ export class MaterialesLotesComponent implements OnInit {
   get opciones(): Record<string, OpcionSelect[]> {
     return {
       id_producto: this.productosLoteables.map((p) => ({ label: p.SKU ? `${p.nombre} (${p.SKU})` : p.nombre, value: p.id_producto })),
-      id_sitio: this.sitios.map((s) => ({ label: s.nombre, value: s.id_sitio })),
+      id_sitio: this.sitiosGestionables.map((s) => ({ label: s.nombre, value: s.id_sitio })),
       estado: OPCIONES_ESTADO,
     };
   }
@@ -200,14 +204,18 @@ export class MaterialesLotesComponent implements OnInit {
       // /sitios ni se deja que un 403 ahí muestre el toast global — mismo
       // criterio que Items/Productos.
       const verSitios = this.auth.tieneServicio('materiales.sitios.ver');
-      const [lotes, productos, sitios] = await Promise.all([
+      const [lotes, productos, sitios, sitiosGestionables] = await Promise.all([
         this.api.listarLotes(),
         this.api.listarProductos().catch(() => []),
         verSitios ? this.api.listarSitios().catch(() => []) : Promise.resolve([]),
+        this.auth.isAdmin()
+          ? (verSitios ? this.api.listarSitios().catch(() => []) : Promise.resolve([]))
+          : this.api.sitiosACargo().catch(() => []),
       ]);
       this.lotes = lotes;
       this.productos = productos;
-      this.sitios = sitios;
+      this.sitiosGestionables = sitiosGestionables;
+      this.sitios = sitios.length ? sitios : sitiosGestionables;
     } catch (e) {
       this.toast.httpError(e, 'No se pudieron cargar los lotes.');
     } finally {
@@ -222,13 +230,20 @@ export class MaterialesLotesComponent implements OnInit {
       this.toast.warn('Faltan datos', 'Creá al menos un producto de consumo o perecedero antes de registrar un lote.');
       return;
     }
+    if (this.sitiosGestionables.length === 0) {
+      this.toast.warn('Sin bodega a cargo', 'Solo podés crear lotes en una bodega asignada a vos o que pertenezca a un área que liderás.');
+      return;
+    }
     this.editando = null;
     const primero = loteables[0];
+    const sitioInicial = this.sitiosGestionables.some((s) => s.id_sitio === primero.id_sitio)
+      ? primero.id_sitio
+      : this.sitiosGestionables[0].id_sitio;
     this.form = {
       id_producto: primero.id_producto, cantidad_inicial: null,
       codigo_lote: '', fecha_vencimiento: null,
       // Precarga la bodega "de casa" del producto — editable si el lote va a otra.
-      id_sitio: primero.id_sitio ?? null,
+      id_sitio: sitioInicial,
     };
     this.error = null;
     this.modalOpen = true;
@@ -238,7 +253,9 @@ export class MaterialesLotesComponent implements OnInit {
   onCampoModal(e: { col: string; value: any }): void {
     if (e.col !== 'id_producto' || this.editando) return;
     const prod = this.productos.find((p) => p.id_producto === e.value);
-    if (prod?.id_sitio) this.form['id_sitio'] = prod.id_sitio;
+    if (prod?.id_sitio && this.sitiosGestionables.some((s) => s.id_sitio === prod.id_sitio)) {
+      this.form['id_sitio'] = prod.id_sitio;
+    }
   }
 
   editar(fila: any): void {
@@ -251,6 +268,10 @@ export class MaterialesLotesComponent implements OnInit {
       // El calendario recibe siempre `YYYY-MM-DD`; la API puede serializar el
       // DATE de PostgreSQL como ISO con hora, por eso se descarta ese sufijo.
       fecha_vencimiento: this.fechaParaFormulario(l.fecha_vencimiento),
+      // No es un campo editable del form (no está en `tiposCampo`/`campos`) —
+      // solo viaja acá para que `minDateFields` pueda usarlo como piso del
+      // calendario de `fecha_vencimiento` (no puede vencer antes de existir).
+      fecha_ingreso: this.fechaParaFormulario(l.fecha_ingreso),
       id_sitio: l.id_sitio ?? null, cantidad_disponible: l.cantidad_disponible, estado: l.estado,
     };
     this.error = null;

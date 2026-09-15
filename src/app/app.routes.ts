@@ -3,6 +3,7 @@ import { authGuard } from './core/guards/auth.guard';
 import { roleGuard } from './core/guards/role.guard';
 import { SERVICIOS_ADMIN_PANEL } from './features/admin/config/admin.config';
 import { miBodegaGuard } from './core/guards/mi-bodega.guard';
+import { productosGuard } from './core/guards/productos.guard';
 
 function tieneSubdominio(): boolean {
   const hostname = window.location.hostname;
@@ -132,7 +133,11 @@ export const routes: Routes = [
           // tuvieron esa pantalla).
           { path: 'materiales/categorias', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.categorias.ver'] }, loadComponent: () => import('./features/materiales/categorias.component').then((m) => m.MaterialesCategoriasComponent) },
           { path: 'materiales/sitios', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.sitios.ver'] }, loadComponent: () => import('./features/materiales/sitios.component').then((m) => m.MaterialesSitiosComponent) },
-          { path: 'materiales/productos', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.productos.ver'] }, loadComponent: () => import('./features/materiales/productos.component').then((m) => m.MaterialesProductosComponent) },
+          // `productosGuard` corre además de `roleGuard`: un encargado de bodega
+          // sigue teniendo `materiales.productos.ver` (lo necesita Mi Bodega),
+          // así que sin este guard aparte la URL seguía siendo accesible a mano
+          // aunque se le quitara el link del sidebar.
+          { path: 'materiales/productos', canActivate: [roleGuard, productosGuard], data: { serviciosRequeridos: ['materiales.productos.ver'] }, loadComponent: () => import('./features/materiales/productos.component').then((m) => m.MaterialesProductosComponent) },
           { path: 'materiales/existencias', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.existencias.ver'] }, loadComponent: () => import('./features/materiales/existencias.component').then((m) => m.MaterialesExistenciasComponent) },
           { path: 'materiales/items', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.items.ver'] }, loadComponent: () => import('./features/materiales/items.component').then((m) => m.MaterialesItemsComponent) },
           { path: 'materiales/vencimientos', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.solicitudes.ver'] }, loadComponent: () => import('./features/materiales/vencimientos.component').then((m) => m.MaterialesVencimientosComponent) },
