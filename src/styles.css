@@ -236,3 +236,17 @@ body, * {
 
 /* ─── Texto utilitario (por si Tailwind no cubre alguno) ──────────── */
 .text-muted { color: var(--text-muted); }
+
+/* ─── Scroll invisible ───────────────────────────────────────────────
+   Usado en el <main> de MainLayoutComponent/AdminLayoutComponent: la
+   barra de scroll nativa del sistema (gruesa, gris plano, esquinas
+   cuadradas) se veía mal contra la tarjeta blanca con bordes
+   redondeados — se oculta del todo (sigue siendo scrolleable con
+   rueda/trackpad/teclado, solo no se dibuja la barra). Firefox/IE usan
+   las propiedades de abajo; el resto, el pseudo-elemento
+   `::-webkit-scrollbar` a display:none. */
+.pretty-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.pretty-scroll::-webkit-scrollbar { display: none; }

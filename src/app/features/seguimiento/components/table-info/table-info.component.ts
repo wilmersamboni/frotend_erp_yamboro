@@ -33,12 +33,10 @@ import {
     TablePaginationComponent,
   ],
   template: `
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100">
+    <div class="p-6">
+    <h1 class="text-xl font-bold text-gray-800 mb-5">Aprendices</h1>
 
-      <!-- Título -->
-      <div class="flex items-center justify-between px-6 pt-6 pb-2">
-        <h2 class="text-xl font-semibold text-gray-800">Aprendices</h2>
-      </div>
+    <div>
 
       <!-- Toolbar: búsqueda · columnas · filas por página -->
       <app-table-toolbar
@@ -96,6 +94,7 @@ import {
         (pageChange)="page.set($event)"
       />
 
+    </div>
     </div>
 
     <!-- ── Modales ────────────────────────────────────────────────────────── -->
