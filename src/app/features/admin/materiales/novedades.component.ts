@@ -187,9 +187,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
       <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="resolverAbierto = false">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-bold text-gray-800">
-              {{ resolverEstadoNovedad === 'RESUELTA' ? 'Resolver novedad' : 'Poner novedad en proceso' }}
-            </h2>
+            <h2 class="text-lg font-bold text-gray-800">Resolver novedad</h2>
             <button (click)="resolverAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
           <p class="text-sm text-gray-500 mb-3">
@@ -463,20 +461,27 @@ export class MaterialesNovedadesComponent implements OnInit {
   }
 
   async cambiarEstado(n: Novedad, estado: 'EN_PROCESO' | 'RESUELTA'): Promise<void> {
-    // Con ítem asociado: se abre el diálogo para elegir el estado resultante
-    // del ítem (Tier SigMat M7). Sin ítem: cambio directo, como siempre.
+    // "En proceso" ya no abre diálogo: el ítem pasa a EN_MANTENIMIENTO
+    // solo, sin preguntar — esa pregunta siempre se contestaba igual (nadie
+    // elegía otra cosa al arrancar a atender una novedad) y duplicaba la
+    // única decisión que sí importa: en qué queda el ítem al Resolver.
+    if (estado === 'EN_PROCESO') {
+      await this.enviarCambioEstado(n, estado, n.id_item ? 'EN_MANTENIMIENTO' : undefined);
+      return;
+    }
+    // Resolver sí abre el diálogo cuando hay ítem: acá el estado final
+    // (reparado / dañado / perdido) varía caso a caso y hay que elegirlo.
     if (n.id_item) {
       this.resolverNovedad = n;
       this.resolverEstadoNovedad = estado;
-      this.resolverEstadoItem = this.defaultEstadoItem(n, estado);
+      this.resolverEstadoItem = this.defaultEstadoItem(n);
       this.resolverAbierto = true;
       return;
     }
     await this.enviarCambioEstado(n, estado);
   }
 
-  private defaultEstadoItem(n: Novedad, estado: 'EN_PROCESO' | 'RESUELTA'): EstadoItem | '' {
-    if (estado === 'EN_PROCESO') return 'EN_MANTENIMIENTO';
+  private defaultEstadoItem(n: Novedad): EstadoItem | '' {
     if (n.tipo === 'DAÑO') return 'DAÑADO';
     if (n.tipo === 'PERDIDA') return 'PERDIDO';
     return 'DISPONIBLE';
