@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { MaterialesLiveService } from '../../../core/services/realtime/materiales-live.service';
 import { FormsModule } from '@angular/forms';
+import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
@@ -35,12 +36,16 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
 /**
  * Registro de devoluciones para aprendiz — copia casi literal de
  * `features/instructor/materiales/devoluciones.component.ts` (M10a — devolución
- * por unidad). La ruta `aprendiz/materiales/devoluciones` exige
- * `serviciosRequeridos: ['materiales.devoluciones.ver']`, que NO está en
- * `MATERIALES_APRENDIZ` por defecto → solo llega acá un **aprendiz encargado
- * de bodega** (con el bundle B3 otorgado al hacerlo `sitio.id_responsable`).
- * Ve los préstamos de SU bodega vía `findForResponsable`. Ver docblock de la
- * versión admin para el detalle del flujo.
+ * por unidad). Desde 2026-09-16 `materiales.devoluciones.ver` SÍ está en
+ * `MATERIALES_APRENDIZ` por defecto ("devoluciones de él") — a esta pantalla
+ * llega CUALQUIER aprendiz, no solo uno encargado de bodega; ve sus propias
+ * devoluciones vía el scope "solicitud propia" de `DevolucionesService`. Por
+ * eso `items`/`lotes` (usados solo para mostrar código/placa en el
+ * historial) se piden condicionados a tener el servicio — un aprendiz común
+ * no tiene `materiales.items.ver`/`materiales.lotes.ver`, y pedirlos igual
+ * solo generaba ruido de 403 en consola sin aportar nada (`nombreItem`/
+ * `unidadDeLote` ya caen a '—' si no hay datos). Ver docblock de la versión
+ * admin para el detalle del flujo.
  */
 @Component({
   selector: 'app-aprendiz-materiales-devoluciones',
@@ -50,11 +55,13 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
         <h1 class="text-xl font-bold text-gray-800">Devoluciones</h1>
-        <button (click)="abrirCrear()"
-          class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-          style="background-color: #39A900">
-          + Registrar devolución
-        </button>
+        @if (puedeRegistrar()) {
+          <button (click)="abrirCrear()"
+            class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
+            style="background-color: #39A900">
+            + Registrar devolución
+          </button>
+        }
       </div>
 
       @if (loading) {
@@ -431,10 +438,18 @@ export class AprendizMaterialesDevolucionesComponent implements OnInit {
 
   constructor(
     private api: MaterialesApiService,
+    private auth: AuthService,
     private toast: ToastService,
     private live: MaterialesLiveService,
     private destroyRef: DestroyRef,
   ) {}
+
+  /** Registrar una devolución es acción de quien gestiona la bodega, no del
+   *  aprendiz que la hizo — solo llega acá un encargado de bodega/líder de
+   *  área (excepción personal), no el aprendiz común. */
+  puedeRegistrar(): boolean {
+    return this.auth.tieneServicio('materiales.devoluciones.crear');
+  }
 
   /** Ver docblock de la versión admin. */
   get solicitudesEntregadas(): Solicitud[] {
@@ -483,12 +498,18 @@ export class AprendizMaterialesDevolucionesComponent implements OnInit {
     this.loading = true;
     try {
       // M9 — solo `listarDevoluciones()` es crítico; si una secundaria da 403
-      // (excepción personal) no debe tumbar la tabla entera.
+      // (excepción personal) no debe tumbar la tabla entera. `items`/`lotes`
+      // ni se piden si el aprendiz no tiene el servicio (evita 403 de ruido
+      // para el caso común, no solo tolerarlo con `.catch()`).
       const [devoluciones, solicitudes, items, lotes] = await Promise.all([
         this.api.listarDevoluciones(),
         this.api.listarSolicitudes().catch(() => [] as Solicitud[]),
-        this.api.listarItems().catch(() => [] as Item[]),
-        this.api.listarLotes().catch(() => [] as Lote[]),
+        this.auth.tieneServicio('materiales.items.ver')
+          ? this.api.listarItems().catch(() => [] as Item[])
+          : Promise.resolve([] as Item[]),
+        this.auth.tieneServicio('materiales.lotes.ver')
+          ? this.api.listarLotes().catch(() => [] as Lote[])
+          : Promise.resolve([] as Lote[]),
       ]);
       this.devoluciones = devoluciones;
       this.solicitudes = solicitudes;
@@ -502,6 +523,7 @@ export class AprendizMaterialesDevolucionesComponent implements OnInit {
   }
 
   abrirCrear(): void {
+    if (!this.puedeRegistrar()) return;
     if (this.solicitudesEntregadas.length === 0) {
       this.toast.warn('Nada que devolver', 'No hay préstamos en estado ENTREGADA pendientes de devolución.');
       return;
