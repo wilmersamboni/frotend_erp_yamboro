@@ -125,7 +125,13 @@ export class MaterialesProductosComponent implements OnInit {
       label: 'Kardex',
       routerLink: () => [this.auth.isAdmin() ? '/materiales/kardex' : '/instructor/materiales/kardex'],
       queryParams: (r) => ({ id_producto: r.id_producto }),
-      visible: () => this.auth.isAdmin() || this.auth.cargo() === 'instructor',
+      // Antes solo miraba el cargo ('instructor'), no el servicio real — un
+      // instructor común ya NO tiene `materiales.kardex.ver` por defecto
+      // desde el recorte de 2026-09-16, así que el link quedaba visible pero
+      // llevaba a una ruta que el roleGuard rebotaba al Home. Sigue
+      // apareciendo para quien SÍ lo tiene (encargado de bodega/líder de
+      // área, vía su bundle).
+      visible: () => this.auth.isAdmin() || this.auth.tieneServicio('materiales.kardex.ver'),
     },
     {
       label: 'Lotes',
@@ -162,15 +168,22 @@ export class MaterialesProductosComponent implements OnInit {
   private async cargar(): Promise<void> {
     this.loading = true;
     try {
-      // Sin `materiales.sitios.ver` (caso típico de aprendiz) ni se pide
-      // /sitios ni se deja que un 403 ahí tumbe el resto de la carga.
+      // Un aprendiz o instructor comunes ya NO traen por defecto
+      // `materiales.sitios.ver`/`materiales.categorias.ver`/`materiales.items.ver`
+      // — ninguna de las tres se pide siquiera si no se tiene el servicio (no
+      // alcanza con un `.catch()`: la petición igual sale y queda como 403 de
+      // ruido en la consola/red aunque no rompa la pantalla). Sin categorías
+      // no se pierde nada visible: el nombre ya llega embebido en
+      // `producto.categoria`.
       const verSitios = this.puedeVerSitios();
+      const verCategorias = this.auth.tieneServicio('materiales.categorias.ver');
+      const verItems = this.auth.tieneServicio('materiales.items.ver');
       const soloInactivos = this.estadoFiltro === 'inactivos';
       const [productos, categorias, sitios, items] = await Promise.all([
         this.api.listarProductos(soloInactivos),
-        this.api.listarCategorias(),
+        verCategorias ? this.api.listarCategorias().catch(() => [] as Categoria[]) : Promise.resolve([] as Categoria[]),
         verSitios ? this.api.listarSitios().catch(() => [] as Sitio[]) : Promise.resolve([] as Sitio[]),
-        this.api.listarItems().catch(() => [] as Item[]),
+        verItems ? this.api.listarItems().catch(() => [] as Item[]) : Promise.resolve([] as Item[]),
       ]);
       // `listarProductos(true)` trae activos + desactivados; en modo
       // "Desactivados" nos quedamos solo con los que están dados de baja.
