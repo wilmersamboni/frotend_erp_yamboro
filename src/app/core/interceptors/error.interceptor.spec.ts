@@ -123,6 +123,11 @@ describe('errorInterceptor', () => {
   });
 
   it('503: muestra toast de servicio no disponible sin tocar la sesión', () => {
+    // El interceptor reintenta 1 vez los GET que fallan rápido con un status
+    // transitorio (503 incluido) antes de darse por vencido — sin fake timers
+    // el `timer(400)` del retry nunca llega a vencer dentro del test y
+    // catchError (donde se dispara el toast) no se alcanza a ejecutar.
+    vi.useFakeTimers();
     conSesion();
     auth = TestBed.inject(AuthService);
     const errorSpy = vi.spyOn(toast, 'error');
@@ -130,7 +135,11 @@ describe('errorInterceptor', () => {
     http.get('/api2/caido').subscribe({ error: () => {} });
     httpMock.expectOne('/api2/caido').flush({}, { status: 503, statusText: 'Service Unavailable' });
 
+    vi.advanceTimersByTime(400);
+    httpMock.expectOne('/api2/caido').flush({}, { status: 503, statusText: 'Service Unavailable' });
+
     expect(errorSpy).toHaveBeenCalledWith('Servicio no disponible', expect.any(String));
     expect(auth.isAuthenticated()).toBe(true);
+    vi.useRealTimers();
   });
 });
