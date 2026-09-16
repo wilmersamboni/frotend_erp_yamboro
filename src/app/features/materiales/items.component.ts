@@ -15,6 +15,11 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
   { label: 'En mantenimiento', value: 'EN_MANTENIMIENTO' },
 ];
 
+const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
+  { label: 'Todos los estados', value: '' },
+  ...OPCIONES_ESTADO,
+];
+
 /**
  * Gestión de Ítems individuales (las unidades que genera Productos). No hay
  * alta acá — se crean solo vía Productos, salvo "agregar ítem suelto al
@@ -60,6 +65,15 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
         [columns]="columnas"
         [columnLabels]="columnLabels"
         [loading]="loading"
+        [filterOptions]="estadoOpciones"
+        [filterValue]="estadoFiltro"
+        filterLabel="Estado"
+        (filterValueChange)="estadoFiltro = $event"
+        [secondaryFilterOptions]="puedeVerSitios() ? sitioOpciones : null"
+        [secondaryFilterValue]="sitioFiltro"
+        secondaryFilterLabel="Sitio"
+        (secondaryFilterValueChange)="sitioFiltro = $event"
+        statusColumn="estado"
         [canEdit]="puedeEditar()"
         [canDelete]="false"
         [rowLinks]="rowLinks"
@@ -159,6 +173,8 @@ export class MaterialesItemsComponent implements OnInit {
   loading = false;
   saving = false;
   error: string | null = null;
+  estadoFiltro = '';
+  sitioFiltro = '';
 
   modalOpen = false;
   editando: Item | null = null;
@@ -225,6 +241,15 @@ export class MaterialesItemsComponent implements OnInit {
     return { id_sitio: this.sitios.map((s) => ({ label: s.nombre, value: s.id_sitio })), estado: OPCIONES_ESTADO };
   }
 
+  readonly estadoOpciones = OPCIONES_FILTRO_ESTADO;
+
+  get sitioOpciones(): OpcionSelect[] {
+    return [
+      { label: 'Todos los sitios', value: '' },
+      ...this.sitios.map((s) => ({ label: s.nombre, value: s.id_sitio })),
+    ];
+  }
+
   /** Solo los DEVOLUTIVO se gestionan por ítems/placa — un consumible lleva
    *  lote con saldo contable, no unidades sueltas. */
   private get productosDevolutivos(): Producto[] {
@@ -236,11 +261,17 @@ export class MaterialesItemsComponent implements OnInit {
   }
 
   get filas(): any[] {
-    return this.items.map((i) => ({
-      ...i,
-      producto_nombre: i.producto?.nombre ?? '—',
-      sitio_nombre: this.sitios.find((s) => s.id_sitio === i.id_sitio)?.nombre ?? '—',
-    }));
+    return this.items
+      .filter((i) => !this.estadoFiltro || i.estado === this.estadoFiltro)
+      .filter((i) => !this.sitioFiltro || i.id_sitio === this.sitioFiltro)
+      .map((i) => ({
+        ...i,
+        // El SKU pertenece al producto. Un ítem con placa SENA no lo duplica,
+        // pero la tabla debe seguir mostrando la referencia del catálogo.
+        codigo_sku: i.codigo_sku ?? i.producto?.SKU ?? this.productos.find((p) => p.id_producto === i.id_producto)?.SKU ?? '—',
+        producto_nombre: i.producto?.nombre ?? this.productos.find((p) => p.id_producto === i.id_producto)?.nombre ?? '—',
+        sitio_nombre: this.sitios.find((s) => s.id_sitio === i.id_sitio)?.nombre ?? '—',
+      }));
   }
 
   private async cargar(): Promise<void> {
@@ -339,7 +370,7 @@ export class MaterialesItemsComponent implements OnInit {
   /** Productos DEVOLUTIVO con al menos un ítem sin placa. */
   get productosConPlacasPendientes(): { id_producto: string; nombre: string; count: number }[] {
     return this.productos
-      .filter((p) => p.tipo_material === 'DEVOLUTIVO')
+      .filter((p) => p.tipo_material === 'DEVOLUTIVO' && p.usa_placa_sena !== false)
       .map((p) => ({
         id_producto: p.id_producto,
         nombre: p.SKU ? `${p.nombre} (${p.SKU})` : p.nombre,

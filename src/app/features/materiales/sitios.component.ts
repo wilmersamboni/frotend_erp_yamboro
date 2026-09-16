@@ -9,6 +9,20 @@ import { ConfirmService } from '../../core/services/confirm.service';
 import { Item, MaterialesApiService, Sitio } from '../../core/services/materiales/materiales-api.service';
 import { PersonaService } from '../../core/services/persona.service';
 
+const OPCIONES_FILTRO_TIPO = [
+  { label: 'Todos los tipos', value: '' },
+  { label: 'Bodega', value: 'BODEGA' },
+  { label: 'Ambiente', value: 'AMBIENTE' },
+  { label: 'Laboratorio', value: 'LABORATORIO' },
+  { label: 'Otro', value: 'OTRO' },
+];
+
+const OPCIONES_FILTRO_ESTADO = [
+  { label: 'Todos los estados', value: '' },
+  { label: 'Activo', value: 'true' },
+  { label: 'Inactivo', value: 'false' },
+];
+
 const OPCIONES_TIPO: OpcionSelect[] = [
   { label: 'Bodega', value: 'BODEGA' },
   { label: 'Ambiente', value: 'AMBIENTE' },
@@ -48,6 +62,14 @@ const OPCIONES_TIPO: OpcionSelect[] = [
         (add)="nuevo()"
         [rows]="filas"
         [searchable]="true"
+        [filterOptions]="opcionesFiltroTipo"
+        [filterValue]="tipoFiltro"
+        filterLabel="Tipo"
+        (filterValueChange)="tipoFiltro = $event"
+        [secondaryFilterOptions]="opcionesFiltroEstado"
+        [secondaryFilterValue]="estadoFiltro"
+        secondaryFilterLabel="Estado"
+        (secondaryFilterValueChange)="estadoFiltro = $event"
         [searchPlaceholder]="'Buscar por nombre, tipo, área…'"
         [columns]="['nombre', 'tipo', 'area_nombre', 'responsable_nombre', 'items_count', 'estado']"
         [columnLabels]="columnLabels"
@@ -116,6 +138,11 @@ export class MaterialesSitiosComponent implements OnInit {
   areas: any[] = [];
   loading = false;
   saving = false;
+  tipoFiltro = '';
+  estadoFiltro = '';
+
+  readonly opcionesFiltroTipo = OPCIONES_FILTRO_TIPO;
+  readonly opcionesFiltroEstado = OPCIONES_FILTRO_ESTADO;
   error: string | null = null;
 
   modalOpen = false;
@@ -228,7 +255,9 @@ export class MaterialesSitiosComponent implements OnInit {
 
   /** Filas con `estado`/responsable legibles para la tabla (el form guarda los valores crudos). */
   get filas(): any[] {
-    return this.sitios.map((s) => ({
+    return this.sitios
+      .filter((s) => (!this.tipoFiltro || s.tipo === this.tipoFiltro) && (!this.estadoFiltro || String(s.estado) === this.estadoFiltro))
+      .map((s) => ({
       ...s,
       estado: s.estado ? 'Activo' : 'Inactivo',
       responsable_nombre: this.nombreResponsable(s.id_responsable) ?? '—',

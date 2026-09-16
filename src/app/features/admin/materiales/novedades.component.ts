@@ -7,6 +7,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { StatCardComponent } from '../../../shared/components/stat-card.component';
+import { TableFilterComponent } from '../../../shared/components/table-filter.component';
 import { OpcionSelect } from '../services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -61,7 +62,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
 @Component({
   selector: 'app-materiales-novedades',
   standalone: true,
-  imports: [FormsModule, DatePipe, AdminModalComponent, StatusBadgeComponent, StatCardComponent],
+  imports: [FormsModule, DatePipe, AdminModalComponent, StatusBadgeComponent, StatCardComponent, TableFilterComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -79,6 +80,12 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
           style="background-color: #39A900">
           + Nueva novedad
         </button>
+      </div>
+
+      <div class="flex flex-wrap gap-2 mb-5">
+        <app-table-filter label="Tipo" [options]="opcionesTipoFiltro" [value]="tipoFiltro" (valueChange)="tipoFiltro = $event" />
+        <app-table-filter label="Estado" [options]="opcionesEstadoFiltro" [value]="estadoFiltro" (valueChange)="estadoFiltro = $event" />
+        <app-table-filter label="Sitio" [options]="opcionesSitioFiltro" [value]="sitioFiltro" (valueChange)="sitioFiltro = $event" />
       </div>
 
       @if (loading) {
@@ -165,7 +172,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
       [open]="modalOpen"
       [editando]="null"
       labelSingular="novedad"
-      [columns]="['tipo', 'descripcion', 'id_item']"
+      [columns]="camposModal"
       [form]="form"
       [opciones]="opciones"
       [columnLabels]="columnLabels"
@@ -173,15 +180,14 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
       [saving]="saving"
       [error]="error"
       (closed)="cerrarModal()"
+      (fieldChange)="onCampoModal($event)"
       (saved)="guardar($event)" />
 
     @if (resolverAbierto && resolverNovedad) {
       <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="resolverAbierto = false">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-bold text-gray-800">
-              {{ resolverEstadoNovedad === 'RESUELTA' ? 'Resolver novedad' : 'Poner novedad en proceso' }}
-            </h2>
+            <h2 class="text-lg font-bold text-gray-800">Resolver novedad</h2>
             <button (click)="resolverAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
           <p class="text-sm text-gray-500 mb-3">
@@ -259,7 +265,7 @@ export class MaterialesNovedadesComponent implements OnInit {
 
   /** El label del ítem cambia según el tipo elegido (obligatorio vs opcional). */
   get columnLabels(): Record<string, string> {
-    return { id_item: this.itemRequerido ? 'Ítem *' : 'Ítem' };
+    return { id_item: this.itemRequerido ? 'Placa SENA *' : 'Placa SENA' };
   }
 
   /** ¿El tipo actualmente elegido en el form exige indicar el ítem? */
@@ -267,8 +273,23 @@ export class MaterialesNovedadesComponent implements OnInit {
     return TIPOS_REQUIEREN_ITEM.includes(this.form['tipo']);
   }
 
+  /** Una novedad "Otro" describe un hecho general y no se enlaza a un ítem. */
+  get esNovedadGeneral(): boolean {
+    return this.form['tipo'] === 'OTRO';
+  }
+
+  get camposModal(): string[] {
+    return this.esNovedadGeneral ? ['tipo', 'descripcion'] : ['tipo', 'descripcion', 'id_item'];
+  }
+
   /** `?id_item=` de la navegación cruzada (Ítems → Novedades). */
   idItemFiltro: string | null = null;
+  tipoFiltro = '';
+  estadoFiltro = '';
+  sitioFiltro = '';
+
+  readonly opcionesTipoFiltro = [{ label: 'Todos los tipos', value: '' }, ...OPCIONES_TIPO];
+  readonly opcionesEstadoFiltro = [{ label: 'Todos los estados', value: '' }, { label: 'Pendiente', value: 'PENDIENTE' }, { label: 'En proceso', value: 'EN_PROCESO' }, { label: 'Resuelta', value: 'RESUELTA' }];
 
   constructor(
     private api: MaterialesApiService,
@@ -282,7 +303,25 @@ export class MaterialesNovedadesComponent implements OnInit {
   ) {}
 
   get novedadesFiltradas(): Novedad[] {
-    return this.idItemFiltro ? this.novedades.filter((n) => n.id_item === this.idItemFiltro) : this.novedades;
+    return this.novedades.filter((n) => {
+      if (this.idItemFiltro && n.id_item !== this.idItemFiltro) return false;
+      if (this.tipoFiltro && n.tipo !== this.tipoFiltro) return false;
+      if (this.estadoFiltro && n.estado !== this.estadoFiltro) return false;
+      return !this.sitioFiltro || this.idSitioNovedad(n) === this.sitioFiltro;
+    });
+  }
+
+  get opcionesSitioFiltro(): { label: string; value: string }[] {
+    return [{ label: 'Todos los sitios', value: '' }, ...this.sitiosConNovedades.map((sitio) => ({ label: sitio.nombre, value: sitio.id_sitio }))];
+  }
+
+  get sitiosConNovedades(): Sitio[] {
+    const ids = new Set(this.novedades.map((n) => this.idSitioNovedad(n)).filter((id): id is string => !!id));
+    return this.sitios.filter((sitio) => ids.has(sitio.id_sitio));
+  }
+
+  private idSitioNovedad(novedad: Novedad): string | null {
+    return novedad.item?.id_sitio ?? novedad.item?.producto?.id_sitio ?? null;
   }
 
   quitarFiltroItem(): void {
@@ -316,11 +355,11 @@ export class MaterialesNovedadesComponent implements OnInit {
   get opciones(): Record<string, OpcionSelect[]> {
     return {
       tipo: OPCIONES_TIPO,
-      // Daño / Pérdida / Mantenimiento son SIEMPRE sobre un ítem concreto → sin
-      // opción "— Sin ítem —". Discrepancia (conteo) y Otro (general) sí la tienen.
+      // Daño / Pérdida / Mantenimiento son siempre sobre un ítem concreto. La
+      // placa SENA es el identificador operativo para localizarlo.
       id_item: [
         ...(this.itemRequerido ? [] : [{ label: '— Sin ítem —', value: null }]),
-        ...this.items.map((i) => ({ label: `${i.codigo_sku}${i.placa_sena ? ' — ' + i.placa_sena : ''}`, value: i.id_item })),
+        ...this.items.map((i) => ({ label: this.etiquetaPlaca(i), value: i.id_item })),
       ],
     };
   }
@@ -385,6 +424,15 @@ export class MaterialesNovedadesComponent implements OnInit {
     this.modalOpen = false;
   }
 
+  onCampoModal(e: { col: string; value: any }): void {
+    // Al pasar a "Otro", se descarta el ítem elegido en un tipo anterior.
+    if (e.col === 'tipo' && e.value === 'OTRO') this.form['id_item'] = null;
+  }
+
+  private etiquetaPlaca(item: Item): string {
+    return item.placa_sena?.trim() || `Sin placa SENA (${item.codigo_sku || item.id_item})`;
+  }
+
   async guardar(form: Record<string, any>): Promise<void> {
     if (!form['descripcion']?.trim()) {
       this.error = 'La descripción es obligatoria.';
@@ -413,20 +461,27 @@ export class MaterialesNovedadesComponent implements OnInit {
   }
 
   async cambiarEstado(n: Novedad, estado: 'EN_PROCESO' | 'RESUELTA'): Promise<void> {
-    // Con ítem asociado: se abre el diálogo para elegir el estado resultante
-    // del ítem (Tier SigMat M7). Sin ítem: cambio directo, como siempre.
+    // "En proceso" ya no abre diálogo: el ítem pasa a EN_MANTENIMIENTO
+    // solo, sin preguntar — esa pregunta siempre se contestaba igual (nadie
+    // elegía otra cosa al arrancar a atender una novedad) y duplicaba la
+    // única decisión que sí importa: en qué queda el ítem al Resolver.
+    if (estado === 'EN_PROCESO') {
+      await this.enviarCambioEstado(n, estado, n.id_item ? 'EN_MANTENIMIENTO' : undefined);
+      return;
+    }
+    // Resolver sí abre el diálogo cuando hay ítem: acá el estado final
+    // (reparado / dañado / perdido) varía caso a caso y hay que elegirlo.
     if (n.id_item) {
       this.resolverNovedad = n;
       this.resolverEstadoNovedad = estado;
-      this.resolverEstadoItem = this.defaultEstadoItem(n, estado);
+      this.resolverEstadoItem = this.defaultEstadoItem(n);
       this.resolverAbierto = true;
       return;
     }
     await this.enviarCambioEstado(n, estado);
   }
 
-  private defaultEstadoItem(n: Novedad, estado: 'EN_PROCESO' | 'RESUELTA'): EstadoItem | '' {
-    if (estado === 'EN_PROCESO') return 'EN_MANTENIMIENTO';
+  private defaultEstadoItem(n: Novedad): EstadoItem | '' {
     if (n.tipo === 'DAÑO') return 'DAÑADO';
     if (n.tipo === 'PERDIDA') return 'PERDIDO';
     return 'DISPONIBLE';

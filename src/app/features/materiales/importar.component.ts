@@ -1,7 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ToastService } from '../../core/services/toast.service';
+import { AuthService } from '../../core/services/auth.service';
 import {
   MaterialesApiService,
   ResultadoImportacion,
@@ -57,12 +58,12 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
     <div class="p-6 w-full max-w-7xl mx-auto" [class.revisar-shell]="fase === 'revisar'">
 
       <header class="mb-4 shrink-0 max-w-5xl mx-auto w-full">
-        <a routerLink="/materiales/productos"
+        <a [routerLink]="destino()"
           class="group inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-full pl-2.5 pr-3.5 py-2 shadow-sm hover:border-[#39A900] hover:text-[#2d8000] hover:bg-[#39A900]/[0.06] hover:shadow transition-all mb-2.5">
           <svg class="w-4 h-4 transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
           </svg>
-          Volver a Productos
+          {{ destino() === '/mi-bodega' ? 'Volver a Mi Bodega' : 'Volver a Productos' }}
         </a>
         <h1 class="text-[1.35rem] font-bold text-gray-900 tracking-tight mb-5">Importar productos</h1>
         <p class="text-sm text-gray-500 mt-0.5 mb-5">
@@ -375,7 +376,7 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
           }
 
           <div class="mt-5 flex gap-3">
-            <a routerLink="/materiales/productos" class="btn-primary px-4 py-2 text-sm">Ver productos</a>
+            <a [routerLink]="destino()" class="btn-primary px-4 py-2 text-sm">{{ destino() === '/mi-bodega' ? 'Ver en Mi Bodega' : 'Ver productos' }}</a>
             <button (click)="volver()" class="btn-ghost px-4 py-2 text-sm">Importar otro archivo</button>
           </div>
         </div>
@@ -383,8 +384,17 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
     </div>
   `,
 })
-export class MaterialesImportarComponent {
+export class MaterialesImportarComponent implements OnInit {
   fase: 'subir' | 'revisar' | 'resultado' = 'subir';
+
+  /**
+   * A dónde "Volver"/"Ver productos" — no siempre `/materiales/productos`.
+   * Un encargado de bodega (sin acceso general al catálogo, ver plan
+   * "quitar Sitios/Productos del instructor común") tiene que volver a "Mi
+   * Bodega", que es la única pantalla de productos que sí puede usar; admin
+   * y líder de área sí usan la pantalla general, así que van ahí.
+   */
+  destino = signal<'/materiales/productos' | '/mi-bodega'>('/materiales/productos');
 
   archivo: File | null = null;
   arrastrando = false;
@@ -406,7 +416,21 @@ export class MaterialesImportarComponent {
     { n: 3, t: 'Confirmás', d: 'Recién ahí se registra todo' },
   ];
 
-  constructor(private api: MaterialesApiService, private toast: ToastService) {}
+  constructor(
+    private api: MaterialesApiService,
+    private toast: ToastService,
+    private auth: AuthService,
+  ) {}
+
+  async ngOnInit(): Promise<void> {
+    if (this.auth.isAdmin()) return; // ya queda en '/materiales/productos', su pantalla normal
+    try {
+      const aCargo = await this.api.sitiosACargo();
+      if (aCargo.length > 0) this.destino.set('/mi-bodega');
+    } catch {
+      // Sin poder resolverlo, se queda en Productos (mejor eso que romper el flujo de importar).
+    }
+  }
 
   get pendientes(): number {
     return this.filas.filter((f) => !f.tipo_material || !f.id_categoria).length;

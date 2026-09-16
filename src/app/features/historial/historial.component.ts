@@ -22,13 +22,19 @@ type Estado = 'idle' | 'loading' | 'success' | 'error';
   standalone: true,
   imports: [CommonModule, HistorialBuscadorComponent, EtapaPracticaCardComponent],
   template: `
-    <section class="flex flex-col items-center gap-8 py-8 px-4 w-full">
+    <div class="p-6 max-w-4xl mx-auto">
 
-      <h1 class="text-2xl sm:text-4xl font-bold text-gray-800 text-center">Historial del aprendiz</h1>
+      <div class="text-center mb-7">
+        <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2d8000] mb-1">Consulta académica</p>
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Historial del aprendiz</h1>
+        <p class="text-sm text-gray-400 mt-1 max-w-md mx-auto">
+          Buscá por cédula para ver en un solo lugar sus matrículas, etapa práctica, bitácoras y observaciones.
+        </p>
+      </div>
 
       <!-- Buscador con autocomplete delegado al subcomponente -->
       <app-historial-buscador
-        class="w-full max-w-2xl"
+        class="block w-full max-w-2xl mx-auto mb-7"
         [personas]="personas()"
         [cargandoPersonas]="cargandoPersonas()"
         [buscando]="estado === 'loading'"
@@ -38,20 +44,23 @@ type Estado = 'idle' | 'loading' | 'success' | 'error';
       />
 
       <!-- Panel de resultados -->
-      <div class="w-full max-w-4xl rounded-xl bg-white border border-gray-100 shadow-sm overflow-hidden">
+      <div class="rounded-2xl bg-white border border-gray-200/60 shadow-sm overflow-hidden">
 
         @if (estado === 'idle') {
-          <div class="flex flex-col items-center gap-3 p-12 text-center">
-            <svg class="w-12 h-12 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-            </svg>
-            <p class="text-gray-400 text-sm">Ingresa la cédula del aprendiz para ver su historial.</p>
+          <div class="flex flex-col items-center gap-3 py-16 px-6 text-center">
+            <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#39A900]/10 text-[#39A900]">
+              <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+              </svg>
+            </div>
+            <p class="text-sm font-semibold text-gray-700">Ingresá la cédula del aprendiz</p>
+            <p class="text-xs text-gray-400 max-w-xs">Vas a ver su información personal, cursos matriculados y toda su etapa práctica.</p>
           </div>
         }
 
         @if (estado === 'loading') {
-          <div class="flex flex-col items-center gap-3 p-12">
+          <div class="flex flex-col items-center gap-3 py-16 px-6">
             <div class="w-8 h-8 border-4 border-[#39A900]/20 border-t-[#39A900]
                         rounded-full animate-spin"></div>
             <p class="text-gray-400 text-sm animate-pulse">Cargando historial...</p>
@@ -59,17 +68,19 @@ type Estado = 'idle' | 'loading' | 'success' | 'error';
         }
 
         @if (estado === 'error') {
-          <div class="flex flex-col items-center gap-2 p-10 text-red-500">
-            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0
-                   2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697
-                   16.126zM12 15.75h.007v.008H12v-.008z"/>
-            </svg>
-            <p class="text-sm font-medium">{{ errorMsg }}</p>
+          <div class="flex flex-col items-center gap-3 py-14 px-6 text-center">
+            <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-500">
+              <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0
+                     2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697
+                     16.126zM12 15.75h.007v.008H12v-.008z"/>
+              </svg>
+            </div>
+            <p class="text-sm font-medium text-red-600">{{ errorMsg }}</p>
             @if (esReintentable) {
               <button type="button" (click)="reintentar()"
-                class="mt-2 px-4 py-1.5 text-xs font-medium rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors">
+                class="mt-1 px-4 py-1.5 text-xs font-semibold rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors">
                 Reintentar
               </button>
             }
@@ -222,7 +233,7 @@ type Estado = 'idle' | 'loading' | 'success' | 'error';
 
         }
       </div>
-    </section>
+    </div>
   `,
 })
 export class HistorialComponent implements OnInit {

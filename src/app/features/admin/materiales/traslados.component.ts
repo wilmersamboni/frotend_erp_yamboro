@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
+import { TableFilterComponent } from '../../../shared/components/table-filter.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
 import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from '../../../core/services/materiales/materiales-api.service';
 
@@ -39,7 +40,7 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
 @Component({
   selector: 'app-materiales-traslados',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent],
+  imports: [FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, TableFilterComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -51,12 +52,19 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
         </button>
       </div>
 
+      <div class="flex flex-wrap gap-2 mb-5">
+        <app-table-filter label="Estado" [options]="opcionesEstadoFiltro" [value]="estadoFiltro" (valueChange)="estadoFiltro = $event" />
+        <app-table-filter label="Origen" [options]="opcionesOrigenFiltro" [value]="origenFiltro" (valueChange)="origenFiltro = $event" />
+        <app-table-filter label="Destino" [options]="opcionesDestinoFiltro" [value]="destinoFiltro" (valueChange)="destinoFiltro = $event" />
+        <input [(ngModel)]="busquedaFiltro" type="search" placeholder="Buscar ?tem o justificaci?n?" class="min-w-56 flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+      </div>
+
       @if (loading) {
         <div class="flex justify-center py-12">
           <div class="w-8 h-8 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
         </div>
-      } @else if (traslados.length === 0) {
-        <p class="text-center text-gray-400 text-sm py-10">No hay traslados registrados</p>
+      } @else if (trasladosFiltrados.length === 0) {
+        <p class="text-center text-gray-400 text-sm py-10">No hay traslados que cumplan los filtros seleccionados.</p>
       } @else {
         <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
           <div class="overflow-x-auto">
@@ -73,7 +81,7 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
-              @for (t of traslados; track t.id_traslado) {
+              @for (t of trasladosFiltrados; track t.id_traslado) {
                 <tr class="hover:bg-gray-50/80 transition-colors">
                   <td class="px-4 py-3 text-gray-700">{{ t.item?.producto?.nombre ?? t.item?.placa_sena ?? t.item?.codigo_sku ?? '—' }}</td>
                   <td class="px-4 py-3 text-gray-700">{{ nombreSitioTraslado(t.sitio_origen, t.id_sitio_origen) }}</td>
@@ -253,6 +261,11 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
 })
 export class MaterialesTrasladosComponent implements OnInit {
   traslados: Traslado[] = [];
+  estadoFiltro = '';
+  origenFiltro = '';
+  destinoFiltro = '';
+  busquedaFiltro = '';
+  readonly opcionesEstadoFiltro = [{ label: 'Todos los estados', value: '' }, { label: 'Pendiente', value: 'PENDIENTE' }, { label: 'Aprobado', value: 'APROBADO' }, { label: 'Rechazado', value: 'RECHAZADO' }];
   items: Item[] = [];
   sitios: Sitio[] = [];
   loading = false;
@@ -336,6 +349,46 @@ export class MaterialesTrasladosComponent implements OnInit {
    *  presente, no depende del scope), luego la lista local, luego "—". */
   nombreSitioTraslado(sitio: Sitio | undefined, id: string): string {
     return sitio?.nombre ?? this.sitios.find((s) => s.id_sitio === id)?.nombre ?? '—';
+  }
+
+  get trasladosFiltrados(): Traslado[] {
+    const texto = this.busquedaFiltro.trim().toLocaleLowerCase();
+    return this.traslados.filter((traslado) => {
+      if (this.estadoFiltro && traslado.estado !== this.estadoFiltro) return false;
+      if (this.origenFiltro && traslado.id_sitio_origen !== this.origenFiltro) return false;
+      if (this.destinoFiltro && traslado.id_sitio_destino !== this.destinoFiltro) return false;
+      if (!texto) return true;
+      return [
+        traslado.item?.producto?.nombre,
+        traslado.item?.placa_sena,
+        traslado.item?.codigo_sku,
+        traslado.justificacion,
+        this.nombreSitioTraslado(traslado.sitio_origen, traslado.id_sitio_origen),
+        this.nombreSitioTraslado(traslado.sitio_destino, traslado.id_sitio_destino),
+      ].some((valor) => valor?.toLocaleLowerCase().includes(texto));
+    });
+  }
+
+  get opcionesOrigenFiltro(): { label: string; value: string }[] {
+    return [{ label: 'Todos los or?genes', value: '' }, ...this.sitiosOrigenFiltro.map((sitio) => ({ label: sitio.nombre, value: sitio.id }))];
+  }
+
+  get opcionesDestinoFiltro(): { label: string; value: string }[] {
+    return [{ label: 'Todos los destinos', value: '' }, ...this.sitiosDestinoFiltro.map((sitio) => ({ label: sitio.nombre, value: sitio.id }))];
+  }
+
+  get sitiosOrigenFiltro(): { id: string; nombre: string }[] {
+    return this.opcionesSitiosFiltro(this.traslados.map((traslado) => [traslado.id_sitio_origen, traslado.sitio_origen] as const));
+  }
+
+  get sitiosDestinoFiltro(): { id: string; nombre: string }[] {
+    return this.opcionesSitiosFiltro(this.traslados.map((traslado) => [traslado.id_sitio_destino, traslado.sitio_destino] as const));
+  }
+
+  private opcionesSitiosFiltro(sitios: readonly (readonly [string, Sitio | undefined])[]): { id: string; nombre: string }[] {
+    return [...new Map(sitios.map(([id, sitio]) => [id, this.nombreSitioTraslado(sitio, id)])).entries()]
+      .map(([id, nombre]) => ({ id, nombre }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
   }
 
   verDetalle(t: Traslado): void {

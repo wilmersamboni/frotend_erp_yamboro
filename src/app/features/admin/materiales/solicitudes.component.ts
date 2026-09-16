@@ -11,7 +11,7 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
 import { TuiDayCache } from '../../../shared/utils/tui-day.util';
 import type { TuiDay } from '@taiga-ui/cdk';
-import { MaterialesApiService, Lote, Producto, Sitio, Solicitud, EstadoSolicitud } from '../../../core/services/materiales/materiales-api.service';
+import { MaterialesApiService, Lote, Producto, Sitio, Solicitud, EstadoSolicitud, ResumenExistencias } from '../../../core/services/materiales/materiales-api.service';
 
 /** Línea del modal "Nueva solicitud" — `p:<id>` producto devolutivo, `l:<id>` lote consumible. */
 interface LineaForm {
@@ -784,28 +784,68 @@ seleccionarEstado(valor: EstadoSolicitud | ''): void {
     }
   }
 
-  /** Stock en vivo de los productos de las solicitudes PENDIENTE / APROBADA. */
+  /**
+   * Stock en vivo de los productos de las solicitudes PENDIENTE / APROBADA.
+   *
+   * Antes hacía una petición HTTP por cada producto distinto (`stockProducto`
+   * en un `Promise.all`) — con varios productos pendientes eso son varias
+   * idas y vueltas en paralelo en cada carga (y en cada notificación en
+   * vivo), compitiendo por las pocas conexiones que el navegador permite por
+   * origen. Ahora usa una sola llamada a `GET /existencias` (ya trae todo el
+   * tenant/scope de una vez) y reconstruye el mismo cálculo que hacía el
+   * backend en `countStockByProducto` por producto:
+   *  - DEVOLUTIVO con bodega propia: cuenta SOLO los ítems de esa bodega
+   *    (un ítem trasladado a otra bodega no cuenta, igual que antes).
+   *  - DEVOLUTIVO sin bodega propia: suma ítems de TODAS las bodegas.
+   *  - CONSUMO/PERECEDERO: suma el saldo de lotes ACTIVO de TODAS las
+   *    bodegas (los lotes de un consumible sí pueden repartirse en varias).
+   */
   private async cargarStocks(): Promise<void> {
-    const ids = [
-      ...new Set(
-        this.solicitudes
-          .filter((s) => s.estado === 'PENDIENTE' || s.estado === 'APROBADA')
-          .map((s) => s.producto?.id_producto)
-          .filter((id): id is string => !!id),
-      ),
-    ];
-    const pares = await Promise.all(
-      ids.map(async (id) => {
-        try {
-          return [id, await this.api.stockProducto(id)] as const;
-        } catch {
-          return null;
-        }
-      }),
+    const idsPendientes = new Set(
+      this.solicitudes
+        .filter((s) => s.estado === 'PENDIENTE' || s.estado === 'APROBADA')
+        .map((s) => s.producto?.id_producto)
+        .filter((id): id is string => !!id),
     );
-    const mapa: Record<string, { disponibles: number; total: number }> = {};
-    for (const par of pares) if (par) mapa[par[0]] = par[1];
-    this.stocksPorProducto = mapa;
+    if (idsPendientes.size === 0) {
+      this.stocksPorProducto = {};
+      return;
+    }
+    try {
+      const existencias = await this.api.obtenerExistencias();
+      const filasPorProducto = new Map<string, ResumenExistencias[]>();
+      for (const f of existencias) {
+        if (!idsPendientes.has(f.id_producto)) continue;
+        const lista = filasPorProducto.get(f.id_producto);
+        if (lista) lista.push(f); else filasPorProducto.set(f.id_producto, [f]);
+      }
+      const mapa: Record<string, { disponibles: number; total: number }> = {};
+      for (const s of this.solicitudes) {
+        const id = s.producto?.id_producto;
+        if (!id || mapa[id] || !idsPendientes.has(id)) continue;
+        const filas = filasPorProducto.get(id) ?? [];
+        if (s.producto?.tipo_material === 'DEVOLUTIVO') {
+          const idSitioProducto = s.producto?.id_sitio ?? null;
+          if (idSitioProducto) {
+            const fila = filas.find((f) => f.id_sitio === idSitioProducto);
+            mapa[id] = fila ? { disponibles: fila.disponibles, total: fila.total } : { disponibles: 0, total: 0 };
+          } else {
+            mapa[id] = {
+              disponibles: filas.reduce((a, f) => a + f.disponibles, 0),
+              total: filas.reduce((a, f) => a + f.total, 0),
+            };
+          }
+        } else {
+          mapa[id] = {
+            disponibles: filas.reduce((a, f) => a + f.lote_disponible, 0),
+            total: filas.reduce((a, f) => a + f.lote_total, 0),
+          };
+        }
+      }
+      this.stocksPorProducto = mapa;
+    } catch {
+      this.stocksPorProducto = {};
+    }
   }
 
   /** Stock disponible del producto de una fila (o null si no se consultó). */

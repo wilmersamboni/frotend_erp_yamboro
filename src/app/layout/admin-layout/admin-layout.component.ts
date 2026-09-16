@@ -24,7 +24,14 @@ import { AdminSidebarComponent } from './admin-sidebar.component';
 
       <div class="flex flex-col flex-1 min-h-screen overflow-hidden" style="background:#F0F2F5;">
         <app-admin-navbar (menuClick)="mobileMenuOpen.update(v => !v)" [menuOpen]="mobileMenuOpen()" />
-        <main class="p-6 flex-1 overflow-y-auto bg-[#EEF2F7]">
+        <!-- Mismo tratamiento que MainLayoutComponent (ver su comentario):
+             tarjeta blanca directo en main, gutter por margen + padding
+             propio (algunas páginas no traen p-6 propio y dependían del
+             viejo main para el relleno) — sin div intermedio que rompa
+             cadenas de altura (h-full/flex-1) de las páginas de este layout
+             (Panel Administrativo, Migración, Historial, Aprendices, Vista
+             General). -->
+        <main class="pretty-scroll m-4 lg:m-6 p-4 lg:p-6 flex-1 overflow-y-auto bg-white rounded-2xl border border-gray-200/60 shadow-sm">
           <router-outlet />
         </main>
       </div>

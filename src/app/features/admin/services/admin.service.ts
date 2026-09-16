@@ -555,9 +555,22 @@ export class AdminService {
   private sanitizarForm(form: Record<string, any>): Record<string, any> {
     const mod = this.activeTab();
     const tiposCampo = CONFIG[mod]?.tiposCampo ?? {};
+    const selectores = CONFIG[mod]?.selectores ?? {};
     const resultado: Record<string, any> = {};
     for (const [clave, valor] of Object.entries(form)) {
-      if (valor === '' || valor === null || valor === undefined) continue;
+      if (valor === '' || valor === null || valor === undefined) {
+        // Un selector FK `opcional` (ej. líder de área) se puede limpiar a
+        // propósito eligiendo "— Sin asignar —" (value: null, ver
+        // buildOpciones). Si lo saltáramos como a cualquier campo vacío, el
+        // PATCH nunca incluye la clave y el backend no tiene forma de
+        // distinguir "no tocar este campo" de "vaciarlo" — el valor viejo
+        // queda pegado para siempre sin importar cuántas veces se guarde
+        // (bug real: quitar el líder de un área nunca surtía efecto). Los
+        // demás campos vacíos (no `opcional`) se siguen omitiendo, para no
+        // mandar por accidente un campo requerido en blanco mientras se edita.
+        if (selectores[clave]?.opcional) resultado[clave] = null;
+        continue;
+      }
 
       if (tiposCampo[clave] === 'number') {
         // Campo explícitamente numérico: convertir string a número si es necesario
