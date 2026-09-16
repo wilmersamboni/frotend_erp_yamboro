@@ -263,14 +263,16 @@ interface LineaForm {
           </div>
 
           <div class="space-y-4">
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Bodega</label>
-              <app-ss [options]="opcionesSitio" placeholder="— Selecciona una bodega —"
-                [(ngModel)]="idSitioSeleccionado" (ngModelChange)="onSitioChange($event)"></app-ss>
-              <p class="text-[11px] text-gray-400 mt-1">Todas las líneas de una solicitud tienen que ser de la misma bodega.</p>
-            </div>
+            @if (pasoBodega) {
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Bodega</label>
+                <app-ss [options]="opcionesSitio" placeholder="— Selecciona una bodega —"
+                  [(ngModel)]="idSitioSeleccionado" (ngModelChange)="onSitioChange($event)"></app-ss>
+                <p class="text-[11px] text-gray-400 mt-1">Todas las líneas de una solicitud tienen que ser de la misma bodega.</p>
+              </div>
+            }
 
-            @if (idSitioSeleccionado) {
+            @if (!pasoBodega || idSitioSeleccionado) {
               <div>
                 <div class="flex items-center justify-between mb-1.5">
                   <label class="block text-xs font-medium text-gray-600">Ítems a solicitar</label>
@@ -615,16 +617,29 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
    * suelto (opción rota — no había nada que entregar) y otra como su lote
    * (reporte QA 2026-09-11: "Abono orgánico" salía duplicado al buscar).
    */
+  /** ¿Se muestra el paso "Bodega"? Solo si tenemos el catálogo de sitios —
+   *  `GET /sitios` exige `materiales.sitios.ver` o `materiales.traslados.crear`,
+   *  ninguno de los dos por defecto en un instructor común (2026-09-15 y
+   *  2026-09-16 respectivamente), así que para ese caso se salta el paso y se
+   *  ofrecen directo todos los productos/lotes visibles, sin agrupar por
+   *  bodega (mismo patrón que la versión aprendiz). */
+  get pasoBodega(): boolean {
+    return this.sitios.length > 0;
+  }
+
   private productosDeBodega(): Producto[] {
-    if (!this.idSitioSeleccionado) return [];
-    return this.productos.filter(
-      (p) => p.id_sitio === this.idSitioSeleccionado && p.tipo_material === 'DEVOLUTIVO',
-    );
+    const base = this.pasoBodega && this.idSitioSeleccionado
+      ? this.productos.filter((p) => p.id_sitio === this.idSitioSeleccionado)
+      : this.pasoBodega ? [] : this.productos;
+    return base.filter((p) => p.tipo_material === 'DEVOLUTIVO');
   }
 
   private lotesDeBodega(): Lote[] {
     return this.lotes.filter(
-      (l) => l.estado === 'ACTIVO' && l.cantidad_disponible > 0 && l.id_sitio === this.idSitioSeleccionado,
+      (l) =>
+        l.estado === 'ACTIVO' &&
+        l.cantidad_disponible > 0 &&
+        (!this.pasoBodega || !this.idSitioSeleccionado || l.id_sitio === this.idSitioSeleccionado),
     );
   }
 
@@ -684,7 +699,7 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
 
   onSitioChange(idSitio: string | null): void {
     this.idSitioSeleccionado = idSitio;
-    this.lineas = idSitio ? [{ ref: '', cantidad: 1 }] : [];
+    this.lineas = idSitio || !this.pasoBodega ? [{ ref: '', cantidad: 1 }] : [];
     this.fechaDevolucion = '';
   }
 
@@ -719,12 +734,21 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
     this.loading = true;
     try {
       // M9 — solo `listarSolicitudes()` es crítico; si una secundaria da 403
-      // (excepción personal) no debe tumbar la tabla entera.
+      // (excepción personal) no debe tumbar la tabla entera. `GET /sitios`
+      // exige `materiales.sitios.ver` O `materiales.traslados.crear`
+      // (`SitiosController.getSitios`) — un instructor común no tiene ninguno
+      // de los dos por defecto desde el recorte de esta sesión (antes sí,
+      // vía `traslados.crear`, y por eso este 403 no se veía hasta ahora), así
+      // que ni se pide si no aplica ninguno de los dos: el paso "Bodega" del
+      // modal se salta solo (ver `pasoBodega`), no bloquea crear la solicitud.
+      const verSitios =
+        this.auth.tieneServicio('materiales.sitios.ver') ||
+        this.auth.tieneServicio('materiales.traslados.crear');
       const [solicitudes, productos, lotes, sitios] = await Promise.all([
         this.api.listarSolicitudes(),
         this.api.listarProductos().catch(() => [] as Producto[]),
         this.api.listarLotes().catch(() => [] as Lote[]),
-        this.api.listarSitios().catch(() => [] as Sitio[]),
+        verSitios ? this.api.listarSitios().catch(() => [] as Sitio[]) : Promise.resolve([] as Sitio[]),
       ]);
       this.solicitudes = solicitudes;
       this.productos = productos;
@@ -809,12 +833,12 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
   }
 
   nuevo(): void {
-    if ((this.productos.length === 0 && this.lotes.length === 0) || this.sitios.length === 0) {
-      this.toast.warn('Faltan datos', 'Necesitás al menos un producto o lote y un sitio para crear una solicitud.');
+    if (this.productos.length === 0 && this.lotes.length === 0) {
+      this.toast.warn('Faltan datos', 'Necesitás al menos un producto o lote para crear una solicitud.');
       return;
     }
     this.idSitioSeleccionado = null;
-    this.lineas = [];
+    this.lineas = this.pasoBodega ? [] : [{ ref: '', cantidad: 1 }];
     this.observacion = '';
     this.fechaDevolucion = '';
     this.stockProd = {};
