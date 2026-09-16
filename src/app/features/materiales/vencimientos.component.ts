@@ -3,6 +3,7 @@ import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import gsap from 'gsap';
+import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { TableFilterComponent, TableFilterOption } from '../../shared/components/table-filter.component';
 import { FilaVencimiento, Lote, MaterialesApiService, Sitio } from '../../core/services/materiales/materiales-api.service';
@@ -21,8 +22,18 @@ const VENTANAS = [7, 15, 30] as const;
  * `VencimientosScheduler` en el backend, 1×/día — esta pantalla es la vista.
  *
  * Componente único para admin/instructor/aprendiz: la ruta se gatea con
- * `materiales.solicitudes.ver` (vía `serviciosRequeridos`), sin diferencias de
- * comportamiento por rol.
+ * `materiales.solicitudes.ver` (vía `serviciosRequeridos`). Única diferencia
+ * de comportamiento por rol (2026-09-16, pedido explícito — "un instructor
+ * normal no debería tener acceso a vencimientos de productos perecederos,
+ * solo a los vencimientos de sus préstamos; igual con el aprendiz"): la
+ * pestaña "Perecederos" (`listarLotes()`, sin scope de bodega/área — muestra
+ * TODOS los lotes perecederos del tenant) solo se ofrece a quien tiene
+ * `materiales.lotes.ver` (admin, encargado de bodega, líder de área). Un
+ * instructor/aprendiz común ya no lo tiene por defecto desde el recorte de
+ * esta misma sesión, así que directo no ve la pestaña ni se pide `/lotes` —
+ * solo ve "Préstamos", que YA estaba bien scopeado ("patrón Solicitudes":
+ * propias + bodegas a cargo, vía `obtenerVencimientos` → `obtenerSolicitudes`
+ * en el backend, sin cambios ahí).
  *
  * Remaster visual (2026-09-15, GSAP): este módulo concentra "cosas que se
  * vencen" de dos mundos distintos (lotes perecederos + préstamos), así que se
@@ -78,32 +89,36 @@ const VENTANAS = [7, 15, 30] as const;
       </div>
 
       <!-- Dos mundos distintos (lotes perecederos vs. préstamos) — separados en pestañas
-           para no mezclarlos en una sola pantalla larga; "Ventana" arriba aplica a las dos. -->
-      <div class="relative inline-flex rounded-2xl border border-gray-200 bg-gray-50 p-1 mb-6">
-        <div #vistaPill class="pill-indicator absolute top-1 bottom-1 left-0 rounded-xl bg-white shadow-sm"></div>
-        <button #vistaBtn type="button" (click)="cambiarVista('perecederos')"
-          class="relative z-10 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-          [class.text-gray-800]="vista() === 'perecederos'" [class.text-gray-400]="vista() !== 'perecederos'">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M8 5l8 4"/></svg>
-          Perecederos
-          @if (totalPerecederos > 0) {
-            <span class="inline-flex min-w-5 h-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold"
-              [class.bg-red-100]="lotesVencidos.length > 0" [class.text-red-700]="lotesVencidos.length > 0"
-              [class.bg-amber-100]="lotesVencidos.length === 0" [class.text-amber-700]="lotesVencidos.length === 0">{{ totalPerecederos }}</span>
-          }
-        </button>
-        <button #vistaBtn type="button" (click)="cambiarVista('prestamos')"
-          class="relative z-10 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-          [class.text-gray-800]="vista() === 'prestamos'" [class.text-gray-400]="vista() !== 'prestamos'">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          Préstamos
-          @if (totalPrestamos > 0) {
-            <span class="inline-flex min-w-5 h-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold"
-              [class.bg-red-100]="vencidas.length > 0" [class.text-red-700]="vencidas.length > 0"
-              [class.bg-amber-100]="vencidas.length === 0" [class.text-amber-700]="vencidas.length === 0">{{ totalPrestamos }}</span>
-          }
-        </button>
-      </div>
+           para no mezclarlos en una sola pantalla larga; "Ventana" arriba aplica a las dos.
+           El toggle solo se ofrece a quien puede ver Perecederos (sin ese servicio, la
+           pantalla entera es directo la vista de Préstamos, sin pestañas que elegir). -->
+      @if (puedeVerPerecederos) {
+        <div class="relative inline-flex rounded-2xl border border-gray-200 bg-gray-50 p-1 mb-6">
+          <div #vistaPill class="pill-indicator absolute top-1 bottom-1 left-0 rounded-xl bg-white shadow-sm"></div>
+          <button #vistaBtn type="button" (click)="cambiarVista('perecederos')"
+            class="relative z-10 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+            [class.text-gray-800]="vista() === 'perecederos'" [class.text-gray-400]="vista() !== 'perecederos'">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M8 5l8 4"/></svg>
+            Perecederos
+            @if (totalPerecederos > 0) {
+              <span class="inline-flex min-w-5 h-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold"
+                [class.bg-red-100]="lotesVencidos.length > 0" [class.text-red-700]="lotesVencidos.length > 0"
+                [class.bg-amber-100]="lotesVencidos.length === 0" [class.text-amber-700]="lotesVencidos.length === 0">{{ totalPerecederos }}</span>
+            }
+          </button>
+          <button #vistaBtn type="button" (click)="cambiarVista('prestamos')"
+            class="relative z-10 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+            [class.text-gray-800]="vista() === 'prestamos'" [class.text-gray-400]="vista() !== 'prestamos'">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Préstamos
+            @if (totalPrestamos > 0) {
+              <span class="inline-flex min-w-5 h-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold"
+                [class.bg-red-100]="vencidas.length > 0" [class.text-red-700]="vencidas.length > 0"
+                [class.bg-amber-100]="vencidas.length === 0" [class.text-amber-700]="vencidas.length === 0">{{ totalPrestamos }}</span>
+            }
+          </button>
+        </div>
+      }
 
       @if (!loading && totalUrgentes > 0) {
         <div class="relative overflow-hidden rounded-2xl mb-6 px-5 py-4 text-white shadow-sm"
@@ -119,8 +134,11 @@ const VENTANAS = [7, 15, 30] as const;
                   {{ totalUrgentes }} vencimiento{{ totalUrgentes === 1 ? '' : 's' }} {{ totalUrgentes === 1 ? 'necesita' : 'necesitan' }} atención hoy
                 </p>
                 <p class="text-xs text-white/80 mt-0.5">
-                  {{ lotesVencidos.length }} lote{{ lotesVencidos.length === 1 ? '' : 's' }} perecedero{{ lotesVencidos.length === 1 ? '' : 's' }} vencido{{ lotesVencidos.length === 1 ? '' : 's' }}
-                  · {{ vencidas.length }} préstamo{{ vencidas.length === 1 ? '' : 's' }} atrasado{{ vencidas.length === 1 ? '' : 's' }}
+                  @if (puedeVerPerecederos) {
+                    {{ lotesVencidos.length }} lote{{ lotesVencidos.length === 1 ? '' : 's' }} perecedero{{ lotesVencidos.length === 1 ? '' : 's' }} vencido{{ lotesVencidos.length === 1 ? '' : 's' }}
+                    ·
+                  }
+                  {{ vencidas.length }} préstamo{{ vencidas.length === 1 ? '' : 's' }} atrasado{{ vencidas.length === 1 ? '' : 's' }}
                 </p>
               </div>
             </div>
@@ -429,8 +447,14 @@ const VENTANAS = [7, 15, 30] as const;
 export class MaterialesVencimientosComponent implements OnInit {
   readonly ventanas = VENTANAS;
   ventana = signal<(typeof VENTANAS)[number]>(7);
+  /** Admin, encargado de bodega o líder de área — los únicos con visibilidad
+   *  real (sin scope de bodega/área) sobre TODOS los lotes perecederos.
+   *  Asignado en el constructor, no como inicializador de campo: depende de
+   *  `this.auth`, que recién existe una vez asignada la propiedad de
+   *  parámetro del constructor. */
+  puedeVerPerecederos = false;
   /** Perecederos y préstamos son dos mundos de datos distintos — separados en pestañas para no mezclarlos. */
-  vista = signal<'perecederos' | 'prestamos'>('perecederos');
+  vista = signal<'perecederos' | 'prestamos'>('prestamos');
   loading = false;
   vencidas: FilaVencimiento[] = [];
   porVencer: FilaVencimiento[] = [];
@@ -477,7 +501,10 @@ export class MaterialesVencimientosComponent implements OnInit {
   private vistaPillListo = false;
   private seccionListo = false;
 
-  constructor(private api: MaterialesApiService, private toast: ToastService) {
+  constructor(private api: MaterialesApiService, private auth: AuthService, private toast: ToastService) {
+    this.puedeVerPerecederos = this.auth.tieneServicio('materiales.lotes.ver');
+    this.vista.set(this.puedeVerPerecederos ? 'perecederos' : 'prestamos');
+
     // El indicador deslizante del segmentado "Ventana" sigue al botón activo.
     // Sin animar en el primer render (pillListo=false): que aparezca ya en su
     // sitio, no deslizando desde la esquina.
@@ -649,8 +676,12 @@ export class MaterialesVencimientosComponent implements OnInit {
     try {
       const [r, lotes, sitios] = await Promise.all([
         this.api.vencimientosSolicitudes(this.ventana()),
-        this.api.listarLotes().catch(() => [] as Lote[]),
-        this.api.listarSitios().catch(() => [] as Sitio[]),
+        this.puedeVerPerecederos
+          ? this.api.listarLotes().catch(() => [] as Lote[])
+          : Promise.resolve([] as Lote[]),
+        this.puedeVerPerecederos
+          ? this.api.listarSitios().catch(() => [] as Sitio[])
+          : Promise.resolve([] as Sitio[]),
       ]);
       this.vencidas = r.vencidas;
       this.porVencer = r.por_vencer;
