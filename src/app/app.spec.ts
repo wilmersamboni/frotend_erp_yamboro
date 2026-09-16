@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { MessageService } from 'primeng/api';
+import { ConfirmationService, MessageService } from 'primeng/api';
 import { provideTaiga } from '@taiga-ui/core';
 import { provideLottieOptions } from 'ngx-lottie';
 import { AppComponent } from './app';
@@ -27,6 +27,7 @@ describe('AppComponent', () => {
         provideHttpClient(),
         provideNoopAnimations(),
         MessageService,
+        ConfirmationService,
         ...provideTaiga(),
         provideLottieOptions({ player: () => ({}) as any }),
       ],
