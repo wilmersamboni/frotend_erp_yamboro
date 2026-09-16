@@ -29,6 +29,11 @@ export interface Selector {
    * Ejemplo: { cargo: 'aprendiz' }
    */
   filtro?: Record<string, any>;
+  /**
+   * Si es true, antepone una opción "— Sin … —" con valor `null` para poder
+   * dejar el FK vacío (ej. líder de área, que es opcional).
+   */
+  opcional?: boolean;
 }
 
 export interface ModuloConfig {
@@ -78,6 +83,13 @@ export interface ModuloConfig {
   parCoordenadas?: { lat: string; lng: string };
   /** Etiqueta legible opcional por columna/campo — cabecera de tabla y label del modal. */
   columnLabels?: Record<string, string>;
+  /**
+   * Para un campo de fecha, el nombre de OTRO campo de fecha cuyo valor actúa
+   * como mínimo seleccionable (ej. `fechaFin` no puede ser anterior a
+   * `fechaInicio`) — deshabilita esas fechas en el calendario y el backend
+   * además lo valida al guardar.
+   */
+  minDateFields?: Record<string, string>;
   /**
    * Valor inicial explícito para un campo al abrir "Nuevo" — sobrescribe el
    * default genérico de abrirModal() (booleans → false, resto → ''). Usar
@@ -307,7 +319,9 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     columnas: ['estudiante', 'curso', 'estado', 'resultadosAprobados'],
     campos: ['persona', 'curso', 'estado', 'resultadosAprobados'],
     selectores: {
-      persona: { modulo: 'personas', label: 'nombre', value: 'idPersona' },
+      // Solo aprendices pueden matricularse — antes listaba TODAS las personas
+      // (admin/instructor incluidos), que nunca deberían aparecer acá.
+      persona: { modulo: 'personas', label: 'nombre', value: 'idPersona', filtro: { cargo: 'aprendiz' } },
       curso:   { modulo: 'cursos',   label: 'codigo', value: 'idCurso'  },
     },
     opcionesEstaticas: {
@@ -331,6 +345,10 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     listar: `${BASE}/cursos`, crear: `${BASE}/cursos`,
     actualizar: id => `${BASE}/cursos/${id}`,
     eliminar:   id => `${BASE}/cursos/${id}`,
+    // cursos.controller.ts solo expone @Patch(':id'), nunca tuvo @Put — sin
+    // esto el servicio caía al PUT por default y el backend respondía 404
+    // ("Cannot PUT"), aunque el recurso sí existiera.
+    usePatch: true,
     grupo: 'epsas', categoria: 'Académico',
     // Lectura abierta (catálogo básico compartido); crear/editar/eliminar sí
     // exige el servicio — antes cursos.controller.ts no tenía ningún guard.
@@ -342,12 +360,17 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     selectores: {
       areaId:     { modulo: 'areas',     label: 'nombre', value: 'idArea'     },
       programaId: { modulo: 'programas', label: 'nombre', value: 'idPrograma' },
-      liderId:    { modulo: 'personas',  label: 'nombre', value: 'idPersona'  },
+      // El líder de un curso es un instructor — antes el select listaba TODOS los usuarios.
+      liderId:    { modulo: 'personas',  label: 'nombre', value: 'idPersona', filtro: { cargo: 'instructor' } },
     },
     tiposCampo: {
       fechaInicio: 'date',
       fechaFin:    'date',
       finLectiva:  'date',
+    },
+    minDateFields: {
+      fechaFin:   'fechaInicio',
+      finLectiva: 'fechaInicio',
     },
   },
 
@@ -376,14 +399,18 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     listar: `${BASE}/areas`, crear: `${BASE}/areas`,
     actualizar: id => `${BASE}/areas/${id}`,
     eliminar:   id => `${BASE}/areas/${id}`,
+    usePatch: true,
     grupo: 'epsas', categoria: 'Organización',
     servicioEscritura: 'organizacion.gestionar',
     servicioEliminar: 'organizacion.gestionar',
-    // sede viene como objeto anidado (eager); aplanarFila extrae 'nombre'
-    columnas: ['nombre', 'sede'],
-    campos: ['nombre', 'sedeId'],
+    // sede y lider vienen como objetos anidados (eager); aplanarFila extrae 'nombre'
+    columnas: ['nombre', 'sede', 'lider'],
+    campos: ['nombre', 'sedeId', 'liderId'],
+    columnLabels: { liderId: 'Líder de área (instructor)' },
     selectores: {
-      sedeId: { modulo: 'sedes', label: 'nombre', value: 'idSede' },
+      sedeId:  { modulo: 'sedes',    label: 'nombre', value: 'idSede' },
+      // "Encargado de área": Materiales lo usa para el scope del catálogo. Opcional.
+      liderId: { modulo: 'personas', label: 'nombre', value: 'idPersona', filtro: { cargo: 'instructor' }, opcional: true },
     },
   },
 

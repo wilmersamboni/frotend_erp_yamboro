@@ -14,31 +14,67 @@
 .tipo-badge-evaluacion    { background: #fed7aa; color: #92400e; }
 .tipo-badge-festivo       { background: #fee2e2; color: #991b1b; }
 
-.ev-badge {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 8px; border-radius: 6px; font-size: 13px;
-  max-width: 220px;
+/* Avatar de icono por tipo de evento — reemplaza el chip de color pesado
+   que cubría todo el nombre; reusa los mismos tokens .ev-tipo-* (background
+   + color) que antes pintaban el chip completo, ahora solo el círculo. */
+.ev-icon-avatar {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 8px; flex-shrink: 0;
+}
+.ev-name-cell {
+  display: flex; align-items: center; gap: 9px; max-width: 230px;
 }
 /* Sin esto el nombre del evento (texto libre, puede ser largo) empujaba el
    ancho de toda la tabla mucho más allá de min-width, forzando un scroll
    horizontal desproporcionado — sobre todo en mobile. */
-.ev-badge strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ev-name-cell strong {
+  font-size: 13px; font-weight: 700; color: #1f2937;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 .ev-desc-cell {
   display: block; max-width: 220px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-/* ── Tabla de eventos: sin estilos globales de tabla en esta app — se define aquí ── */
-.table-wrap { overflow-x: auto; }
+/* ── Tabla de eventos: sin estilos globales de tabla en esta app — se define aquí ──
+   ".card" (usado antes en el template) no está definido en ningún lado global
+   del proyecto — no aportaba fondo/borde/sombra. El contenedor real de "card"
+   para esta tabla se define acá, local al componente. */
+.table-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .05);
+  overflow: hidden;
+}
+.table-card-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 13px 16px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+.table-scroll { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 780px; }
-.data-table thead tr { background: #f9fafb; border-bottom: 2px solid var(--border); }
+.data-table thead tr { background: var(--surface2); border-bottom: 1px solid var(--border); }
 .data-table th {
-  padding: 10px 14px; color: #374151; font-size: 11px; font-weight: 800;
+  padding: 11px 14px; color: #374151; font-size: 11px; font-weight: 800;
   text-transform: uppercase; letter-spacing: .05em; text-align: left; white-space: nowrap;
 }
-.data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.data-table th.col-acciones, .data-table td.col-acciones { text-align: right; }
+.data-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.data-table tbody tr:last-child td { border-bottom: none; }
 .data-table tbody tr:hover td { background: var(--surface2); }
+
+/* Botón de eliminar, mismo tamaño/forma que .btn-icon (global) pero con
+   acento rojo solo al hover — antes era un botón ad-hoc con clases Tailwind
+   sueltas, de tamaño/hover distinto al de Editar. */
+.btn-icon-danger:hover:not(:disabled) { background: #fef2f2; color: #dc2626; }
+
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; padding: 44px 16px; color: var(--text-muted); font-size: 13px;
+}
 
 /* En mobile, Descripción y Fichas invitadas son las columnas menos
    prioritarias y las que más ancho piden — se ocultan para que la tabla
@@ -56,7 +92,11 @@
 }
 
 .fichas-count-chip {
+  display: inline-flex; align-items: center; gap: 4px;
   font-size: 11px; font-weight: 700;
   background: #dcfce7; color: #15803d;
-  border-radius: 20px; padding: 2px 8px;
+  border-radius: 20px; padding: 3px 9px;
 }
+/* Sin fichas invitadas — chip neutro en vez del mismo verde de "sí hay
+   fichas", para que el color siga transmitiendo estado real, no decoración. */
+.fichas-count-chip--empty { background: #f3f4f6; color: #6b7280; }

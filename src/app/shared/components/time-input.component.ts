@@ -64,7 +64,7 @@ const OPTIONS: string[] = (() => {
              [style.left.px]="_panelPos()!.left"
              [style.width.px]="_panelPos()!.width">
           <ul class="ti-list" [style.max-height.px]="_panelPos()!.maxH">
-            @for (t of _options; track t) {
+            @for (t of _visibleOptions(); track t) {
               <li class="ti-option" [class.ti-selected]="t === _value()"
                   (mousedown)="$event.preventDefault(); select(t)">{{ t }}</li>
             }
@@ -151,7 +151,24 @@ const OPTIONS: string[] = (() => {
 export class TimeInputComponent implements ControlValueAccessor, OnDestroy {
   @Input() placeholder = '--:--';
 
+  /** Oculta del panel las horas anteriores a este valor ('HH:mm'). Ej: la hora
+   *  fin de un evento que termina el mismo día no debería mostrar horas
+   *  previas a la hora de inicio. */
+  @Input() minTime = '';
+
+  /** Oculta del panel las horas dentro de [desde, hasta) — ej. ['00:00','06:00']
+   *  para no ofrecer horario nocturno de madrugada como inicio/fin de un evento. */
+  @Input() excludeRange: [string, string] | null = null;
+
   _options = OPTIONS;
+
+  _visibleOptions(): string[] {
+    return this._options.filter((t) => {
+      if (this.minTime && t < this.minTime) return false;
+      if (this.excludeRange && t >= this.excludeRange[0] && t < this.excludeRange[1]) return false;
+      return true;
+    });
+  }
 
   _value   = signal('');
   _display = signal('');

@@ -71,7 +71,8 @@ import { TuiDay } from '@taiga-ui/cdk';
               <label class="block text-xs font-semibold text-gray-600 mb-1">Hora inicio *</label>
               <app-time-input
                      [ngModel]="formHoraInicio()"
-                     (ngModelChange)="formHoraInicio.set($event)"></app-time-input>
+                     (ngModelChange)="formHoraInicio.set($event)"
+                     [excludeRange]="horaQuieta"></app-time-input>
             </div>
           </div>
           <div class="grid grid-cols-2 gap-3 mt-3">
@@ -85,7 +86,9 @@ import { TuiDay } from '@taiga-ui/cdk';
               <label class="block text-xs font-semibold text-gray-600 mb-1">Hora fin *</label>
               <app-time-input
                      [ngModel]="formHoraFin()"
-                     (ngModelChange)="formHoraFin.set($event)"></app-time-input>
+                     (ngModelChange)="formHoraFin.set($event)"
+                     [excludeRange]="mismoDia() ? horaQuieta : null"
+                     [minTime]="mismoDia() ? formHoraInicio() : ''"></app-time-input>
             </div>
           </div>
         </div>
@@ -336,6 +339,18 @@ export class EventoModalComponent {
   formHoraFin      = signal('');
   formTipo         = signal('');
   filtroArea       = signal('');
+
+  /** Franja de madrugada sin actividad institucional — no se ofrece como
+   *  hora de inicio, ni como hora de fin cuando el evento termina el mismo día. */
+  readonly horaQuieta: [string, string] = ['00:00', '06:00'];
+
+  /** El evento termina el mismo día que empieza (fechaFin === fechaInicio) —
+   *  cuando no, es un evento que cruza la medianoche y la hora fin puede ser
+   *  numéricamente menor a la hora inicio (ej. inicia 21:00, termina 06:00
+   *  del día siguiente), así que no aplican ni el mínimo ni la franja quieta. */
+  mismoDia(): boolean {
+    return !!this.form.fechaInicio && this.form.fechaInicio === this.form.fechaFin;
+  }
   fichasSeleccionadas = signal<Set<string>>(new Set());
 
   // ── Lugar / Ubicación ─────────────────────────────────────────
@@ -618,7 +633,22 @@ export class EventoModalComponent {
       this.formError.set('Completa la hora de inicio y fin');
       return;
     }
-    if (horaFin <= horaInicio) {
+    // Franja de madrugada sin actividad institucional: la hora de inicio nunca
+    // puede caer ahí. La de fin tampoco, pero solo cuando el evento termina el
+    // mismo día — si cruza a fechaFin, esa franja es justamente el cierre normal
+    // de un evento nocturno (ej. inicia 21:00, termina 06:00 del día siguiente).
+    if (horaInicio < this.horaQuieta[1]) {
+      this.formError.set('La hora de inicio no puede estar entre 12:00 a.m. y 6:00 a.m.');
+      return;
+    }
+    const mismoDia = this.mismoDia();
+    if (mismoDia && horaFin < this.horaQuieta[1]) {
+      this.formError.set('La hora de fin no puede estar entre 12:00 a.m. y 6:00 a.m. si el evento termina el mismo día');
+      return;
+    }
+    // Cruzando a fechaFin, la hora fin puede ser numéricamente menor que la de
+    // inicio (evento nocturno) — el orden solo se exige dentro del mismo día.
+    if (mismoDia && horaFin <= horaInicio) {
       this.formError.set('La hora de fin debe ser mayor que la hora de inicio');
       return;
     }

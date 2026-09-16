@@ -1,11 +1,17 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, Signal, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
+import { MaterialesLiveService } from '../../../core/services/realtime/materiales-live.service';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
-import { MaterialesApiService, Lote, Producto, Sitio, Solicitud } from '../../../core/services/materiales/materiales-api.service';
+import { DateInputComponent } from '../../../shared/components/date-input.component';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
+import { TuiDayCache } from '../../../shared/utils/tui-day.util';
+import type { TuiDay } from '@taiga-ui/cdk';
+import { MaterialesApiService, Lote, Producto, Sitio, Solicitud, EstadoSolicitud, ResumenExistencias } from '../../../core/services/materiales/materiales-api.service';
 
 /** Línea del modal "Nueva solicitud" — `p:<id>` producto devolutivo, `l:<id>` lote consumible. */
 interface LineaForm {
@@ -43,7 +49,7 @@ interface LineaForm {
 @Component({
   selector: 'app-materiales-solicitudes',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent],
+  imports: [FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -63,74 +69,220 @@ interface LineaForm {
         <p class="text-center text-gray-400 text-sm py-10">No hay solicitudes registradas</p>
       } @else {
         <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
-          <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
-              <tr>
-                <th class="px-4 py-3 text-left font-semibold">Producto</th>
-                <th class="px-4 py-3 text-left font-semibold">Solicitó</th>
-                <th class="px-4 py-3 text-left font-semibold">Cantidad</th>
-                <th class="px-4 py-3 text-left font-semibold">Disponible</th>
-                <th class="px-4 py-3 text-left font-semibold">Observación</th>
-                <th class="px-4 py-3 text-left font-semibold">Estado</th>
-                <th class="px-4 py-3 text-left font-semibold">Fecha</th>
-                <th class="px-4 py-3 text-right font-semibold">Acciones</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-              @for (s of solicitudes; track s.id_solicitud) {
-                <tr class="hover:bg-gray-50/80 transition-colors">
-                  <td class="px-4 py-3 text-gray-700">{{ s.producto?.nombre ?? '—' }}</td>
-                  <td class="px-4 py-3 text-gray-600">{{ s.usuario_nombre || '—' }}</td>
-                  <td class="px-4 py-3 text-gray-700">{{ s.cantidad }}</td>
-                  <td class="px-4 py-3">
-                    @if ((s.estado === 'PENDIENTE' || s.estado === 'APROBADA') && stockDe(s); as st) {
-                      <span class="text-xs font-medium"
-                        [class.text-red-600]="st.disponibles < s.cantidad"
-                        [class.text-green-700]="st.disponibles >= s.cantidad">
-                        {{ st.disponibles }} / {{ st.total }}
-                      </span>
-                      @if (st.disponibles < s.cantidad) {
-                        <span class="block text-[11px] text-red-500">faltan {{ s.cantidad - st.disponibles }}</span>
-                      }
-                    } @else {
-                      <span class="text-xs text-gray-300">—</span>
-                    }
-                  </td>
-                  <td class="px-4 py-3 text-gray-500 max-w-[220px] truncate">{{ s.observacion ?? '—' }}</td>
-                  <td class="px-4 py-3"><app-status-badge [value]="s.estado" /></td>
-                  <td class="px-4 py-3 text-gray-500 text-xs">{{ s.fecha | date: 'short' }}</td>
-                  <td class="px-4 py-3">
-                    <div class="flex flex-wrap justify-end gap-2">
-                      <button (click)="verDetalle(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">Ver</button>
-                      @if (s.estado === 'PENDIENTE' && puedeGestionar(s)) {
-                        @if (puedeAprobar) {
-                          <button (click)="aprobar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-600 bg-white hover:bg-green-50 transition-colors">Aprobar</button>
-                        }
-                        @if (puedeRechazar) {
-                          <button (click)="rechazar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-red-400 hover:text-red-600 transition-colors">Rechazar</button>
-                        }
-                      }
-                      @if (s.estado === 'APROBADA' && puedeEntregar && puedeGestionar(s)) {
-                        <button (click)="entregar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-blue-200 text-blue-600 bg-white hover:bg-blue-50 transition-colors">Marcar en entrega</button>
-                      }
-                      @if (s.estado === 'APROBADA' && puedeRechazar && puedeGestionar(s)) {
-                        <button (click)="cancelar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">Cancelar</button>
-                      }
-                      @if (s.estado === 'EN_ENTREGA' && puedeConfirmar && esSolicitantePropio(s)) {
-                        <button (click)="confirmarRecepcion(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-600 bg-white hover:bg-green-50 transition-colors">Confirmar recepción</button>
+          <!-- Toolbar: búsqueda + filtro de estado + filas por página -->
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+            <div class="relative flex-1 max-w-sm">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+              </div>
+              <input type="text" [(ngModel)]="filtroTexto" (ngModelChange)="page = 0"
+                placeholder="Buscar por producto o solicitante..."
+                class="w-full pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:border-[#39A900] focus:bg-white transition-all text-gray-900 placeholder:text-gray-400" />
+              @if (filtroTexto) {
+                <button (click)="filtroTexto = ''; page = 0" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              }
+            </div>
+            <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
+              <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</span>
+
+              <!-- Dropdown personalizado para estado -->
+              <div class="relative">
+                <button
+                  type="button"
+                  (click)="estadoDropdownOpen.update(v => !v)"
+                  class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer">
+                  <span>{{ filtroEstado || 'Todos' }}</span>
+                  <svg class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" [class.rotate-180]="estadoDropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                @if (estadoDropdownOpen()) {
+                  <!-- Backdrop para cerrar al hacer clic afuera -->
+                  <div class="fixed inset-0 z-10" (click)="estadoDropdownOpen.set(false)"></div>
+
+                  <!-- Menú flotante -->
+                  <div class="absolute left-0 top-full mt-2 z-20 w-40 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                    <div class="p-1 space-y-0.5 max-h-64 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                      <button
+                        type="button"
+                        (click)="seleccionarEstado('')"
+                        class="w-full px-3 py-1.5 text-sm text-left rounded-lg transition-colors font-medium"
+                        [class.bg-green-50]="filtroEstado === ''"
+                        [class.text-green-700]="filtroEstado === ''"
+                        [class.text-gray-600]="filtroEstado !== ''"
+                        [class.hover:bg-gray-50]="filtroEstado !== ''">
+                        Todos
+                      </button>
+                      @for (e of estadosSolicitud; track e) {
+                        <button
+                          type="button"
+                          (click)="seleccionarEstado(e)"
+                          class="w-full px-3 py-1.5 text-sm text-left rounded-lg transition-colors font-medium"
+                          [class.bg-green-50]="filtroEstado === e"
+                          [class.text-green-700]="filtroEstado === e"
+                          [class.text-gray-600]="filtroEstado !== e"
+                          [class.hover:bg-gray-50]="filtroEstado !== e">
+                          {{ e }}
+                        </button>
                       }
                     </div>
-                  </td>
-                </tr>
+                  </div>
+                }
+              </div>
+            </div>
+            <!-- Filas por página -->
+          <!-- Filas por página -->
+          <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
+            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filas</span>
+            
+            <!-- Dropdown personalizado para filas -->
+            <div class="relative">
+              <button 
+                type="button"
+                (click)="pageSizeDropdownOpen.update(v => !v)"
+                class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer">
+                <span>{{ pageSize() }}</span>
+                <svg class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" [class.rotate-180]="pageSizeDropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              @if (pageSizeDropdownOpen()) {
+                <!-- Backdrop para cerrar al hacer clic afuera -->
+                <div class="fixed inset-0 z-10" (click)="pageSizeDropdownOpen.set(false)"></div>
+
+                <!-- Menú flotante compacto -->
+                <div class="absolute left-0 top-full mt-2 z-20 w-20 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <div class="p-1 space-y-0.5">
+                    @for (size of [10, 20, 50, 100]; track size) {
+                      <button
+                        type="button"
+                        (click)="seleccionarPageSize(size)"
+                        class="w-full px-3 py-1.5 text-sm text-center rounded-lg transition-colors font-medium"
+                        [class.bg-green-50]="pageSize() === size"
+                        [class.text-green-700]="pageSize() === size"
+                        [class.text-gray-600]="pageSize() !== size"
+                        [class.hover:bg-gray-50]="pageSize() !== size">
+                        {{ size }}
+                      </button>
+                    }
+                  </div>
+                </div>
               }
-            </tbody>
-          </table>
+            </div>
           </div>
+          </div>
+
+          @if (solicitudesFiltradas.length === 0) {
+            <p class="text-center text-gray-400 text-sm py-10">Sin resultados para estos filtros</p>
+          } @else {
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
+                  <tr>
+                    <th class="px-4 py-3 text-left font-semibold">Producto</th>
+                    <th class="px-4 py-3 text-left font-semibold">Solicitó</th>
+                    <th class="px-4 py-3 text-left font-semibold">Cantidad</th>
+                    <th class="px-4 py-3 text-left font-semibold">Disponible</th>
+                    <th class="px-4 py-3 text-left font-semibold">Observación</th>
+                    <th class="px-4 py-3 text-left font-semibold">Estado</th>
+                    <th class="px-4 py-3 text-left font-semibold">Fecha</th>
+                    <th class="px-4 py-3 text-right font-semibold">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  @for (s of solicitudesPaginadas; track s.id_solicitud) {
+                    <tr class="hover:bg-gray-50/80 transition-colors">
+                      <td class="px-4 py-3 text-gray-700">{{ s.producto?.nombre ?? '—' }}</td>
+                      <td class="px-4 py-3 text-gray-600">{{ s.usuario_nombre || '—' }}</td>
+                      <td class="px-4 py-3 text-gray-700">{{ s.cantidad }}</td>
+                      <td class="px-4 py-3">
+                        @if ((s.estado === 'PENDIENTE' || s.estado === 'APROBADA') && stockDe(s); as st) {
+                          <span class="text-xs font-medium"
+                            [class.text-red-600]="st.disponibles < s.cantidad"
+                            [class.text-green-700]="st.disponibles >= s.cantidad">
+                            {{ st.disponibles }} / {{ st.total }}
+                          </span>
+                          @if (st.disponibles < s.cantidad) {
+                            <span class="block text-[11px] text-red-500">faltan {{ s.cantidad - st.disponibles }}</span>
+                          }
+                        } @else {
+                          <span class="text-xs text-gray-300">—</span>
+                        }
+                      </td>
+                      <td class="px-4 py-3 text-gray-500 max-w-[220px] truncate">{{ s.observacion ?? '—' }}</td>
+                      <td class="px-4 py-3"><app-status-badge [value]="s.estado" /></td>
+                      <td class="px-4 py-3 text-gray-500 text-xs">{{ s.fecha | date: 'short' }}</td>
+                      <td class="px-4 py-3">
+                        <div class="flex flex-wrap justify-end gap-2">
+                          <button (click)="verDetalle(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">Ver</button>
+                          @if (s.estado === 'PENDIENTE' && puedeGestionar(s)) {
+                            @if (puedeAprobar) {
+                              <button (click)="aprobar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-600 bg-white hover:bg-green-50 transition-colors">Aprobar</button>
+                            }
+                            @if (puedeRechazar) {
+                              <button (click)="rechazar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-red-400 hover:text-red-600 transition-colors">Rechazar</button>
+                            }
+                          }
+                          @if (s.estado === 'APROBADA' && puedeEntregar && puedeGestionar(s)) {
+                            <button (click)="entregar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-blue-200 text-blue-600 bg-white hover:bg-blue-50 transition-colors">Marcar en entrega</button>
+                          }
+                          @if (s.estado === 'APROBADA' && puedeRechazar && puedeGestionar(s)) {
+                            <button (click)="cancelar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">Cancelar</button>
+                          }
+                          @if (s.estado === 'EN_ENTREGA' && puedeConfirmar && esSolicitantePropio(s)) {
+                            <button (click)="confirmarRecepcion(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-600 bg-white hover:bg-green-50 transition-colors">Confirmar recepción</button>
+                          }
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+                       @if (solicitudesFiltradas.length > pageSize()) {
+              <div class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 bg-gray-50/60">
+                <span class="text-sm text-gray-500">
+                  Mostrando <strong class="text-gray-800">{{ solicitudesPaginadas.length }}</strong>
+                  de <strong class="text-gray-800">{{ solicitudesFiltradas.length }}</strong> registros
+                </span>
+
+                <div class="flex items-center gap-2">
+                  <button
+                    (click)="page = page - 1"
+                    [disabled]="page === 0"
+                    class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                  </button>
+
+                  <span class="px-4 py-1.5 text-sm font-semibold text-[#39A900] bg-[#39A900]/10 rounded-lg border border-[#39A900]/20">
+                    {{ page + 1 }} / {{ totalPaginas }}
+                  </span>
+
+                  <button
+                    (click)="page = page + 1"
+                    [disabled]="page + 1 >= totalPaginas"
+                    class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            }
+          }
         </div>
       }
-    </div>
-
     @if (modalOpen) {
       <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarModal()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
@@ -142,13 +294,8 @@ interface LineaForm {
           <div class="space-y-4">
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Bodega</label>
-              <select [(ngModel)]="idSitioSeleccionado" (ngModelChange)="onSitioChange($event)"
-                class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
-                <option [ngValue]="null">— Selecciona una bodega —</option>
-                @for (s of sitios; track s.id_sitio) {
-                  <option [ngValue]="s.id_sitio">{{ s.nombre }} ({{ s.tipo }})</option>
-                }
-              </select>
+              <app-ss [options]="opcionesSitio" placeholder="— Selecciona una bodega —"
+                [(ngModel)]="idSitioSeleccionado" (ngModelChange)="onSitioChange($event)"></app-ss>
               <p class="text-[11px] text-gray-400 mt-1">Todas las líneas de una solicitud tienen que ser de la misma bodega.</p>
             </div>
 
@@ -170,14 +317,13 @@ interface LineaForm {
                 <div class="space-y-2">
                   @for (linea of lineas; track $index) {
                     <div class="flex gap-2 items-start">
-                      <div class="flex-1">
-                        <select [(ngModel)]="linea.ref" (ngModelChange)="onRefChange(linea)"
-                          class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
-                          <option value="">— Selecciona producto o lote —</option>
-                          @for (o of opcionesParaLinea(linea); track o.ref) {
-                            <option [value]="o.ref">{{ o.label }}</option>
-                          }
-                        </select>
+                      <!-- min-w-0: un flex item con flex-1 no se achica por debajo del
+                           ancho de SU contenido a menos que se le fuerce — sin esto, un
+                           label largo (nombre + lote + cantidad + unidad) empujaba el
+                           input de cantidad fuera del modal (reporte QA 2026-09-11). -->
+                      <div class="flex-1 min-w-0">
+                        <app-ss [options]="opcionesLinea(linea)" placeholder="— Selecciona producto o lote —"
+                          [(ngModel)]="linea.ref" (ngModelChange)="onRefChange(linea)"></app-ss>
                         @if (linea.ref) {
                           <p class="text-[11px] mt-0.5"
                             [class.text-red-500]="disponibleDe(linea) < linea.cantidad"
@@ -198,16 +344,21 @@ interface LineaForm {
               @if (requiereFechaDevolucion()) {
                 <div>
                   <label class="block text-xs font-medium text-gray-600 mb-1">Fecha de devolución <span class="text-red-500">*</span></label>
-                  <input type="date" [(ngModel)]="fechaDevolucion"
-                    class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                  <app-date-input placeholder="DD/MM/AAAA"
+                    [ngModel]="cacheFechaDevolucion.get(fechaDevolucion)"
+                    (ngModelChange)="fechaDevolucion = tuiDayToIso($event)"></app-date-input>
                   <p class="text-[11px] text-gray-400 mt-1">Alguna línea es de un material devolutivo.</p>
                 </div>
               }
 
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Observación (opcional)</label>
-                <input type="text" [(ngModel)]="observacion"
-                  class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                <label class="block text-xs font-medium text-gray-600 mb-1">Observación <span class="text-red-500">*</span></label>
+                <textarea [(ngModel)]="observacion" rows="2"
+                  placeholder="¿Para qué y en qué ambiente se usará el material? (mín. 10 caracteres)"
+                  class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]"></textarea>
+                @if (observacion.trim().length > 0 && observacion.trim().length < 10) {
+                  <p class="text-[11px] text-amber-600 mt-0.5">Faltan {{ 10 - observacion.trim().length }} caracteres.</p>
+                }
               </div>
             }
           </div>
@@ -238,6 +389,7 @@ interface LineaForm {
           <dl class="space-y-2.5 text-sm">
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Estado</dt><dd class="text-gray-800 text-right">{{ detalle.estado }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Solicitó</dt><dd class="text-gray-800 text-right">{{ detalle.usuario_nombre || '—' }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-gray-500">Bodega (de dónde sale)</dt><dd class="text-gray-800 text-right">{{ detalle.bodega_nombre || '—' }}</dd></div>
             <div>
               <dt class="text-gray-500 mb-1">Ítems solicitados</dt>
               <dd>
@@ -324,8 +476,9 @@ interface LineaForm {
             × {{ aprobarRef.cantidad }}.
           </p>
           <label class="block text-xs font-medium text-gray-600 mb-1">Fecha de devolución</label>
-          <input type="date" [(ngModel)]="fechaDevAprobar" [min]="hoyISO"
-            class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+          <app-date-input placeholder="DD/MM/AAAA" [min]="hoyTuiDay"
+            [ngModel]="cacheFechaDevAprobar.get(fechaDevAprobar)"
+            (ngModelChange)="fechaDevAprobar = tuiDayToIso($event)"></app-date-input>
           <p class="text-[11px] text-gray-400 mt-1">Podés ajustar la fecha que puso el solicitante. Se le avisa si cambia.</p>
           <div class="flex justify-end gap-2 mt-4">
             <button (click)="cerrarAprobar()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
@@ -351,12 +504,54 @@ export class MaterialesSolicitudesComponent implements OnInit {
   saving = false;
   error: string | null = null;
 
+  // ── Filtros y paginación de la tabla (client-side) ──────────────────
+  filtroTexto = '';
+  filtroEstado: EstadoSolicitud | '' = '';
+  /** Estado interno del buscador/paginador (solo activo con `searchable`). */
+busqueda = '';
+page = 0;
+pageSize = signal(20);
+pageSizeDropdownOpen = signal(false);
+estadoDropdownOpen = signal(false);
+
+seleccionarPageSize(size: number): void {
+  this.pageSize.set(size);
+  this.page = 0;
+  this.pageSizeDropdownOpen.set(false);
+}
+
+seleccionarEstado(valor: EstadoSolicitud | ''): void {
+  this.filtroEstado = valor;
+  this.page = 0;
+  this.estadoDropdownOpen.set(false);
+}
+  readonly estadosSolicitud: EstadoSolicitud[] =
+    ['PENDIENTE', 'APROBADA', 'EN_ENTREGA', 'ENTREGADA', 'DEVUELTA', 'RECHAZADA', 'CANCELADA'];
+
+  get solicitudesFiltradas(): Solicitud[] {
+    const q = this.filtroTexto.trim().toLowerCase();
+    return this.solicitudes.filter((s) => {
+      if (this.filtroEstado && s.estado !== this.filtroEstado) return false;
+      if (!q) return true;
+      return (s.producto?.nombre?.toLowerCase().includes(q) ?? false) ||
+        (s.usuario_nombre?.toLowerCase().includes(q) ?? false);
+    });
+  }
+  get totalPaginas(): number {
+    return Math.max(1, Math.ceil(this.solicitudesFiltradas.length / this.pageSize()));
+  }
+  get solicitudesPaginadas(): Solicitud[] {
+    const start = this.page * this.pageSize();
+    return this.solicitudesFiltradas.slice(start, start + this.pageSize());
+  }
+
   modalOpen = false;
 
   /** Líneas del modal "Nueva solicitud" (Tier SigMat M4) — al menos 1. */
   lineas: LineaForm[] = [];
   observacion = '';
   fechaDevolucion = '';
+  readonly cacheFechaDevolucion = new TuiDayCache();
   /** Stock de productos devolutivos elegidos en el modal, cacheado por id. */
   stockProd: Record<string, { disponibles: number; total: number }> = {};
 
@@ -377,6 +572,13 @@ export class MaterialesSolicitudesComponent implements OnInit {
   fechaDevAprobar = '';
   aprobando = false;
   readonly hoyISO = new Date().toISOString().slice(0, 10);
+  readonly hoyTuiDay = TuiDayCache.fromIso(this.hoyISO);
+  readonly cacheFechaDevAprobar = new TuiDayCache();
+
+  /** <app-date-input> trabaja con TuiDay; el resto del componente sigue en 'yyyy-MM-dd'. */
+  tuiDayToIso(day: TuiDay | null): string {
+    return TuiDayCache.toIso(day);
+  }
 
   /** Bodega elegida en el paso 1 del modal. */
   idSitioSeleccionado: string | null = null;
@@ -392,6 +594,8 @@ export class MaterialesSolicitudesComponent implements OnInit {
     private api: MaterialesApiService,
     private toast: ToastService,
     private auth: AuthService,
+    private live: MaterialesLiveService,
+    private destroyRef: DestroyRef,
   ) {}
 
   /**
@@ -425,24 +629,43 @@ export class MaterialesSolicitudesComponent implements OnInit {
    * `SolicitudesService.cambiarEstadoSolicitud` / `entregarSolicitud` /
    * `cancelarSolicitud` (las 3 comparten el mismo criterio de autorización).
    */
+  /**
+   * `bodega_responsable_id` viene resuelto por el backend a partir de la
+   * bodega REAL de la solicitud (línea por línea, no `producto?.id_sitio` —
+   * la "bodega de casa" del producto puede no ser de dónde sale ESTA
+   * solicitud; reporte QA 2026-09-11, caso "Pollo" con lote en otra bodega).
+   */
   puedeGestionar(s: Solicitud): boolean {
     if (this.esSolicitantePropio(s)) return false;
     if (this.auth.isAdmin()) return true;
-    const idSitio = s.producto?.id_sitio;
-    const sitio = idSitio ? this.sitios.find((x) => x.id_sitio === idSitio) : undefined;
-    if (sitio?.id_responsable) return sitio.id_responsable === this.auth.user()?.id;
-    return false;
+    return !!s.bodega_responsable_id && s.bodega_responsable_id === this.auth.user()?.id;
   }
 
   ngOnInit(): void {
     this.cargar();
+    // Capa 2 realtime: refetch cuando llega una notificación materiales_* (otra
+    // persona aprobó/entregó/rechazó/etc.) — sin recargar la página.
+    this.live.eventos()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.cargar());
   }
 
   // ── Modal multi-línea (Tier SigMat M4) ──────────────────────────────
 
+  /**
+   * Solo DEVOLUTIVO — un consumible/perecedero se solicita por LOTE (única
+   * unidad realmente disponible: `producto.stock` no existe, vive en
+   * `lote.cantidad_disponible`), nunca como "el producto pelado". Antes esto
+   * listaba cualquier producto de la bodega sin filtrar por tipo, así que un
+   * consumible con lote aparecía DOS VECES en el selector: una como producto
+   * suelto (opción rota — no había nada que entregar) y otra como su lote
+   * (reporte QA 2026-09-11: "Abono orgánico" salía duplicado al buscar).
+   */
   private productosDeBodega(): Producto[] {
     if (!this.idSitioSeleccionado) return [];
-    return this.productos.filter((p) => p.id_sitio === this.idSitioSeleccionado);
+    return this.productos.filter(
+      (p) => p.id_sitio === this.idSitioSeleccionado && p.tipo_material === 'DEVOLUTIVO',
+    );
   }
 
   private lotesDeBodega(): Lote[] {
@@ -458,7 +681,9 @@ export class MaterialesSolicitudesComponent implements OnInit {
     }));
     const lotes = this.lotesDeBodega().map((l) => ({
       ref: `l:${l.id_lote}`,
-      label: `${l.producto?.nombre ?? 'Lote'}${l.codigo_lote ? ' · ' + l.codigo_lote : ''} (lote, ${l.cantidad_disponible})`,
+      // La cantidad SIEMPRE con su unidad — un "250" pelado no dice si son
+      // kg, litros o unidades (reporte QA 2026-09-11).
+      label: `${l.producto?.nombre ?? 'Lote'}${l.codigo_lote ? ' · ' + l.codigo_lote : ''} (lote, ${l.cantidad_disponible} ${(l.producto?.unidad_medida ?? l.unidad_medida ?? '').toLowerCase() || 'und'})`,
     }));
     return [...prods, ...lotes];
   }
@@ -473,6 +698,15 @@ export class MaterialesSolicitudesComponent implements OnInit {
       this.lineas.filter((l) => l !== linea).map((l) => l.ref).filter(Boolean),
     );
     return this.opciones().filter((o) => !usadasEnOtras.has(o.ref));
+  }
+
+  /** <app-ss> espera {value,label} — mismo filtrado que opcionesParaLinea, solo mapeado. */
+  opcionesLinea(linea: LineaForm): { value: string; label: string }[] {
+    return this.opcionesParaLinea(linea).map((o) => ({ value: o.ref, label: o.label }));
+  }
+
+  get opcionesSitio(): { value: string; label: string }[] {
+    return this.sitios.map((s) => ({ value: s.id_sitio, label: `${s.nombre} (${s.tipo})` }));
   }
 
   disponibleDe(linea: LineaForm): number {
@@ -520,6 +754,7 @@ export class MaterialesSolicitudesComponent implements OnInit {
   }
 
   puedeGuardar(): boolean {
+    if (this.observacion.trim().length < 10) return false;
     const activas = this.lineas.filter((l) => l.ref && Number(l.cantidad) >= 1);
     if (activas.length === 0) return false;
     for (const l of activas) if (Number(l.cantidad) > this.disponibleDe(l)) return false;
@@ -549,28 +784,68 @@ export class MaterialesSolicitudesComponent implements OnInit {
     }
   }
 
-  /** Stock en vivo de los productos de las solicitudes PENDIENTE / APROBADA. */
+  /**
+   * Stock en vivo de los productos de las solicitudes PENDIENTE / APROBADA.
+   *
+   * Antes hacía una petición HTTP por cada producto distinto (`stockProducto`
+   * en un `Promise.all`) — con varios productos pendientes eso son varias
+   * idas y vueltas en paralelo en cada carga (y en cada notificación en
+   * vivo), compitiendo por las pocas conexiones que el navegador permite por
+   * origen. Ahora usa una sola llamada a `GET /existencias` (ya trae todo el
+   * tenant/scope de una vez) y reconstruye el mismo cálculo que hacía el
+   * backend en `countStockByProducto` por producto:
+   *  - DEVOLUTIVO con bodega propia: cuenta SOLO los ítems de esa bodega
+   *    (un ítem trasladado a otra bodega no cuenta, igual que antes).
+   *  - DEVOLUTIVO sin bodega propia: suma ítems de TODAS las bodegas.
+   *  - CONSUMO/PERECEDERO: suma el saldo de lotes ACTIVO de TODAS las
+   *    bodegas (los lotes de un consumible sí pueden repartirse en varias).
+   */
   private async cargarStocks(): Promise<void> {
-    const ids = [
-      ...new Set(
-        this.solicitudes
-          .filter((s) => s.estado === 'PENDIENTE' || s.estado === 'APROBADA')
-          .map((s) => s.producto?.id_producto)
-          .filter((id): id is string => !!id),
-      ),
-    ];
-    const pares = await Promise.all(
-      ids.map(async (id) => {
-        try {
-          return [id, await this.api.stockProducto(id)] as const;
-        } catch {
-          return null;
-        }
-      }),
+    const idsPendientes = new Set(
+      this.solicitudes
+        .filter((s) => s.estado === 'PENDIENTE' || s.estado === 'APROBADA')
+        .map((s) => s.producto?.id_producto)
+        .filter((id): id is string => !!id),
     );
-    const mapa: Record<string, { disponibles: number; total: number }> = {};
-    for (const par of pares) if (par) mapa[par[0]] = par[1];
-    this.stocksPorProducto = mapa;
+    if (idsPendientes.size === 0) {
+      this.stocksPorProducto = {};
+      return;
+    }
+    try {
+      const existencias = await this.api.obtenerExistencias();
+      const filasPorProducto = new Map<string, ResumenExistencias[]>();
+      for (const f of existencias) {
+        if (!idsPendientes.has(f.id_producto)) continue;
+        const lista = filasPorProducto.get(f.id_producto);
+        if (lista) lista.push(f); else filasPorProducto.set(f.id_producto, [f]);
+      }
+      const mapa: Record<string, { disponibles: number; total: number }> = {};
+      for (const s of this.solicitudes) {
+        const id = s.producto?.id_producto;
+        if (!id || mapa[id] || !idsPendientes.has(id)) continue;
+        const filas = filasPorProducto.get(id) ?? [];
+        if (s.producto?.tipo_material === 'DEVOLUTIVO') {
+          const idSitioProducto = s.producto?.id_sitio ?? null;
+          if (idSitioProducto) {
+            const fila = filas.find((f) => f.id_sitio === idSitioProducto);
+            mapa[id] = fila ? { disponibles: fila.disponibles, total: fila.total } : { disponibles: 0, total: 0 };
+          } else {
+            mapa[id] = {
+              disponibles: filas.reduce((a, f) => a + f.disponibles, 0),
+              total: filas.reduce((a, f) => a + f.total, 0),
+            };
+          }
+        } else {
+          mapa[id] = {
+            disponibles: filas.reduce((a, f) => a + f.lote_disponible, 0),
+            total: filas.reduce((a, f) => a + f.lote_total, 0),
+          };
+        }
+      }
+      this.stocksPorProducto = mapa;
+    } catch {
+      this.stocksPorProducto = {};
+    }
   }
 
   /** Stock disponible del producto de una fila (o null si no se consultó). */
@@ -613,7 +888,9 @@ export class MaterialesSolicitudesComponent implements OnInit {
   async guardar(): Promise<void> {
     // Doble chequeo — no alcanza con deshabilitar el botón, ver Fase 1 del plan.
     if (!this.puedeGuardar()) {
-      this.error = this.requiereFechaDevolucion() && !this.fechaDevolucion
+      this.error = this.observacion.trim().length < 10
+        ? 'La observación es obligatoria (mín. 10 caracteres): indicá para qué y dónde se usará el material.'
+        : this.requiereFechaDevolucion() && !this.fechaDevolucion
         ? 'Alguna línea es devolutiva: indicá la fecha de devolución.'
         : 'Revisá las líneas: cada una necesita producto/lote y una cantidad dentro del stock.';
       return;

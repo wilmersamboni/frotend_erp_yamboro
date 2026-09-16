@@ -9,6 +9,20 @@ import { ConfirmService } from '../../core/services/confirm.service';
 import { Item, MaterialesApiService, Sitio } from '../../core/services/materiales/materiales-api.service';
 import { PersonaService } from '../../core/services/persona.service';
 
+const OPCIONES_FILTRO_TIPO = [
+  { label: 'Todos los tipos', value: '' },
+  { label: 'Bodega', value: 'BODEGA' },
+  { label: 'Ambiente', value: 'AMBIENTE' },
+  { label: 'Laboratorio', value: 'LABORATORIO' },
+  { label: 'Otro', value: 'OTRO' },
+];
+
+const OPCIONES_FILTRO_ESTADO = [
+  { label: 'Todos los estados', value: '' },
+  { label: 'Activo', value: 'true' },
+  { label: 'Inactivo', value: 'false' },
+];
+
 const OPCIONES_TIPO: OpcionSelect[] = [
   { label: 'Bodega', value: 'BODEGA' },
   { label: 'Ambiente', value: 'AMBIENTE' },
@@ -48,6 +62,14 @@ const OPCIONES_TIPO: OpcionSelect[] = [
         (add)="nuevo()"
         [rows]="filas"
         [searchable]="true"
+        [filterOptions]="opcionesFiltroTipo"
+        [filterValue]="tipoFiltro"
+        filterLabel="Tipo"
+        (filterValueChange)="tipoFiltro = $event"
+        [secondaryFilterOptions]="opcionesFiltroEstado"
+        [secondaryFilterValue]="estadoFiltro"
+        secondaryFilterLabel="Estado"
+        (secondaryFilterValueChange)="estadoFiltro = $event"
         [searchPlaceholder]="'Buscar por nombre, tipo, área…'"
         [columns]="['nombre', 'tipo', 'area_nombre', 'responsable_nombre', 'items_count', 'estado']"
         [columnLabels]="columnLabels"
@@ -116,6 +138,11 @@ export class MaterialesSitiosComponent implements OnInit {
   areas: any[] = [];
   loading = false;
   saving = false;
+  tipoFiltro = '';
+  estadoFiltro = '';
+
+  readonly opcionesFiltroTipo = OPCIONES_FILTRO_TIPO;
+  readonly opcionesFiltroEstado = OPCIONES_FILTRO_ESTADO;
   error: string | null = null;
 
   modalOpen = false;
@@ -162,10 +189,27 @@ export class MaterialesSitiosComponent implements OnInit {
     this.cargar();
   }
 
+  /**
+   * Candidatos a responsable de bodega: instructores y administradores por
+   * defecto. Un aprendiz solo aparece si YA es responsable de algún sitio
+   * (un "aprendiz encargado de bodega" — el bundle B3 se le da justamente
+   * asignándolo como `id_responsable`), para no perder ni impedir re-elegir
+   * esas asignaciones. Antes la lista incluía a TODOS los aprendices.
+   */
+  private get responsablesElegibles(): any[] {
+    const yaResponsables = new Set(
+      this.sitios.map((s) => s.id_responsable).filter((x): x is string => !!x),
+    );
+    const staff = ['administrador', 'administrador_erp', 'instructor'];
+    return this.responsables.filter(
+      (u) => staff.includes(u.persona?.cargo) || yaResponsables.has(u.idUsuario),
+    );
+  }
+
   get opciones(): Record<string, OpcionSelect[]> {
     return {
       tipo: OPCIONES_TIPO,
-      id_responsable: this.responsables.map((u) => ({
+      id_responsable: this.responsablesElegibles.map((u) => ({
         label: `${u.persona?.nombre ?? ''} ${u.persona?.apellido ?? ''} — ${this.etiquetaCargo(u.persona?.cargo)}`.trim(),
         value: u.idUsuario,
       })),
@@ -211,7 +255,9 @@ export class MaterialesSitiosComponent implements OnInit {
 
   /** Filas con `estado`/responsable legibles para la tabla (el form guarda los valores crudos). */
   get filas(): any[] {
-    return this.sitios.map((s) => ({
+    return this.sitios
+      .filter((s) => (!this.tipoFiltro || s.tipo === this.tipoFiltro) && (!this.estadoFiltro || String(s.estado) === this.estadoFiltro))
+      .map((s) => ({
       ...s,
       estado: s.estado ? 'Activo' : 'Inactivo',
       responsable_nombre: this.nombreResponsable(s.id_responsable) ?? '—',

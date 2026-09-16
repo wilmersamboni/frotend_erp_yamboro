@@ -20,7 +20,7 @@ import { PersonaService } from "../../../core/services/persona.service";
     CrearPracticaModalComponent
   ],
   template: `
-  <div class="bg-white rounded-2xl shadow border">
+  <div class="p-6">
 
     @if (cargando()) {
       <div class="flex items-center justify-center p-10 text-gray-500 gap-3">

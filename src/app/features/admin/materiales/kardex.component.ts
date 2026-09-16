@@ -33,15 +33,15 @@ import { Kardex, MaterialesApiService } from '../../../core/services/materiales/
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
         <h1 class="text-xl font-bold text-gray-800">Kardex</h1>
-        <div class="flex gap-2">
+        <div class="flex gap-2 border-gray-200 ">
           <select [(ngModel)]="filtroTipo"
-            class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
+            class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] bg-white w-48">
             <option value="">Todos los tipos</option>
             <option value="ENTRADA">Entrada</option>
             <option value="SALIDA">Salida</option>
           </select>
           <input [(ngModel)]="filtroTexto" placeholder="Buscar por producto, SKU o placa..."
-            class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+            class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] bg-white w-xs " />
           @if (idProductoFiltro || idItemFiltro) {
             <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#39A900]/10 text-[#2d8000] border border-[#39A900]/20">
               {{ idProductoFiltro ? 'Filtrando por producto' : 'Filtrando por ítem' }}

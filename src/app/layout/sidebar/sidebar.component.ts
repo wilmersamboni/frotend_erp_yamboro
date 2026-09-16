@@ -13,8 +13,9 @@ interface NavLink  {
   soloAprendizConEtapa?: boolean;
   /** Solo para rol aprendiz: mostrar únicamente si NO tiene etapa práctica creada. */
   soloAprendizSinEtapa?: boolean;
-  /** Mostrar solo si el usuario es `id_responsable` de ≥1 bodega (cualquier
-   * cargo). El admin NO ve el link salvo que además sea responsable de una. */
+  /** Mostrar solo si el usuario es `id_responsable` de ≥1 bodega. Admin NUNCA
+   * lo ve (aunque además sea responsable de una) — tiene su propia consola
+   * "Todas las bodegas" (`/materiales/bodegas`) que no recorta a "las mías". */
   soloResponsableBodega?: boolean;
   /** Servicio del sistema de permisos dinámico que también habilita este link,
    * aunque el cargo no esté en `roles` (ver AuthService.tieneServicio). OR con
@@ -57,10 +58,22 @@ interface NavGroup {
 
       <!-- ── Hamburguesa: expande/colapsa 100% manual ──────────── -->
       <div class="sb-top" [class.justify-center]="!open" [class.justify-start]="open">
-        <button type="button" class="sb-toggle" (click)="toggle.emit()"
-          [title]="open ? 'Colapsar' : 'Expandir'">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+        <button
+          type="button"
+          class="sb-toggle"
+          (click)="toggle.emit()"
+          (mouseenter)="mostrarTooltip($event, open ? 'Colapsar' : 'Expandir')"
+          (mouseleave)="ocultarTooltip()"
+        >
+        
+          <svg
+            class="w-5 h-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
       </div>
@@ -77,7 +90,7 @@ interface NavGroup {
           </div>
           @if (open) {
             <div class="overflow-hidden">
-              <p class="sb-centro-label">Centro</p>
+              <p class="sb-centro-label">Sede</p>
               <p class="sb-centro-value truncate">{{ centroLabel }}</p>
             </div>
           }
@@ -132,8 +145,8 @@ interface NavGroup {
                 [routerLinkActiveOptions]="{ exact: link.href === '/' }"
                 class="nav-link"
                 [class.justify-center]="!open"
-                (mouseenter)="mostrarTooltip($event, link.label)"
-                (mouseleave)="ocultarTooltip()"
+                (mouseenter)=" !open && mostrarTooltip($event, link.label)"
+                (mouseleave)="!open && ocultarTooltip()"
               >
                 <span class="flex-shrink-0 w-[18px] h-[18px]" [innerHTML]="link.safeIcon"></span>
 
@@ -152,7 +165,7 @@ interface NavGroup {
            nav (ver mostrarTooltip/ocultarTooltip) sin depender de que el nav
            tenga overflow:visible, que antes le impedía encogerse/scrollear
            de verdad y rompía el layout en pantallas chicas o con zoom. -->
-      @if (tooltipVisible() && !open) {
+      @if (tooltipVisible()) {
         <div class="nav-tooltip-fixed" [style.top.px]="tooltipTop()" [style.left.px]="tooltipLeft()">
           {{ tooltipTexto() }}
         </div>
@@ -181,7 +194,8 @@ interface NavGroup {
           class="nav-logout"
           [class.justify-center]="!open"
           (click)="toggleContacto($event)"
-          [title]="!open ? 'Contáctanos' : ''"
+          (mouseenter)="!open && mostrarTooltip($event, open ? '' : 'Contactanos')"
+          (mouseleave)="ocultarTooltip()"
         >
           <svg class="w-[18px] h-[18px] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -200,7 +214,8 @@ interface NavGroup {
           class="nav-logout nav-logout-danger"
           [class.justify-center]="!open"
           (click)="auth.logout()"
-          [title]="!open ? 'Cerrar sesión' : ''"
+          (mouseenter)="!open && mostrarTooltip($event, open ? '' : 'Cerrar Sesion')"
+          (mouseleave)="ocultarTooltip()"
         >
           <svg class="w-[18px] h-[18px] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -312,23 +327,28 @@ export class SidebarComponent implements OnChanges, OnInit {
           {
             label: 'Formatos', href: '/format',
             aplicativo: 'Etapa Práctica',
-            // Para aprendiz: los formatos son plantillas de la etapa práctica —
-            // no le sirven durante la lectiva. Solo visible cuando ya tiene una
-            // etapa práctica (mismo criterio que "Seguimiento"). No afecta a
-            // admin/instructor.
-            soloAprendizConEtapa: true,
+            // Ya NO exige etapa práctica activa para el aprendiz (corregido
+            // 2026-09-16, pedido explícito: "el aprendiz por defecto debería
+            // tener acceso a verlos") — antes se ocultaba con
+            // `soloAprendizConEtapa: true`, aunque `practica.formatos.ver` ya
+            // venía por defecto en su catálogo y el componente no depende de
+            // ninguna etapa (lista formatos globales).
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`),
           },
           {
             label: 'Historial', href: '/docs',
             // Herramienta de consulta por cédula ("Historial del aprendiz") —
             // es para que el STAFF inspeccione a un aprendiz, no para que el
-            // aprendiz se vea a sí mismo. Se gatea por cargo (admin/instructor),
-            // NO por personas.ver/matriculas.ver: esos son servicios baseline
-            // que TODO rol tiene (incluido aprendiz) para consultar su propio
-            // registro, así que como gate dejaban entrar al aprendiz a un
-            // módulo que no le sirve. Mantener en sync con app.routes.ts.
-            roles: ['administrador', 'administrador_erp', 'instructor'],
+            // aprendiz se vea a sí mismo. NO por personas.ver/matriculas.ver:
+            // esos son servicios baseline que TODO rol tiene (incluido
+            // aprendiz) para consultar su propio registro, así que como gate
+            // dejaban entrar al aprendiz a un módulo que no le sirve.
+            // OR con roles (no serviciosRequeridos/AND) — admin entra por
+            // cargo; instructor solo si le otorgan 'practica.historial.ver'
+            // como excepción personal (no viene de fábrica). Mismo patrón
+            // que "Migración". Mantener en sync con app.routes.ts.
+            roles: ['administrador', 'administrador_erp'],
+            servicios: ['practica.historial.ver'],
             aplicativo: 'Etapa Práctica',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`),
           },
@@ -479,10 +499,12 @@ export class SidebarComponent implements OnChanges, OnInit {
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`),
           },
           {
-            label: 'Importar', href: '/materiales/importar',
+            // Consola de "Mi Bodega" pero sin recortar a "las mías" — trae
+            // TODOS los sitios (`data.todasLasBodegas` en app.routes.ts).
+            label: 'Bodegas', href: '/materiales/bodegas',
             roles: ['administrador', 'administrador_erp'],
             aplicativo: 'Materiales',
-            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>`),
+            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V9a2 2 0 00-2-2h-2V5a2 2 0 00-2-2H9a2 2 0 00-2 2v2H5a2 2 0 00-2 2v12h18zM9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4"/></svg>`),
           },
           {
             label: 'Novedades', href: '/materiales/novedades',
@@ -521,12 +543,6 @@ export class SidebarComponent implements OnChanges, OnInit {
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>`),
           },
           {
-            label: 'Chequeos', href: '/materiales/chequeos',
-            roles: ['administrador', 'administrador_erp'],
-            aplicativo: 'Materiales',
-            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`),
-          },
-          {
             label: 'Actas', href: '/materiales/actas',
             roles: ['administrador', 'administrador_erp'],
             aplicativo: 'Materiales',
@@ -539,7 +555,7 @@ export class SidebarComponent implements OnChanges, OnInit {
           // Orden por FRECUENCIA de uso (2026-09-07): operación diaria arriba
           // (Solicitudes/Devoluciones/Existencias), configuración abajo
           // (Sitios/Categorías). Mismo criterio e íconos que la versión admin
-          // — mantener en sync. Instructor no tiene Lotes ni Asignaciones.
+          // — mantener en sync. Instructor no tiene Asignaciones (admin-only).
           {
             label: 'Solicitudes', href: '/instructor/materiales/solicitudes',
             roles: ['instructor'],
@@ -570,11 +586,20 @@ export class SidebarComponent implements OnChanges, OnInit {
             servicioEstricto: 'materiales.sitios.ver',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V9a2 2 0 00-2-2h-2V5a2 2 0 00-2-2H9a2 2 0 00-2 2v2H5a2 2 0 00-2 2v12h18zM9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4"/></svg>`),
           },
+          // "Productos" había perdido su link propio para instructor
+          // (2026-09-14, razón: "Mi Bodega ya lista sus productos con el
+          // mismo formulario") — pero esa razón solo aplica a un instructor
+          // QUE ADMINISTRA una bodega (ve "Mi Bodega"); un instructor común
+          // sin bodega a cargo se quedaba sin ninguna pantalla de catálogo,
+          // solo el selector embebido de "Nueva solicitud". Repuesto
+          // 2026-09-16 (pedido explícito) — mismo link que ya tiene aprendiz,
+          // `productosGuard` ya redirige a "Mi Bodega" a quien administra una
+          // (agnóstico de cargo), así que no hay pantallas duplicadas.
           {
             label: 'Productos', href: '/materiales/productos',
             roles: ['instructor'],
             servicioEstricto: 'materiales.productos.ver',
-            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`),
+            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`),
           },
           {
             label: 'Existencias', href: '/materiales/existencias',
@@ -589,9 +614,9 @@ export class SidebarComponent implements OnChanges, OnInit {
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375C2.754 3.75 2.25 4.254 2.25 4.875v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>`),
           },
           {
-            label: 'Productos', href: '/instructor/materiales/productos',
+            label: 'Lotes', href: '/materiales/lotes',
             roles: ['instructor'],
-            servicioEstricto: 'materiales.productos.ver',
+            servicioEstricto: 'materiales.lotes.ver',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`),
           },
           {
@@ -613,17 +638,12 @@ export class SidebarComponent implements OnChanges, OnInit {
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>`),
           },
           {
-            label: 'Sitios', href: '/instructor/materiales/sitios',
+            // El endpoint recorta las actas: el instructor solo ve las de sus
+            // solicitudes o las de las bodegas que gestiona (ver ActasService.resolverScope).
+            label: 'Actas', href: '/materiales/actas',
             roles: ['instructor'],
-            servicioEstricto: 'materiales.sitios.ver',
-            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V9a2 2 0 00-2-2h-2V5a2 2 0 00-2-2H9a2 2 0 00-2 2v2H5a2 2 0 00-2 2v12h18zM9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4"/></svg>`),
-          },
-          {
-            // Sin servicio propio ('materiales.categorias.*' no existe en el catálogo) — reusa materiales.inventario.ver.
-            label: 'Categorías', href: '/instructor/materiales/categorias',
-            roles: ['instructor'],
-            servicioEstricto: 'materiales.inventario.ver',
-            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>`),
+            servicioEstricto: 'materiales.actas.ver',
+            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`),
           },
           // "Asignaciones" NO va para instructor: el rol no tiene ningún
           // `materiales.asignaciones.*` en SERVICIOS_POR_ROL (es admin-only),
@@ -636,7 +656,6 @@ export class SidebarComponent implements OnChanges, OnInit {
           // (Productos · Ítems).
           {
             label: 'Solicitudes', href: '/aprendiz/materiales/solicitudes',
-            // label: 'Productos', href: '/materiales/productos',
             roles: ['aprendiz'],
             servicioEstricto: 'materiales.solicitudes.ver',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-5 8l2 2 4-4"/></svg>`),
@@ -648,18 +667,6 @@ export class SidebarComponent implements OnChanges, OnInit {
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>`),
           },
           {
-            label: 'Ítems', href: '/materiales/items',
-            roles: ['aprendiz'],
-            servicioEstricto: 'materiales.items.ver',
-            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375C2.754 3.75 2.25 4.254 2.25 4.875v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>`),
-          },
-          {
-            label: 'Solicitudes', href: '/aprendiz/materiales/solicitudes',
-            roles: ['aprendiz'],
-            servicioEstricto: 'materiales.solicitudes.ver',
-            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-5 8l2 2 4-4"/></svg>`),
-          },
-          {
             // Solo aprendiz encargado de bodega: `materiales.devoluciones.ver`
             // no está en MATERIALES_APRENDIZ, llega vía el bundle B3 →
             // `servicioEstricto` (AND) oculta el link a un aprendiz normal.
@@ -669,16 +676,31 @@ export class SidebarComponent implements OnChanges, OnInit {
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l-4-4m0 0l4-4m-4 4h11a4 4 0 010 8h-1"/></svg>`),
           },
           {
-            label: 'Productos', href: '/aprendiz/materiales/productos',
+            label: 'Productos', href: '/materiales/productos',
             roles: ['aprendiz'],
             servicioEstricto: 'materiales.productos.ver',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`),
           },
           {
-            label: 'Ítems', href: '/aprendiz/materiales/items',
+            label: 'Ítems', href: '/materiales/items',
             roles: ['aprendiz'],
             servicioEstricto: 'materiales.items.ver',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375C2.754 3.75 2.25 4.254 2.25 4.875v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>`),
+          },
+          {
+            label: 'Lotes', href: '/materiales/lotes',
+            roles: ['aprendiz'],
+            servicioEstricto: 'materiales.lotes.ver',
+            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`),
+          },
+          {
+            // El aprendiz solo ve las actas de SUS solicitudes (el endpoint las
+            // recorta por solicitud.id_usuario). `materiales.actas.ver` está en
+            // MATERIALES_APRENDIZ, así que lo tiene cualquier aprendiz.
+            label: 'Actas', href: '/materiales/actas',
+            roles: ['aprendiz'],
+            servicioEstricto: 'materiales.actas.ver',
+            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`),
           },
         ],
       },
@@ -746,7 +768,7 @@ export class SidebarComponent implements OnChanges, OnInit {
           // por un instante y luego cambiarlo.
           if (esAprendiz && l.soloAprendizConEtapa && tieneEtapa !== true) return false;
           if (esAprendiz && l.soloAprendizSinEtapa && tieneEtapa !== false) return false;
-          if (l.soloResponsableBodega && !this.esResponsableBodega()) return false;
+          if (l.soloResponsableBodega && (this.auth.isAdmin() || !this.esResponsableBodega())) return false;
           return true;
         }),
       }))

@@ -3,6 +3,7 @@ import { authGuard } from './core/guards/auth.guard';
 import { roleGuard } from './core/guards/role.guard';
 import { SERVICIOS_ADMIN_PANEL } from './features/admin/config/admin.config';
 import { miBodegaGuard } from './core/guards/mi-bodega.guard';
+import { productosGuard } from './core/guards/productos.guard';
 
 function tieneSubdominio(): boolean {
   const hostname = window.location.hostname;
@@ -66,10 +67,20 @@ export const routes: Routes = [
           // Herramienta de consulta por cédula ("Historial del aprendiz"): staff-only
           // por cargo. NO se gatea por personas.ver/matriculas.ver — son baseline de
           // todo rol (aprendiz incluido) y dejaban entrar al aprendiz. Sync con sidebar.
-          { path: 'docs', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp', 'instructor'] }, loadComponent: () => import('./features/historial/historial.component').then((m) => m.HistorialComponent) },
-          // Formatos = plantillas de la etapa práctica: admin/instructor libres;
-          // el aprendiz solo con etapa práctica (mismo criterio que el sidebar).
-          { path: 'format', canActivate: [roleGuard], data: { soloAprendizConEtapa: true }, loadComponent: () => import('./features/formatos/formatos.component').then((m) => m.FormatosComponent) },
+          // Admin entra por `roles`; instructor solo si le otorgan
+          // `practica.historial.ver` como excepción personal (no viene de
+          // fábrica — mismo patrón OR que Migración, pedido explícito
+          // 2026-09-15: "un instructor... solo debería poder acceder a este
+          // de igual manera con la gestión de formatos, solo si le conceden
+          // el permiso").
+          { path: 'docs', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['practica.historial.ver'] }, loadComponent: () => import('./features/historial/historial.component').then((m) => m.HistorialComponent) },
+          // Formatos: accesible a cualquiera con `practica.formatos.ver`
+          // (aprendiz lo trae por defecto) — ya NO exige tener una etapa
+          // práctica activa (corregido 2026-09-16, pedido explícito: "el
+          // aprendiz por defecto debería tener acceso a verlos"). El
+          // componente no depende de ninguna etapa (lista formatos globales),
+          // así que la restricción era puramente de visibilidad, no técnica.
+          { path: 'format', canActivate: [roleGuard], loadComponent: () => import('./features/formatos/formatos.component').then((m) => m.FormatosComponent) },
           { path: 'blog', loadComponent: () => import('./features/chat/chat.component').then((m) => m.ChatComponent) },
           // Sin 'roles': el acceso a /admin es por cargo NADA — es 100% por
           // servicio, vía SERVICIOS_ADMIN_PANEL (admin.config.ts). Antes era
@@ -111,9 +122,16 @@ export const routes: Routes = [
           { path: 'encuestas/preguntas', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['encuestas.gestionar'] }, loadComponent: () => import('./features/admin/encuestas/preguntas.component').then((m) => m.PreguntasComponent) },
 
           // ── Mi Bodega — consola del encargado de bodega (sitio.id_responsable),
-          // cualquier cargo. Sin gate de `roles`; el guard mira si es responsable
-          // de ≥1 sitio. Ver plan "Encargado de bodega", Fase B4.
+          // cualquier cargo salvo admin (tiene su propia vista de abajo). Sin
+          // gate de `roles`; el guard mira si es responsable de ≥1 sitio y
+          // excluye admin explícitamente. Ver plan "Encargado de bodega", Fase B4.
           { path: 'mi-bodega', canActivate: [miBodegaGuard], loadComponent: () => import('./features/mi-bodega/mi-bodega.component').then((m) => m.MiBodegaComponent) },
+
+          // ── Todas las bodegas — misma consola de Mi Bodega, pero admin-only
+          // y sin recortar a "las mías": `data.todasLasBodegas` le dice al
+          // componente que traiga TODOS los sitios (`listarSitios()`) en vez
+          // de `sitiosACargo()`.
+          { path: 'materiales/bodegas', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], todasLasBodegas: true }, loadComponent: () => import('./features/mi-bodega/mi-bodega.component').then((m) => m.MiBodegaComponent) },
 
           // ── Materiales (bodega) — pantallas compartidas por los 3 cargos
           // (ítem 5, "extraer componentes repetidos"): un solo componente y
@@ -125,21 +143,31 @@ export const routes: Routes = [
           // tuvieron esa pantalla).
           { path: 'materiales/categorias', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.categorias.ver'] }, loadComponent: () => import('./features/materiales/categorias.component').then((m) => m.MaterialesCategoriasComponent) },
           { path: 'materiales/sitios', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.sitios.ver'] }, loadComponent: () => import('./features/materiales/sitios.component').then((m) => m.MaterialesSitiosComponent) },
-          { path: 'materiales/productos', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.productos.ver'] }, loadComponent: () => import('./features/materiales/productos.component').then((m) => m.MaterialesProductosComponent) },
+          // `productosGuard` corre además de `roleGuard`: un encargado de bodega
+          // sigue teniendo `materiales.productos.ver` (lo necesita Mi Bodega),
+          // así que sin este guard aparte la URL seguía siendo accesible a mano
+          // aunque se le quitara el link del sidebar.
+          { path: 'materiales/productos', canActivate: [roleGuard, productosGuard], data: { serviciosRequeridos: ['materiales.productos.ver'] }, loadComponent: () => import('./features/materiales/productos.component').then((m) => m.MaterialesProductosComponent) },
           { path: 'materiales/existencias', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.existencias.ver'] }, loadComponent: () => import('./features/materiales/existencias.component').then((m) => m.MaterialesExistenciasComponent) },
           { path: 'materiales/items', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.items.ver'] }, loadComponent: () => import('./features/materiales/items.component').then((m) => m.MaterialesItemsComponent) },
           { path: 'materiales/vencimientos', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.solicitudes.ver'] }, loadComponent: () => import('./features/materiales/vencimientos.component').then((m) => m.MaterialesVencimientosComponent) },
           { path: 'materiales/importar', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.productos.crear'] }, loadComponent: () => import('./features/materiales/importar.component').then((m) => m.MaterialesImportarComponent) },
 
+          // Lotes: se abre por servicio (no por `roles`) como el resto de las
+          // 5 pantallas unificadas, para que un encargado de bodega o líder de
+          // área de CUALQUIER cargo entre con su bundle de excepción personal.
+          // Un instructor/aprendiz común YA NO trae 'materiales.lotes.ver' por
+          // defecto (recorte 2026-09-16, MATERIALES_INSTRUCTOR/MATERIALES_APRENDIZ,
+          // backend-epsas) — antes sí lo traían, este comentario quedó desactualizado.
+          { path: 'materiales/lotes', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.lotes.ver'] }, loadComponent: () => import('./features/admin/materiales/lotes.component').then((m) => m.MaterialesLotesComponent) },
+
           // ── Materiales (bodega) — slice de admin ──
-          { path: 'materiales/lotes', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/lotes.component').then((m) => m.MaterialesLotesComponent) },
           { path: 'materiales/kardex', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/kardex.component').then((m) => m.MaterialesKardexComponent) },
           { path: 'materiales/novedades', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/novedades.component').then((m) => m.MaterialesNovedadesComponent) },
           { path: 'materiales/traslados', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/traslados.component').then((m) => m.MaterialesTrasladosComponent) },
           { path: 'materiales/solicitudes', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/solicitudes.component').then((m) => m.MaterialesSolicitudesComponent) },
           { path: 'materiales/devoluciones', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/devoluciones.component').then((m) => m.MaterialesDevolucionesComponent) },
-          { path: 'materiales/actas', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/actas.component').then((m) => m.MaterialesActasComponent) },
-          { path: 'materiales/chequeos', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/chequeos.component').then((m) => m.MaterialesChequeosComponent) },
+          { path: 'materiales/actas', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.actas.ver'] }, loadComponent: () => import('./features/materiales/actas.component').then((m) => m.MaterialesActasComponent) },
           { path: 'materiales/asignaciones', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/asignaciones.component').then((m) => m.MaterialesAsignacionesComponent) },
 
           // ── Materiales (bodega) — instructor: solo lectura salvo lo suyo,
@@ -164,7 +192,7 @@ export const routes: Routes = [
 
           // ── Materiales (bodega) — aprendiz: solo lectura + solicitar/recibir préstamos propios. Mismo criterio que instructor arriba.
           { path: 'aprendiz/materiales/solicitudes', canActivate: [roleGuard], data: { roles: ['aprendiz'], serviciosRequeridos: ['materiales.solicitudes.ver'] }, loadComponent: () => import('./features/aprendiz/materiales/solicitudes.component').then((m) => m.AprendizMaterialesSolicitudesComponent) },
-          // Solo para aprendiz encargado de bodega: `materiales.devoluciones.ver` no está en MATERIALES_APRENDIZ por defecto, llega vía el bundle B3.
+          // `materiales.devoluciones.ver` está en MATERIALES_APRENDIZ por defecto desde 2026-09-16 ("devoluciones de él") — cualquier aprendiz llega acá, no solo uno encargado de bodega.
           { path: 'aprendiz/materiales/devoluciones', canActivate: [roleGuard], data: { roles: ['aprendiz'], serviciosRequeridos: ['materiales.devoluciones.ver'] }, loadComponent: () => import('./features/aprendiz/materiales/devoluciones.component').then((m) => m.AprendizMaterialesDevolucionesComponent) },
         ],
       },

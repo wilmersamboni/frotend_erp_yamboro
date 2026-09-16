@@ -1,9 +1,13 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
+import { MaterialesLiveService } from '../../../core/services/realtime/materiales-live.service';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AdminModalComponent } from '../../../shared/components/admin-modal.component';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
+import { StatCardComponent } from '../../../shared/components/stat-card.component';
+import { TableFilterComponent } from '../../../shared/components/table-filter.component';
 import { OpcionSelect } from '../services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -27,6 +31,10 @@ const OPCIONES_TIPO: OpcionSelect[] = [
   { label: 'Discrepancia', value: 'DISCREPANCIA' },
   { label: 'Otro', value: 'OTRO' },
 ];
+
+/** Tipos donde la novedad SIEMPRE es sobre un ítem concreto → `id_item` obligatorio.
+ *  `DISCREPANCIA` (conteo) y `OTRO` (general) lo dejan opcional. */
+const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
 
 /**
  * Reportes de novedades sobre ítems (daño/pérdida/etc). Cadena de estados
@@ -54,7 +62,7 @@ const OPCIONES_TIPO: OpcionSelect[] = [
 @Component({
   selector: 'app-materiales-novedades',
   standalone: true,
-  imports: [FormsModule, DatePipe, AdminModalComponent, StatusBadgeComponent],
+  imports: [FormsModule, DatePipe, AdminModalComponent, StatusBadgeComponent, StatCardComponent, TableFilterComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -74,6 +82,12 @@ const OPCIONES_TIPO: OpcionSelect[] = [
         </button>
       </div>
 
+      <div class="flex flex-wrap gap-2 mb-5">
+        <app-table-filter label="Tipo" [options]="opcionesTipoFiltro" [value]="tipoFiltro" (valueChange)="tipoFiltro = $event" />
+        <app-table-filter label="Estado" [options]="opcionesEstadoFiltro" [value]="estadoFiltro" (valueChange)="estadoFiltro = $event" />
+        <app-table-filter label="Sitio" [options]="opcionesSitioFiltro" [value]="sitioFiltro" (valueChange)="sitioFiltro = $event" />
+      </div>
+
       @if (loading) {
         <div class="flex justify-center py-12">
           <div class="w-8 h-8 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
@@ -81,23 +95,19 @@ const OPCIONES_TIPO: OpcionSelect[] = [
       } @else if (novedadesFiltradas.length === 0) {
         <p class="text-center text-gray-400 text-sm py-10">No hay novedades {{ idItemFiltro ? 'para este ítem' : 'registradas' }}</p>
       } @else {
-        <div class="grid grid-cols-4 gap-3 mb-5">
-          <div class="rounded-xl border border-gray-100 px-4 py-3">
-            <p class="text-xs text-gray-500">Total</p>
-            <p class="text-xl font-bold text-gray-800">{{ novedadesFiltradas.length }}</p>
-          </div>
-          <div class="rounded-xl border border-gray-100 px-4 py-3">
-            <p class="text-xs text-gray-500">Pendientes</p>
-            <p class="text-xl font-bold text-amber-600">{{ contarEstado('PENDIENTE') }}</p>
-          </div>
-          <div class="rounded-xl border border-gray-100 px-4 py-3">
-            <p class="text-xs text-gray-500">En proceso</p>
-            <p class="text-xl font-bold text-blue-600">{{ contarEstado('EN_PROCESO') }}</p>
-          </div>
-          <div class="rounded-xl border border-gray-100 px-4 py-3">
-            <p class="text-xs text-gray-500">Resueltas</p>
-            <p class="text-xl font-bold text-green-600">{{ contarEstado('RESUELTA') }}</p>
-          </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          <app-stat-card label="Total" [value]="novedadesFiltradas.length" tono="neutral">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          </app-stat-card>
+          <app-stat-card label="Pendientes" [value]="contarEstado('PENDIENTE')" tono="warning">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          </app-stat-card>
+          <app-stat-card label="En proceso" [value]="contarEstado('EN_PROCESO')" tono="info">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </app-stat-card>
+          <app-stat-card label="Resueltas" [value]="contarEstado('RESUELTA')" tono="success">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </app-stat-card>
         </div>
 
         <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
@@ -119,8 +129,8 @@ const OPCIONES_TIPO: OpcionSelect[] = [
                 <tr class="hover:bg-gray-50/80 transition-colors">
                   <td class="px-4 py-3 text-gray-700">{{ n.tipo }}</td>
                   <td class="px-4 py-3 text-gray-700 max-w-[280px] truncate">{{ n.descripcion }}</td>
-                  <td class="px-4 py-3 text-gray-700">{{ n.item?.codigo_sku ?? '—' }}</td>
-                  <td class="px-4 py-3 text-gray-700">{{ nombreUsuario(n.id_usuario) }}</td>
+                  <td class="px-4 py-3 text-gray-700">{{ n.item?.producto?.nombre ?? n.item?.codigo_sku ?? '—' }}</td>
+                  <td class="px-4 py-3 text-gray-700">{{ nombreUsuario(n) }}</td>
                   <td class="px-4 py-3"><app-status-badge [value]="n.estado" /></td>
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ n.fecha | date: 'short' }}</td>
                   <td class="px-4 py-3">
@@ -162,7 +172,7 @@ const OPCIONES_TIPO: OpcionSelect[] = [
       [open]="modalOpen"
       [editando]="null"
       labelSingular="novedad"
-      [columns]="['tipo', 'descripcion', 'id_item']"
+      [columns]="camposModal"
       [form]="form"
       [opciones]="opciones"
       [columnLabels]="columnLabels"
@@ -170,15 +180,14 @@ const OPCIONES_TIPO: OpcionSelect[] = [
       [saving]="saving"
       [error]="error"
       (closed)="cerrarModal()"
+      (fieldChange)="onCampoModal($event)"
       (saved)="guardar($event)" />
 
     @if (resolverAbierto && resolverNovedad) {
       <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="resolverAbierto = false">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-bold text-gray-800">
-              {{ resolverEstadoNovedad === 'RESUELTA' ? 'Resolver novedad' : 'Poner novedad en proceso' }}
-            </h2>
+            <h2 class="text-lg font-bold text-gray-800">Resolver novedad</h2>
             <button (click)="resolverAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
           <p class="text-sm text-gray-500 mb-3">
@@ -214,7 +223,7 @@ const OPCIONES_TIPO: OpcionSelect[] = [
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Tipo</dt><dd class="text-gray-800 font-medium text-right">{{ detalle.tipo }}</dd></div>
             <div><dt class="text-gray-500 mb-1">Descripción</dt><dd class="text-gray-800">{{ detalle.descripcion }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Ítem</dt><dd class="text-gray-800 text-right">{{ detalle.item?.producto?.nombre ?? detalle.item?.codigo_sku ?? '—' }}</dd></div>
-            <div class="flex justify-between gap-4"><dt class="text-gray-500">Reportado por</dt><dd class="text-gray-800 text-right">{{ nombreUsuario(detalle.id_usuario) }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-gray-500">Reportado por</dt><dd class="text-gray-800 text-right">{{ nombreUsuario(detalle) }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Estado</dt><dd class="text-gray-800 text-right">{{ detalle.estado }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Fecha</dt><dd class="text-gray-800 text-right">{{ detalle.fecha | date: 'medium' }}</dd></div>
           </dl>
@@ -254,10 +263,33 @@ export class MaterialesNovedadesComponent implements OnInit {
 
   placeholders: Record<string, string> = { descripcion: 'Ej: La carcasa llegó rajada / falta 1 unidad respecto al conteo' };
 
-  columnLabels: Record<string, string> = { id_item: 'Ítem (opcional)' };
+  /** El label del ítem cambia según el tipo elegido (obligatorio vs opcional). */
+  get columnLabels(): Record<string, string> {
+    return { id_item: this.itemRequerido ? 'Placa SENA *' : 'Placa SENA' };
+  }
+
+  /** ¿El tipo actualmente elegido en el form exige indicar el ítem? */
+  get itemRequerido(): boolean {
+    return TIPOS_REQUIEREN_ITEM.includes(this.form['tipo']);
+  }
+
+  /** Una novedad "Otro" describe un hecho general y no se enlaza a un ítem. */
+  get esNovedadGeneral(): boolean {
+    return this.form['tipo'] === 'OTRO';
+  }
+
+  get camposModal(): string[] {
+    return this.esNovedadGeneral ? ['tipo', 'descripcion'] : ['tipo', 'descripcion', 'id_item'];
+  }
 
   /** `?id_item=` de la navegación cruzada (Ítems → Novedades). */
   idItemFiltro: string | null = null;
+  tipoFiltro = '';
+  estadoFiltro = '';
+  sitioFiltro = '';
+
+  readonly opcionesTipoFiltro = [{ label: 'Todos los tipos', value: '' }, ...OPCIONES_TIPO];
+  readonly opcionesEstadoFiltro = [{ label: 'Todos los estados', value: '' }, { label: 'Pendiente', value: 'PENDIENTE' }, { label: 'En proceso', value: 'EN_PROCESO' }, { label: 'Resuelta', value: 'RESUELTA' }];
 
   constructor(
     private api: MaterialesApiService,
@@ -266,10 +298,30 @@ export class MaterialesNovedadesComponent implements OnInit {
     private personaApi: PersonaService,
     private route: ActivatedRoute,
     private router: Router,
+    private live: MaterialesLiveService,
+    private destroyRef: DestroyRef,
   ) {}
 
   get novedadesFiltradas(): Novedad[] {
-    return this.idItemFiltro ? this.novedades.filter((n) => n.id_item === this.idItemFiltro) : this.novedades;
+    return this.novedades.filter((n) => {
+      if (this.idItemFiltro && n.id_item !== this.idItemFiltro) return false;
+      if (this.tipoFiltro && n.tipo !== this.tipoFiltro) return false;
+      if (this.estadoFiltro && n.estado !== this.estadoFiltro) return false;
+      return !this.sitioFiltro || this.idSitioNovedad(n) === this.sitioFiltro;
+    });
+  }
+
+  get opcionesSitioFiltro(): { label: string; value: string }[] {
+    return [{ label: 'Todos los sitios', value: '' }, ...this.sitiosConNovedades.map((sitio) => ({ label: sitio.nombre, value: sitio.id_sitio }))];
+  }
+
+  get sitiosConNovedades(): Sitio[] {
+    const ids = new Set(this.novedades.map((n) => this.idSitioNovedad(n)).filter((id): id is string => !!id));
+    return this.sitios.filter((sitio) => ids.has(sitio.id_sitio));
+  }
+
+  private idSitioNovedad(novedad: Novedad): string | null {
+    return novedad.item?.id_sitio ?? novedad.item?.producto?.id_sitio ?? null;
   }
 
   quitarFiltroItem(): void {
@@ -303,24 +355,31 @@ export class MaterialesNovedadesComponent implements OnInit {
   get opciones(): Record<string, OpcionSelect[]> {
     return {
       tipo: OPCIONES_TIPO,
-      // El ítem es opcional (ej. daño general al sitio, discrepancia de conteo):
-      // el backend acepta `id_item` nulo. La opción "— Sin ítem —" deja
-      // reportar sin ninguno y volver a quitarlo si se eligió por error.
+      // Daño / Pérdida / Mantenimiento son siempre sobre un ítem concreto. La
+      // placa SENA es el identificador operativo para localizarlo.
       id_item: [
-        { label: '— Sin ítem —', value: null },
-        ...this.items.map((i) => ({ label: `${i.codigo_sku}${i.placa_sena ? ' — ' + i.placa_sena : ''}`, value: i.id_item })),
+        ...(this.itemRequerido ? [] : [{ label: '— Sin ítem —', value: null }]),
+        ...this.items.map((i) => ({ label: this.etiquetaPlaca(i), value: i.id_item })),
       ],
     };
   }
 
   ngOnInit(): void {
     this.cargar();
+    this.live.eventos()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.cargar());
   }
 
-  /** "N.N. — cargo" del usuario que reportó, o el id crudo si no se pudo resolver. */
-  nombreUsuario(idUsuario: string): string {
-    const u = this.usuarios.find((x) => x.idUsuario === idUsuario);
-    return u ? `${u.persona?.nombre ?? ''} ${u.persona?.apellido ?? ''}`.trim() || idUsuario : idUsuario;
+  /**
+   * Nombre de quien reportó. Prioriza `usuario_nombre` que ya resuelve el
+   * backend; si no llegó, cae a la resolución client-side contra
+   * `this.usuarios` y por último al id crudo.
+   */
+  nombreUsuario(n: Novedad): string {
+    if (n.usuario_nombre) return n.usuario_nombre;
+    const u = this.usuarios.find((x) => x.idUsuario === n.id_usuario);
+    return u ? `${u.persona?.nombre ?? ''} ${u.persona?.apellido ?? ''}`.trim() || n.id_usuario : n.id_usuario;
   }
 
   contarEstado(estado: string): number {
@@ -365,9 +424,22 @@ export class MaterialesNovedadesComponent implements OnInit {
     this.modalOpen = false;
   }
 
+  onCampoModal(e: { col: string; value: any }): void {
+    // Al pasar a "Otro", se descarta el ítem elegido en un tipo anterior.
+    if (e.col === 'tipo' && e.value === 'OTRO') this.form['id_item'] = null;
+  }
+
+  private etiquetaPlaca(item: Item): string {
+    return item.placa_sena?.trim() || `Sin placa SENA (${item.codigo_sku || item.id_item})`;
+  }
+
   async guardar(form: Record<string, any>): Promise<void> {
     if (!form['descripcion']?.trim()) {
       this.error = 'La descripción es obligatoria.';
+      return;
+    }
+    if (TIPOS_REQUIEREN_ITEM.includes(form['tipo']) && !form['id_item']) {
+      this.error = `Una novedad de tipo "${form['tipo']}" tiene que indicar sobre qué ítem es.`;
       return;
     }
     this.saving = true;
@@ -389,20 +461,27 @@ export class MaterialesNovedadesComponent implements OnInit {
   }
 
   async cambiarEstado(n: Novedad, estado: 'EN_PROCESO' | 'RESUELTA'): Promise<void> {
-    // Con ítem asociado: se abre el diálogo para elegir el estado resultante
-    // del ítem (Tier SigMat M7). Sin ítem: cambio directo, como siempre.
+    // "En proceso" ya no abre diálogo: el ítem pasa a EN_MANTENIMIENTO
+    // solo, sin preguntar — esa pregunta siempre se contestaba igual (nadie
+    // elegía otra cosa al arrancar a atender una novedad) y duplicaba la
+    // única decisión que sí importa: en qué queda el ítem al Resolver.
+    if (estado === 'EN_PROCESO') {
+      await this.enviarCambioEstado(n, estado, n.id_item ? 'EN_MANTENIMIENTO' : undefined);
+      return;
+    }
+    // Resolver sí abre el diálogo cuando hay ítem: acá el estado final
+    // (reparado / dañado / perdido) varía caso a caso y hay que elegirlo.
     if (n.id_item) {
       this.resolverNovedad = n;
       this.resolverEstadoNovedad = estado;
-      this.resolverEstadoItem = this.defaultEstadoItem(n, estado);
+      this.resolverEstadoItem = this.defaultEstadoItem(n);
       this.resolverAbierto = true;
       return;
     }
     await this.enviarCambioEstado(n, estado);
   }
 
-  private defaultEstadoItem(n: Novedad, estado: 'EN_PROCESO' | 'RESUELTA'): EstadoItem | '' {
-    if (estado === 'EN_PROCESO') return 'EN_MANTENIMIENTO';
+  private defaultEstadoItem(n: Novedad): EstadoItem | '' {
     if (n.tipo === 'DAÑO') return 'DAÑADO';
     if (n.tipo === 'PERDIDA') return 'PERDIDO';
     return 'DISPONIBLE';

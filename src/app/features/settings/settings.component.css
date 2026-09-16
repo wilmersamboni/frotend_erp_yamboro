@@ -61,7 +61,7 @@
 .form-field input.disabled { background: #f9fafb; color: #9ca3af; cursor: not-allowed; }
 
 /* ── Eye toggle ── */
-.input-eye { position: relative; }
+.input-eye { position: relative;  }
 .input-eye input { padding-right: 42px; }
 .input-eye button {
   position: absolute; right: 10px; top: 50%; transform: translateY(-50%);

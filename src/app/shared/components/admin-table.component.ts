@@ -1,7 +1,9 @@
-import { Component, DoCheck, Input, Output, EventEmitter } from '@angular/core';
+import { Component, DoCheck, Input, Output, EventEmitter, Signal, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { StatusBadgeComponent } from './status-badge.component';
+import { TableFilterComponent } from './table-filter.component';
+
 
 /** Enlace de navegación cruzada por fila (ej. Producto → Existencias filtradas por ese producto). */
 export interface TableRowLink {
@@ -39,7 +41,7 @@ export interface TableRowLink {
 @Component({
   selector: 'app-admin-table',
   standalone: true,
-  imports: [FormsModule, RouterLink, StatusBadgeComponent],
+  imports: [FormsModule, RouterLink, StatusBadgeComponent, TableFilterComponent],
   template: `
     <div [class]="searchable
         ? 'bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden'
@@ -68,18 +70,55 @@ export interface TableRowLink {
           </div>
 
           <!-- Filas por página -->
+          <!-- Filas por página -->
           <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
             <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filas</span>
-            <select [(ngModel)]="pageSize" (ngModelChange)="page = 0"
-              class="text-sm font-semibold bg-transparent border-none focus:ring-0 text-gray-700 cursor-pointer">
-              <option [ngValue]="10">10</option>
-              <option [ngValue]="20">20</option>
-              <option [ngValue]="50">50</option>
-              <option [ngValue]="100">100</option>
-            </select>
+            
+            <!-- Dropdown personalizado para filas -->
+            <div class="relative">
+              <button 
+                type="button"
+                (click)="pageSizeDropdownOpen.update(v => !v)"
+                class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer">
+                <span>{{ pageSize() }}</span>
+                <svg class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" [class.rotate-180]="pageSizeDropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              @if (pageSizeDropdownOpen()) {
+                <!-- Backdrop para cerrar al hacer clic afuera -->
+                <div class="fixed inset-0 z-10" (click)="pageSizeDropdownOpen.set(false)"></div>
+
+                <!-- Menú flotante compacto -->
+                <div class="absolute left-0 top-full mt-2 z-20 w-20 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <div class="p-1 space-y-0.5">
+                    @for (size of [10, 20, 50, 100]; track size) {
+                      <button
+                        type="button"
+                        (click)="seleccionarPageSize(size)"
+                        class="w-full px-3 py-1.5 text-sm text-center rounded-lg transition-colors font-medium"
+                        [class.bg-green-50]="pageSize() === size"
+                        [class.text-green-700]="pageSize() === size"
+                        [class.text-gray-600]="pageSize() !== size"
+                        [class.hover:bg-gray-50]="pageSize() !== size">
+                        {{ size }}
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
           </div>
 
-          <!-- Botón de alta (opcional) — a la derecha, misma fila que buscador/filas -->
+          <!-- Filtro opcional (ej. estado activo/desactivado) — lo controla el padre -->
+          @if (filterOptions && filterOptions.length) {
+            <app-table-filter [options]="filterOptions" [value]="filterValue" [label]="filterLabel" (valueChange)="seleccionarFiltro($event)" />
+          }
+          @if (secondaryFilterOptions && secondaryFilterOptions.length) {
+            <app-table-filter [options]="secondaryFilterOptions" [value]="secondaryFilterValue" [label]="secondaryFilterLabel" (valueChange)="seleccionarFiltroSecundario($event)" />
+          }
+
           @if (addLabel) {
             <button (click)="add.emit()"
               class="sm:ml-auto shrink-0 flex items-center justify-center gap-1.5 px-4 py-2 text-white text-sm font-semibold rounded-xl transition-colors"
@@ -162,7 +201,7 @@ export interface TableRowLink {
                         @if (canDelete) {
                           <button (click)="delete.emit(row); $event.stopPropagation()"
                             class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-red-400 hover:text-red-600 transition-colors">
-                            Eliminar
+                            {{ deleteLabel }}
                           </button>
                         }
                       </div>
@@ -174,7 +213,7 @@ export interface TableRowLink {
           </table>
         </div>
 
-        @if (searchable && filasVisibles.length > pageSize) {
+        @if (searchable && filasVisibles.length > pageSize()) {
           <div class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 bg-gray-50/60">
             <span class="text-sm text-gray-500">
               Mostrando <strong class="text-gray-800">{{ pageRows.length }}</strong>
@@ -209,6 +248,8 @@ export class AdminTableComponent implements DoCheck {
   @Input() loading  = false;
   @Input() canEdit  = true;
   @Input() canDelete = true;
+  /** Texto del botón de la derecha (por defecto "Eliminar"). Ej.: "Desactivar" / "Reactivar". */
+  @Input() deleteLabel = 'Eliminar';
 
   /** Columnas a ocultar de la vista (el id sigue disponible en los eventos) */
   @Input() hiddenColumns: string[] = ['idPersona'];
@@ -227,10 +268,41 @@ export class AdminTableComponent implements DoCheck {
   @Input() addLabel: string | null = null;
   @Output() add = new EventEmitter<void>();
 
+  /** Filtro opcional en el toolbar (select), entre "Filas" y el botón de alta.
+   *  El padre es el dueño del valor: se pasa `[filterValue]` y se reacciona a
+   *  `(filterValueChange)`. Pasar `null`/`[]` en `filterOptions` lo oculta. */
+  @Input() filterOptions: { value: string; label: string }[] | null = null;
+  @Input() filterValue = '';
+  @Input() filterLabel = 'Estado';
+  @Output() filterValueChange = new EventEmitter<string>();
+
+  /** Segundo filtro opcional, útil para combinar criterios como estado y sitio. */
+  @Input() secondaryFilterOptions: { value: string; label: string }[] | null = null;
+  @Input() secondaryFilterValue = '';
+  @Input() secondaryFilterLabel = 'Filtro';
+  @Output() secondaryFilterValueChange = new EventEmitter<string>();
+
+  seleccionarFiltro(valor: string): void {
+    this.filterValueChange.emit(valor);
+    this.page = 0;
+  }
+
+  seleccionarFiltroSecundario(valor: string): void {
+    this.secondaryFilterValueChange.emit(valor);
+    this.page = 0;
+  }
+
   /** Estado interno del buscador/paginador (solo activo con `searchable`). */
   busqueda = '';
   page = 0;
-  pageSize = 20;
+  pageSize = signal(20)
+  pageSizeDropdownOpen= signal(false)
+
+  seleccionarPageSize(size:number):void{
+    this.pageSize.set(size)
+    this.page=0
+    this.pageSizeDropdownOpen.set(false)
+  }
 
   /** Si está en true, las filas son clicables (cursor + resaltado) y emiten rowSelected. */
   @Input() selectable = false;
@@ -303,7 +375,7 @@ export class AdminTableComponent implements DoCheck {
   }
 
   get totalPaginas(): number {
-    return Math.max(1, Math.ceil(this.filasVisibles.length / this.pageSize));
+    return Math.max(1, Math.ceil(this.filasVisibles.length / this.pageSize()));
   }
 
   /** Filas de la página actual (o todas, sin `searchable`). */
@@ -311,8 +383,8 @@ export class AdminTableComponent implements DoCheck {
     const all = this.filasVisibles;
     if (!this.searchable) return all;
     const p = Math.min(this.page, this.totalPaginas - 1);
-    const start = p * this.pageSize;
-    return all.slice(start, start + this.pageSize);
+    const start = p * this.pageSize();
+    return all.slice(start, start + this.pageSize());
   }
 
   isSelected(row: any): boolean {
