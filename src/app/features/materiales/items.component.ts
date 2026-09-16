@@ -84,7 +84,7 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
       [open]="modalOpen"
       [editando]="editando"
       labelSingular="ítem"
-      [columns]="['placa_sena', 'id_sitio', 'estado']"
+      [columns]="columnasEditar"
       [form]="form"
       [opciones]="opciones"
       [columnLabels]="columnLabels"
@@ -235,6 +235,20 @@ export class MaterialesItemsComponent implements OnInit {
   get columnas(): string[] {
     const base = ['codigo_sku', 'placa_sena', 'producto_nombre'];
     return this.puedeVerSitios() ? [...base, 'sitio_nombre', 'estado'] : [...base, 'estado'];
+  }
+
+  /**
+   * Columnas del modal de editar ítem. Sin `materiales.sitios.ver` (caso
+   * típico del encargado de bodega, ver encargado-bodega-permisos.service.ts)
+   * `this.sitios` llega vacío y el <select> de "id_sitio" no tiene opciones
+   * para mostrar — el modal genérico cae a un <input> de texto plano con el
+   * UUID crudo del sitio actual. Se oculta el campo en ese caso: el usuario
+   * no puede elegir un sitio con sentido sin ver el catálogo, y no lo
+   * necesita para su trabajo (usa "Mi Bodega").
+   */
+  get columnasEditar(): string[] {
+    const base = ['placa_sena', 'id_sitio', 'estado'];
+    return this.puedeVerSitios() ? base : base.filter((c) => c !== 'id_sitio');
   }
 
   get opciones(): Record<string, OpcionSelect[]> {

@@ -120,6 +120,8 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     // sí exige el servicio — antes sede.controller.ts no tenía ningún guard.
     servicioEscritura: 'organizacion.gestionar',
     servicioEliminar: 'organizacion.gestionar',
+    // sede.controller.ts solo expone @Patch(':id') — mismo bug que municipios.
+    usePatch: true,
     campos: ['nombre', 'centroFormacionId'],
     selectores: {
       centroFormacionId: { modulo: 'centros', label: 'nombre', value: 'idCentro' },
@@ -155,6 +157,10 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     grupo: 'epsas', categoria: 'Organización',
     servicioEscritura: 'organizacion.gestionar',
     servicioEliminar: 'organizacion.gestionar',
+    // MunicipiosController solo expone @Patch(':id'), no @Put — sin esto el
+    // form genérico entra al PUT por defecto y el backend responde 404
+    // "Cannot PUT" (reporte real 2026-09-16).
+    usePatch: true,
     columnas: ['nombre', 'departamento'],
     campos: ['nombre', 'departamentoId'],
     selectores: {
@@ -168,6 +174,8 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     actualizar: id => `${BASE}/aplicativos/${id}`,
     eliminar:   id => `${BASE}/aplicativos/${id}`,
     grupo: 'epsas', categoria: 'Seguridad y Acceso',
+    // aplicativo.controller.ts solo expone @Patch(':id') — mismo bug que municipios.
+    usePatch: true,
     columnas: ['nombre'],
     campos: ['nombre'],
   },
@@ -178,6 +186,8 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     actualizar: id => `${BASE}/modulos/${id}`,
     eliminar:   id => `${BASE}/modulos/${id}`,
     grupo: 'epsas', categoria: 'Seguridad y Acceso',
+    // modulo.controller.ts solo expone @Patch(':id') — mismo bug que municipios.
+    usePatch: true,
     // aplicativo viene como objeto anidado (eager); aplanarFila extrae 'nombre'
     columnas: ['nombre', 'aplicativo'],
     campos: ['nombre', 'aplicativoId'],
@@ -192,6 +202,8 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     actualizar: id => `${BASE}/servicios/${id}`,
     eliminar:   id => `${BASE}/servicios/${id}`,
     grupo: 'epsas', categoria: 'Seguridad y Acceso',
+    // servicio.controller.ts solo expone @Patch(':id') — mismo bug que municipios.
+    usePatch: true,
     columnas: ['nombre', 'url', 'modulo'],
     campos: ['nombre', 'url', 'moduloId'],
     selectores: {
@@ -205,6 +217,8 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     actualizar: id => `${BASE}/permisos/${id}`,
     eliminar:   id => `${BASE}/permisos/${id}`,
     grupo: 'epsas', categoria: 'Seguridad y Acceso',
+    // permisos.controller.ts solo expone @Patch(':id') — mismo bug que municipios.
+    usePatch: true,
     // rol/servicio/usuario vienen como objetos anidados (eager); aplanarFila extrae 'nombre'/'persona'
     columnas: ['rol', 'servicio', 'usuario', 'activo'],
     // usuarioId es opcional: sin él, el permiso aplica a TODO el rol.
@@ -252,6 +266,8 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     eliminar:   id => `${BASE}/ambientes/${id}`,
     grupo: 'epsas', categoria: 'Organización',
     servicio: 'ambientes.gestionar',
+    // ambientes.controller.ts solo expone @Patch(':id') — mismo bug que municipios.
+    usePatch: true,
     // sede/municipio/area vienen como objetos anidados (eager); aplanarFila extrae 'nombre'
     columnas: ['nombre', 'tipo', 'sede', 'municipio', 'area'],
     campos: ['nombre', 'tipo', 'sedeId', 'municipioId', 'areaId'],
