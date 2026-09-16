@@ -9,9 +9,10 @@ import { ConfirmService } from '../../../core/services/confirm.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { DateInputComponent } from '../../../shared/components/date-input.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
+import { EntregarSolicitudModalComponent } from '../../../shared/components/entregar-solicitud-modal.component';
 import { TuiDayCache } from '../../../shared/utils/tui-day.util';
 import type { TuiDay } from '@taiga-ui/cdk';
-import { MaterialesApiService, Lote, Producto, Sitio, Solicitud, EstadoSolicitud, ResumenExistencias } from '../../../core/services/materiales/materiales-api.service';
+import { MaterialesApiService, Lote, Producto, Sitio, Solicitud, EstadoSolicitud, ResumenExistencias, SeleccionLineaEntregaInput } from '../../../core/services/materiales/materiales-api.service';
 
 /** Línea del modal "Nueva solicitud" — `p:<id>` producto devolutivo, `l:<id>` lote consumible. */
 interface LineaForm {
@@ -49,7 +50,7 @@ interface LineaForm {
 @Component({
   selector: 'app-materiales-solicitudes',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent],
+  imports: [FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -232,7 +233,7 @@ interface LineaForm {
                             }
                           }
                           @if (s.estado === 'APROBADA' && puedeEntregar && puedeGestionar(s)) {
-                            <button (click)="entregar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-blue-200 text-blue-600 bg-white hover:bg-blue-50 transition-colors">Marcar en entrega</button>
+                            <button (click)="abrirEntregar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-blue-200 text-blue-600 bg-white hover:bg-blue-50 transition-colors">Marcar en entrega</button>
                           }
                           @if (s.estado === 'APROBADA' && puedeRechazar && puedeGestionar(s)) {
                             <button (click)="cancelar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">Cancelar</button>
@@ -490,6 +491,11 @@ interface LineaForm {
           </div>
         </div>
       </div>
+    }
+
+    @if (solicitudAEntregar) {
+      <app-entregar-solicitud-modal [abierto]="true" [solicitud]="solicitudAEntregar"
+        (cerrado)="cerrarEntregar()" (confirmado)="confirmarEntrega($event)"></app-entregar-solicitud-modal>
     }
   `,
 })
@@ -1007,10 +1013,24 @@ seleccionarEstado(valor: EstadoSolicitud | ''): void {
     }
   }
 
-  async entregar(s: Solicitud): Promise<void> {
+  /** Solicitud abierta en el modal de "Marcar en entrega" — ver docblock del modal. */
+  solicitudAEntregar: Solicitud | null = null;
+
+  abrirEntregar(s: Solicitud): void {
+    this.solicitudAEntregar = s;
+  }
+
+  cerrarEntregar(): void {
+    this.solicitudAEntregar = null;
+  }
+
+  async confirmarEntrega(seleccion: SeleccionLineaEntregaInput[] | undefined): Promise<void> {
+    const s = this.solicitudAEntregar;
+    if (!s) return;
     try {
-      await this.api.entregarSolicitud(s.id_solicitud);
+      await this.api.entregarSolicitud(s.id_solicitud, seleccion);
       this.toast.ok('Solicitud marcada en entrega');
+      this.solicitudAEntregar = null;
       await this.cargar();
     } catch (e) {
       this.toast.httpError(e, 'No se pudo marcar en entrega.');

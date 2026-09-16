@@ -325,6 +325,12 @@ export interface LineaSolicitudInput {
   cantidad: number;
 }
 
+/** Selección manual de placas al entregar una línea devolutiva — ver `entregarSolicitud()`. */
+export interface SeleccionLineaEntregaInput {
+  id_detalle: string | null;
+  id_items: string[];
+}
+
 export interface CreateSolicitudDto {
   tipo: 'PRESTAMO';
   /** Legacy 1 línea — seguí mandando esto O `lineas`, no ambos. */
@@ -769,8 +775,17 @@ export class MaterialesApiService {
       this.http.get<Envelope<SeguimientoVencimientos>>(`${BASE}/solicitudes/vencimientos`, { params: { ventana } }),
     );
   }
-  entregarSolicitud(id: string) {
-    return this.unwrap(this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/entregar`, {}));
+  /**
+   * Sin `seleccion`: cada línea toma automáticamente los primeros N ítems
+   * DISPONIBLE (comportamiento de siempre). Con `seleccion`: el responsable
+   * eligió a mano qué placa(s) puntuales entregar por línea (2026-09-16,
+   * pedido explícito — "lo ideal sería tener las dos opciones") — el backend
+   * revalida igual (cantidad exacta, producto correcto, DISPONIBLE).
+   */
+  entregarSolicitud(id: string, seleccion?: SeleccionLineaEntregaInput[]) {
+    return this.unwrap(
+      this.http.patch<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}/entregar`, seleccion ? { seleccion } : {}),
+    );
   }
   /** Cancela una solicitud APROBADA que no se va a entregar (no toca inventario). */
   cancelarSolicitud(id: string) {
