@@ -327,23 +327,28 @@ export class SidebarComponent implements OnChanges, OnInit {
           {
             label: 'Formatos', href: '/format',
             aplicativo: 'Etapa Práctica',
-            // Para aprendiz: los formatos son plantillas de la etapa práctica —
-            // no le sirven durante la lectiva. Solo visible cuando ya tiene una
-            // etapa práctica (mismo criterio que "Seguimiento"). No afecta a
-            // admin/instructor.
-            soloAprendizConEtapa: true,
+            // Ya NO exige etapa práctica activa para el aprendiz (corregido
+            // 2026-09-16, pedido explícito: "el aprendiz por defecto debería
+            // tener acceso a verlos") — antes se ocultaba con
+            // `soloAprendizConEtapa: true`, aunque `practica.formatos.ver` ya
+            // venía por defecto en su catálogo y el componente no depende de
+            // ninguna etapa (lista formatos globales).
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`),
           },
           {
             label: 'Historial', href: '/docs',
             // Herramienta de consulta por cédula ("Historial del aprendiz") —
             // es para que el STAFF inspeccione a un aprendiz, no para que el
-            // aprendiz se vea a sí mismo. Se gatea por cargo (admin/instructor),
-            // NO por personas.ver/matriculas.ver: esos son servicios baseline
-            // que TODO rol tiene (incluido aprendiz) para consultar su propio
-            // registro, así que como gate dejaban entrar al aprendiz a un
-            // módulo que no le sirve. Mantener en sync con app.routes.ts.
-            roles: ['administrador', 'administrador_erp', 'instructor'],
+            // aprendiz se vea a sí mismo. NO por personas.ver/matriculas.ver:
+            // esos son servicios baseline que TODO rol tiene (incluido
+            // aprendiz) para consultar su propio registro, así que como gate
+            // dejaban entrar al aprendiz a un módulo que no le sirve.
+            // OR con roles (no serviciosRequeridos/AND) — admin entra por
+            // cargo; instructor solo si le otorgan 'practica.historial.ver'
+            // como excepción personal (no viene de fábrica). Mismo patrón
+            // que "Migración". Mantener en sync con app.routes.ts.
+            roles: ['administrador', 'administrador_erp'],
+            servicios: ['practica.historial.ver'],
             aplicativo: 'Etapa Práctica',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`),
           },
@@ -581,10 +586,21 @@ export class SidebarComponent implements OnChanges, OnInit {
             servicioEstricto: 'materiales.sitios.ver',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V9a2 2 0 00-2-2h-2V5a2 2 0 00-2-2H9a2 2 0 00-2 2v2H5a2 2 0 00-2 2v12h18zM9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4"/></svg>`),
           },
-          // "Productos" ya no tiene link propio para instructor (2026-09-14):
-          // "Mi Bodega" ya lista sus productos con el mismo formulario — tener
-          // las dos pantallas era redundante y confuso. La ruta
-          // `/materiales/productos` sigue existiendo (admin y aprendiz la usan).
+          // "Productos" había perdido su link propio para instructor
+          // (2026-09-14, razón: "Mi Bodega ya lista sus productos con el
+          // mismo formulario") — pero esa razón solo aplica a un instructor
+          // QUE ADMINISTRA una bodega (ve "Mi Bodega"); un instructor común
+          // sin bodega a cargo se quedaba sin ninguna pantalla de catálogo,
+          // solo el selector embebido de "Nueva solicitud". Repuesto
+          // 2026-09-16 (pedido explícito) — mismo link que ya tiene aprendiz,
+          // `productosGuard` ya redirige a "Mi Bodega" a quien administra una
+          // (agnóstico de cargo), así que no hay pantallas duplicadas.
+          {
+            label: 'Productos', href: '/materiales/productos',
+            roles: ['instructor'],
+            servicioEstricto: 'materiales.productos.ver',
+            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`),
+          },
           {
             label: 'Existencias', href: '/materiales/existencias',
             roles: ['instructor'],
