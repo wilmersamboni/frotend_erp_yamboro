@@ -18,48 +18,79 @@ const TODAS_LAS_UNIDADES = [
   'UNIDAD', 'PAR', 'KIT', 'JUEGO', 'SET', 'METRO', 'ROLLO',
   'LITRO', 'MILILITRO', 'GALÓN', 'BOTELLA', 'LATA', 'FRASCO',
   'KILOGRAMO', 'GRAMO', 'LIBRA', 'TONELADA',
-  'BULTO', 'PAQUETE', 'CAJA', 'CARTÓN', 'ATADO', 'BOLSA',
+  'BULTO', 'PAQUETE', 'CAJA', 'CARTÓN', 'ATADO', 'BOLSA', 'SOBRE', 'RACIMO',
   'LICENCIA', 'ARROBA',
 ];
-const OPCIONES_UNIDAD_MEDIDA: OpcionSelect[] = TODAS_LAS_UNIDADES.map((u) => ({ label: u, value: u }));
 
 // Filtra las unidades ofrecidas según la familia UNSPSC elegida (primeros 4
 // dígitos del código) — mismo criterio que SGM (`UNIDADES_POR_FAMILIA`),
 // adaptado y extendido acá para cubrir también las familias no-alimenticias
 // del catálogo propio del ERP (TIC, aseo, empaques, herramientas de cocina).
+/**
+ * ⚠️ 2026-09-17 — este mapa se reconstruyó desde cero. La versión anterior
+ * asignaba categorías a cada familia UNSPSC "por memoria" (asumiendo, p.ej.,
+ * que la familia 5017 era "Pescado"), sin verificar contra el catálogo real
+ * importado (`unspsc_catalogo`, 70.437 códigos). Al revisar el caso
+ * reportado ("Conservas de pescado" = código 50121541, familia 5012) se
+ * confirmó que esa asunción era falsa — 5012 sí es pescado/mariscos, pero
+ * 5017 en realidad es "Condimentos y especias", 5018 es "Panadería", etc.
+ * La mayoría de las familias de este mapa (alimentos, aseo, empaques, TIC)
+ * tenían el mismo problema. Todas las entradas de abajo fueron verificadas
+ * consultando el catálogo real de `erp_yamboro` antes de escribirlas.
+ *
+ * Categorías que NO se pudieron curar de forma confiable, y por qué:
+ * - Frutas, verduras y "agua y bebidas": el catálogo no tiene una familia
+ *   única y coherente para estas — cada fruta/verdura (manzana, alcachofa,
+ *   uva, limón...) tiene su propio grupo de ~10 familias (una por estado:
+ *   fresca, orgánica, seca, congelada, en conserva, puré...). Curar esto
+ *   requeriría mapear decenas de familias por cada producto agrícola, no es
+ *   viable a mano. Quedan en el fallback (`TODAS_LAS_UNIDADES`, ya incluye
+ *   LATA/RACIMO/GALÓN para cubrir los casos más comunes).
+ * - Detergentes/jabones de limpieza: no se encontró una familia identificable
+ *   con confianza (las búsquedas por "detergente" solo daban reactivos de
+ *   laboratorio, no productos de aseo).
+ * - Herramientas de mano sueltas (destornillador, martillo): están
+ *   dispersas en varias familias sin un patrón claro — solo las máquinas
+ *   industriales (2310) forman una familia coherente.
+ */
 const UNIDADES_POR_FAMILIA: Record<string, string[]> = {
-  '5010': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'BULTO', 'PAQUETE', 'TONELADA','ARROBA'], // Cereales y granos
-  '5011': ['LITRO', 'MILILITRO', 'BOTELLA', 'GALÓN', 'LATA', 'KILOGRAMO'], // Aceites y grasas
-  '5012': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'LITRO', 'BOTELLA', 'PAQUETE', 'BULTO'], // Condimentos
-  '5013': ['LITRO', 'MILILITRO', 'BOTELLA', 'BOLSA', 'CAJA', 'KILOGRAMO', 'GRAMO', 'UNIDAD'], // Lácteos
-  '5014': ['UNIDAD', 'CARTÓN', 'PAQUETE', 'CAJA'], // Huevos
-  '5015': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'UNIDAD', 'PAQUETE','ARROBA'], // Carnes
-  '5017': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'UNIDAD'], // Pescado
-  '5018': ['KILOGRAMO', 'GRAMO', 'LIBRA'], // Mariscos
-  '5019': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'BULTO', 'PAQUETE','ARROBA'], // Legumbres
-  '5020': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'UNIDAD', 'ATADO', 'PAQUETE', 'BULTO','ARROBA'], // Verduras y tubérculos
-  '5021': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'UNIDAD', 'CAJA', 'PAQUETE','ARROBA'], // Frutas
-  '5022': ['GRAMO', 'KILOGRAMO', 'PAQUETE', 'FRASCO', 'UNIDAD','ARROBA'], // Especias y hierbas
-  '5028': ['GRAMO', 'KILOGRAMO', 'PAQUETE', 'CAJA', 'UNIDAD','ARROBA'], // Café y té
-  '5029': ['LITRO', 'BOTELLA', 'UNIDAD'], // Agua y bebidas
-  '5030': ['PAQUETE', 'UNIDAD', 'CAJA'], // Pastas y panadería
-  '5214': ['UNIDAD', 'JUEGO', 'SET', 'KIT', 'CAJA'], // Utensilios de cocina
-  '4810': ['UNIDAD'], // Equipos industriales de cocina
-  '2611': ['UNIDAD', 'PAQUETE', 'CAJA'], // Baterías y pilas
-  '4713': ['LITRO', 'MILILITRO', 'BOTELLA', 'GALÓN', 'LATA'], // Detergentes y desinfectantes
-  '4714': ['UNIDAD', 'PAQUETE', 'CAJA'], // Esponjas, trapeadores, escobas
-  '2411': ['ROLLO', 'PAQUETE', 'CAJA', 'METRO'], // Bolsas, film, papel aluminio
-  '3120': ['UNIDAD', 'JUEGO', 'SET', 'CAJA'], // Recipientes herméticos
-  '2412': ['PAQUETE', 'CAJA', 'UNIDAD'], // Desechables
-  '4320': ['UNIDAD'], // Pantallas, proyectores, periféricos de video/audio
-  '4321': ['UNIDAD', 'CAJA'], // Computadores y periféricos
-  '4319': ['UNIDAD', 'CAJA'], // Almacenamiento (discos, memorias)
-  '4322': ['UNIDAD', 'LICENCIA'], // Software y redes
-  '4323': ['ROLLO', 'METRO', 'UNIDAD'], // Cableado de red
+  '2310': ['UNIDAD', 'JUEGO', 'KIT'], // Máquinas-herramienta industriales (taladros, tornos, cortadoras...)
+  '3011': ['BULTO', 'KILOGRAMO', 'TONELADA'], // Concreto, cemento, morteros
+  '3210': ['UNIDAD', 'KIT', 'PAQUETE', 'CAJA'], // Componentes/tarjetas electrónicas (microcontroladores, circuitos)
+  '3120': ['ROLLO', 'UNIDAD', 'CAJA'], // Cintas adhesivas/aislantes — antes decía (mal) "Recipientes herméticos"
+  '2412': ['CAJA', 'PAQUETE', 'BULTO', 'UNIDAD'], // Cajas y material de embalaje — antes decía (mal) "Desechables"
+  '2411': ['UNIDAD', 'PAQUETE', 'CAJA', 'BULTO'], // Bolsas y contenedores flexibles (lona, papel, plástico)
+  '4713': ['UNIDAD', 'PAQUETE', 'CAJA', 'ROLLO'], // Trapos, esponjas, papel higiénico — antes decía (mal) "Detergentes"
+  '5215': ['PAQUETE', 'CAJA', 'BOLSA', 'UNIDAD'], // Desechables de un solo uso (vasos, platos, cubiertos, pitillos)
+  '5214': ['UNIDAD'], // Electrodomésticos (neveras, microondas, lavavajillas) — antes decía (mal) "Utensilios de cocina"
+  '4810': ['UNIDAD'], // Equipos de cocina industrial/comercial (baños maría, hornos, parrillas)
+  '2611': ['UNIDAD', 'PAR', 'PAQUETE', 'CAJA'], // Baterías y pilas — PAR: AA/AAA se venden de a pares
+  '4321': ['UNIDAD', 'CAJA'], // Computadores y periféricos (servidores, portátiles, mouse, teclado)
+  '4320': ['UNIDAD'], // Componentes internos de PC (tarjetas, discos, memorias) — antes decía (mal) "Pantallas/proyectores"
+  '4319': ['UNIDAD', 'CAJA'], // Teléfonos y telefonía — antes decía (mal) "Almacenamiento"
+  '4322': ['UNIDAD'], // Sistemas/equipos de telefonía (PBX, ACD) — antes decía (mal) "Software y redes"
+  '4323': ['UNIDAD', 'LICENCIA'], // Software — antes decía (mal) "Cableado de red"
+
+  // ── Alimentos (segmento 50) — familias verificadas contra el catálogo real ──
+  '5010': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'PAQUETE', 'BOLSA', 'FRASCO'], // Nueces y semillas
+  '5011': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'UNIDAD', 'PAQUETE', 'LATA','ARROBA'], // Carnes (res, cerdo, pollo, ternera)
+  // Pescados, mariscos y otros productos acuáticos: LATA — atún, sardinas y
+  // similares se venden mayormente enlatados (2026-09-17: gap real reportado,
+  // el motivo de esta reconstrucción — la familia correcta es 5012, no 5017
+  // como decía la versión anterior).
+  '5012': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'UNIDAD', 'LATA'],
+  '5013': ['LITRO', 'MILILITRO', 'BOTELLA', 'BOLSA', 'CAJA', 'CARTÓN', 'LATA', 'FRASCO', 'KILOGRAMO', 'GRAMO', 'LIBRA', 'UNIDAD'], // Huevos y lácteos (leche, queso, crema, suero)
+  '5015': ['LITRO', 'MILILITRO', 'BOTELLA', 'GALÓN', 'LATA', 'PAQUETE', 'KILOGRAMO'], // Aceites y grasas vegetales (incl. margarina)
+  '5016': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'PAQUETE', 'BOLSA', 'CAJA', 'FRASCO', 'SOBRE', 'UNIDAD'], // Azúcares, edulcorantes, chocolates, caramelos
+  '5017': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'LITRO', 'BOTELLA', 'FRASCO', 'PAQUETE', 'SOBRE', 'BULTO'], // Condimentos, especias, sal, vinagres, salsas
+  '5018': ['PAQUETE', 'BOLSA', 'UNIDAD', 'CAJA', 'KILOGRAMO', 'LIBRA'], // Panadería y horneados (pan, galletas, levadura, masas)
+  '5019': ['PAQUETE', 'BOLSA', 'LATA', 'UNIDAD', 'CAJA', 'KILOGRAMO', 'GRAMO'], // Sopas, guisos y pasabocas preparados
+  '5020': ['GRAMO', 'KILOGRAMO', 'PAQUETE', 'CAJA', 'LATA', 'FRASCO', 'SOBRE', 'UNIDAD','ARROBA'], // Café y té
+  '5022': ['KILOGRAMO', 'GRAMO', 'LIBRA', 'BULTO', 'PAQUETE', 'BOLSA', 'LATA','ARROBA'], // Legumbres, cereales y harinas
 };
 
 // Unidades de peso válidas para "peso por bulto" — subconjunto de
-// OPCIONES_UNIDAD_MEDIDA, mismas 3 que ofrece SGM (unidadesPeso).
+// TODAS_LAS_UNIDADES, mismas 3 que ofrece SGM (unidadesPeso).
 const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map((u) => ({ label: u, value: u }));
 
 /**
@@ -302,11 +333,21 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
     return this.sitios.map((s) => ({ label: s.nombre, value: s.id_sitio }));
   }
 
-  /** Unidades ofrecidas según la familia UNSPSC elegida (primeros 4 dígitos) — ver UNIDADES_POR_FAMILIA. */
+  /**
+   * Unidades ofrecidas según la familia UNSPSC elegida (primeros 4 dígitos)
+   * — ver UNIDADES_POR_FAMILIA. Si el producto ya tiene guardada una unidad
+   * que la lista de su familia no contempla (dato viejo, o la familia
+   * todavía no cubre ese caso), se antepone igual: <app-ss> en modo local
+   * (sin `loadOptions`) no puede mostrar un valor que no está entre sus
+   * opciones — sin esto, el selector se veía VACÍO al editar ese producto,
+   * aunque el dato real siguiera ahí (bug real, 2026-09-17).
+   */
   opcionesUnidadMedida(): OpcionSelect[] {
     const familia = (this.form['codigo_unspsc'] ?? '').slice(0, 4);
-    const unidades = UNIDADES_POR_FAMILIA[familia];
-    return unidades ? unidades.map((u) => ({ label: u, value: u })) : OPCIONES_UNIDAD_MEDIDA;
+    const unidades = UNIDADES_POR_FAMILIA[familia] ?? TODAS_LAS_UNIDADES;
+    const actual: string | undefined = this.form['unidad_medida'];
+    const lista = actual && !unidades.includes(actual) ? [actual, ...unidades] : unidades;
+    return lista.map((u) => ({ label: u, value: u }));
   }
 
   /** Estado del auto-fill de SKU al crear — ver docblock de la clase. */
