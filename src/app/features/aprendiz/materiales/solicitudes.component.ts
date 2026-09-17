@@ -186,7 +186,7 @@ interface LineaForm {
             <tbody class="divide-y divide-gray-100">
               @for (s of solicitudesPaginadas; track s.id_solicitud) {
                 <tr class="hover:bg-gray-50/80 transition-colors">
-                  <td class="px-4 py-3 text-gray-700">{{ s.producto?.nombre ?? '—' }}</td>
+                  <td class="px-4 py-3 text-gray-700">{{ productosResumen(s) }}</td>
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ s.cantidad }} unidad(es)</td>
                   @if (hayAjenas()) { <td class="px-4 py-3 text-gray-600 text-xs">{{ s.usuario_nombre || '—' }}</td> }
                   <td class="px-4 py-3"><app-status-badge [value]="s.estado" /></td>
@@ -486,12 +486,25 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
     this.estadoDropdownOpen.set(false);
   }
 
+  /**
+   * Texto para la columna "Producto" — todas las líneas si es multi-línea
+   * (2026-09-17: antes solo mostraba `s.producto`, el legacy de una sola
+   * línea, aunque la solicitud tuviera 2 o 3), o el legacy de una sola línea
+   * para solicitudes viejas sin `lineas`.
+   */
+  productosResumen(s: Solicitud): string {
+    if (s.lineas && s.lineas.length > 0) {
+      return s.lineas.map((l) => `${l.producto_nombre ?? l.lote_codigo ?? 'Material'} (×${l.cantidad})`).join(', ');
+    }
+    return s.producto?.nombre ?? '—';
+  }
+
   get solicitudesFiltradas(): Solicitud[] {
     const q = this.filtroTexto.trim().toLowerCase();
     return this.solicitudes.filter((s) => {
       if (this.filtroEstado && s.estado !== this.filtroEstado) return false;
       if (!q) return true;
-      return (s.producto?.nombre?.toLowerCase().includes(q) ?? false) ||
+      return this.productosResumen(s).toLowerCase().includes(q) ||
         (s.usuario_nombre?.toLowerCase().includes(q) ?? false);
     });
   }

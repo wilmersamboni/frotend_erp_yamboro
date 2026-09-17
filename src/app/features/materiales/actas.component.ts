@@ -52,7 +52,7 @@ import { Acta, MaterialesApiService } from '../../core/services/materiales/mater
         [rows]="filas"
         [searchable]="true"
         [searchPlaceholder]="'Buscar por solicitud…'"
-        [columns]="['fecha', 'tipo', 'referencia', 'estado_solicitud']"
+        [columns]="['fecha', 'tipo', 'referencia', 'solicitante', 'estado_solicitud']"
         [columnLabels]="columnLabels"
         [statusColumn]="'estado_solicitud'"
         [loading]="loading"
@@ -81,6 +81,7 @@ export class MaterialesActasComponent implements OnInit {
   columnLabels: Record<string, string> = {
     tipo: 'Tipo',
     referencia: 'Solicitud',
+    solicitante: 'Solicitante',
     estado_solicitud: 'Estado',
   };
 
@@ -99,6 +100,7 @@ export class MaterialesActasComponent implements OnInit {
         fecha: new Date(a.fecha).toLocaleString('es-CO'),
         tipo: a.tipo === 'DEVOLUCION' ? 'Devolución' : 'Entrega',
         referencia: `#${a.id_solicitud.slice(0, 8)}`,
+        solicitante: a.solicitud?.usuario_nombre ?? '—',
         estado_solicitud: a.solicitud?.estado ?? '—',
       }))
       .sort((a, b) => b.fecha.localeCompare(a.fecha));
