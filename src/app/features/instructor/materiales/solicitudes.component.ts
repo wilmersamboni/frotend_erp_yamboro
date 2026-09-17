@@ -13,6 +13,7 @@ import { EntregarSolicitudModalComponent } from '../../../shared/components/entr
 import { TuiDayCache } from '../../../shared/utils/tui-day.util';
 import type { TuiDay } from '@taiga-ui/cdk';
 import { MaterialesApiService, Lote, Producto, Sitio, Solicitud, EstadoSolicitud, ResumenExistencias, SeleccionLineaEntregaInput } from '../../../core/services/materiales/materiales-api.service';
+import { ApiService, CursoLiderado } from '../../../core/services/api.service';
 
 /** Línea del modal "Nueva solicitud" — `p:<id>` producto devolutivo, `l:<id>` lote consumible. */
 interface LineaForm {
@@ -264,6 +265,39 @@ interface LineaForm {
           </div>
 
           <div class="space-y-4">
+            @if (fichasLideradas.length > 0) {
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Destino</label>
+                <div class="flex gap-2">
+                  <button type="button" (click)="tipoDestino = 'personal'"
+                    class="flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors"
+                    [class.text-white]="tipoDestino === 'personal'"
+                    [class.text-gray-600]="tipoDestino !== 'personal'"
+                    [class.border-gray-200]="tipoDestino !== 'personal'"
+                    [style.backgroundColor]="tipoDestino === 'personal' ? '#39A900' : '#fff'"
+                    [style.borderColor]="tipoDestino === 'personal' ? '#39A900' : null">
+                    Para mí
+                  </button>
+                  <button type="button" (click)="tipoDestino = 'ficha'"
+                    class="flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors"
+                    [class.text-white]="tipoDestino === 'ficha'"
+                    [class.text-gray-600]="tipoDestino !== 'ficha'"
+                    [class.border-gray-200]="tipoDestino !== 'ficha'"
+                    [style.backgroundColor]="tipoDestino === 'ficha' ? '#39A900' : '#fff'"
+                    [style.borderColor]="tipoDestino === 'ficha' ? '#39A900' : null">
+                    Para una ficha (asignación)
+                  </button>
+                </div>
+                @if (tipoDestino === 'ficha') {
+                  <div class="mt-2">
+                    <app-ss [options]="opcionesFicha" placeholder="— Selecciona la ficha —"
+                      [(ngModel)]="idCursoSeleccionado"></app-ss>
+                    <p class="text-[11px] text-gray-400 mt-1">Al entregarse, el material queda asignado a esta ficha (no a vos) — se devuelve desde Asignaciones, no desde Devoluciones.</p>
+                  </div>
+                }
+              </div>
+            }
+
             @if (pasoBodega) {
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Bodega</label>
@@ -362,6 +396,7 @@ interface LineaForm {
           </div>
           <dl class="space-y-2.5 text-sm">
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Estado</dt><dd class="text-gray-800 text-right">{{ detalle.estado }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-gray-500">Destino</dt><dd class="text-gray-800 text-right">{{ detalle.id_curso ? 'Asignación a ficha' : 'Personal' }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Solicitó</dt><dd class="text-gray-800 text-right">{{ detalle.usuario_nombre || '—' }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Bodega (de dónde sale)</dt><dd class="text-gray-800 text-right">{{ detalle.bodega_nombre || '—' }}</dd></div>
             <div>
@@ -545,6 +580,19 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
   /** Stock de productos devolutivos elegidos en el modal, cacheado por id. */
   stockProd: Record<string, { disponibles: number; total: number }> = {};
 
+  /** Fichas de las que el instructor logueado es líder (`GET /cursos/lider/:id`)
+   *  — solo si lidera al menos una se ofrece "Para una ficha" en el modal. */
+  fichasLideradas: CursoLiderado[] = [];
+  tipoDestino: 'personal' | 'ficha' = 'personal';
+  idCursoSeleccionado: string | null = null;
+
+  get opcionesFicha(): { value: string; label: string }[] {
+    return this.fichasLideradas.map((f) => ({
+      value: f.idCurso,
+      label: `${f.codigo}${f.programa?.nombre ? ' — ' + f.programa.nombre : ''}`,
+    }));
+  }
+
   /** "Ver detalles" (Fase 9) — trae `lineas[]` vía GET /:id. */
   detalleAbierto = false;
   detalle: Solicitud | null = null;
@@ -578,6 +626,7 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
 
   constructor(
     private api: MaterialesApiService,
+    private erpApi: ApiService,
     private toast: ToastService,
     private permisos: PermisosService,
     private auth: AuthService,
@@ -769,6 +818,7 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
     const activas = this.lineas.filter((l) => l.ref && Number(l.cantidad) >= 1);
     if (activas.length === 0) return false;
     for (const l of activas) if (Number(l.cantidad) > this.disponibleDe(l)) return false;
+    if (this.tipoDestino === 'ficha' && !this.idCursoSeleccionado) return false;
     return !this.requiereFechaDevolucion() || !!this.fechaDevolucion;
   }
 
@@ -786,16 +836,19 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
       const verSitios =
         this.auth.tieneServicio('materiales.sitios.ver') ||
         this.auth.tieneServicio('materiales.traslados.crear');
-      const [solicitudes, productos, lotes, sitios] = await Promise.all([
+      const personaId = this.auth.user()?.personaId;
+      const [solicitudes, productos, lotes, sitios, fichas] = await Promise.all([
         this.api.listarSolicitudes(),
         this.api.listarProductos().catch(() => [] as Producto[]),
         this.api.listarLotes().catch(() => [] as Lote[]),
         verSitios ? this.api.listarSitios().catch(() => [] as Sitio[]) : Promise.resolve([] as Sitio[]),
+        personaId ? this.erpApi.obtenerCursosLiderados(personaId).catch(() => [] as CursoLiderado[]) : Promise.resolve([] as CursoLiderado[]),
       ]);
       this.solicitudes = solicitudes;
       this.productos = productos;
       this.lotes = lotes;
       this.sitios = sitios;
+      this.fichasLideradas = fichas;
       await this.cargarStocks();
     } catch (e) {
       this.toast.httpError(e, 'No se pudieron cargar las solicitudes.');
@@ -884,6 +937,8 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
     this.observacion = '';
     this.fechaDevolucion = '';
     this.stockProd = {};
+    this.tipoDestino = 'personal';
+    this.idCursoSeleccionado = null;
     this.error = null;
     this.modalOpen = true;
   }
@@ -910,6 +965,8 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
     if (!this.puedeGuardar()) {
       this.error = this.observacion.trim().length < 10
         ? 'La observación es obligatoria (mín. 10 caracteres): indicá para qué y dónde se usará el material.'
+        : this.tipoDestino === 'ficha' && !this.idCursoSeleccionado
+        ? 'Seleccioná a qué ficha se asigna el material.'
         : this.requiereFechaDevolucion() && !this.fechaDevolucion
         ? 'Alguna línea es devolutiva: indicá la fecha de devolución.'
         : 'Revisá las líneas: cada una necesita producto/lote y una cantidad dentro del stock.';
@@ -931,6 +988,7 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
         lineas,
         observacion: this.observacion || undefined,
         fecha_devolucion: this.fechaDevolucion || undefined,
+        id_curso: this.tipoDestino === 'ficha' ? this.idCursoSeleccionado! : undefined,
       });
       this.toast.ok('Solicitud creada');
       this.modalOpen = false;

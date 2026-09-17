@@ -449,7 +449,22 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
 
   /** Ver docblock de la versión admin. */
   get solicitudesEntregadas(): Solicitud[] {
-    return this.solicitudes.filter((s) => s.estado === 'ENTREGADA');
+    return this.solicitudes.filter((s) => s.estado === 'ENTREGADA' && !this.generoAsignacion(s));
+  }
+
+  /**
+   * Una solicitud "para ficha" (instructor líder, `id_curso` seteado) con
+   * alguna línea devolutiva genera su propia Asignación al entregarse (ver
+   * `SolicitudesService.entregarSolicitud`, backend) — esa parte se devuelve
+   * anulando la Asignación desde Asignaciones, no desde acá (2026-09-17:
+   * dejar las dos rutas abiertas permitiría devolverla acá y dejar la
+   * Asignación ACTIVA con ítems que ya volvieron).
+   */
+  private generoAsignacion(s: Solicitud): boolean {
+    if (!s.id_curso) return false;
+    return s.lineas && s.lineas.length > 0
+      ? s.lineas.some((l) => !!l.id_producto)
+      : !!s.id_producto;
   }
 
   /**
