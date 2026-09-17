@@ -250,104 +250,102 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
             </div>
 
             @if (idSolicitud) {
-              @if (cargandoPendientes) {
-                <p class="text-gray-400 text-xs">Cargando unidades…</p>
-              } @else if (filas.length === 0) {
-                <p class="rounded-lg border border-orange-200 bg-orange-50 text-orange-700 text-xs px-3 py-2">
-                  No quedan unidades pendientes de devolución para este préstamo.
-                </p>
+              @if (cargandoPendientes || cargandoConsumibles) {
+                <p class="text-gray-400 text-xs">Cargando pendientes…</p>
               } @else {
-                <div>
-                  <label class="block text-xs font-medium text-gray-600 mb-1">Estado de las unidades que volvieron</label>
-                  <select [(ngModel)]="estadoGeneral" (ngModelChange)="aplicarATodas()"
-                    class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
-                    @for (op of estadosDevolucion; track op.value) {
-                      <option [ngValue]="op.value">{{ op.label }} — {{ op.desc }}</option>
-                    }
-                  </select>
-                  <p class="text-[11px] text-gray-400 mt-1">
-                    Destildá las unidades que <b>todavía no volvieron</b>: el préstamo queda abierto hasta registrarlas.
-                    Cambiá el estado fila por fila solo si alguna vuelve distinto.
-                  </p>
-                </div>
-
-                <div class="rounded-lg border border-gray-100 divide-y divide-gray-50 max-h-56 overflow-y-auto">
-                  @for (f of filas; track f.id_item) {
-                    <div class="flex items-center gap-3 px-3 py-2" [class.opacity-40]="!f.volvio">
-                      <input type="checkbox" [(ngModel)]="f.volvio"
-                        class="w-4 h-4 accent-[#39A900] flex-none" title="¿Volvió esta unidad?" />
-                      <div class="flex-1 min-w-0">
-                        <p class="text-xs font-semibold text-gray-800 truncate">{{ f.producto_nombre || 'Unidad' }}</p>
-                        <p class="font-mono text-[11px] text-gray-400 truncate">
-                          {{ f.placa_sena || f.codigo_sku || '' }}{{ f.placa_sena && f.codigo_sku ? ' · ' + f.codigo_sku : '' }}
-                        </p>
-                      </div>
-                      <select [(ngModel)]="f.estadoDev" [disabled]="!f.volvio"
-                        class="px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] disabled:opacity-50"
-                        [class.border-red-300]="f.estadoDev === 'DAÑADO' || f.estadoDev === 'PERDIDO'"
-                        [class.border-amber-300]="f.estadoDev === 'REGULAR'">
-                        @for (op of estadosDevolucion; track op.value) {
-                          <option [ngValue]="op.value">{{ op.label }}</option>
-                        }
-                      </select>
-                    </div>
-                  }
-                </div>
-                @if (marcadas.length && marcadas.length < filas.length) {
-                  <p class="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
-                    Devolución parcial: {{ marcadas.length }} de {{ filas.length }}. El préstamo sigue ENTREGADO hasta que vuelvan todas.
+                @if (filas.length === 0 && lineasConsumibles.length === 0) {
+                  <p class="rounded-lg border border-orange-200 bg-orange-50 text-orange-700 text-xs px-3 py-2">
+                    No quedan unidades ni sobrantes pendientes de devolución para este préstamo.
                   </p>
                 }
 
-                <div>
-                  <label class="block text-xs font-medium text-gray-600 mb-1">Observación general (opcional)</label>
-                  <input type="text" [(ngModel)]="observacion"
-                    placeholder="Estado físico, daños, detalles del chequeo..."
-                    class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
-                </div>
-              }
+                @if (filas.length > 0) {
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Estado de las unidades que volvieron</label>
+                    <select [(ngModel)]="estadoGeneral" (ngModelChange)="aplicarATodas()"
+                      class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
+                      @for (op of estadosDevolucion; track op.value) {
+                        <option [ngValue]="op.value">{{ op.label }} — {{ op.desc }}</option>
+                      }
+                    </select>
+                    <p class="text-[11px] text-gray-400 mt-1">
+                      Destildá las unidades que <b>todavía no volvieron</b>: el préstamo queda abierto hasta registrarlas.
+                      Cambiá el estado fila por fila solo si alguna vuelve distinto.
+                    </p>
+                  </div>
 
-              <!-- Sobrante de consumible/perecedero (2026-09-11): un consumible
-                   mayormente NO vuelve, pero a veces sí un sobrante parcial (ej.
-                   de 250kg de abono prestados, 1-2kg). Independiente de la
-                   grilla por unidad de arriba: no cierra ni exige nada de la
-                   solicitud, cada línea se registra por separado. -->
-              @if (cargandoConsumibles) {
-                <p class="text-gray-400 text-xs">Revisando sobrantes…</p>
-              } @else if (lineasConsumibles.length > 0) {
-                <div>
-                  <label class="block text-xs font-medium text-gray-600 mb-1">Sobrante a devolver</label>
-                  <p class="text-[11px] text-gray-400 mb-2">
-                    Un consumible/perecedero normalmente NO vuelve. Si sobró algo sin usar, registralo acá.
-                  </p>
-                  <div class="space-y-2">
-                    @for (l of lineasConsumibles; track l.id_lote) {
-                      <div class="rounded-lg border border-gray-100 p-2.5">
-                        <div class="flex items-center justify-between mb-1.5 gap-2">
-                          <p class="text-xs font-semibold text-gray-800 truncate">
-                            {{ l.producto_nombre || 'Lote' }}{{ l.codigo_lote ? ' · ' + l.codigo_lote : '' }}
+                  <div class="rounded-lg border border-gray-100 divide-y divide-gray-50 max-h-56 overflow-y-auto">
+                    @for (f of filas; track f.id_item) {
+                      <div class="flex items-center gap-3 px-3 py-2" [class.opacity-40]="!f.volvio">
+                        <input type="checkbox" [(ngModel)]="f.volvio"
+                          class="w-4 h-4 accent-[#39A900] flex-none" title="¿Volvió esta unidad?" />
+                        <div class="flex-1 min-w-0">
+                          <p class="text-xs font-semibold text-gray-800 truncate">{{ f.producto_nombre || 'Unidad' }}</p>
+                          <p class="font-mono text-[11px] text-gray-400 truncate">
+                            {{ f.placa_sena || f.codigo_sku || '' }}{{ f.placa_sena && f.codigo_sku ? ' · ' + f.codigo_sku : '' }}
                           </p>
-                          <span class="text-[11px] text-gray-400 flex-none">{{ l.cantidad_pendiente }} {{ l.unidad_medida || '' }} pendiente(s)</span>
                         </div>
-                        <div class="flex gap-2">
-                          <input type="number" min="1" [max]="l.cantidad_pendiente"
-                            [(ngModel)]="formConsumible[l.id_lote].cantidad"
-                            placeholder="Cantidad"
-                            class="w-24 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
-                          <input type="text" [(ngModel)]="formConsumible[l.id_lote].observacion"
-                            placeholder="Observación (opcional)"
-                            class="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
-                          <button type="button" (click)="registrarSobrante(l)"
-                            [disabled]="guardandoConsumible[l.id_lote] || !formConsumible[l.id_lote].cantidad"
-                            class="px-3 py-1.5 text-white text-xs font-medium rounded-lg disabled:opacity-60 transition-colors flex-none"
-                            style="background-color: #39A900">
-                            {{ guardandoConsumible[l.id_lote] ? 'Guardando…' : 'Registrar' }}
-                          </button>
-                        </div>
+                        <select [(ngModel)]="f.estadoDev" [disabled]="!f.volvio"
+                          class="px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] disabled:opacity-50"
+                          [class.border-red-300]="f.estadoDev === 'DAÑADO' || f.estadoDev === 'PERDIDO'"
+                          [class.border-amber-300]="f.estadoDev === 'REGULAR'">
+                          @for (op of estadosDevolucion; track op.value) {
+                            <option [ngValue]="op.value">{{ op.label }}</option>
+                          }
+                        </select>
                       </div>
                     }
                   </div>
-                </div>
+                  @if (marcadas.length && marcadas.length < filas.length) {
+                    <p class="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+                      Devolución parcial: {{ marcadas.length }} de {{ filas.length }}. El préstamo sigue ENTREGADO hasta que vuelvan todas.
+                    </p>
+                  }
+
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Observación general (opcional)</label>
+                    <input type="text" [(ngModel)]="observacion"
+                      placeholder="Estado físico, daños, detalles del chequeo..."
+                      class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                  </div>
+                }
+
+                <!-- Sobrante de consumible/perecedero (2026-09-11): un consumible
+                     mayormente NO vuelve, pero a veces sí un sobrante parcial (ej.
+                     de 250kg de abono prestados, 1-2kg). Independiente de la
+                     grilla por unidad de arriba (puede haber una, la otra, o las
+                     dos) — ambas se envían juntas al hacer clic en "Registrar
+                     devolución" (2026-09-17: antes cada línea de sobrante tenía
+                     su propio botón "Registrar" separado del de la grilla). -->
+                @if (lineasConsumibles.length > 0) {
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Sobrante a devolver</label>
+                    <p class="text-[11px] text-gray-400 mb-2">
+                      Un consumible/perecedero normalmente NO vuelve. Si sobró algo sin usar, cargalo acá.
+                    </p>
+                    <div class="space-y-2">
+                      @for (l of lineasConsumibles; track l.id_lote) {
+                        <div class="rounded-lg border border-gray-100 p-2.5">
+                          <div class="flex items-center justify-between mb-1.5 gap-2">
+                            <p class="text-xs font-semibold text-gray-800 truncate">
+                              {{ l.producto_nombre || 'Lote' }}{{ l.codigo_lote ? ' · ' + l.codigo_lote : '' }}
+                            </p>
+                            <span class="text-[11px] text-gray-400 flex-none">{{ l.cantidad_pendiente }} {{ l.unidad_medida || '' }} pendiente(s)</span>
+                          </div>
+                          <div class="flex gap-2">
+                            <input type="number" min="1" [max]="l.cantidad_pendiente"
+                              [(ngModel)]="formConsumible[l.id_lote].cantidad"
+                              placeholder="Cantidad"
+                              class="w-24 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                            <input type="text" [(ngModel)]="formConsumible[l.id_lote].observacion"
+                              placeholder="Observación (opcional)"
+                              class="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
               }
             }
           </div>
@@ -358,7 +356,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
 
           <div class="flex justify-end gap-2 mt-6">
             <button (click)="cerrarCrear()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
-            <button (click)="guardarDevolucion()" [disabled]="saving || !idSolicitud || filas.length === 0"
+            <button (click)="guardarDevolucion()" [disabled]="saving || !idSolicitud || (marcadas.length === 0 && sobrantesAEnviar.length === 0)"
               class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
               style="background-color: #39A900">
               {{ saving ? 'Guardando...' : 'Registrar devolución' }}
@@ -432,7 +430,6 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
   lineasConsumibles: LineaConsumiblePendiente[] = [];
   cargandoConsumibles = false;
   formConsumible: Record<string, { cantidad: number | null; observacion: string }> = {};
-  guardandoConsumible: Record<string, boolean> = {};
 
   constructor(
     private api: MaterialesApiService,
@@ -455,10 +452,22 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
     return this.solicitudes.filter((s) => s.estado === 'ENTREGADA');
   }
 
+  /**
+   * Texto de un préstamo para el selector — todas las líneas si es
+   * multi-línea (2026-09-17: antes solo mostraba `s.producto`, el legacy de
+   * una sola línea, aunque el préstamo tuviera 2 o 3 productos distintos).
+   */
+  productosResumen(s: Solicitud): string {
+    if (s.lineas && s.lineas.length > 0) {
+      return s.lineas.map((l) => `${l.producto_nombre ?? l.lote_codigo ?? 'Material'} (×${l.cantidad})`).join(', ');
+    }
+    return `${s.producto?.nombre ?? 'Material'} — Cant. ${s.cantidad}`;
+  }
+
   opcionesSolicitud(): { value: string; label: string }[] {
     return this.solicitudesEntregadas.map((s) => ({
       value: s.id_solicitud,
-      label: `${s.producto?.nombre ?? 'Material'} — Cant. ${s.cantidad} — ${new Date(s.fecha).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}`,
+      label: `${this.productosResumen(s)} — ${new Date(s.fecha).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}`,
     }));
   }
 
@@ -533,7 +542,6 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
     this.observacion = '';
     this.lineasConsumibles = [];
     this.formConsumible = {};
-    this.guardandoConsumible = {};
     this.error = null;
     this.crearOpen = true;
   }
@@ -567,37 +575,6 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
     }
   }
 
-  /** Registra el sobrante de UNA línea de lote — independiente del resto del
-   *  formulario: no cierra ni exige nada de la solicitud. */
-  async registrarSobrante(linea: LineaConsumiblePendiente): Promise<void> {
-    if (!this.idSolicitud) return;
-    const f = this.formConsumible[linea.id_lote];
-    const cantidad = Number(f?.cantidad) || 0;
-    if (cantidad <= 0) return;
-    if (cantidad > linea.cantidad_pendiente) {
-      this.toast.warn('Cantidad inválida', `Como máximo podés devolver ${linea.cantidad_pendiente} ${linea.unidad_medida ?? ''}.`);
-      return;
-    }
-    this.guardandoConsumible[linea.id_lote] = true;
-    try {
-      const dto: CreateDevolucionConsumibleDto = {
-        id_solicitud: this.idSolicitud,
-        id_lote: linea.id_lote,
-        cantidad,
-        observacion: f?.observacion?.trim() || undefined,
-      };
-      await this.api.registrarDevolucionConsumible(dto);
-      this.toast.ok(`Se registraron ${cantidad} ${linea.unidad_medida ?? ''} devueltos de "${linea.producto_nombre ?? 'material'}"`);
-      delete this.formConsumible[linea.id_lote];
-      await this.onSolicitudChange();
-      await this.cargar();
-    } catch (e: any) {
-      this.toast.httpError(e, 'No se pudo registrar el sobrante.');
-    } finally {
-      this.guardandoConsumible[linea.id_lote] = false;
-    }
-  }
-
   aplicarATodas(): void {
     for (const f of this.filas) if (f.volvio) f.estadoDev = this.estadoGeneral;
   }
@@ -607,35 +584,77 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
     return this.filas.filter((f) => f.volvio);
   }
 
+  /**
+   * Líneas de sobrante con una cantidad cargada en el formulario — listas
+   * para enviarse junto con la devolución de ítems al hacer un solo submit
+   * (2026-09-17: antes cada línea se registraba con su propio botón,
+   * separado del de la grilla de ítems).
+   */
+  get sobrantesAEnviar(): { linea: LineaConsumiblePendiente; cantidad: number; observacion: string | undefined }[] {
+    const resultado: { linea: LineaConsumiblePendiente; cantidad: number; observacion: string | undefined }[] = [];
+    for (const l of this.lineasConsumibles) {
+      const f = this.formConsumible[l.id_lote];
+      const cantidad = Number(f?.cantidad) || 0;
+      if (cantidad > 0) resultado.push({ linea: l, cantidad, observacion: f?.observacion?.trim() || undefined });
+    }
+    return resultado;
+  }
+
+  /**
+   * Registra en un solo click lo que haya para registrar: ítems devolutivos
+   * marcados como devueltos (si hay), sobrante de consumible/perecedero con
+   * cantidad cargada (si hay), o ambos a la vez — una solicitud puede tener
+   * cualquiera de las dos combinaciones (2026-09-17, unificación de los dos
+   * botones que existían antes).
+   */
   async guardarDevolucion(): Promise<void> {
-    if (!this.idSolicitud || this.filas.length === 0) return;
+    if (!this.idSolicitud) return;
     const marcadas = this.marcadas;
-    if (marcadas.length === 0) {
-      this.error = 'Marcá al menos una unidad que haya vuelto.';
+    const sobrantes = this.sobrantesAEnviar;
+    if (marcadas.length === 0 && sobrantes.length === 0) {
+      this.error = 'Marcá al menos una unidad que haya vuelto o cargá una cantidad de sobrante.';
       return;
     }
-    const parcial = marcadas.length < this.filas.length;
+    for (const s of sobrantes) {
+      if (s.cantidad > s.linea.cantidad_pendiente) {
+        this.error = `Como máximo podés devolver ${s.linea.cantidad_pendiente} ${s.linea.unidad_medida ?? ''} de "${s.linea.producto_nombre ?? 'material'}".`;
+        return;
+      }
+    }
     this.saving = true;
     this.error = null;
+    let parcial = false;
     try {
-      const dto: CreateDevolucionDto = parcial
-        ? {
-            id_solicitud: this.idSolicitud,
-            observacion: this.observacion.trim() || undefined,
-            items: marcadas.map((f) => ({ id_item: f.id_item, estado: f.estadoDev })),
-          }
-        : {
-            id_solicitud: this.idSolicitud,
-            estado_general: this.estadoGeneral,
-            observacion: this.observacion.trim() || undefined,
-            items: (() => {
-              const exc = marcadas
-                .filter((f) => f.estadoDev !== this.estadoGeneral)
-                .map((f) => ({ id_item: f.id_item, estado: f.estadoDev }));
-              return exc.length > 0 ? exc : undefined;
-            })(),
-          };
-      await this.api.crearDevolucion(dto);
+      if (marcadas.length > 0) {
+        parcial = marcadas.length < this.filas.length;
+        const dto: CreateDevolucionDto = parcial
+          ? {
+              id_solicitud: this.idSolicitud,
+              observacion: this.observacion.trim() || undefined,
+              items: marcadas.map((f) => ({ id_item: f.id_item, estado: f.estadoDev })),
+            }
+          : {
+              id_solicitud: this.idSolicitud,
+              estado_general: this.estadoGeneral,
+              observacion: this.observacion.trim() || undefined,
+              items: (() => {
+                const exc = marcadas
+                  .filter((f) => f.estadoDev !== this.estadoGeneral)
+                  .map((f) => ({ id_item: f.id_item, estado: f.estadoDev }));
+                return exc.length > 0 ? exc : undefined;
+              })(),
+            };
+        await this.api.crearDevolucion(dto);
+      }
+      for (const s of sobrantes) {
+        const dto: CreateDevolucionConsumibleDto = {
+          id_solicitud: this.idSolicitud,
+          id_lote: s.linea.id_lote,
+          cantidad: s.cantidad,
+          observacion: s.observacion,
+        };
+        await this.api.registrarDevolucionConsumible(dto);
+      }
       this.toast.ok(
         parcial
           ? `Devolución parcial registrada — quedan ${this.filas.length - marcadas.length} unidad(es)`
