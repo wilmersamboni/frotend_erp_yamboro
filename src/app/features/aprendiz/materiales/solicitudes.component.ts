@@ -432,11 +432,13 @@ interface LineaForm {
             "<span class="font-medium text-gray-700">{{ aprobarRef.producto?.nombre ?? 'este material' }}</span>"
             × {{ aprobarRef.cantidad }}.
           </p>
-          <label class="block text-xs font-medium text-gray-600 mb-1">Fecha de devolución</label>
-          <app-date-input placeholder="DD/MM/AAAA" [min]="hoyTuiDay"
-            [ngModel]="cacheFechaDevAprobar.get(fechaDevAprobar)"
-            (ngModelChange)="fechaDevAprobar = tuiDayToIso($event)"></app-date-input>
-          <p class="text-[11px] text-gray-400 mt-1">Podés ajustar la fecha que puso el solicitante. Se le avisa si cambia.</p>
+          @if (aprobarRequiereFecha(aprobarRef)) {
+            <label class="block text-xs font-medium text-gray-600 mb-1">Fecha de devolución</label>
+            <app-date-input placeholder="DD/MM/AAAA" [min]="hoyTuiDay"
+              [ngModel]="cacheFechaDevAprobar.get(fechaDevAprobar)"
+              (ngModelChange)="fechaDevAprobar = tuiDayToIso($event)"></app-date-input>
+            <p class="text-[11px] text-gray-400 mt-1">Podés ajustar la fecha que puso el solicitante. Se le avisa si cambia.</p>
+          }
           <div class="flex justify-end gap-2 mt-4">
             <button (click)="cerrarAprobar()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
             <button (click)="confirmarAprobar()" [disabled]="aprobando"
@@ -724,6 +726,27 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
       const tipo = p?.tipo_material;
       return !!tipo && tipo !== 'CONSUMO' && tipo !== 'PERECEDERO';
     });
+  }
+
+  /**
+   * Mismo criterio que `requiereFechaDevolucion()`, pero sobre una
+   * `Solicitud` ya creada (no el formulario de "crear") — se usa en el modal
+   * de "Aprobar" para no pedir fecha de devolución si la solicitud es
+   * 100% consumible/perecedero. Un consumible normalmente NO vuelve — solo
+   * puede volver un sobrante parcial, que se registra aparte en
+   * Devoluciones, no como un préstamo con fecha de devolución (2026-09-17).
+   * Multi-línea: cada línea es XOR `id_producto` (devolutivo) o `id_lote`
+   * (consumible/perecedero vía lote) — basta con que UNA sea `id_producto`.
+   * Legacy de una sola línea: cae al `tipo_material` del `producto` de la
+   * solicitud, igual que el formulario de crear.
+   */
+  aprobarRequiereFecha(s: Solicitud | null): boolean {
+    if (!s) return false;
+    if (s.lineas && s.lineas.length > 0) {
+      return s.lineas.some((l) => !!l.id_producto);
+    }
+    const tipo = s.producto?.tipo_material;
+    return !!tipo && tipo !== 'CONSUMO' && tipo !== 'PERECEDERO';
   }
 
   puedeGuardar(): boolean {
