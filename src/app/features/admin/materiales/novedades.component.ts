@@ -180,7 +180,6 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
       [saving]="saving"
       [error]="error"
       (closed)="cerrarModal()"
-      (fieldChange)="onCampoModal($event)"
       (saved)="guardar($event)" />
 
     @if (resolverAbierto && resolverNovedad) {
@@ -263,9 +262,12 @@ export class MaterialesNovedadesComponent implements OnInit {
 
   placeholders: Record<string, string> = { descripcion: 'Ej: La carcasa llegó rajada / falta 1 unidad respecto al conteo' };
 
-  /** El label del ítem cambia según el tipo elegido (obligatorio vs opcional). */
+  /** El label del ítem cambia según el tipo elegido (obligatorio vs opcional); descripción es obligatoria siempre. */
   get columnLabels(): Record<string, string> {
-    return { id_item: this.itemRequerido ? 'Placa SENA *' : 'Placa SENA' };
+    return {
+      descripcion: 'Descripción *',
+      id_item: this.itemRequerido ? 'Placa SENA *' : 'Placa SENA',
+    };
   }
 
   /** ¿El tipo actualmente elegido en el form exige indicar el ítem? */
@@ -273,14 +275,7 @@ export class MaterialesNovedadesComponent implements OnInit {
     return TIPOS_REQUIEREN_ITEM.includes(this.form['tipo']);
   }
 
-  /** Una novedad "Otro" describe un hecho general y no se enlaza a un ítem. */
-  get esNovedadGeneral(): boolean {
-    return this.form['tipo'] === 'OTRO';
-  }
-
-  get camposModal(): string[] {
-    return this.esNovedadGeneral ? ['tipo', 'descripcion'] : ['tipo', 'descripcion', 'id_item'];
-  }
+  readonly camposModal: string[] = ['tipo', 'descripcion', 'id_item'];
 
   /** `?id_item=` de la navegación cruzada (Ítems → Novedades). */
   idItemFiltro: string | null = null;
@@ -422,11 +417,6 @@ export class MaterialesNovedadesComponent implements OnInit {
 
   cerrarModal(): void {
     this.modalOpen = false;
-  }
-
-  onCampoModal(e: { col: string; value: any }): void {
-    // Al pasar a "Otro", se descarta el ítem elegido en un tipo anterior.
-    if (e.col === 'tipo' && e.value === 'OTRO') this.form['id_item'] = null;
   }
 
   private etiquetaPlaca(item: Item): string {
