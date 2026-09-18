@@ -49,6 +49,17 @@ import { Categoria, Item, MaterialesApiService, Producto, Sitio } from '../../co
         }
       </div>
 
+      @if (bodegasInactivas().length > 0) {
+        <div class="mb-4 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-start gap-2">
+          <span>⚠️</span>
+          <span>
+            {{ bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas' }}:
+            <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
+            — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
+          </span>
+        </div>
+      }
+
       <app-admin-table
         [addLabel]="puedeCrear() ? 'Nuevo producto' : null"
         (add)="nuevo()"
@@ -88,10 +99,23 @@ export class MaterialesProductosComponent implements OnInit {
   items: Item[] = [];
   loading = false;
 
+  /** Banner general de la pantalla — lista todas las bodegas inactivas del
+   *  tenant (ver plan 2026-09-18). */
+  bodegasInactivas(): Sitio[] {
+    return this.sitios.filter((s) => !s.estado);
+  }
+
   puedeCrear = computed(() => this.auth.tieneServicio('materiales.productos.crear'));
   puedeEditar = computed(() => this.auth.tieneServicio('materiales.productos.editar'));
   puedeEliminar = computed(() => this.auth.tieneServicio('materiales.productos.eliminar'));
-  puedeVerSitios = computed(() => this.auth.tieneServicio('materiales.sitios.ver'));
+  // `GET /sitios` (backend) ya acepta `materiales.sitios.ver` O
+  // `materiales.traslados.crear` (ver SitiosController) — antes acá solo se
+  // chequeaba el primero, más estricto de lo que el backend permite, así
+  // que alguien con solo `traslados.crear` no cargaba bodegas ni veía el
+  // aviso de bodega inactiva (2026-09-18), aunque sí lo viera en Solicitudes.
+  puedeVerSitios = computed(() =>
+    this.auth.tieneServicio('materiales.sitios.ver') || this.auth.tieneServicio('materiales.traslados.crear'),
+  );
 
   modalOpen = false;
   editando: Producto | null = null;

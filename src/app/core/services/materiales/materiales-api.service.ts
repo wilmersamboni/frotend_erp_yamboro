@@ -294,6 +294,9 @@ export interface Solicitud {
    *  Aprobar/Rechazar/Entregar/Cancelar, no `producto?.id_sitio` (la "bodega
    *  de casa" del producto puede no ser de dónde sale ESTA solicitud). */
   bodega_responsable_id?: string | null;
+  /** `sitio.estado` de esa misma bodega — `false` bloquea Aprobar/Entregar
+   *  (ver plan 2026-09-18); `null`/`undefined` si no se pudo resolver bodega. */
+  bodega_activa?: boolean | null;
   /** Justificación del rechazo — presente solo si `estado === 'RECHAZADA'`. */
   motivo_rechazo?: string | null;
 }

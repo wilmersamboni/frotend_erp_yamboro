@@ -56,11 +56,22 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
         }
       </div>
 
+      @if (bodegasInactivas().length > 0) {
+        <div class="mb-4 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-start gap-2">
+          <span>⚠️</span>
+          <span>
+            {{ bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas' }}:
+            <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
+            — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
+          </span>
+        </div>
+      }
+
       <app-admin-table
         [rows]="filas"
         [searchable]="true"
         [searchPlaceholder]="'Buscar por SKU, producto, sitio, estado…'"
-        [addLabel]="puedeCrear() ? 'Agregar ítem' : null"
+        [addLabel]="(puedeCrear() && !bodegaFiltroInactiva) ? 'Agregar ítem' : null"
         (add)="abrirAgregar()"
         [columns]="columnas"
         [columnLabels]="columnLabels"
@@ -202,7 +213,14 @@ export class MaterialesItemsComponent implements OnInit {
 
   puedeEditar = computed(() => this.auth.tieneServicio('materiales.items.editar'));
   puedeCrear = computed(() => this.auth.tieneServicio('materiales.items.crear'));
-  puedeVerSitios = computed(() => this.auth.tieneServicio('materiales.sitios.ver'));
+  // `GET /sitios` (backend) ya acepta `materiales.sitios.ver` O
+  // `materiales.traslados.crear` (ver SitiosController) — antes acá solo se
+  // chequeaba el primero, más estricto de lo que el backend permite, así
+  // que alguien con solo `traslados.crear` no cargaba bodegas ni veía el
+  // aviso de bodega inactiva (2026-09-18), aunque sí lo viera en Solicitudes.
+  puedeVerSitios = computed(() =>
+    this.auth.tieneServicio('materiales.sitios.ver') || this.auth.tieneServicio('materiales.traslados.crear'),
+  );
 
   /**
    * Navegación cruzada (ítem 4): desde un ítem, ir directo a su historial de
@@ -252,7 +270,25 @@ export class MaterialesItemsComponent implements OnInit {
   }
 
   get opciones(): Record<string, OpcionSelect[]> {
-    return { id_sitio: this.sitios.map((s) => ({ label: s.nombre, value: s.id_sitio })), estado: OPCIONES_ESTADO };
+    // Una bodega inactiva no acepta ítems nuevos (ver plan 2026-09-18) — se
+    // excluye del selector, salvo que algún ítem YA la tenga asignada (si
+    // no, editar ese ítem dejaría el campo en blanco).
+    const idsUsados = new Set(this.items.map((i) => i.id_sitio).filter((id): id is string => !!id));
+    const disponibles = this.sitios.filter((s) => s.estado || idsUsados.has(s.id_sitio));
+    return { id_sitio: disponibles.map((s) => ({ label: s.nombre, value: s.id_sitio })), estado: OPCIONES_ESTADO };
+  }
+
+  /** La vista queda acotada a una sola bodega (vía el filtro secundario) y
+   *  esa bodega está inactiva — dispara el banner de aviso. */
+  get bodegaFiltroInactiva(): boolean {
+    if (!this.sitioFiltro) return false;
+    return this.sitios.find((s) => s.id_sitio === this.sitioFiltro)?.estado === false;
+  }
+
+  /** Banner general de la pantalla — lista todas las bodegas inactivas del
+   *  tenant, no solo la que esté filtrada (ver plan 2026-09-18). */
+  bodegasInactivas(): Sitio[] {
+    return this.sitios.filter((s) => !s.estado);
   }
 
   readonly estadoOpciones = OPCIONES_FILTRO_ESTADO;

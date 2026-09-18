@@ -11,7 +11,7 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
 import { TuiDayCache } from '../../../shared/utils/tui-day.util';
 import type { TuiDay } from '@taiga-ui/cdk';
-import { Asignacion, CreateAsignacionDto, EstadoAsignacion, MaterialesApiService, Producto } from '../../../core/services/materiales/materiales-api.service';
+import { Asignacion, CreateAsignacionDto, EstadoAsignacion, MaterialesApiService, Producto, Sitio } from '../../../core/services/materiales/materiales-api.service';
 
 interface Ficha {
   idCurso: string;
@@ -47,6 +47,17 @@ interface Ficha {
           + Nueva asignación
         </button>
       </div>
+
+      @if (bodegasInactivas().length > 0) {
+        <div class="mb-4 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-start gap-2">
+          <span>⚠️</span>
+          <span>
+            {{ bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas' }}:
+            <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
+            — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
+          </span>
+        </div>
+      }
 
       @if (loading) {
         <div class="flex justify-center py-12">
@@ -306,6 +317,9 @@ interface Ficha {
             @if (!stock.cargando && form['cantidad'] > stock.disponibles) {
               <p class="text-red-500 text-xs -mt-1">No podés asignar más de las {{ stock.disponibles }} unidad(es) disponibles.</p>
             }
+            @if (bodegaDelProductoInactiva()) {
+              <p class="text-amber-600 text-xs -mt-1">La bodega de este producto está inactiva — no se puede asignar mientras esté así.</p>
+            }
 
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Cantidad</label>
@@ -334,7 +348,9 @@ interface Ficha {
           <div class="flex justify-end gap-2 mt-6">
             <button (click)="cerrarModal()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
             <button (click)="guardar()" [disabled]="saving || !puedeGuardar()"
-              class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
+              [style.opacity]="(saving || !puedeGuardar()) ? 0.6 : 1"
+              [style.cursor]="(saving || !puedeGuardar()) ? 'not-allowed' : 'pointer'"
+              class="px-5 py-2 text-white text-sm font-medium rounded-lg transition-colors"
               style="background-color: #39A900">
               {{ saving ? 'Guardando...' : 'Guardar' }}
             </button>
@@ -349,6 +365,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
 
   asignaciones: Asignacion[] = [];
   productos: Producto[] = [];
+  sitios: Sitio[] = [];
   fichas: Ficha[] = [];
 
   get opcionesFicha() {
@@ -455,7 +472,23 @@ export class MaterialesAsignacionesComponent implements OnInit {
   puedeGuardar(): boolean {
     const cantidad = Number(this.form['cantidad']) || 0;
     return !!this.form['id_curso'] && !!this.form['id_producto'] && cantidad >= 1 && !this.stock.cargando &&
-      this.stock.disponibles > 0 && cantidad <= this.stock.disponibles;
+      this.stock.disponibles > 0 && cantidad <= this.stock.disponibles && !this.bodegaDelProductoInactiva();
+  }
+
+  /** La bodega del producto elegido ya no acepta asignaciones nuevas (ver
+   *  plan 2026-09-18) — el backend rechazaría la creación igual. */
+  /** Banner general de la pantalla — lista todas las bodegas inactivas del
+   *  tenant (ver plan 2026-09-18). */
+  bodegasInactivas(): Sitio[] {
+    return this.sitios.filter((s) => !s.estado);
+  }
+
+  bodegaDelProductoInactiva(): boolean {
+    const idProducto = this.form['id_producto'];
+    if (!idProducto) return false;
+    const idSitio = this.productos.find((p) => p.id_producto === idProducto)?.id_sitio;
+    if (!idSitio) return false;
+    return this.sitios.find((s) => s.id_sitio === idSitio)?.estado === false;
   }
 
   nombreFicha(idCurso: string): string {
@@ -501,14 +534,16 @@ export class MaterialesAsignacionesComponent implements OnInit {
   private async cargar(): Promise<void> {
     this.loading = true;
     try {
-      const [asignaciones, productos, fichasRaw, ambientes] = await Promise.all([
+      const [asignaciones, productos, sitios, fichasRaw, ambientes] = await Promise.all([
         this.api.listarAsignaciones(),
         this.api.listarProductos(),
+        this.api.listarSitios().catch(() => [] as Sitio[]),
         this.erpCatalogo.getFichas(),
         this.erpCatalogo.getAmbientes(),
       ]);
       this.asignaciones = asignaciones;
       this.productos = productos;
+      this.sitios = sitios;
       this.fichas = fichasRaw.map((f: any) => ({ idCurso: f.idCurso, codigo: f.codigo, programa: f.programa }));
       this.ambientes = ambientes;
     } catch (e) {
@@ -542,7 +577,9 @@ export class MaterialesAsignacionesComponent implements OnInit {
   async guardar(): Promise<void> {
     // Doble chequeo — no alcanza con deshabilitar el botón, ver Fase 1 del plan.
     if (!this.puedeGuardar()) {
-      this.error = this.stock.disponibles === 0
+      this.error = this.bodegaDelProductoInactiva()
+        ? 'La bodega de este producto está inactiva — no se puede asignar.'
+        : this.stock.disponibles === 0
         ? 'Ese producto no tiene unidades disponibles.'
         : 'La cantidad supera el stock disponible.';
       return;

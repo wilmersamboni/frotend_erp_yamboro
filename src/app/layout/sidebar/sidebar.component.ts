@@ -17,6 +17,15 @@ interface NavLink  {
    * lo ve (aunque además sea responsable de una) — tiene su propia consola
    * "Todas las bodegas" (`/materiales/bodegas`) que no recorta a "las mías". */
   soloResponsableBodega?: boolean;
+  /** Lo opuesto de `soloResponsableBodega`: ocultar este link si el usuario
+   * (no-admin) es `id_responsable` de ≥1 bodega — para catálogos que "Mi
+   * Bodega" ya cubre (Productos, Ítems). Antes esos links quedaban visibles
+   * siempre y un `productosGuard` redirigía a "Mi Bodega" al clickear —
+   * funcionaba, pero mostraba una opción que igual iba a rebotar (2026-09-18,
+   * pedido explícito). Un instructor/aprendiz SIN bodega a cargo los sigue
+   * viendo normal — mismo motivo por el que se repuso el link el 2026-09-16.
+   */
+  ocultarSiResponsableBodega?: boolean;
   /** Servicio del sistema de permisos dinámico que también habilita este link,
    * aunque el cargo no esté en `roles` (ver AuthService.tieneServicio). OR con
    * `roles` — pensado para poblaciones DISTINTAS (ej. `roles` = admin,
@@ -612,6 +621,7 @@ export class SidebarComponent implements OnChanges, OnInit {
             label: 'Productos', href: '/materiales/productos',
             roles: ['instructor'],
             servicioEstricto: 'materiales.productos.ver',
+            ocultarSiResponsableBodega: true,
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`),
           },
           {
@@ -624,6 +634,7 @@ export class SidebarComponent implements OnChanges, OnInit {
             label: 'Ítems', href: '/materiales/items',
             roles: ['instructor'],
             servicioEstricto: 'materiales.items.ver',
+            ocultarSiResponsableBodega: true,
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375C2.754 3.75 2.25 4.254 2.25 4.875v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>`),
           },
           {
@@ -695,12 +706,14 @@ export class SidebarComponent implements OnChanges, OnInit {
             label: 'Productos', href: '/materiales/productos',
             roles: ['aprendiz'],
             servicioEstricto: 'materiales.productos.ver',
+            ocultarSiResponsableBodega: true,
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`),
           },
           {
             label: 'Ítems', href: '/materiales/items',
             roles: ['aprendiz'],
             servicioEstricto: 'materiales.items.ver',
+            ocultarSiResponsableBodega: true,
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375C2.754 3.75 2.25 4.254 2.25 4.875v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>`),
           },
           {
@@ -787,6 +800,7 @@ export class SidebarComponent implements OnChanges, OnInit {
           if (esAprendiz && l.soloAprendizConEtapa && tieneEtapa !== true) return false;
           if (esAprendiz && l.soloAprendizSinEtapa && tieneEtapa !== false) return false;
           if (l.soloResponsableBodega && (this.auth.isAdmin() || !this.esResponsableBodega())) return false;
+          if (l.ocultarSiResponsableBodega && !this.auth.isAdmin() && this.esResponsableBodega()) return false;
           return true;
         }),
       }))
