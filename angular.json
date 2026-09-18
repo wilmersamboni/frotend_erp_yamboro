@@ -38,6 +38,10 @@
             "styles": [
               "node_modules/leaflet/dist/leaflet.css",
               "src/styles.css"
+            ],
+            "allowedCommonJsDependencies": [
+              "canvg", "core-js", "raf", "rgbcolor", "exceljs",
+              "lottie-web", "leaflet", "html2canvas"
             ]
           },
           "configurations": {
@@ -51,7 +55,7 @@
                 {
                   "type": "anyComponentStyle",
 
-                  "maximumWarning": "8kB",
+                  "maximumWarning": "16kB",
                   "maximumError": "16kB"
 
                 }

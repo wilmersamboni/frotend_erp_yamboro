@@ -2,11 +2,11 @@ import { Component, OnInit, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AdminTableComponent, TableRowLink } from '../../shared/components/admin-table.component';
-import { ProductoFormModalComponent } from '../../shared/components/producto-form-modal.component';
+import { ProductoFormModalComponent } from './ui/producto-form-modal.component';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
-import { Categoria, Item, MaterialesApiService, Producto, Sitio } from '../../core/services/materiales/materiales-api.service';
+import { Categoria, Item, MaterialesApiService, Producto, Sitio } from './data-access/materiales-api.service';
 
 /**
  * CRUD de Productos. Crear un producto DEVOLUTIVO genera automáticamente

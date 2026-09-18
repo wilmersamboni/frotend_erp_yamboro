@@ -1,11 +1,11 @@
 import { Component, OnInit, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AdminTableComponent, TableRowLink } from '../../shared/components/admin-table.component';
-import { AdminModalComponent } from '../../shared/components/admin-modal.component';
-import { OpcionSelect } from '../admin/services/admin.service';
+import { AdminModalComponent } from '../tenant-administration/ui/admin-modal.component';
+import { OpcionSelect } from '../tenant-administration/services/admin.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
-import { Item, MaterialesApiService, Producto, Sitio } from '../../core/services/materiales/materiales-api.service';
+import { Item, MaterialesApiService, Producto, Sitio } from './data-access/materiales-api.service';
 
 const OPCIONES_ESTADO: OpcionSelect[] = [
   { label: 'Disponible', value: 'DISPONIBLE' },

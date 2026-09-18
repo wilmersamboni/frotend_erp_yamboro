@@ -1,7 +1,7 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
-import { MaterialesApiService } from '../services/materiales/materiales-api.service';
+import { MaterialesApiService } from '../../features/materiales/data-access/materiales-api.service';
 
 /**
  * Redirige a `/mi-bodega` a cualquier encargado de bodega (cualquier cargo)

@@ -2,7 +2,7 @@ import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ToastService } from '../../core/services/toast.service';
-import { MaterialesApiService, ResumenExistencias } from '../../core/services/materiales/materiales-api.service';
+import { MaterialesApiService, ResumenExistencias } from './data-access/materiales-api.service';
 import { StatCardComponent } from '../../shared/components/stat-card.component';
 
 /**

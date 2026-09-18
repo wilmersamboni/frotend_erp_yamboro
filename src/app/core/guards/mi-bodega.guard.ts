@@ -1,7 +1,7 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
-import { MaterialesApiService } from '../services/materiales/materiales-api.service';
+import { MaterialesApiService } from '../../features/materiales/data-access/materiales-api.service';
 
 /**
  * Deja pasar a `/mi-bodega` solo si el usuario es `id_responsable` de al menos
