@@ -44,7 +44,7 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
         <app-table-filter label="Estado" [options]="opcionesEstadoFiltro" [value]="estadoFiltro" (valueChange)="estadoFiltro = $event" />
         <app-table-filter label="Origen" [options]="opcionesOrigenFiltro" [value]="origenFiltro" (valueChange)="origenFiltro = $event" />
         <app-table-filter label="Destino" [options]="opcionesDestinoFiltro" [value]="destinoFiltro" (valueChange)="destinoFiltro = $event" />
-        <input [(ngModel)]="busquedaFiltro" type="search" placeholder="Buscar ?tem o justificaci?n?" class="min-w-56 flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+        <input [(ngModel)]="busquedaFiltro" type="search" placeholder="Buscar ítem o justificación?" class="min-w-56 flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
       </div>
 
       @if (loading) {
@@ -355,7 +355,7 @@ export class InstructorMaterialesTrasladosComponent implements OnInit {
   }
 
   get opcionesOrigenFiltro(): { label: string; value: string }[] {
-    return [{ label: 'Todos los or?genes', value: '' }, ...this.sitiosOrigenFiltro.map((sitio) => ({ label: sitio.nombre, value: sitio.id }))];
+    return [{ label: 'Todos los orígenes', value: '' }, ...this.sitiosOrigenFiltro.map((sitio) => ({ label: sitio.nombre, value: sitio.id }))];
   }
 
   get opcionesDestinoFiltro(): { label: string; value: string }[] {

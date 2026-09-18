@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AdminTableComponent } from '../../../shared/components/admin-table.component';
+import { TableFilterComponent, TableFilterOption } from '../../../shared/components/table-filter.component';
 import { StatCardComponent } from '../../../shared/components/stat-card.component';
 import { ToastService } from '../../../core/services/toast.service';
 import { Kardex, MaterialesApiService } from '../../../core/services/materiales/materiales-api.service';
@@ -15,18 +16,14 @@ import { Kardex, MaterialesApiService } from '../../../core/services/materiales/
 @Component({
   selector: 'app-instructor-materiales-kardex',
   standalone: true,
-  imports: [FormsModule, AdminTableComponent, StatCardComponent],
+  imports: [FormsModule, AdminTableComponent, StatCardComponent, TableFilterComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
         <h1 class="text-xl font-bold text-gray-800">Kardex</h1>
         <div class="flex gap-2">
-          <select [(ngModel)]="filtroTipo"
-            class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
-            <option value="">Todos los tipos</option>
-            <option value="ENTRADA">Entrada</option>
-            <option value="SALIDA">Salida</option>
-          </select>
+          <app-table-filter label="Tipo" [options]="opcionesTipoFiltro" [value]="filtroTipo"
+          (valueChange)="filtroTipo = $event" />
           <input [(ngModel)]="filtroTexto" placeholder="Buscar por producto, SKU o placa..."
             class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
           @if (idProductoFiltro || idItemFiltro) {
@@ -81,6 +78,12 @@ export class InstructorMaterialesKardexComponent implements OnInit {
     saldo_actual: 'Saldo actual',
     observacion: 'Observación',
   };
+
+  opcionesTipoFiltro: TableFilterOption[] = [
+    { value: '', label: 'Todos los tipos' },
+    { value: 'ENTRADA', label: 'Entrada' },
+    { value: 'SALIDA', label: 'Salida' },
+  ];
 
   constructor(
     private api: MaterialesApiService,

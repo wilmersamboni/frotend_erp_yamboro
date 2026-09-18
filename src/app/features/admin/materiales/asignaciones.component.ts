@@ -5,6 +5,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { ErpCatalogoService } from '../../../core/services/horarios/erp-catalogo.service';
+import { HorariosApiService } from '../../../core/services/horarios/horarios-api.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { DateInputComponent } from '../../../shared/components/date-input.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
@@ -173,6 +174,7 @@ interface Ficha {
                 <th class="px-4 py-3 text-left font-semibold">Cantidad</th>
                 <th class="px-4 py-3 text-left font-semibold">Estado</th>
                 <th class="px-4 py-3 text-left font-semibold">Fecha</th>
+                <th class="px-4 py-3 text-center font-semibold">Ambiente</th>
                 <th class="px-4 py-3 text-right font-semibold">Acciones</th>
               </tr>
             </thead>
@@ -184,6 +186,19 @@ interface Ficha {
                   <td class="px-4 py-3 text-gray-700">{{ a.cantidad }}</td>
                   <td class="px-4 py-3"><app-status-badge [value]="a.estado" /></td>
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ a.fecha_asignacion | date: 'short' }}</td>
+                  <td class="px-4 py-3 text-center">
+                    <button (click)="toggleUbicacion(a)" title="Ver ambiente de la ficha"
+                      class="inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors"
+                      [class.bg-green-50]="filaAbierta === a.id_asignacion"
+                      [class.text-green-700]="filaAbierta === a.id_asignacion"
+                      [class.text-gray-400]="filaAbierta !== a.id_asignacion"
+                      [class.hover:bg-gray-100]="filaAbierta !== a.id_asignacion">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      </svg>
+                    </button>
+                  </td>
                   <td class="px-4 py-3">
                     <div class="flex justify-end gap-2">
                       @if (a.estado === 'ACTIVA' && puedeAnular) {
@@ -195,6 +210,28 @@ interface Ficha {
                     </div>
                   </td>
                 </tr>
+                @if (filaAbierta === a.id_asignacion) {
+                  <tr class="bg-gray-50/60">
+                    <td colspan="7" class="px-4 py-3">
+                      @if (ubicacionCargando.has(a.id_curso)) {
+                        <span class="text-xs text-gray-400">Consultando ambiente...</span>
+                      } @else if ((ubicacionesFicha.get(a.id_curso) ?? []).length === 0) {
+                        <span class="text-xs text-gray-400">Esta ficha no tiene ambiente asignado todavía.</span>
+                      } @else {
+                        @for (nombre of ubicacionesFicha.get(a.id_curso); track nombre) {
+                          <span class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full mr-1.5"
+                            style="background-color: rgba(57,169,0,0.1); color: #2d7d00;">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z"/>
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            </svg>
+                            {{ nombre }}
+                          </span>
+                        }
+                      }
+                    </td>
+                  </tr>
+                }
               }
             </tbody>
           </table>
@@ -368,6 +405,12 @@ export class MaterialesAsignacionesComponent implements OnInit {
     return this.asignacionesFiltradas.slice(start, start + this.pageSize());
   }
 
+  // ── Ambiente de la ficha (consulta bajo demanda a Horarios) ─────────
+  ambientes: { id: string; nombre: string }[] = [];
+  filaAbierta: string | null = null;
+  ubicacionesFicha = new Map<string, string[]>();
+  ubicacionCargando = new Set<string>();
+
   modalOpen = false;
   form: Record<string, any> = {};
   readonly cacheFechaDevolucion = new TuiDayCache();
@@ -385,6 +428,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
     private toast: ToastService,
     private auth: AuthService,
     private erpCatalogo: ErpCatalogoService,
+    private horariosApi: HorariosApiService,
   ) {}
 
   /** Gateado por servicio, no por cargo — ver plan "Ronda 3". */
@@ -419,17 +463,54 @@ export class MaterialesAsignacionesComponent implements OnInit {
     return f ? `${f.codigo}${f.programa ? ' — ' + f.programa : ''}` : idCurso.slice(0, 8) + '…';
   }
 
+  /**
+   * El ambiente de una ficha no vive en Materiales — solo en Horarios
+   * (AsignacionHorario: ficha + ambiente + día/jornada). Se consulta bajo
+   * demanda (no en cada carga de la tabla) y se cachea por ficha, ya que
+   * varias asignaciones de materiales pueden compartir la misma ficha.
+   * Se ignoran los registros "transversales" (instructor sin ambiente fijo,
+   * ver ubicacionTransversalId en el backend) — solo interesa el ambiente
+   * real de la ficha, si lo tiene.
+   */
+  async toggleUbicacion(a: Asignacion): Promise<void> {
+    if (this.filaAbierta === a.id_asignacion) {
+      this.filaAbierta = null;
+      return;
+    }
+    this.filaAbierta = a.id_asignacion;
+    if (this.ubicacionesFicha.has(a.id_curso)) return;
+
+    this.ubicacionCargando.add(a.id_curso);
+    try {
+      const horarios = await this.horariosApi.getHorariosByFicha(a.id_curso);
+      const nombres = new Set<string>();
+      for (const h of horarios ?? []) {
+        if (!h.ambienteId) continue;
+        const ambiente = this.ambientes.find((amb) => amb.id === h.ambienteId);
+        nombres.add(ambiente?.nombre ?? `Ambiente ${String(h.ambienteId).slice(0, 8)}…`);
+      }
+      this.ubicacionesFicha.set(a.id_curso, [...nombres]);
+    } catch (e) {
+      this.toast.httpError(e, 'No se pudo consultar el ambiente de la ficha.');
+      this.ubicacionesFicha.set(a.id_curso, []);
+    } finally {
+      this.ubicacionCargando.delete(a.id_curso);
+    }
+  }
+
   private async cargar(): Promise<void> {
     this.loading = true;
     try {
-      const [asignaciones, productos, fichasRaw] = await Promise.all([
+      const [asignaciones, productos, fichasRaw, ambientes] = await Promise.all([
         this.api.listarAsignaciones(),
         this.api.listarProductos(),
         this.erpCatalogo.getFichas(),
+        this.erpCatalogo.getAmbientes(),
       ]);
       this.asignaciones = asignaciones;
       this.productos = productos;
       this.fichas = fichasRaw.map((f: any) => ({ idCurso: f.idCurso, codigo: f.codigo, programa: f.programa }));
+      this.ambientes = ambientes;
     } catch (e) {
       this.toast.httpError(e, 'No se pudieron cargar las asignaciones.');
     } finally {
