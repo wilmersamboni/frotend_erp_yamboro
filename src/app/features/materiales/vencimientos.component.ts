@@ -31,9 +31,12 @@ const VENTANAS = [7, 15, 30] as const;
  * `materiales.lotes.ver` (admin, encargado de bodega, líder de área). Un
  * instructor/aprendiz común ya no lo tiene por defecto desde el recorte de
  * esta misma sesión, así que directo no ve la pestaña ni se pide `/lotes` —
- * solo ve "Préstamos", que YA estaba bien scopeado ("patrón Solicitudes":
- * propias + bodegas a cargo, vía `obtenerVencimientos` → `obtenerSolicitudes`
- * en el backend, sin cambios ahí).
+ * solo ve "Préstamos", scopeado en el backend (`obtenerVencimientos`) a:
+ * propias + bodegas a cargo puntuales + TODAS las bodegas de su área si
+ * pertenece a una (2026-09-18, pedido explícito — "solo visibilidad no
+ * gestión": un líder de área ve acá los préstamos de toda su área, pero
+ * aprobar/rechazar/entregar/cancelar sigue atado solo a `id_responsable`
+ * puntual de la bodega, no al área).
  *
  * Remaster visual (2026-09-15, GSAP): este módulo concentra "cosas que se
  * vencen" de dos mundos distintos (lotes perecederos + préstamos), así que se

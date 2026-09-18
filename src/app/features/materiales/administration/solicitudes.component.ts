@@ -369,7 +369,7 @@ interface LineaForm {
               @if (requiereFechaDevolucion()) {
                 <div>
                   <label class="block text-xs font-medium text-gray-600 mb-1">Fecha de devolución <span class="text-red-500">*</span></label>
-                  <app-date-input placeholder="DD/MM/AAAA"
+                  <app-date-input placeholder="DD/MM/AAAA" [min]="hoyTuiDay"
                     [ngModel]="cacheFechaDevolucion.get(fechaDevolucion)"
                     (ngModelChange)="fechaDevolucion = tuiDayToIso($event)"></app-date-input>
                   <p class="text-[11px] text-gray-400 mt-1">Alguna línea es de un material devolutivo.</p>
