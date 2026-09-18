@@ -198,10 +198,10 @@ export interface TableRowLink {
                             Editar
                           </button>
                         }
-                        @if (canDelete) {
+                        @if (rowCanDelete(row)) {
                           <button (click)="delete.emit(row); $event.stopPropagation()"
                             class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-red-400 hover:text-red-600 transition-colors">
-                            {{ deleteLabel }}
+                            {{ rowDeleteLabel(row) }}
                           </button>
                         }
                       </div>
@@ -247,9 +247,22 @@ export class AdminTableComponent implements DoCheck {
   @Input() columns:   string[] = [];
   @Input() loading  = false;
   @Input() canEdit  = true;
-  @Input() canDelete = true;
-  /** Texto del botón de la derecha (por defecto "Eliminar"). Ej.: "Desactivar" / "Reactivar". */
-  @Input() deleteLabel = 'Eliminar';
+  /** Puede ser un booleano fijo para toda la tabla, o una función `(row) =>
+   *  boolean` cuando la tabla mezcla filas en distinto estado (ej. Ítems
+   *  activos e inactivos a la vez) y el botón debe decidirse por fila. */
+  @Input() canDelete: boolean | ((row: any) => boolean) = true;
+  /** Texto del botón de la derecha (por defecto "Eliminar"). Ej.: "Desactivar" / "Reactivar".
+   *  También acepta una función `(row) => string` para variar el texto por fila
+   *  (ver `canDelete`). */
+  @Input() deleteLabel: string | ((row: any) => string) = 'Eliminar';
+
+  rowCanDelete(row: any): boolean {
+    return typeof this.canDelete === 'function' ? this.canDelete(row) : this.canDelete;
+  }
+
+  rowDeleteLabel(row: any): string {
+    return typeof this.deleteLabel === 'function' ? this.deleteLabel(row) : this.deleteLabel;
+  }
 
   /** Columnas a ocultar de la vista (el id sigue disponible en los eventos) */
   @Input() hiddenColumns: string[] = ['idPersona'];

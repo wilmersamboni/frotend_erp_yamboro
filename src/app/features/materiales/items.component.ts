@@ -5,6 +5,7 @@ import { AdminModalComponent } from '../tenant-administration/ui/admin-modal.com
 import { OpcionSelect } from '../tenant-administration/services/admin.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 import { Item, MaterialesApiService, Producto, Sitio } from './data-access/materiales-api.service';
 
 const OPCIONES_ESTADO: OpcionSelect[] = [
@@ -25,9 +26,14 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
  * alta acá — se crean solo vía Productos, salvo "agregar ítem suelto al
  * lote" — solo edición (placa/sitio/estado) y búsqueda por placa SENA.
  *
- * Crear/editar gateados por servicio (`materiales.items.crear/.editar`; no
- * hay `.eliminar` en el catálogo, los ítems no se borran individualmente) —
- * admin los tiene siempre vía su bundle de rol.
+ * Crear/editar gateados por servicio (`materiales.items.crear/.editar`) —
+ * admin los tiene siempre vía su bundle de rol. Desactivar/Reactivar
+ * (`item.activo`, 2026-09-18) usa el mismo servicio `.editar` — no hay
+ * `.eliminar` propio en el catálogo de Ítems, a diferencia de Productos, para
+ * no sumar un servicio nuevo solo para esto. Es POR ÍTEM, independiente de
+ * `producto.activo`: un encargado de bodega solo puede actuar sobre los
+ * ítems que están físicamente en SU bodega (`item.id_sitio`), no sobre todo
+ * el producto — ver `ItemsService.desactivarItem`.
  *
  * La columna "Sitio" y su carga (`listarSitios()`) dependen de
  * `materiales.sitios.ver`: sin ese permiso (el caso típico de aprendiz) ni
@@ -86,9 +92,11 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
         (secondaryFilterValueChange)="sitioFiltro = $event"
         statusColumn="estado"
         [canEdit]="puedeEditar()"
-        [canDelete]="false"
+        [canDelete]="canGestionarActivo"
+        [deleteLabel]="labelActivo"
         [rowLinks]="rowLinks"
-        (edit)="editar($event)" />
+        (edit)="editar($event)"
+        (delete)="toggleActivo($event)" />
     </div>
 
     <app-admin-modal
@@ -244,7 +252,46 @@ export class MaterialesItemsComponent implements OnInit {
     },
   ];
 
-  constructor(private api: MaterialesApiService, private toast: ToastService, private auth: AuthService) {}
+  constructor(
+    private api: MaterialesApiService,
+    private toast: ToastService,
+    private auth: AuthService,
+    private confirm: ConfirmService,
+  ) {}
+
+  /** Botón "Desactivar"/"Reactivar" por fila — mismo servicio que editar,
+   *  la ubicación real del ítem la valida el backend (`ItemsService
+   *  .desactivarItem`/`activarItem`), no esta pantalla. */
+  canGestionarActivo = (): boolean => this.puedeEditar();
+  labelActivo = (row: any): string => (row.activo === false ? 'Reactivar' : 'Desactivar');
+
+  async toggleActivo(fila: any): Promise<void> {
+    const item = this.items.find((i) => i.id_item === fila.id_item);
+    if (!item) return;
+    const referencia = item.placa_sena || item.codigo_sku || fila.producto_nombre || 'este ítem';
+    if (item.activo === false) {
+      if (!(await this.confirm.ask(`¿Reactivar "${referencia}"?`, { danger: false, acceptLabel: 'Reactivar' }))) return;
+      try {
+        await this.api.activarItem(item.id_item);
+        this.toast.ok('Ítem reactivado');
+        await this.cargar();
+      } catch (e) {
+        this.toast.httpError(e, 'No se pudo reactivar el ítem.');
+      }
+      return;
+    }
+    if (!(await this.confirm.ask(
+      `¿Desactivar "${referencia}"? Sale de los selectores de traslados, solicitudes y asignaciones; su histórico (kardex, novedades) queda intacto y podés reactivarlo.`,
+      { acceptLabel: 'Desactivar' },
+    ))) return;
+    try {
+      await this.api.desactivarItem(item.id_item);
+      this.toast.ok('Ítem desactivado');
+      await this.cargar();
+    } catch (e) {
+      this.toast.httpError(e, 'No se pudo desactivar el ítem.');
+    }
+  }
 
   ngOnInit(): void {
     this.cargar();
@@ -319,7 +366,9 @@ export class MaterialesItemsComponent implements OnInit {
         // El SKU pertenece al producto. Un ítem con placa SENA no lo duplica,
         // pero la tabla debe seguir mostrando la referencia del catálogo.
         codigo_sku: i.codigo_sku ?? i.producto?.SKU ?? this.productos.find((p) => p.id_producto === i.id_producto)?.SKU ?? '—',
-        producto_nombre: i.producto?.nombre ?? this.productos.find((p) => p.id_producto === i.id_producto)?.nombre ?? '—',
+        producto_nombre:
+          (i.producto?.nombre ?? this.productos.find((p) => p.id_producto === i.id_producto)?.nombre ?? '—') +
+          (i.activo === false ? '  ·  (inactivo)' : ''),
         sitio_nombre: this.sitios.find((s) => s.id_sitio === i.id_sitio)?.nombre ?? '—',
       }));
   }

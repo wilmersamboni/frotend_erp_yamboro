@@ -145,8 +145,8 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
             [filterValue]="estadoFiltro"
             filterLabel="Estado"
             (filterValueChange)="onEstadoFiltro($event)"
-            [canEdit]="puedeEditar() && estadoFiltro !== 'inactivos'"
-            [canDelete]="puedeEliminar()"
+            [canEdit]="puedeEditar() && estadoFiltro === 'activos'"
+            [canDelete]="puedeEliminar() && estadoFiltro !== 'todos'"
             [deleteLabel]="estadoFiltro === 'inactivos' ? 'Reactivar' : 'Desactivar'"
             [rowLinks]="rowLinksProducto"
             (edit)="editarProd($event)"
@@ -241,16 +241,19 @@ export class MiBodegaComponent implements OnInit {
   ];
 
   /** B1 — filtro de estado del toolbar (solo se ofrece a quien puede desactivar).
-   *  'activos' = solo activos (default); 'inactivos' = solo los desactivados,
-   *  para reactivarlos. Mismo patrón que `/materiales/productos`. */
+   *  'todos' = activos + desactivados mezclados, solo lectura (default);
+   *  'activos' = solo activos, editable/desactivable; 'inactivos' = solo los
+   *  desactivados, para reactivarlos. Mismo patrón que `/materiales/productos`
+   *  (ver ese componente para por qué 'todos' deshabilita edit/delete). */
   readonly estadoOpciones = [
+    { value: 'todos', label: 'Todos' },
     { value: 'activos', label: 'Activos' },
     { value: 'inactivos', label: 'Desactivados' },
   ];
-  estadoFiltro: 'activos' | 'inactivos' = 'activos';
+  estadoFiltro: 'todos' | 'activos' | 'inactivos' = 'todos';
 
   onEstadoFiltro(v: string): void {
-    this.estadoFiltro = v === 'inactivos' ? 'inactivos' : 'activos';
+    this.estadoFiltro = v === 'inactivos' || v === 'activos' ? v : 'todos';
     this.cargar();
   }
 
@@ -363,17 +366,20 @@ export class MiBodegaComponent implements OnInit {
       if (bodegas.length && !this.bodegaSel()) this.bodegaSel.set(bodegas[0].id_sitio);
       if (!bodegas.length) return;
 
-      const soloInactivos = this.estadoFiltro === 'inactivos';
+      // Quien no puede desactivar tampoco ve el filtro — para esa audiencia
+      // el comportamiento se mantiene igual que siempre: solo activos.
+      const incluirInactivos = this.puedeEliminar() && this.estadoFiltro !== 'activos';
       const [prod, items, lotes, cats] = await Promise.all([
-        this.api.listarProductos(soloInactivos).catch(() => []),
+        this.api.listarProductos(incluirInactivos).catch(() => []),
         this.api.listarItems().catch(() => []),
         this.api.listarLotes().catch(() => []),
         this.api.listarCategorias().catch(() => []),
       ]);
       // `listarProductos(true)` trae activos + desactivados; en modo
-      // "Desactivados" nos quedamos solo con los que están dados de baja —
-      // mismo criterio que `/materiales/productos`.
-      this.productos.set(soloInactivos ? prod.filter((p) => (p as any).activo === false) : prod);
+      // "Desactivados" nos quedamos solo con los que están dados de baja, en
+      // "Todos" se muestran ambos tal cual llegan — mismo criterio que
+      // `/materiales/productos`.
+      this.productos.set(this.estadoFiltro === 'inactivos' ? prod.filter((p) => (p as any).activo === false) : prod);
       this.items.set(items);
       this.lotes.set(lotes);
       this.categorias.set(cats);
