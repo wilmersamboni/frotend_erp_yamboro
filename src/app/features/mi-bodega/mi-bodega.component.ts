@@ -146,7 +146,7 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
             filterLabel="Estado"
             (filterValueChange)="onEstadoFiltro($event)"
             [canEdit]="puedeEditar() && estadoFiltro === 'activos'"
-            [canDelete]="puedeEliminar() && estadoFiltro !== 'todos'"
+            [canDelete]="puedeGestionarActivoProd"
             [deleteLabel]="estadoFiltro === 'inactivos' ? 'Reactivar' : 'Desactivar'"
             [rowLinks]="rowLinksProducto"
             (edit)="editarProd($event)"
@@ -162,8 +162,10 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
             [columnLabels]="{ codigo_sku: 'SKU', producto_nombre: 'Producto', placa_sena: 'Placa SENA' }"
             [loading]="loading()"
             [canEdit]="puedeEditarItem()"
-            [canDelete]="false"
-            (edit)="editarItem($event)" />
+            [canDelete]="canGestionarActivoItem"
+            [deleteLabel]="labelActivoItem"
+            (edit)="editarItem($event)"
+            (delete)="toggleActivoItem($event)" />
         }
       }
     </div>
@@ -207,6 +209,20 @@ export class MiBodegaComponent implements OnInit {
   puedeCrear = computed(() => this.auth.tieneServicio('materiales.productos.crear'));
   puedeEditar = computed(() => this.auth.tieneServicio('materiales.productos.editar'));
   puedeEliminar = computed(() => this.auth.tieneServicio('materiales.productos.eliminar'));
+
+  /**
+   * Desactivar/Activar un producto afecta TODAS sus unidades en TODAS las
+   * bodegas — el backend solo lo permite a quien administra la bodega DE
+   * CASA del producto (`producto.id_sitio`), no a quien solo tiene algunas
+   * unidades en la bodega que está viendo acá (para eso está el desactivar
+   * POR ÍTEM en la pestaña "Ítems"). En Mi Bodega ya se navega con UNA
+   * bodega elegida (`bodegaSel`, siempre una de las que el usuario
+   * administra) — "puedo gestionar este producto" se reduce a "su bodega de
+   * casa ES la que tengo seleccionada".
+   */
+  puedeGestionarActivoProd = (row: any): boolean =>
+    this.puedeEliminar() && this.estadoFiltro !== 'todos' &&
+    (this.auth.isAdmin() || row.id_sitio === this.bodegaSel());
   /** Ítems tiene su propio servicio de edición, distinto del de Productos. */
   puedeEditarItem = computed(() => this.auth.tieneServicio('materiales.items.editar'));
 
@@ -341,7 +357,7 @@ export class MiBodegaComponent implements OnInit {
         return {
           ...i,
           codigo_sku: i.codigo_sku ?? producto?.SKU ?? '—',
-          producto_nombre: producto?.nombre ?? '—',
+          producto_nombre: (producto?.nombre ?? '—') + (i.activo === false ? '  ·  (inactivo)' : ''),
         };
       }),
   );
@@ -457,6 +473,43 @@ export class MiBodegaComponent implements OnInit {
     this.form = { placa_sena: it.placa_sena ?? '', estado: it.estado };
     this.error.set(null);
     this.modalOpen.set(true);
+  }
+
+  /** Desactivar/Reactivar por ítem (independiente de `producto.activo`) — el
+   *  backend valida contra `item.id_sitio` (la bodega elegida acá arriba),
+   *  no contra la bodega "de casa" del producto. Es justo el caso que arregla
+   *  esto: un encargado de UNA bodega puede actuar sobre los ítems que están
+   *  físicamente ahí, aunque el producto "pertenezca" a otra bodega sin él
+   *  como responsable. */
+  canGestionarActivoItem = (): boolean => this.puedeEditarItem();
+  labelActivoItem = (row: any): string => (row.activo === false ? 'Reactivar' : 'Desactivar');
+
+  async toggleActivoItem(fila: any): Promise<void> {
+    const it = this.items().find((x) => x.id_item === fila.id_item);
+    if (!it) return;
+    const referencia = it.placa_sena || it.codigo_sku || fila.producto_nombre || 'este ítem';
+    if (it.activo === false) {
+      if (!(await this.confirm.ask(`¿Reactivar "${referencia}"?`, { danger: false, acceptLabel: 'Reactivar' }))) return;
+      try {
+        await this.api.activarItem(it.id_item);
+        this.toast.ok('Ítem reactivado');
+        await this.cargar();
+      } catch (e) {
+        this.toast.httpError(e, 'No se pudo reactivar el ítem.');
+      }
+      return;
+    }
+    if (!(await this.confirm.ask(
+      `¿Desactivar "${referencia}"? Sale de los selectores de traslados, solicitudes y asignaciones; su histórico (kardex, novedades) queda intacto y podés reactivarlo.`,
+      { acceptLabel: 'Desactivar' },
+    ))) return;
+    try {
+      await this.api.desactivarItem(it.id_item);
+      this.toast.ok('Ítem desactivado');
+      await this.cargar();
+    } catch (e) {
+      this.toast.httpError(e, 'No se pudo desactivar el ítem.');
+    }
   }
 
   // ── Guardado del modal genérico — ya solo ítems (producto se guarda solo,

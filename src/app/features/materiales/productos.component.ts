@@ -74,7 +74,7 @@ import { Categoria, Item, MaterialesApiService, Producto, Sitio } from '../../co
         filterLabel="Estado"
         (filterValueChange)="onEstadoFiltro($event)"
         [canEdit]="puedeEditar() && estadoFiltro === 'activos'"
-        [canDelete]="puedeEliminar() && estadoFiltro !== 'todos'"
+        [canDelete]="puedeGestionarActivo"
         [deleteLabel]="estadoFiltro === 'inactivos' ? 'Reactivar' : 'Desactivar'"
         [rowLinks]="rowLinks"
         (edit)="editar($event)"
@@ -108,6 +108,26 @@ export class MaterialesProductosComponent implements OnInit {
   puedeCrear = computed(() => this.auth.tieneServicio('materiales.productos.crear'));
   puedeEditar = computed(() => this.auth.tieneServicio('materiales.productos.editar'));
   puedeEliminar = computed(() => this.auth.tieneServicio('materiales.productos.eliminar'));
+
+  /**
+   * Desactivar/Activar un producto afecta TODAS sus unidades, en TODAS las
+   * bodegas donde tenga stock — el backend (`ProductosService
+   * .eliminarProducto`/`activarProducto`) solo lo permite a quien administra
+   * la bodega DE CASA del producto (`producto.id_sitio`), no a quien
+   * simplemente tiene algunas de sus unidades en la suya propia (2026-09-18,
+   * pedido explícito: para eso está el desactivar POR ÍTEM en la pantalla de
+   * Ítems). Se oculta el botón acá para no ofrecer una acción que el backend
+   * va a rechazar con 403 — antes el usuario lo veía, lo intentaba y recién
+   * ahí se enteraba.
+   */
+  private esResponsableDeSitio(idSitio: string | null | undefined): boolean {
+    if (this.auth.isAdmin()) return true;
+    if (!idSitio) return false;
+    const sitio = this.sitios.find((s) => s.id_sitio === idSitio);
+    return !!sitio?.id_responsable && sitio.id_responsable === this.auth.user()?.id;
+  }
+  puedeGestionarActivo = (row: any): boolean =>
+    this.puedeEliminar() && this.estadoFiltro !== 'todos' && this.esResponsableDeSitio(row.id_sitio);
   // `GET /sitios` (backend) ya acepta `materiales.sitios.ver` O
   // `materiales.traslados.crear` (ver SitiosController) — antes acá solo se
   // chequeaba el primero, más estricto de lo que el backend permite, así
