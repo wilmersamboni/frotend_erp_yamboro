@@ -440,7 +440,7 @@ export class MaterialesTrasladosComponent implements OnInit {
    */
   opcionesItems(): { value: string; label: string }[] {
     return this.items
-      .filter((i) => !!i.placa_sena && i.producto?.tipo_material !== 'CONSUMO' && i.producto?.tipo_material !== 'PERECEDERO' && i.producto?.activo !== false)
+      .filter((i) => !!i.placa_sena && i.producto?.tipo_material !== 'CONSUMO' && i.producto?.tipo_material !== 'PERECEDERO' && i.producto?.activo !== false && i.activo !== false)
       .map((i) => ({
         value: i.placa_sena!,
         label: `${i.placa_sena} · ${i.producto?.nombre ?? 'Ítem'} (${i.estado})`,

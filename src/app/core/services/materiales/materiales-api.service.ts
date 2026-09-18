@@ -101,6 +101,8 @@ export interface Item {
   id_producto: string;
   placa_sena?: string | null;
   id_sitio?: string | null;
+  /** Soft-delete por ítem (independiente de `producto.activo`, 2026-09-18) — false = fuera de circulación. */
+  activo?: boolean;
   producto?: Producto;
 }
 
@@ -698,6 +700,13 @@ export class MaterialesApiService {
   }
   actualizarEstadoItem(id: string, estado: EstadoItem) {
     return this.unwrap(this.http.patch<Envelope<Item>>(`${BASE}/items/${id}/estado`, { estado }));
+  }
+  /** Soft-delete por ítem (independiente de `producto.activo`) — solo las unidades de ESTA bodega, no todo el producto. */
+  desactivarItem(id: string) {
+    return this.unwrap(this.http.patch<Envelope<Item>>(`${BASE}/items/${id}/desactivar`, {}));
+  }
+  activarItem(id: string) {
+    return this.unwrap(this.http.patch<Envelope<Item>>(`${BASE}/items/${id}/activar`, {}));
   }
   /** Alta masiva de placas SENA sobre ítems ya generados (uno por unidad). Atómica en el backend. */
   asignarPlacasItems(asignaciones: { id_item: string; placa_sena: string }[]) {
