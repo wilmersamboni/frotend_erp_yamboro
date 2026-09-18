@@ -385,11 +385,15 @@ export class InstructorMaterialesTrasladosComponent implements OnInit {
    * Opciones del selector: SOLO ítems devolutivos CON placa SENA — un traslado
    * cambia la ubicación física de una unidad identificable. Un consumible
    * (lote, ej. "pollo") se solicita para consumo, no se traslada; y un
-   * devolutivo sin placa todavía no es rastreable como unidad.
+   * devolutivo sin placa todavía no es rastreable como unidad. También se
+   * descartan los ítems de un producto desactivado (soft-delete B1) — igual
+   * que "Desactivar" ya los saca de las demás listas/selects, el backend
+   * también los rechaza en `TrasladosService.validarItemTraslado` como
+   * defensa en profundidad (por si se busca por placa a mano).
    */
   opcionesItems(): { value: string; label: string }[] {
     return this.items
-      .filter((i) => !!i.placa_sena && i.producto?.tipo_material !== 'CONSUMO' && i.producto?.tipo_material !== 'PERECEDERO')
+      .filter((i) => !!i.placa_sena && i.producto?.tipo_material !== 'CONSUMO' && i.producto?.tipo_material !== 'PERECEDERO' && i.producto?.activo !== false)
       .map((i) => ({
         value: i.placa_sena!,
         label: `${i.placa_sena} · ${i.producto?.nombre ?? 'Ítem'} (${i.estado})`,
