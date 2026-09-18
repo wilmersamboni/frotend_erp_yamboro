@@ -248,6 +248,9 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
             }
           </div>
 
+          @if (bodegaSeleccionadaInactiva) {
+            <p class="text-amber-600 text-xs mt-3 p-2 bg-amber-50 rounded-lg">Esa bodega está inactiva — no se puede guardar mientras esté así.</p>
+          }
           @if (error) {
             <p class="text-red-500 text-xs mt-3 p-2 bg-red-50 rounded-lg">{{ error }}</p>
           }
@@ -255,8 +258,10 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
 
           <div class="shrink-0 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 border-t border-gray-100 px-4 py-4 sm:px-6">
             <button (click)="closed.emit()" class="w-full sm:w-auto px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
-            <button (click)="guardar()" [disabled]="saving"
-              class="w-full sm:w-auto px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
+            <button (click)="guardar()" [disabled]="saving || bodegaSeleccionadaInactiva"
+              [style.opacity]="(saving || bodegaSeleccionadaInactiva) ? 0.6 : 1"
+              [style.cursor]="(saving || bodegaSeleccionadaInactiva) ? 'not-allowed' : 'pointer'"
+              class="w-full sm:w-auto px-5 py-2 text-white text-sm font-medium rounded-lg transition-colors"
               style="background-color: #39A900">
               {{ saving ? 'Guardando...' : (editando ? 'Guardar' : 'Crear producto') }}
             </button>
@@ -330,7 +335,22 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
   }
 
   get opcionesSitio(): OpcionSelect[] {
-    return this.sitios.map((s) => ({ label: s.nombre, value: s.id_sitio }));
+    // Una bodega inactiva no acepta productos/ítems nuevos (ver plan
+    // 2026-09-18) — se excluye del selector, salvo que sea la bodega YA
+    // guardada del producto que se está editando (si no, el selector
+    // quedaría en blanco al abrir el modal).
+    const actual: string | undefined = this.form['id_sitio'];
+    const activos = this.sitios.filter((s) => s.estado || s.id_sitio === actual);
+    return activos.map((s) => ({ label: s.nombre, value: s.id_sitio }));
+  }
+
+  /** La bodega elegida (nueva o ya guardada) está inactiva — el backend
+   *  rechazaría el guardado igual, así que se deshabilita acá directo (ver
+   *  plan 2026-09-18). */
+  get bodegaSeleccionadaInactiva(): boolean {
+    const id: string | undefined = this.form['id_sitio'];
+    if (!id) return false;
+    return this.sitios.find((s) => s.id_sitio === id)?.estado === false;
   }
 
   /**

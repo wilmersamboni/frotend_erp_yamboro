@@ -40,6 +40,17 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
         </button>
       </div>
 
+      @if (bodegasInactivas().length > 0) {
+        <div class="mb-4 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-start gap-2">
+          <span>⚠️</span>
+          <span>
+            {{ bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas' }}:
+            <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
+            — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
+          </span>
+        </div>
+      }
+
       <div class="flex flex-wrap gap-2 mb-5">
         <app-table-filter label="Estado" [options]="opcionesEstadoFiltro" [value]="estadoFiltro" (valueChange)="estadoFiltro = $event" />
         <app-table-filter label="Origen" [options]="opcionesOrigenFiltro" [value]="origenFiltro" (valueChange)="origenFiltro = $event" />
@@ -78,6 +89,11 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
                   <td class="px-4 py-3"><app-status-badge [value]="t.estado" /></td>
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ t.fecha_solicitud | date: 'short' }}</td>
                   <td class="px-4 py-3">
+                    @if (bodegaInactiva(t) && t.estado === 'PENDIENTE') {
+                      <div class="mb-1.5 flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
+                        ⚠️ Origen o destino inactivo — no se puede aprobar
+                      </div>
+                    }
                     <div class="flex justify-end gap-2">
                       <button (click)="verDetalle(t)"
                         class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">
@@ -85,8 +101,11 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
                       </button>
                       @if (t.estado === 'PENDIENTE' && !esSolicitantePropio(t) && esResponsableDelSitio(t)) {
                         @if (puedeAprobar) {
-                          <button (click)="aprobar(t)"
-                            class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-600 bg-white hover:bg-green-50 transition-colors">
+                          <button (click)="aprobar(t)" [disabled]="bodegaInactiva(t)"
+                            [title]="bodegaInactiva(t) ? 'Origen o destino inactivo — no se puede aprobar. Rechazá el traslado en su lugar.' : ''"
+                            [style.opacity]="bodegaInactiva(t) ? 0.45 : 1" [style.cursor]="bodegaInactiva(t) ? 'not-allowed' : 'pointer'"
+                            [style.backgroundColor]="bodegaInactiva(t) ? '#f3f4f6' : '#fff'" [style.color]="bodegaInactiva(t) ? '#9ca3af' : '#16a34a'" [style.borderColor]="bodegaInactiva(t) ? '#e5e7eb' : '#bbf7d0'"
+                            class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors">
                             Aprobar
                           </button>
                         }
@@ -322,6 +341,19 @@ export class InstructorMaterialesTrasladosComponent implements OnInit {
     return !respDestino || respDestino === uid;
   }
 
+  /** Origen o destino ya no acepta aprobar (ver plan 2026-09-18) — deshabilita
+   *  el botón con aviso, sin esperar el error del backend. Rechazar sigue
+   *  funcionando siempre. */
+  bodegaInactiva(t: Traslado): boolean {
+    return t.sitio_origen?.estado === false || t.sitio_destino?.estado === false;
+  }
+
+  /** Banner general de la pantalla — lista todas las bodegas inactivas del
+   *  tenant, no solo la de un traslado puntual (ver plan 2026-09-18). */
+  bodegasInactivas(): Sitio[] {
+    return this.sitios.filter((s) => !s.estado);
+  }
+
   ngOnInit(): void {
     this.permisos.cargar();
     this.cargar();
@@ -419,7 +451,9 @@ export class InstructorMaterialesTrasladosComponent implements OnInit {
   }
 
   destinosDisponibles(): Sitio[] {
-    return this.sitios.filter((s) => !this.idsSitioOrigen.has(s.id_sitio));
+    // Una bodega inactiva no puede ser destino de traslado (ver plan
+    // 2026-09-18) — el backend igual lo bloquea, pero acá ni se ofrece.
+    return this.sitios.filter((s) => !this.idsSitioOrigen.has(s.id_sitio) && s.estado);
   }
 
   opcionesDestino(): { value: string; label: string }[] {

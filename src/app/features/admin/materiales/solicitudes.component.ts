@@ -62,6 +62,17 @@ interface LineaForm {
         </button>
       </div>
 
+      @if (bodegasInactivas().length > 0) {
+        <div class="mb-4 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-start gap-2">
+          <span>⚠️</span>
+          <span>
+            {{ bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas' }}:
+            <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
+            — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
+          </span>
+        </div>
+      }
+
       @if (loading) {
         <div class="flex justify-center py-12">
           <div class="w-8 h-8 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
@@ -222,18 +233,31 @@ interface LineaForm {
                       <td class="px-4 py-3"><app-status-badge [value]="s.estado" /></td>
                       <td class="px-4 py-3 text-gray-500 text-xs">{{ s.fecha | date: 'short' }}</td>
                       <td class="px-4 py-3">
+                        @if (bodegaInactiva(s) && (s.estado === 'PENDIENTE' || s.estado === 'APROBADA')) {
+                          <div class="mb-1.5 flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
+                            ⚠️ Bodega inactiva — {{ s.estado === 'PENDIENTE' ? 'no se puede aprobar' : 'no se puede entregar' }}
+                          </div>
+                        }
                         <div class="flex flex-wrap justify-end gap-2">
                           <button (click)="verDetalle(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">Ver</button>
                           @if (s.estado === 'PENDIENTE' && puedeGestionar(s)) {
                             @if (puedeAprobar) {
-                              <button (click)="aprobar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-600 bg-white hover:bg-green-50 transition-colors">Aprobar</button>
+                              <button (click)="aprobar(s)" [disabled]="bodegaInactiva(s)"
+                                [title]="bodegaInactiva(s) ? 'Bodega inactiva — no se puede aprobar. Rechazá o cancelá en su lugar.' : ''"
+                                [style.opacity]="bodegaInactiva(s) ? 0.45 : 1" [style.cursor]="bodegaInactiva(s) ? 'not-allowed' : 'pointer'"
+                                [style.backgroundColor]="bodegaInactiva(s) ? '#f3f4f6' : '#fff'" [style.color]="bodegaInactiva(s) ? '#9ca3af' : '#16a34a'" [style.borderColor]="bodegaInactiva(s) ? '#e5e7eb' : '#bbf7d0'"
+                                class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors">Aprobar</button>
                             }
                             @if (puedeRechazar) {
                               <button (click)="rechazar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-red-400 hover:text-red-600 transition-colors">Rechazar</button>
                             }
                           }
                           @if (s.estado === 'APROBADA' && puedeEntregar && puedeGestionar(s)) {
-                            <button (click)="abrirEntregar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-blue-200 text-blue-600 bg-white hover:bg-blue-50 transition-colors">Marcar en entrega</button>
+                            <button (click)="abrirEntregar(s)" [disabled]="bodegaInactiva(s)"
+                              [title]="bodegaInactiva(s) ? 'Bodega inactiva — no se puede entregar. Cancelá la solicitud en su lugar.' : ''"
+                              [style.opacity]="bodegaInactiva(s) ? 0.45 : 1" [style.cursor]="bodegaInactiva(s) ? 'not-allowed' : 'pointer'"
+                              [style.backgroundColor]="bodegaInactiva(s) ? '#f3f4f6' : '#fff'" [style.color]="bodegaInactiva(s) ? '#9ca3af' : '#2563eb'" [style.borderColor]="bodegaInactiva(s) ? '#e5e7eb' : '#bfdbfe'"
+                              class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors">Marcar en entrega</button>
                           }
                           @if (s.estado === 'APROBADA' && puedeRechazar && puedeGestionar(s)) {
                             <button (click)="cancelar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">Cancelar</button>
@@ -662,6 +686,18 @@ seleccionarEstado(valor: EstadoSolicitud | ''): void {
     return !!s.bodega_responsable_id && s.bodega_responsable_id === this.auth.user()?.id;
   }
 
+  /** La bodega ya no acepta aprobar/entregar (ver plan 2026-09-18) — deshabilita
+   *  esos dos botones con aviso, sin esperar el error del backend. */
+  bodegaInactiva(s: Solicitud): boolean {
+    return s.bodega_activa === false;
+  }
+
+  /** Banner general de la pantalla — lista todas las bodegas inactivas del
+   *  tenant, no solo la de una fila puntual (ver plan 2026-09-18). */
+  bodegasInactivas(): Sitio[] {
+    return this.sitios.filter((s) => !s.estado);
+  }
+
   ngOnInit(): void {
     this.cargar();
     // Capa 2 realtime: refetch cuando llega una notificación materiales_* (otra
@@ -727,7 +763,9 @@ seleccionarEstado(valor: EstadoSolicitud | ''): void {
   }
 
   get opcionesSitio(): { value: string; label: string }[] {
-    return this.sitios.map((s) => ({ value: s.id_sitio, label: `${s.nombre} (${s.tipo})` }));
+    // Una bodega inactiva no acepta solicitudes nuevas (ver plan 2026-09-18)
+    // — no se ofrece acá para elegir.
+    return this.sitios.filter((s) => s.estado).map((s) => ({ value: s.id_sitio, label: `${s.nombre} (${s.tipo})` }));
   }
 
   disponibleDe(linea: LineaForm): number {
