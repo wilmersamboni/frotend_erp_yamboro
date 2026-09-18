@@ -340,6 +340,9 @@ export interface CreateSolicitudDto {
   lineas?: LineaSolicitudInput[];
   observacion?: string;
   fecha_devolucion?: string;
+  /** Instructor líder de ficha: si viene, la solicitud es una asignación a
+   *  esa ficha (no personal) — ver `id_curso` en `Solicitud`. */
+  id_curso?: string;
 }
 
 /** Ubicación (bodega) real del ítem + responsable con nombre resuelto por el backend. */

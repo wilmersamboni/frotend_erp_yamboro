@@ -8,6 +8,13 @@ import { SILENCIAR_TOAST_ERROR } from '../interceptors/error.interceptor';
 const BASE  = environment.apiUrl;          // → http://localhost:3000 vía proxy
 const BASE2 = environment.apiPracticaUrl;  // → http://localhost:3001 vía proxy
 
+/** Ficha (`cursos`, esquema real con uuid) de la que alguien es líder. */
+export interface CursoLiderado {
+  idCurso: string;
+  codigo: string;
+  programa?: { nombre: string } | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   constructor(private http: HttpClient) {}
@@ -42,6 +49,17 @@ export class ApiService {
   }
   async eliminarCurso(id: number): Promise<any> {
     return firstValueFrom(this.http.delete(`${BASE}/curso/eliminar_jwsv/${id}`));
+  }
+
+  /**
+   * Fichas (`cursos`) de las que `personaId` es líder — `GET /cursos/lider/:id`
+   * (backend-epsas, `CursosController.obtenerPorLider`). Usa el esquema REAL
+   * de `cursos` (uuid `idCurso`), distinto del `Curso` legacy de arriba
+   * (`id_curso: number`, tabla vieja "curso" con endpoints `_jwsv`) — por eso
+   * una interfaz propia en vez de reusar `Curso`.
+   */
+  async obtenerCursosLiderados(personaId: string): Promise<CursoLiderado[]> {
+    return firstValueFrom(this.http.get<CursoLiderado[]>(`${BASE}/cursos/lider/${personaId}`));
   }
 
   // ── Formatos ──────────────────────────────────────────────────────────────
