@@ -62,8 +62,8 @@ import { Categoria, Item, MaterialesApiService, Producto, Sitio } from '../../co
         [filterValue]="estadoFiltro"
         filterLabel="Estado"
         (filterValueChange)="onEstadoFiltro($event)"
-        [canEdit]="puedeEditar() && estadoFiltro !== 'inactivos'"
-        [canDelete]="puedeEliminar()"
+        [canEdit]="puedeEditar() && estadoFiltro === 'activos'"
+        [canDelete]="puedeEliminar() && estadoFiltro !== 'todos'"
         [deleteLabel]="estadoFiltro === 'inactivos' ? 'Reactivar' : 'Desactivar'"
         [rowLinks]="rowLinks"
         (edit)="editar($event)"
@@ -142,13 +142,19 @@ export class MaterialesProductosComponent implements OnInit {
   ];
 
   /** B1 — filtro de estado del toolbar (solo se ofrece a quien puede desactivar).
-   *  'activos' = solo activos (default); 'inactivos' = solo los desactivados,
-   *  para reactivarlos. */
+   *  'todos' = activos + desactivados mezclados, solo lectura (default);
+   *  'activos' = solo activos, editable/desactivable; 'inactivos' = solo los
+   *  desactivados, para reactivarlos. Edit/Reactivar/Desactivar quedan
+   *  deshabilitados en 'todos' porque `<app-admin-table>` no soporta un
+   *  label o permiso distinto por fila — mezclar activos/inactivos en la
+   *  misma tabla haría ambiguo un solo botón "Desactivar"/"Reactivar" para
+   *  toda la tabla. Para mutar un registro, cambiar a la vista específica. */
   readonly estadoOpciones = [
+    { value: 'todos', label: 'Todos' },
     { value: 'activos', label: 'Activos' },
     { value: 'inactivos', label: 'Desactivados' },
   ];
-  estadoFiltro: 'activos' | 'inactivos' = 'activos';
+  estadoFiltro: 'todos' | 'activos' | 'inactivos' = 'todos';
 
   get filas(): any[] {
     return this.productos.map((p) => ({
@@ -161,7 +167,7 @@ export class MaterialesProductosComponent implements OnInit {
   }
 
   onEstadoFiltro(v: string): void {
-    this.estadoFiltro = v === 'inactivos' ? 'inactivos' : 'activos';
+    this.estadoFiltro = v === 'inactivos' || v === 'activos' ? v : 'todos';
     this.cargar();
   }
 
@@ -178,16 +184,19 @@ export class MaterialesProductosComponent implements OnInit {
       const verSitios = this.puedeVerSitios();
       const verCategorias = this.auth.tieneServicio('materiales.categorias.ver');
       const verItems = this.auth.tieneServicio('materiales.items.ver');
-      const soloInactivos = this.estadoFiltro === 'inactivos';
+      // Quien no puede desactivar tampoco ve el filtro (línea 61) — para esa
+      // audiencia el comportamiento se mantiene igual que siempre: solo activos.
+      const incluirInactivos = this.puedeEliminar() && this.estadoFiltro !== 'activos';
       const [productos, categorias, sitios, items] = await Promise.all([
-        this.api.listarProductos(soloInactivos),
+        this.api.listarProductos(incluirInactivos),
         verCategorias ? this.api.listarCategorias().catch(() => [] as Categoria[]) : Promise.resolve([] as Categoria[]),
         verSitios ? this.api.listarSitios().catch(() => [] as Sitio[]) : Promise.resolve([] as Sitio[]),
         verItems ? this.api.listarItems().catch(() => [] as Item[]) : Promise.resolve([] as Item[]),
       ]);
       // `listarProductos(true)` trae activos + desactivados; en modo
-      // "Desactivados" nos quedamos solo con los que están dados de baja.
-      this.productos = soloInactivos
+      // "Desactivados" nos quedamos solo con los que están dados de baja, en
+      // "Todos" se muestran ambos tal cual llegan.
+      this.productos = this.estadoFiltro === 'inactivos'
         ? productos.filter((p) => (p as any).activo === false)
         : productos;
       this.categorias = categorias;
