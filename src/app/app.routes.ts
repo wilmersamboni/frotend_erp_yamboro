@@ -1,9 +1,10 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { roleGuard } from './core/guards/role.guard';
-import { SERVICIOS_ADMIN_PANEL } from './features/admin/config/admin.config';
-import { miBodegaGuard } from './core/guards/mi-bodega.guard';
-import { productosGuard } from './core/guards/productos.guard';
+import { SERVICIOS_ADMIN_PANEL } from './features/tenant-administration/config/admin.config';
+import { SCHEDULE_ROUTES } from './features/schedules/schedules.routes';
+import { SURVEY_ROUTES } from './features/surveys/surveys.routes';
+import { MATERIALS_ROUTES } from './features/materiales/materiales.routes';
 
 function tieneSubdominio(): boolean {
   const hostname = window.location.hostname;
@@ -33,33 +34,28 @@ export const routes: Routes = [
     children: [
       {
         path: '',
-        loadComponent: () => import('./features/auth/login/login.component').then((m) => m.LoginComponent),
+        loadComponent: () => import('./features/access/login/login.component').then((m) => m.LoginComponent),
       },
       {
         // Alias: authGuard redirige a /login — debe resolver al mismo login de la raíz
         path: 'login',
-        loadComponent: () => import('./features/auth/login/login.component').then((m) => m.LoginComponent),
+        loadComponent: () => import('./features/access/login/login.component').then((m) => m.LoginComponent),
       },
-      // {
-      //   path: 'ForgotPassword',
-      //   loadComponent: () =>
-      //     import('./features/auth/forgot-password/forgot-password.component').then((m) => m.ForgotPasswordComponent),
-      // },
       {
         path: '404',
-        loadComponent: () => import('./features/not-found/not-found.component').then((m) => m.NotFoundComponent),
+        loadComponent: () => import('./features/errors/not-found.component').then((m) => m.NotFoundComponent),
       },
       {
         path: '',
         // authGuard en el padre cubre todas las rutas internas; corre antes que
         // los roleGuard de los hijos (los guards del padre se evalúan primero).
         canActivate: [authGuard],
-        loadComponent: () => import('./layout/main-layout/main-layout.component').then((m) => m.MainLayoutComponent),
+        loadComponent: () => import('./shell/tenant-layout/main-layout.component').then((m) => m.MainLayoutComponent),
         children: [
-          { path: 'home', loadComponent: () => import('./features/home/home.component').then((m) => m.HomeComponent) },
+          { path: 'home', loadComponent: () => import('./features/dashboard/home.component').then((m) => m.HomeComponent) },
           // Sin `roles`: admin/instructor entran libres; el aprendiz solo si ya
           // tiene etapa práctica (deep-link — el link del sidebar ya se filtra).
-          { path: 'seguimiento', canActivate: [roleGuard], data: { soloAprendizConEtapa: true }, loadComponent: () => import('./features/seguimiento/seguimiento.component').then((m) => m.SeguimientoComponent) },
+          { path: 'seguimiento', canActivate: [roleGuard], data: { soloAprendizConEtapa: true }, loadComponent: () => import('./features/practice/seguimiento.component').then((m) => m.SeguimientoComponent) },
           // 'servicios' es alternativa OR a 'roles' (misma lógica que /admin):
           // quien no es admin por cargo pero tiene los servicios que esta
           // pantalla realmente consume (busca por cédula en personas +
@@ -73,15 +69,15 @@ export const routes: Routes = [
           // 2026-09-15: "un instructor... solo debería poder acceder a este
           // de igual manera con la gestión de formatos, solo si le conceden
           // el permiso").
-          { path: 'docs', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['practica.historial.ver'] }, loadComponent: () => import('./features/historial/historial.component').then((m) => m.HistorialComponent) },
+          { path: 'docs', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['practica.historial.ver'] }, loadComponent: () => import('./features/practice/history/historial.component').then((m) => m.HistorialComponent) },
           // Formatos: accesible a cualquiera con `practica.formatos.ver`
           // (aprendiz lo trae por defecto) — ya NO exige tener una etapa
           // práctica activa (corregido 2026-09-16, pedido explícito: "el
           // aprendiz por defecto debería tener acceso a verlos"). El
           // componente no depende de ninguna etapa (lista formatos globales),
           // así que la restricción era puramente de visibilidad, no técnica.
-          { path: 'format', canActivate: [roleGuard], loadComponent: () => import('./features/formatos/formatos.component').then((m) => m.FormatosComponent) },
-          { path: 'blog', loadComponent: () => import('./features/chat/chat.component').then((m) => m.ChatComponent) },
+          { path: 'format', canActivate: [roleGuard], loadComponent: () => import('./features/practice/templates/formatos.component').then((m) => m.FormatosComponent) },
+          { path: 'blog', loadComponent: () => import('./features/assistant/chat.component').then((m) => m.ChatComponent) },
           // Sin 'roles': el acceso a /admin es por cargo NADA — es 100% por
           // servicio, vía SERVICIOS_ADMIN_PANEL (admin.config.ts). Antes era
           // un único servicio ('permisos.gestionar'), lo que bloqueaba de
@@ -95,43 +91,35 @@ export const routes: Routes = [
           // etc.) que dejaba entrar a cualquier instructor aunque se le
           // revocara 'permisos.gestionar' explícitamente. Ver plan "Ronda 3"
           // (continuación, Fase 10/11).
-          { path: 'admin', canActivate: [roleGuard], data: { servicios: SERVICIOS_ADMIN_PANEL }, loadComponent: () => import('./features/admin/admin-panel/admin-panel.component').then((m) => m.AdminPanelComponent) },
-          { path: 'settings', loadComponent: () => import('./features/settings/settings.component').then((m) => m.SettingsComponent) },
-          { path: 'area-detail/:idArea', loadComponent: () => import('./features/seguimiento/page-course/page-course.component').then((m) => m.PageCourseComponent) },
-          { path: 'pagetable/:idCurso', loadComponent: () => import('./features/seguimiento/page-table/aprendices.page.ts').then((m) => m.AprendicesPage) },
+          { path: 'admin', canActivate: [roleGuard], data: { servicios: SERVICIOS_ADMIN_PANEL }, loadComponent: () => import('./features/tenant-administration/admin-panel/admin-panel.component').then((m) => m.AdminPanelComponent) },
+          { path: 'settings', loadComponent: () => import('./features/preferences/settings.component').then((m) => m.SettingsComponent) },
           // OJO: 'servicios' (OR), no 'serviciosRequeridos' (AND) — roles=admin
           // y "instructor con practica.migracion otorgado" son POBLACIONES
           // DISTINTAS (misma lección de Fase 3.2: AND es solo para cuando
           // roles y el servicio gatean a la MISMA gente). Con AND, un
           // instructor con el servicio nunca pasaba porque 'roles' ya lo
           // bloqueaba antes de que el servicio tuviera chance de rescatarlo.
-          { path: 'migracion', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['practica.migracion'] }, loadComponent: () => import('./features/migracion/migration.component').then((m) => m.MigrationComponent) },
+          { path: 'migracion', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['practica.migracion'] }, loadComponent: () => import('./features/practice/migration/migration.component').then((m) => m.MigrationComponent) },
 
           // ── Horarios (portado de ChronoGest) ──────────────────────────────
           // Solo el servicio elevado gatea la ruta (no 'horarios.ver'/'horarios.competencias':
           // esos ya son parte del acceso por defecto de todo instructor/aprendiz — incluirlos
           // acá abriría la página admin completa a cualquiera, no solo a quien recibió el
           // permiso extra). Ver PermisoService/SERVICIOS_POR_ROL en backend-erp.
-          { path: 'horarios', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['horarios.gestionar'] }, loadComponent: () => import('./features/admin/horarios/horarios.component').then((m) => m.AdminHorariosComponent) },
-          { path: 'programador-eventos', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['horarios.eventos'] }, loadComponent: () => import('./features/admin/programador-eventos/programador-eventos.component').then((m) => m.ProgramadorEventosComponent) },
-          { path: 'mis-horarios', canActivate: [roleGuard], data: { roles: ['instructor'] }, loadComponent: () => import('./features/instructor/mis-horarios/instructor-mis-horarios.component').then((m) => m.InstructorMisHorariosComponent) },
-          { path: 'aprendiz-mis-horarios', canActivate: [roleGuard], data: { roles: ['aprendiz'] }, loadComponent: () => import('./features/aprendiz/mis-horarios/aprendiz-mis-horarios.component').then((m) => m.AprendizMisHorariosComponent) },
+          ...SCHEDULE_ROUTES,
 
           // ── Encuestas de satisfacción docente ─────────────────────────────
-          { path: 'encuestas', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['encuestas.gestionar'] }, loadComponent: () => import('./features/admin/encuestas/encuestas.component').then((m) => m.EncuestasComponent) },
-          { path: 'encuestas/preguntas', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['encuestas.gestionar'] }, loadComponent: () => import('./features/admin/encuestas/preguntas.component').then((m) => m.PreguntasComponent) },
+          ...SURVEY_ROUTES,
 
           // ── Mi Bodega — consola del encargado de bodega (sitio.id_responsable),
           // cualquier cargo salvo admin (tiene su propia vista de abajo). Sin
           // gate de `roles`; el guard mira si es responsable de ≥1 sitio y
           // excluye admin explícitamente. Ver plan "Encargado de bodega", Fase B4.
-          { path: 'mi-bodega', canActivate: [miBodegaGuard], loadComponent: () => import('./features/mi-bodega/mi-bodega.component').then((m) => m.MiBodegaComponent) },
 
           // ── Todas las bodegas — misma consola de Mi Bodega, pero admin-only
           // y sin recortar a "las mías": `data.todasLasBodegas` le dice al
           // componente que traiga TODOS los sitios (`listarSitios()`) en vez
           // de `sitiosACargo()`.
-          { path: 'materiales/bodegas', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], todasLasBodegas: true }, loadComponent: () => import('./features/mi-bodega/mi-bodega.component').then((m) => m.MiBodegaComponent) },
 
           // ── Materiales (bodega) — pantallas compartidas por los 3 cargos
           // (ítem 5, "extraer componentes repetidos"): un solo componente y
@@ -141,17 +129,10 @@ export const routes: Routes = [
           // Categorías y Sitios no tienen variante aprendiz (nunca la
           // tuvieron); Lotes es admin-only (instructor/aprendiz nunca
           // tuvieron esa pantalla).
-          { path: 'materiales/categorias', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.categorias.ver'] }, loadComponent: () => import('./features/materiales/categorias.component').then((m) => m.MaterialesCategoriasComponent) },
-          { path: 'materiales/sitios', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.sitios.ver'] }, loadComponent: () => import('./features/materiales/sitios.component').then((m) => m.MaterialesSitiosComponent) },
           // `productosGuard` corre además de `roleGuard`: un encargado de bodega
           // sigue teniendo `materiales.productos.ver` (lo necesita Mi Bodega),
           // así que sin este guard aparte la URL seguía siendo accesible a mano
           // aunque se le quitara el link del sidebar.
-          { path: 'materiales/productos', canActivate: [roleGuard, productosGuard], data: { serviciosRequeridos: ['materiales.productos.ver'] }, loadComponent: () => import('./features/materiales/productos.component').then((m) => m.MaterialesProductosComponent) },
-          { path: 'materiales/existencias', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.existencias.ver'] }, loadComponent: () => import('./features/materiales/existencias.component').then((m) => m.MaterialesExistenciasComponent) },
-          { path: 'materiales/items', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.items.ver'] }, loadComponent: () => import('./features/materiales/items.component').then((m) => m.MaterialesItemsComponent) },
-          { path: 'materiales/vencimientos', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.solicitudes.ver'] }, loadComponent: () => import('./features/materiales/vencimientos.component').then((m) => m.MaterialesVencimientosComponent) },
-          { path: 'materiales/importar', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.productos.crear'] }, loadComponent: () => import('./features/materiales/importar.component').then((m) => m.MaterialesImportarComponent) },
 
           // Lotes: se abre por servicio (no por `roles`) como el resto de las
           // 5 pantallas unificadas, para que un encargado de bodega o líder de
@@ -159,16 +140,8 @@ export const routes: Routes = [
           // Un instructor/aprendiz común YA NO trae 'materiales.lotes.ver' por
           // defecto (recorte 2026-09-16, MATERIALES_INSTRUCTOR/MATERIALES_APRENDIZ,
           // backend-epsas) — antes sí lo traían, este comentario quedó desactualizado.
-          { path: 'materiales/lotes', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.lotes.ver'] }, loadComponent: () => import('./features/admin/materiales/lotes.component').then((m) => m.MaterialesLotesComponent) },
 
           // ── Materiales (bodega) — slice de admin ──
-          { path: 'materiales/kardex', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/kardex.component').then((m) => m.MaterialesKardexComponent) },
-          { path: 'materiales/novedades', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/novedades.component').then((m) => m.MaterialesNovedadesComponent) },
-          { path: 'materiales/traslados', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/traslados.component').then((m) => m.MaterialesTrasladosComponent) },
-          { path: 'materiales/solicitudes', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/solicitudes.component').then((m) => m.MaterialesSolicitudesComponent) },
-          { path: 'materiales/devoluciones', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/devoluciones.component').then((m) => m.MaterialesDevolucionesComponent) },
-          { path: 'materiales/actas', canActivate: [roleGuard], data: { serviciosRequeridos: ['materiales.actas.ver'] }, loadComponent: () => import('./features/materiales/actas.component').then((m) => m.MaterialesActasComponent) },
-          { path: 'materiales/asignaciones', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'] }, loadComponent: () => import('./features/admin/materiales/asignaciones.component').then((m) => m.MaterialesAsignacionesComponent) },
 
           // ── Materiales (bodega) — instructor: solo lectura salvo lo suyo,
           // más acciones elevadas de "responsable de bodega" gateadas en el
@@ -184,28 +157,22 @@ export const routes: Routes = [
           // `serviciosRequeridos` es un AND aparte, no un OR — revocarle el
           // servicio a UN instructor puntual le bloquea la ruta sin afectar
           // a los demás instructores ni depender de que 'roles' no matchee.
-          { path: 'instructor/materiales/kardex', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.kardex.ver'] }, loadComponent: () => import('./features/instructor/materiales/kardex.component').then((m) => m.InstructorMaterialesKardexComponent) },
-          { path: 'instructor/materiales/devoluciones', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.devoluciones.ver'] }, loadComponent: () => import('./features/instructor/materiales/devoluciones.component').then((m) => m.InstructorMaterialesDevolucionesComponent) },
-          { path: 'instructor/materiales/solicitudes', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.solicitudes.ver'] }, loadComponent: () => import('./features/instructor/materiales/solicitudes.component').then((m) => m.InstructorMaterialesSolicitudesComponent) },
-          { path: 'instructor/materiales/traslados', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.traslados.ver'] }, loadComponent: () => import('./features/instructor/materiales/traslados.component').then((m) => m.InstructorMaterialesTrasladosComponent) },
-          { path: 'instructor/materiales/novedades', canActivate: [roleGuard], data: { roles: ['instructor'], serviciosRequeridos: ['materiales.novedades.ver'] }, loadComponent: () => import('./features/instructor/materiales/novedades.component').then((m) => m.InstructorMaterialesNovedadesComponent) },
 
           // ── Materiales (bodega) — aprendiz: solo lectura + solicitar/recibir préstamos propios. Mismo criterio que instructor arriba.
-          { path: 'aprendiz/materiales/solicitudes', canActivate: [roleGuard], data: { roles: ['aprendiz'], serviciosRequeridos: ['materiales.solicitudes.ver'] }, loadComponent: () => import('./features/aprendiz/materiales/solicitudes.component').then((m) => m.AprendizMaterialesSolicitudesComponent) },
           // `materiales.devoluciones.ver` está en MATERIALES_APRENDIZ por defecto desde 2026-09-16 ("devoluciones de él") — cualquier aprendiz llega acá, no solo uno encargado de bodega.
-          { path: 'aprendiz/materiales/devoluciones', canActivate: [roleGuard], data: { roles: ['aprendiz'], serviciosRequeridos: ['materiales.devoluciones.ver'] }, loadComponent: () => import('./features/aprendiz/materiales/devoluciones.component').then((m) => m.AprendizMaterialesDevolucionesComponent) },
+          ...MATERIALS_ROUTES,
         ],
       },
       // Responder encuesta: sin sidebar y sin sesión — el backend ya trata
       // /responder/:token como público (@Public(), sin personaId en la
       // respuesta), así que el link/QR se responde de forma anónima, sin
       // loguearse ni pasar por ninguna página de "Mis Encuestas".
-      { path: 'responder/:token', loadComponent: () => import('./features/public/responder-encuesta/responder-encuesta.component').then((m) => m.ResponderEncuestaComponent) },
+      { path: 'responder/:token', loadComponent: () => import('./features/surveys/public-response/responder-encuesta.component').then((m) => m.ResponderEncuestaComponent) },
       // Link/QR único por grupo (una ficha, varios instructores) — también
       // público: sin personaId no se puede resolver "el siguiente pendiente",
       // así que el componente lista todos los instructores del grupo y el
       // aprendiz anónimo elige a cuál responder (ver GrupoPublicoController).
-      { path: 'responder-grupo/:grupoId', loadComponent: () => import('./features/public/responder-grupo/responder-grupo.component').then((m) => m.ResponderGrupoComponent) },
+      { path: 'responder-grupo/:grupoId', loadComponent: () => import('./features/surveys/public-group/responder-grupo.component').then((m) => m.ResponderGrupoComponent) },
       { path: '**', redirectTo: '404' },
     ],
   },

@@ -6,7 +6,7 @@ import gsap from 'gsap';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { TableFilterComponent, TableFilterOption } from '../../shared/components/table-filter.component';
-import { FilaVencimiento, Lote, MaterialesApiService, Sitio } from '../../core/services/materiales/materiales-api.service';
+import { FilaVencimiento, Lote, MaterialesApiService, Sitio } from './data-access/materiales-api.service';
 
 const VENTANAS = [7, 15, 30] as const;
 

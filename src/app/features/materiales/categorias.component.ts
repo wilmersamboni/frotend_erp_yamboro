@@ -1,11 +1,11 @@
 import { Component, OnInit, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AdminTableComponent } from '../../shared/components/admin-table.component';
-import { AdminModalComponent } from '../../shared/components/admin-modal.component';
+import { AdminModalComponent } from '../tenant-administration/ui/admin-modal.component';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
-import { Categoria, MaterialesApiService } from '../../core/services/materiales/materiales-api.service';
+import { Categoria, MaterialesApiService } from './data-access/materiales-api.service';
 
 /**
  * Categorías de Materiales — crear/editar/eliminar gateados por servicio

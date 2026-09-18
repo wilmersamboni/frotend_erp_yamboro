@@ -152,7 +152,7 @@ export interface TableRowLink {
                   </th>
                 }
                 @for (col of visibleColumns; track col) {
-                  <th class="px-4 py-3 text-left font-semibold whitespace-nowrap">{{ columnLabels[col] ?? col }}</th>
+                  <th class="px-4 py-3 text-left font-semibold whitespace-nowrap">{{ columnLabels[col] }}</th>
                 }
                 @if (canEdit || canDelete || rowLinks.length > 0) {
                   <th class="px-4 py-3 text-right font-semibold">Acciones</th>

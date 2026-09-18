@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterOutlet, Router, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs/operators';
-import { FloatingButtons } from './layout/floating-buttons/floating-buttons';
+import { FloatingButtons } from './shell/floating-controls/floating-buttons';
 import { TuiRoot } from '@taiga-ui/core';
 import { ThemeService } from './core/services/theme.service';
 import { ToastModule } from 'primeng/toast';

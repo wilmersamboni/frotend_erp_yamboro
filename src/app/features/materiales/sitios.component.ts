@@ -1,12 +1,12 @@
 import { Component, OnInit, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AdminTableComponent } from '../../shared/components/admin-table.component';
-import { AdminModalComponent } from '../../shared/components/admin-modal.component';
-import { OpcionSelect } from '../admin/services/admin.service';
+import { AdminModalComponent } from '../tenant-administration/ui/admin-modal.component';
+import { OpcionSelect } from '../tenant-administration/services/admin.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
-import { Item, MaterialesApiService, Sitio } from '../../core/services/materiales/materiales-api.service';
+import { Item, MaterialesApiService, Sitio } from './data-access/materiales-api.service';
 import { PersonaService } from '../../core/services/persona.service';
 
 const OPCIONES_FILTRO_TIPO = [
