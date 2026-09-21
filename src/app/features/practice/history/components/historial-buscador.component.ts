@@ -65,10 +65,10 @@ import { CommonModule } from '@angular/common';
                        last:border-b-0">
                 <div class="w-8 h-8 rounded-full bg-[#39A900]/10 text-[#39A900]
                             flex items-center justify-center text-xs font-bold flex-shrink-0">
-                  {{ iniciales(p.nombre) }}
+                  {{ iniciales(p.nombre + p.apellido) }}
                 </div>
                 <div class="flex-1 min-w-0">
-                  <p class="font-medium text-gray-800 truncate">{{ p.nombre }}</p>
+                  <p class="font-medium text-gray-800 truncate">{{ p.nombre}} {{ p.apellido}} </p>
                   <p class="text-xs text-gray-400">
                     {{ p.cedula ?? p.numeroDocumento }}
                     @if (p.programa) { &middot; {{ p.programa }} }
