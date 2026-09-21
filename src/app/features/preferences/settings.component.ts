@@ -364,40 +364,26 @@ perfil: {
   async guardarPerfil(): Promise<void> {
     const personaId = this.user()?.personaId;
     if (!personaId) return;
-    this.saving.set(true); //this.perfilMsg.set('');
+    this.saving.set(true);
     try {
-      // Cargamos el registro completo para no pisar campos no editables
-      const actual: any = await firstValueFrom(
-        this.http.get(`/api/personas/${personaId}`)
-      );
+      // PATCH con solo los campos editables — antes hacía GET (para no pisar
+      // genero/municipioId/cargo/estado) y después PUT con todo el objeto:
+      // si otro proceso cambiaba alguno de esos campos entre el GET y el
+      // PUT, este PUT lo pisaba con el valor ya viejo (TOCTOU, auditoría
+      // 2026-09-16). El backend ya mergea parcial (`Object.assign` sobre la
+      // entidad recién leída, PersonasService.actualizar), así que un PATCH
+      // con solo estos 4 campos nunca toca los demás.
       await firstValueFrom(
-        this.http.put(`/api/personas/${personaId}`, {
-          nombre:       this.perfil.nombre,
-          correo:       this.perfil.correo,
-          telefono:     this.perfil.telefono,
-          direccion:    this.perfil.direccion,
-          genero:       actual.genero,
-          municipioId:  actual.municipioId,
-          cargo:        actual.cargo,
-          estado:       actual.estado,
+        this.http.patch(`/api/personas/${personaId}`, {
+          nombre:    this.perfil.nombre,
+          correo:    this.perfil.correo,
+          telefono:  this.perfil.telefono,
+          direccion: this.perfil.direccion,
         })
       );
-      console.log('BODY PUT:', {
-  nombre: this.perfil.nombre,
-  correo: this.perfil.correo,
-  telefono: this.perfil.telefono,
-  direccion: this.perfil.direccion,
-  genero: actual.genero,
-  municipioId: actual.municipioId,
-  cargo: actual.cargo,
-  estado: actual.estado,
-});
       this.auth.actualizarUser({ nombre: this.perfil.nombre });
       this.toast.ok('Perfil actualizado', 'Los cambios fueron guardados correctamente.');
     } catch (e: any) {
-      console.error('ERROR PUT:', e);
-  console.error('STATUS:', e?.status);
-  console.error('ERROR BODY:', e?.error);
       this.toast.httpError(e, 'Error al guardar el perfil.');
     } finally { this.saving.set(false); }
   }
