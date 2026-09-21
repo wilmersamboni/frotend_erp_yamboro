@@ -552,23 +552,28 @@ export class AdminService {
     this.modalError.set(null);
   }
 
-  private sanitizarForm(form: Record<string, any>): Record<string, any> {
+  /**
+   * `esEdicion` distingue "nunca se llenó" (crear) de "se vació a propósito"
+   * (editar) — antes se aplicaba el mismo filtro a los dos casos, así que
+   * borrar un campo de texto/número al editar no viajaba en el PATCH: el
+   * backend nunca se enteraba, el valor viejo quedaba pegado, y el usuario
+   * veía "Actualizado" sin que el dato cambiara (auditoría 2026-09-16,
+   * crítico). Al crear, se sigue omitiendo cualquier campo vacío para no
+   * mandar de más lo que el usuario no llenó.
+   */
+  private sanitizarForm(form: Record<string, any>, esEdicion: boolean): Record<string, any> {
     const mod = this.activeTab();
     const tiposCampo = CONFIG[mod]?.tiposCampo ?? {};
     const selectores = CONFIG[mod]?.selectores ?? {};
     const resultado: Record<string, any> = {};
     for (const [clave, valor] of Object.entries(form)) {
       if (valor === '' || valor === null || valor === undefined) {
-        // Un selector FK `opcional` (ej. líder de área) se puede limpiar a
-        // propósito eligiendo "— Sin asignar —" (value: null, ver
-        // buildOpciones). Si lo saltáramos como a cualquier campo vacío, el
-        // PATCH nunca incluye la clave y el backend no tiene forma de
-        // distinguir "no tocar este campo" de "vaciarlo" — el valor viejo
-        // queda pegado para siempre sin importar cuántas veces se guarde
-        // (bug real: quitar el líder de un área nunca surtía efecto). Los
-        // demás campos vacíos (no `opcional`) se siguen omitiendo, para no
-        // mandar por accidente un campo requerido en blanco mientras se edita.
-        if (selectores[clave]?.opcional) resultado[clave] = null;
+        // Al editar, cualquier campo vacío se manda como `null` explícito —
+        // si de verdad era requerido, el backend lo rechaza con 400 (igual
+        // que si se hubiera mandado así desde el vamos), pero uno opcional
+        // sí queda vaciado. El caso de los selectores FK `opcional` (ej.
+        // líder de área) ya lo cubre esto mismo, se deja de tratar aparte.
+        if (esEdicion || selectores[clave]?.opcional) resultado[clave] = null;
         continue;
       }
 
@@ -646,7 +651,7 @@ export class AdminService {
 
   try {
     const registroExistente = this.editando();
-    let formData = this.sanitizarForm(this.modalForm);
+    let formData = this.sanitizarForm(this.modalForm, !!registroExistente);
 
     // --- NUEVA LÓGICA DE FILTRADO ---
     // Si el módulo tiene una lista de 'campos' definida, eliminamos todo lo que no esté en ella.
