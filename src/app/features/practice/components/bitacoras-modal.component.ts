@@ -8,6 +8,7 @@ import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { PracticaService, SeguimientoService } from '../../../core/services';
 import { NotificacionService } from '../../../core/services/notificacion.service';
+import { ToastService } from '../../../core/services/toast.service';
 
 /**
  * Equivalente a ModalBitacoras.tsx + BitacorasCard.tsx de React.
@@ -315,6 +316,7 @@ import { NotificacionService } from '../../../core/services/notificacion.service
 })
 export class BitacorasModalComponent implements OnChanges, OnInit {
   private auth = inject(AuthService);
+  private toast = inject(ToastService);
 
   /**
    * Evaluar bitácoras: admin/instructor por cargo (como siempre), o
@@ -538,7 +540,12 @@ toggleDropdown(item: any, event: MouseEvent): void {
           }
         }
       }
-    } catch (e) {
+    } catch (e: any) {
+      // Antes sin toast (auditoría 2026-09-16): si el PATCH fallaba (403 por
+      // no ser el instructor asignado, red caída), el usuario no recibía
+      // ninguna señal — solo veía la lista "recargarse" en silencio, sin
+      // saber si su acción se aplicó. Mismo patrón que seguimientos-modal.
+      this.toast.httpError(e, 'No se pudo cambiar el estado de la bitácora.');
       await this.cargarBitacoras();
     }
   }
@@ -604,7 +611,10 @@ toggleDropdown(item: any, event: MouseEvent): void {
           fecha,
         });
       }
-    } catch (e) {
+    } catch (e: any) {
+      // Antes sin toast (auditoría 2026-09-16) — mismo problema que
+      // cambiarEstado() de arriba, ahora también avisa con un toast.
+      this.toast.httpError(e, 'No se pudo subir el PDF de la bitácora.');
       await this.cargarBitacoras();
     } finally {
       this.uploadingId.set(null);
