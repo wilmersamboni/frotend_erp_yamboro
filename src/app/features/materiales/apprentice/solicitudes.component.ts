@@ -486,6 +486,11 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
   productos: Producto[] = [];
   lotes: Lote[] = [];
   sitios: Sitio[] = [];
+  /** Bodegas que puede GESTIONAR (responsable puntual O líder de su área —
+   *  mismo `SitiosACargoService` que ahora usa el backend para autorizar
+   *  aprobar/rechazar/entregar/cancelar, 2026-09-21). Usado por
+   *  `puedeGestionar()`; autoservicio, sin `@RequiereServicio`. */
+  misSitiosACargoIds = new Set<string>();
   loading = false;
   saving = false;
   error: string | null = null;
@@ -625,11 +630,15 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
    * bodega REAL de la solicitud (línea por línea, no `producto?.id_sitio` —
    * la "bodega de casa" del producto puede no ser de dónde sale ESTA
    * solicitud; reporte QA 2026-09-11, caso "Pollo" con lote en otra bodega).
+   *
+   * También autorizado si es LÍDER DEL ÁREA de esa bodega (2026-09-21) —
+   * ver el mismo docblock en `instructor/solicitudes.component.ts`.
    */
   puedeGestionar(s: Solicitud): boolean {
     if (this.esSolicitantePropio(s)) return false;
     if (this.auth.isAdmin()) return true;
-    return !!s.bodega_responsable_id && s.bodega_responsable_id === this.auth.user()?.id;
+    if (s.bodega_responsable_id && s.bodega_responsable_id === this.auth.user()?.id) return true;
+    return !!s.id_sitio && this.misSitiosACargoIds.has(s.id_sitio);
   }
 
   /** La bodega ya no acepta aprobar/entregar (ver plan 2026-09-18) — deshabilita
@@ -802,16 +811,18 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
     this.loading = true;
     try {
       const verSitios = this.auth.tieneServicio('materiales.sitios.ver');
-      const [solicitudes, productos, lotes, sitios] = await Promise.all([
+      const [solicitudes, productos, lotes, sitios, sitiosACargo] = await Promise.all([
         this.api.listarSolicitudes(),
         this.api.listarProductos().catch(() => [] as Producto[]),
         this.api.listarLotes().catch(() => [] as Lote[]),
         verSitios ? this.api.listarSitios().catch(() => [] as Sitio[]) : Promise.resolve([] as Sitio[]),
+        this.api.sitiosACargo().catch(() => [] as Sitio[]),
       ]);
       this.solicitudes = solicitudes;
       this.productos = productos;
       this.lotes = lotes;
       this.sitios = sitios;
+      this.misSitiosACargoIds = new Set(sitiosACargo.map((s) => s.id_sitio));
     } catch (e) {
       this.toast.httpError(e, 'No se pudieron cargar las solicitudes.');
     } finally {
