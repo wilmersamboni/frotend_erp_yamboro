@@ -9,11 +9,12 @@ import { AuditLog, ACCION_COLORES } from '../../../../shared/models/admin/audit-
 import { AdminBadgeEstadoComponent } from '../../../../shared/components/admin/badge-estado.component';
 import { AdminLoadingSpinnerComponent } from '../../../../shared/components/admin/loading-spinner.component';
 import { AdminCredencialesModalComponent } from '../../../../shared/components/admin/credenciales-modal.component';
+import { AdminConfirmDialogComponent } from '../../../../shared/components/admin/confirm-dialog.component';
 
 @Component({
   selector: 'app-tenant-detail',
   standalone: true,
-  imports: [RouterLink, DatePipe, AdminBadgeEstadoComponent, AdminLoadingSpinnerComponent, AdminCredencialesModalComponent],
+  imports: [RouterLink, DatePipe, AdminBadgeEstadoComponent, AdminLoadingSpinnerComponent, AdminCredencialesModalComponent, AdminConfirmDialogComponent],
   template: `
     <div class="mb-6">
       <nav class="flex items-center gap-1.5 text-xs text-gray-400 mb-2">
@@ -36,7 +37,7 @@ import { AdminCredencialesModalComponent } from '../../../../shared/components/a
             class="text-sm font-semibold px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
             {{ t.estado === 'activo' ? 'Desactivar' : 'Activar' }}
           </button>
-          <button type="button" (click)="reinicializar()" [disabled]="reinicializando()"
+          <button type="button" (click)="solicitarReinicializar()" [disabled]="reinicializando()"
             class="text-sm font-semibold px-4 py-2.5 rounded-xl border border-amber-200 text-amber-700 hover:bg-amber-50 transition-colors disabled:opacity-50">
             {{ reinicializando() ? 'Reinicializando...' : 'Reinicializar' }}
           </button>
@@ -78,6 +79,24 @@ import { AdminCredencialesModalComponent } from '../../../../shared/components/a
         [login]="credencialesActuales()?.login ?? ''"
         [password]="credencialesActuales()?.password ?? ''"
         (cerrar)="mostrarCredenciales.set(false)" />
+
+      <app-admin-confirm-dialog
+        [visible]="confirmandoDesactivar()"
+        titulo="Desactivar centro"
+        [mensaje]="'¿Deseas desactivar &quot;' + t.nombre + '&quot;? Su estado cambiará a inactivo.'"
+        textoConfirmar="Desactivar"
+        variante="danger"
+        (confirmar)="confirmarToggleEstado()"
+        (cancelar)="confirmandoDesactivar.set(false)" />
+
+      <app-admin-confirm-dialog
+        [visible]="confirmandoReinicializar()"
+        titulo="Reinicializar centro"
+        [mensaje]="'¿Deseas reinicializar &quot;' + t.nombre + '&quot;? Esto invalida la contraseña actual del usuario root y genera una nueva — no se puede deshacer.'"
+        textoConfirmar="Reinicializar"
+        variante="danger"
+        (confirmar)="confirmarReinicializar()"
+        (cancelar)="confirmandoReinicializar.set(false)" />
 
       <!-- Logs -->
       <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mt-4">
@@ -133,6 +152,8 @@ export class TenantDetailComponent {
   readonly reinicializando     = signal(false);
   readonly mostrarCredenciales = signal(false);
   readonly credencialesActuales = signal<TenantCredenciales | null>(null);
+  readonly confirmandoDesactivar = signal(false);
+  readonly confirmandoReinicializar = signal(false);
 
   constructor() { this.cargarTenant(); }
 
@@ -151,12 +172,30 @@ export class TenantDetailComponent {
     });
   }
 
+  // Activar no es destructivo (reversible con el mismo botón) — se dispara
+  // directo. Desactivar sí lo es (corta el acceso del centro), así que pasa
+  // por confirmación, igual que ya hacía la lista (`tenant-list.component.ts`,
+  // auditoría 2026-09-16, hallazgo "toggleEstado sin confirmación").
   toggleEstado(): void {
     const tenant = this.tenant();
     if (!tenant) return;
-    const nuevoEstado = tenant.estado === 'activo' ? 'inactivo' : 'activo';
+    if (tenant.estado === 'activo') {
+      this.confirmandoDesactivar.set(true);
+      return;
+    }
+    this.aplicarToggleEstado(tenant.id, 'activo');
+  }
+
+  confirmarToggleEstado(): void {
+    const tenant = this.tenant();
+    this.confirmandoDesactivar.set(false);
+    if (!tenant) return;
+    this.aplicarToggleEstado(tenant.id, 'inactivo');
+  }
+
+  private aplicarToggleEstado(id: string, nuevoEstado: 'activo' | 'inactivo'): void {
     this.actualizandoEstado.set(true);
-    this.tenantService.toggleEstado(tenant.id, nuevoEstado).subscribe({
+    this.tenantService.toggleEstado(id, nuevoEstado).subscribe({
       next: (actualizado) => {
         this.tenant.set(actualizado);
         this.actualizandoEstado.set(false);
@@ -166,8 +205,14 @@ export class TenantDetailComponent {
     });
   }
 
-  reinicializar(): void {
+  // Sin confirmación, un clic accidental regeneraba las credenciales del
+  // root user del centro de inmediato — invalidando la contraseña actual sin
+  // aviso (auditoría 2026-09-16, crítico).
+  solicitarReinicializar(): void { this.confirmandoReinicializar.set(true); }
+
+  confirmarReinicializar(): void {
     const tenant = this.tenant();
+    this.confirmandoReinicializar.set(false);
     if (!tenant) return;
     this.reinicializando.set(true);
     this.tenantService.reinicializar(tenant.id).subscribe({
