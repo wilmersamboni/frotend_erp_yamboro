@@ -315,6 +315,8 @@ export interface FilaVencimiento {
   solicitante_nombre: string | null;
   bodega_nombre: string | null;
   responsable_nombre: string | null;
+  /** Ya resuelto por el backend (responsable puntual, líder del área de la bodega, o admin) — no replicar la regla acá, solo renderizar. */
+  puede_gestionar_devolucion: boolean;
 }
 
 export interface SeguimientoVencimientos {
