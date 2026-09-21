@@ -20,6 +20,14 @@ export class AprendizContextService {
 
   private cargando = false;
   private cargadoParaUsuario: string | null = null;
+  private cargadoEn = 0;
+  // Antes el caché no vencía nunca dentro de la misma sesión (auditoría
+  // 2026-09-16): si a un aprendiz le creaban una etapa práctica con la
+  // pestaña abierta, el guard `soloAprendizConEtapa` y el sidebar seguían
+  // viendo `tieneEtapa=false` hasta cerrar sesión. TTL corto en vez de
+  // enganchar el canal de WebSocket — esta pantalla no lo tenía ya cableado
+  // y el dato no es tan sensible al segundo como para justificarlo.
+  private static readonly TTL_MS = 60_000;
 
   async cargar(): Promise<void> {
     if (this.auth.cargo() !== 'aprendiz') {
@@ -28,9 +36,10 @@ export class AprendizContextService {
     }
 
     const userId = this.auth.user()?.id ?? null;
-    // Ya está cargado para ESTE usuario — evita refetch si el mismo aprendiz
-    // navega entre home/sidebar/otras páginas dentro de la misma sesión.
-    if (this.cargadoParaUsuario === userId && userId !== null) return;
+    // Ya está cargado para ESTE usuario y todavía no venció — evita refetch
+    // si el mismo aprendiz navega entre home/sidebar/otras páginas seguido.
+    const vigente = Date.now() - this.cargadoEn < AprendizContextService.TTL_MS;
+    if (this.cargadoParaUsuario === userId && userId !== null && vigente) return;
     if (this.cargando) return;
 
     this.cargando = true;
@@ -39,10 +48,12 @@ export class AprendizContextService {
       this.practicas.set(practicas);
       this.tieneEtapa.set(practicas.length > 0);
       this.cargadoParaUsuario = userId;
+      this.cargadoEn = Date.now();
     } catch {
       this.practicas.set([]);
       this.tieneEtapa.set(false);
       this.cargadoParaUsuario = userId;
+      this.cargadoEn = Date.now();
     } finally {
       this.cargando = false;
     }
