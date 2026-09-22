@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, OnInit, WritableSignal, effect, signal, viewChild, viewChildren } from '@angular/core';
+import { Component, ElementRef, HostListener, Injector, OnInit, WritableSignal, afterNextRender, effect, signal, viewChild, viewChildren } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -538,7 +538,12 @@ export class MaterialesVencimientosComponent implements OnInit {
     return f.puede_gestionar_devolucion;
   }
 
-  constructor(private api: MaterialesApiService, private auth: AuthService, private toast: ToastService) {
+  constructor(
+    private api: MaterialesApiService,
+    private auth: AuthService,
+    private toast: ToastService,
+    private injector: Injector,
+  ) {
     this.puedeVerPerecederos = this.auth.tieneServicio('materiales.lotes.ver');
     this.vista.set(this.puedeVerPerecederos ? 'perecederos' : 'prestamos');
 
@@ -728,6 +733,14 @@ export class MaterialesVencimientosComponent implements OnInit {
       );
       this.sitios = sitios;
       this.recalcularContadores(true);
+      // El badge del toggle "Perecederos/Préstamos" puede cambiar recién acá
+      // (los contadores son getters planos, no señales, así que el `effect()`
+      // que posiciona el indicador no tiene forma de saber que debe
+      // remedirse). `afterNextRender` espera a que Angular termine de pintar
+      // el badge en el DOM antes de remedir — un `effect()` disparado por una
+      // señal auxiliar corre en paralelo a esa pintura y a veces medía el
+      // ancho viejo (carrera real, confirmada con logging).
+      afterNextRender(() => this.reposicionarVistaPill(), { injector: this.injector });
     } catch (e) {
       this.toast.httpError(e, 'No se pudo cargar el seguimiento de vencimientos.');
     } finally {
@@ -770,6 +783,18 @@ export class MaterialesVencimientosComponent implements OnInit {
     const vars = { x: btn.offsetLeft, width: btn.offsetWidth };
     if (animar) gsap.to(pillEl, { ...vars, duration: 0.35, ease: 'power3.out' });
     else gsap.set(pillEl, vars);
+  }
+
+  /** Remide el indicador del toggle "Perecederos/Préstamos" contra el ancho
+   *  ACTUAL del botón activo — se llama después de que `cargar()` termina
+   *  (vía `afterNextRender`, ya con el badge pintado en el DOM) para que el
+   *  indicador cubra el badge de contador recién aparecido. Sin animación:
+   *  es una corrección de medición, no un cambio de pestaña real. */
+  private reposicionarVistaPill(): void {
+    const btns = this.vistaBtns();
+    if (!btns.length) return;
+    const idx = this.vista() === 'perecederos' ? 0 : 1;
+    this.moverPill(this.vistaPill()?.nativeElement, btns[idx]?.nativeElement, false);
   }
 
   /** Entrada escalonada (fade + slide) de un grupo de filas, más el crecimiento de su barra de urgencia. */

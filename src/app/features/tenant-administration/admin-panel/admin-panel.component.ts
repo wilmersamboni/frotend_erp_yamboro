@@ -321,6 +321,7 @@ import { PermisosPanelComponent } from '../permisos/permisos-panel.component';
         [tiposCampo]="config[admin.activeTab()].tiposCampo ?? {}"
         [parCoordenadas]="config[admin.activeTab()].parCoordenadas"
         [columnLabels]="config[admin.activeTab()].columnLabels ?? {}"
+        [placeholders]="config[admin.activeTab()].placeholders ?? {}"
         [minDateFields]="config[admin.activeTab()].minDateFields ?? {}"
         [saving]="admin.saving()"
         [error]="admin.modalError()"
