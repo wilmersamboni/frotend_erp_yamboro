@@ -13,6 +13,11 @@ import { TuiDayCache } from '../../../shared/utils/tui-day.util';
 import type { TuiDay } from '@taiga-ui/cdk';
 import { Asignacion, CreateAsignacionDto, EstadoAsignacion, MaterialesApiService, Producto, Sitio } from '../data-access/materiales-api.service';
 
+interface LineaAsignacionForm{
+  id_producto:string;
+  cantidad:number
+}
+
 interface Ficha {
   idCurso: string;
   codigo: string;
@@ -193,7 +198,7 @@ interface Ficha {
               @for (a of asignacionesPaginadas; track a.id_asignacion) {
                 <tr class="hover:bg-gray-50/80 transition-colors">
                   <td class="px-4 py-3 text-gray-700">{{ nombreFicha(a.id_curso) }}</td>
-                  <td class="px-4 py-3 text-gray-700">{{ a.producto?.nombre ?? '—' }}</td>
+                  <td class="px-4 py-3 text-gray-700">{{ descripcionLineas(a) }}</td>
                   <td class="px-4 py-3 text-gray-700">{{ a.cantidad }}</td>
                   <td class="px-4 py-3"><app-status-badge [value]="a.estado" /></td>
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ a.fecha_asignacion | date: 'short' }}</td>
@@ -287,45 +292,41 @@ interface Ficha {
             </div>
 
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Producto</label>
-              <app-ss [options]="opcionesProducto" placeholder="Seleccioná un producto…"
-                [(ngModel)]="form['id_producto']" (ngModelChange)="onProductoChange($event)"></app-ss>
-            </div>
+  <div class="flex items-center justify-between mb-1.5">
+    <label class="block text-xs font-medium text-gray-600">Productos a asignar</label>
+    <button type="button" (click)="agregarLineas()"
+      class="text-xs font-medium text-[#39A900] hover:underline">
+      + Agregar línea
+    </button>
+  </div>
 
-            <!-- Panel de stock: mismo criterio que el módulo hermano SGM (frontend-proyecto) -->
-            <div class="rounded-lg border px-3 py-2 text-xs"
-              [class.border-gray-100]="stock.cargando"
-              [class.bg-gray-50]="stock.cargando"
-              [class.border-red-200]="!stock.cargando && stock.disponibles === 0"
-              [class.bg-red-50]="!stock.cargando && stock.disponibles === 0"
-              [class.border-amber-200]="!stock.cargando && stock.disponibles > 0 && stock.disponibles <= 3"
-              [class.bg-amber-50]="!stock.cargando && stock.disponibles > 0 && stock.disponibles <= 3"
-              [class.border-green-200]="!stock.cargando && stock.disponibles > 3"
-              [class.bg-green-50]="!stock.cargando && stock.disponibles > 3">
-              @if (stock.cargando) {
-                <span class="text-gray-400">Consultando stock...</span>
-              } @else if (stock.disponibles === 0) {
-                <span class="text-red-600 font-medium">Sin unidades disponibles ({{ stock.total }} en total)</span>
-              } @else if (stock.disponibles <= 3) {
-                <span class="text-amber-700 font-medium">Stock bajo: {{ stock.disponibles }} disponible(s)</span>
-                <span class="text-gray-500"> de {{ stock.total }}</span>
-              } @else {
-                <span class="text-green-700 font-medium">{{ stock.disponibles }} disponible(s)</span>
-                <span class="text-gray-500"> de {{ stock.total }} unidad(es) totales</span>
-              }
-            </div>
-            @if (!stock.cargando && form['cantidad'] > stock.disponibles) {
-              <p class="text-red-500 text-xs -mt-1">No podés asignar más de las {{ stock.disponibles }} unidad(es) disponibles.</p>
-            }
-            @if (bodegaDelProductoInactiva()) {
-              <p class="text-amber-600 text-xs -mt-1">La bodega de este producto está inactiva — no se puede asignar mientras esté así.</p>
-            }
+  <div class="space-y-2">
+    @for (linea of lineas; track $index) {
+      <div class="flex gap-2 items-start">
+        <div class="flex-1 min-w-0">
+          <app-ss [options]="opcionesProductoLinea(linea)" placeholder="— Selecciona un producto —"
+            [(ngModel)]="linea.id_producto" (ngModelChange)="onProductoLineaChange(linea)"></app-ss>
+          @if (linea.id_producto) {
+            <p class="text-[11px] mt-0.5"
+              [class.text-red-500]="disponibleDe(linea) < linea.cantidad"
+              [class.text-gray-400]="disponibleDe(linea) >= linea.cantidad">
+              {{ disponibleDe(linea) }} disponible(s){{ disponibleDe(linea) < linea.cantidad ? ' — cantidad excede el stock' : '' }}
+            </p>
+          }
+        </div>
+        <input type="number" [(ngModel)]="linea.cantidad" min="1"
+          class="w-20 px-2 py-2 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+        <button type="button" (click)="quitarLineas($index)"
+          class="p-2 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 text-lg leading-none">×</button>
+      </div>
+    }
+  </div>
+</div>
 
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Cantidad</label>
-              <input type="number" [(ngModel)]="form['cantidad']" min="1" [max]="stock.disponibles || 1"
-                class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
-            </div>
+@if (bodegaDelProductoInactiva()) {
+  <p class="text-amber-600 text-xs -mt-1">La bodega de algún producto elegido está inactiva — no se puede asignar mientras esté así.</p>
+}
+
 
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Fecha de devolución (opcional)</label>
@@ -438,8 +439,41 @@ export class MaterialesAsignacionesComponent implements OnInit {
   }
 
   /** Stock del producto elegido — consultado en vivo, mismo endpoint que ya usa el módulo hermano SGM. */
-  stock: { disponibles: number; total: number; cargando: boolean } = { disponibles: 0, total: 0, cargando: false };
+  lineas:LineaAsignacionForm[]=[];
+  stockProd: Record<string, {disponibles:number, total:number}>= {}
+  agregarLineas():void{
+    this.lineas.push({id_producto: '', cantidad:1})
+  }
+  quitarLineas(i:number):void{
+    this.lineas.splice(i, 1);
+    if(this.lineas.length === 0 ) this.lineas.push({id_producto:'', cantidad:1})
+  }
 
+
+  disponibleDe(linea:LineaAsignacionForm):number{
+    if(!linea.id_producto) return 0
+    return this.stockProd[linea.id_producto]?.disponibles ?? 0;
+  }
+
+  async onProductoLineaChange(linea:LineaAsignacionForm):Promise<void>{
+    if(!linea.id_producto || this.stockProd[linea.id_producto]) return;
+
+    try {
+      this.stockProd[linea.id_producto] = await this.api.stockProducto(linea.id_producto)
+    } catch (error) {
+      this.stockProd[linea.id_producto] = {disponibles:0, total:0}
+    }
+  }
+
+  opcionesProductoLinea(linea:LineaAsignacionForm){
+    const usados = new Set(
+      this.lineas.filter((l)=> l !== linea).map((l)=> l.id_producto).filter(Boolean),
+    )
+
+    return this.productosAsignables.filter((p)=> !usados.has(p.id_producto)).map((p)=> ({value:p.id_producto, label:p.nombre}))
+  }
+
+  
   constructor(
     private api: MaterialesApiService,
     private toast: ToastService,
@@ -457,22 +491,18 @@ export class MaterialesAsignacionesComponent implements OnInit {
     this.cargar();
   }
 
-  async onProductoChange(idProducto: string): Promise<void> {
-    const id = idProducto;
-    if (!id) { this.stock = { disponibles: 0, total: 0, cargando: false }; return; }
-    this.stock = { disponibles: 0, total: 0, cargando: true };
-    try {
-      const { disponibles, total } = await this.api.stockProducto(id);
-      this.stock = { disponibles, total, cargando: false };
-    } catch {
-      this.stock = { disponibles: 0, total: 0, cargando: false };
-    }
-  }
+
 
   puedeGuardar(): boolean {
-    const cantidad = Number(this.form['cantidad']) || 0;
-    return !!this.form['id_curso'] && !!this.form['id_producto'] && cantidad >= 1 && !this.stock.cargando &&
-      this.stock.disponibles > 0 && cantidad <= this.stock.disponibles && !this.bodegaDelProductoInactiva();
+    if (!this.form['id_curso'] || this.lineas.length === 0) return false;
+    if (this.bodegaDelProductoInactiva()) return false;
+
+    return this.lineas.every((l)=>{
+      if(!l.id_producto) return false;
+      const cantidad= Number(l.cantidad) || 0;
+      const disponibles = this.disponibleDe(l);
+      return cantidad >= 1 && cantidad <= disponibles
+    })
   }
 
   /** La bodega del producto elegido ya no acepta asignaciones nuevas (ver
@@ -484,16 +514,26 @@ export class MaterialesAsignacionesComponent implements OnInit {
   }
 
   bodegaDelProductoInactiva(): boolean {
-    const idProducto = this.form['id_producto'];
-    if (!idProducto) return false;
-    const idSitio = this.productos.find((p) => p.id_producto === idProducto)?.id_sitio;
-    if (!idSitio) return false;
-    return this.sitios.find((s) => s.id_sitio === idSitio)?.estado === false;
+    return this.lineas.some((l)=>{
+      
+      if (!l.id_producto) return false;
+      const idSitio = this.productos.find((p) => p.id_producto === l.id_producto)?.id_sitio;
+      if (!idSitio) return false;
+      return this.sitios.find((s) => s.id_sitio === idSitio)?.estado === false;
+    })
+    
   }
 
   nombreFicha(idCurso: string): string {
     const f = this.fichas.find((x) => x.idCurso === idCurso);
     return f ? `${f.codigo}${f.programa ? ' — ' + f.programa : ''}` : idCurso.slice(0, 8) + '…';
+  }
+
+  descripcionLineas(a: Asignacion): string {
+    if(a.lineas && a.lineas.length > 0){
+      return a.lineas.map((l)=>`${l.producto_nombre ?? 'Producto'} (x${l.cantidad})`).join(', ')
+    }
+    return a.producto?.nombre ?? '-'
   }
 
   /**
@@ -560,14 +600,16 @@ export class MaterialesAsignacionesComponent implements OnInit {
     }
     this.form = {
       id_curso: this.fichas[0].idCurso,
-      id_producto: this.productosAsignables[0].id_producto,
-      cantidad: 1,
+      //id_producto: this.productosAsignables[0].id_producto,
+      //cantidad: 1,
       fecha_devolucion: '',
       observacion: '',
     };
     this.error = null;
     this.modalOpen = true;
-    this.onProductoChange(this.form['id_producto']);
+    this.lineas = [{ id_producto: '', cantidad: 1 }];
+
+    //this.onProductoChange(this.form['id_producto']);
   }
 
   cerrarModal(): void {
@@ -579,9 +621,8 @@ export class MaterialesAsignacionesComponent implements OnInit {
     if (!this.puedeGuardar()) {
       this.error = this.bodegaDelProductoInactiva()
         ? 'La bodega de este producto está inactiva — no se puede asignar.'
-        : this.stock.disponibles === 0
-        ? 'Ese producto no tiene unidades disponibles.'
-        : 'La cantidad supera el stock disponible.';
+        : 'Revisa las lineas: cada una necesita un producto y una cantidad dentro del stock disponible.'
+        
       return;
     }
     this.saving = true;
@@ -589,8 +630,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
     try {
       const dto: CreateAsignacionDto = {
         id_curso: this.form['id_curso'],
-        id_producto: this.form['id_producto'],
-        cantidad: Number(this.form['cantidad']) || 1,
+        lineas: this.lineas.map((l)=>({id_producto: l.id_producto, cantidad: Number(l.cantidad) || 1})),
         observacion: this.form['observacion'] || undefined,
         fecha_devolucion: this.form['fecha_devolucion'] || undefined,
       };

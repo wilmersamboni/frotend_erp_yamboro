@@ -534,12 +534,12 @@ export interface Asignacion {
   estado: EstadoAsignacion;
   fecha_devolucion?: string | null;
   producto?: Producto;
+  lineas?: { id_producto: string; producto_nombre: string | null; cantidad: number; id_items: string[] }[];
 }
 
 export interface CreateAsignacionDto {
   id_curso: string;
-  id_producto: string;
-  cantidad: number;
+  lineas:{id_producto:string, cantidad:number}[],
   observacion?: string;
   fecha_devolucion?: string;
 }
