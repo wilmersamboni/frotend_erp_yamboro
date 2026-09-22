@@ -1,5 +1,6 @@
 import { Component, DestroyRef, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { MaterialesLiveService } from '../data-access/materiales-live.service';
 import { FormsModule } from '@angular/forms';
@@ -447,6 +448,7 @@ export class MaterialesDevolucionesComponent implements OnInit {
     private toast: ToastService,
     private live: MaterialesLiveService,
     private destroyRef: DestroyRef,
+    private route: ActivatedRoute,
   ) {}
 
   /**
@@ -493,11 +495,17 @@ export class MaterialesDevolucionesComponent implements OnInit {
     }));
   }
 
-  ngOnInit(): void {
-    this.cargar();
+  async ngOnInit(): Promise<void> {
+    await this.cargar();
     this.live.eventos()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.cargar());
+
+    // Deep link desde "Vencimientos" (botón "Registrar devolución" de un
+    // préstamo puntual): abre el modal directo con esa solicitud en vez de
+    // dejar la lista vacía y el modal cerrado (bug reportado 2026-09-21).
+    const idSolicitud = this.route.snapshot.queryParamMap.get('id_solicitud');
+    if (idSolicitud) this.abrirCrear(idSolicitud);
   }
 
   nombreItem(id: string | null): string {
@@ -561,12 +569,17 @@ export class MaterialesDevolucionesComponent implements OnInit {
     }
   }
 
-  abrirCrear(): void {
-    if (this.solicitudesEntregadas.length === 0) {
+  /** `idSolicitud` opcional: preselecciona un préstamo puntual (deep link desde Vencimientos) en vez de dejar el selector vacío. */
+  abrirCrear(idSolicitud?: string): void {
+    if (!idSolicitud && this.solicitudesEntregadas.length === 0) {
       this.toast.warn('Nada que devolver', 'No hay préstamos en estado ENTREGADA pendientes de devolución.');
       return;
     }
-    this.idSolicitud = null;
+    if (idSolicitud && !this.solicitudesEntregadas.some((s) => s.id_solicitud === idSolicitud)) {
+      this.toast.warn('Préstamo no disponible', 'Ese préstamo ya no está pendiente de devolución.');
+      return;
+    }
+    this.idSolicitud = idSolicitud ?? null;
     this.filas = [];
     this.estadoGeneral = 'BUENO';
     this.observacion = '';
@@ -574,6 +587,7 @@ export class MaterialesDevolucionesComponent implements OnInit {
     this.formConsumible = {};
     this.error = null;
     this.crearOpen = true;
+    if (idSolicitud) this.onSolicitudChange();
   }
 
   cerrarCrear(): void {

@@ -399,16 +399,39 @@ export class MigrationComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void { this.stopPolling(); }
 
   // ── Acciones ──────────────────────────────────────────────────────────────────
+  private static readonly EXTENSIONES_PERMITIDAS = /\.(xlsx|xls)$/i;
+  private static readonly TAMANIO_MAXIMO_BYTES = 50 * 1024 * 1024;
+
+  /**
+   * El `accept=".xlsx,.xls"` del `<input>` (y el texto "máx. 50 MB") no
+   * aplican a drag&drop — un archivo arrastrado se aceptaba sin validar
+   * extensión ni tamaño (auditoría 2026-09-16). Mismo chequeo para ambos
+   * caminos de selección.
+   */
+  private validarArchivo(f: File): boolean {
+    if (!MigrationComponent.EXTENSIONES_PERMITIDAS.test(f.name)) {
+      this.toast.error('Archivo inválido', 'Solo se aceptan archivos .xlsx o .xls.');
+      return false;
+    }
+    if (f.size > MigrationComponent.TAMANIO_MAXIMO_BYTES) {
+      this.toast.error('Archivo muy grande', 'El archivo supera el máximo de 50 MB.');
+      return false;
+    }
+    return true;
+  }
+
   onFileChange(ev: Event): void {
-    const f = (ev.target as HTMLInputElement).files?.[0];
-    if (f) this.archivo.set(f);
+    const input = ev.target as HTMLInputElement;
+    const f = input.files?.[0];
+    if (f && this.validarArchivo(f)) this.archivo.set(f);
+    input.value = ''; // permite volver a elegir el mismo archivo tras un rechazo
   }
 
   onDrop(ev: DragEvent): void {
     ev.preventDefault();
     this.dragging.set(false);
     const f = ev.dataTransfer?.files?.[0];
-    if (f) this.archivo.set(f);
+    if (f && this.validarArchivo(f)) this.archivo.set(f);
   }
 
   async iniciar(): Promise<void> {

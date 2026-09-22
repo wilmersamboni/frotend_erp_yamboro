@@ -74,9 +74,13 @@ import { SearchableSelectComponent, SSOption } from '../../../../shared/componen
                   Dominio <span class="text-red-500">*</span>
                 </label>
                 <input type="text" formControlName="dominio" placeholder="huila.sistema.com"
+                  (blur)="onDominioBlur()"
                   class="w-full text-sm rounded-xl border outline-none px-3.5 py-2.5 transition-colors focus:border-[#39A900]"
                   [class.border-red-400]="form.controls.dominio.invalid && form.controls.dominio.touched"
                   [class.border-gray-200]="!(form.controls.dominio.invalid && form.controls.dominio.touched)" />
+                @if (form.controls.dominio.invalid && form.controls.dominio.touched) {
+                  <p class="mt-1 text-xs text-red-500">Debe ser un dominio válido, en minúsculas (ej. huila.sistema.com).</p>
+                }
               </div>
             </div>
           </div>
@@ -131,7 +135,16 @@ export class TenantFormComponent {
   readonly form = this.fb.nonNullable.group({
     nombre:  ['', [Validators.required, Validators.maxLength(200)]],
     slug:    ['', [Validators.required, Validators.maxLength(100), Validators.pattern(/^[a-z0-9-]+$/)]],
-    dominio: ['', [Validators.required, Validators.maxLength(200)]],
+    // Antes sin `Validators.pattern` (auditoría 2026-09-16) — este valor es
+    // lo que nginx usa para resolver el tenant por subdominio en producción;
+    // mayúsculas/espacios/protocolo se guardaban sin aviso y podían romper
+    // el ruteo de ese centro. Mismo criterio de hostname que `slug`, pero
+    // exigiendo al menos un punto (es un subdominio, ej. "huila.sistema.com").
+    dominio: ['', [
+      Validators.required,
+      Validators.maxLength(200),
+      Validators.pattern(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/),
+    ]],
     estado:  ['activo' as 'activo' | 'inactivo', [Validators.required]],
   });
 
@@ -146,6 +159,12 @@ export class TenantFormComponent {
       .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
       .replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
     this.form.controls.slug.setValue(slug);
+  }
+
+  /** Normaliza a minúsculas/sin espacios — mismo criterio que `slug` (auditoría 2026-09-16). */
+  onDominioBlur(): void {
+    const valor = this.form.controls.dominio.value.trim().toLowerCase();
+    this.form.controls.dominio.setValue(valor);
   }
 
   private cargarTenant(id: string): void {

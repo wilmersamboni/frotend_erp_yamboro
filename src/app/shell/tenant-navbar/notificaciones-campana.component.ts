@@ -805,7 +805,15 @@ export class NotificacionesCampanaComponent implements OnInit, OnDestroy {
   async leer(n: Notificacion): Promise<void> {
     this.expandedId.update(id => id === n.id ? null : n.id);
     if (!n.leida) {
-      await this.api.marcarNotificacionLeida(n.id);
+      // Antes sin try/catch (auditoría 2026-09-16), a diferencia de sus 2
+      // hermanas (marcarLeidaRapido/irA) — si el PATCH fallaba, quedaba una
+      // promesa rechazada sin manejar y el estado local nunca se actualizaba.
+      // Mismo patrón optimista: actualiza ya, solo loguea si falla.
+      try {
+        await this.api.marcarNotificacionLeida(n.id);
+      } catch (err) {
+        console.error('[NotificacionesCampana] No se pudo marcar como leída:', err);
+      }
       this.notificaciones.update(list =>
         list.map(x => x.id === n.id ? { ...x, leida: true } : x)
       );

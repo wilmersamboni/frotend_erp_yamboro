@@ -9,7 +9,6 @@
 
 export { AreaService }        from './area.service';
 export { CursoService }       from './curso.service';
-export { FormatoService }     from './formato.service';
 export { PersonaService }     from './persona.service';
 export { MatriculaService }   from './matricula.service';
 export { PracticaService }    from './practica.service';

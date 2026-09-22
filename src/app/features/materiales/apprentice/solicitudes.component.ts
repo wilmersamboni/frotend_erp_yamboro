@@ -13,6 +13,7 @@ import { TuiDayCache } from '../../../shared/utils/tui-day.util';
 import type { TuiDay } from '@taiga-ui/cdk';
 import {
   MaterialesApiService,
+  Item,
   Lote,
   Producto,
   Sitio,
@@ -485,6 +486,7 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
   solicitudes: Solicitud[] = [];
   productos: Producto[] = [];
   lotes: Lote[] = [];
+  items: Item[] = [];
   sitios: Sitio[] = [];
   /** Bodegas que puede GESTIONAR (responsable puntual O líder de su área —
    *  mismo `SitiosACargoService` que ahora usa el backend para autorizar
@@ -668,12 +670,27 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
    * consumible con lote aparecía DOS VECES en el selector: una como producto
    * suelto (opción rota — no había nada que entregar) y otra como su lote
    * (reporte QA 2026-09-11: "Abono orgánico" salía duplicado al buscar).
+   *
+   * Cuando hay paso de bodega, filtra por ÍTEMS REALES disponibles en la
+   * bodega elegida, no por `producto.id_sitio` (la bodega "de casa" del
+   * producto) — un ítem devolutivo trasladado a otra bodega cambia
+   * `item.id_sitio`, nunca `producto.id_sitio`. Filtrar por este último
+   * recreaba el mismo bug "Pollo" ya corregido para lotes/consumibles el
+   * 2026-09-11, pero nunca para devolutivos (auditoría 2026-09-16/21).
    */
   private productosDeBodega(): Producto[] {
-    const base = this.pasoBodega && this.idSitioSeleccionado
-      ? this.productos.filter((p) => p.id_sitio === this.idSitioSeleccionado)
-      : this.pasoBodega ? [] : this.productos;
-    return base.filter((p) => p.tipo_material === 'DEVOLUTIVO');
+    if (!this.pasoBodega) {
+      return this.productos.filter((p) => p.tipo_material === 'DEVOLUTIVO');
+    }
+    if (!this.idSitioSeleccionado) return [];
+    const idsConStockAqui = new Set(
+      this.items
+        .filter((i) => i.id_sitio === this.idSitioSeleccionado && i.estado === 'DISPONIBLE')
+        .map((i) => i.id_producto),
+    );
+    return this.productos.filter(
+      (p) => p.tipo_material === 'DEVOLUTIVO' && idsConStockAqui.has(p.id_producto),
+    );
   }
 
   private lotesDeBodega(): Lote[] {
@@ -811,16 +828,18 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
     this.loading = true;
     try {
       const verSitios = this.auth.tieneServicio('materiales.sitios.ver');
-      const [solicitudes, productos, lotes, sitios, sitiosACargo] = await Promise.all([
+      const [solicitudes, productos, lotes, items, sitios] = await Promise.all([
         this.api.listarSolicitudes(),
         this.api.listarProductos().catch(() => [] as Producto[]),
         this.api.listarLotes().catch(() => [] as Lote[]),
+        this.api.listarItems().catch(() => [] as Item[]),
         verSitios ? this.api.listarSitios().catch(() => [] as Sitio[]) : Promise.resolve([] as Sitio[]),
         this.api.sitiosACargo().catch(() => [] as Sitio[]),
       ]);
       this.solicitudes = solicitudes;
       this.productos = productos;
       this.lotes = lotes;
+      this.items = items;
       this.sitios = sitios;
       this.misSitiosACargoIds = new Set(sitiosACargo.map((s) => s.id_sitio));
     } catch (e) {
