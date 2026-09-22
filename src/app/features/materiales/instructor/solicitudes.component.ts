@@ -539,6 +539,11 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
   lotes: Lote[] = [];
   items: Item[] = [];
   sitios: Sitio[] = [];
+  /** Bodegas que puede GESTIONAR (responsable puntual O líder de su área —
+   *  mismo `SitiosACargoService` que ahora usa el backend para autorizar
+   *  aprobar/rechazar/entregar/cancelar, 2026-09-21). Usado por
+   *  `puedeGestionar()`; autoservicio, sin `@RequiereServicio`. */
+  misSitiosACargoIds = new Set<string>();
   loading = false;
   saving = false;
   error: string | null = null;
@@ -686,11 +691,20 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
    * bodega REAL de la solicitud (línea por línea, no `producto?.id_sitio` —
    * la "bodega de casa" del producto puede no ser de dónde sale ESTA
    * solicitud; reporte QA 2026-09-11, caso "Pollo" con lote en otra bodega).
+   *
+   * También autorizado si es LÍDER DEL ÁREA de esa bodega (2026-09-21):
+   * `misSitiosACargoIds` viene de `GET /sitios/a-cargo`, que ya resuelve
+   * "responsable puntual O líder del área de esa bodega" — mismo criterio
+   * que `SitiosACargoService.puedeGestionarSitio()`, que es lo que el
+   * backend usa ahora para autorizar aprobar/rechazar/entregar/cancelar. Sin
+   * esto, un líder de área veía la solicitud pero nunca los botones, aunque
+   * el backend ya lo dejara actuar.
    */
   puedeGestionar(s: Solicitud): boolean {
     if (this.esSolicitantePropio(s)) return false;
     if (this.auth.isAdmin()) return true;
-    return !!s.bodega_responsable_id && s.bodega_responsable_id === this.auth.user()?.id;
+    if (s.bodega_responsable_id && s.bodega_responsable_id === this.auth.user()?.id) return true;
+    return !!s.id_sitio && this.misSitiosACargoIds.has(s.id_sitio);
   }
 
   /** La bodega ya no acepta aprobar/entregar (ver plan 2026-09-18) — deshabilita
@@ -899,6 +913,7 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
         this.api.listarItems().catch(() => [] as Item[]),
         verSitios ? this.api.listarSitios().catch(() => [] as Sitio[]) : Promise.resolve([] as Sitio[]),
         personaId ? this.erpApi.obtenerCursosLiderados(personaId).catch(() => [] as CursoLiderado[]) : Promise.resolve([] as CursoLiderado[]),
+        this.api.sitiosACargo().catch(() => [] as Sitio[]),
       ]);
       this.solicitudes = solicitudes;
       this.productos = productos;
@@ -906,6 +921,7 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
       this.items = items;
       this.sitios = sitios;
       this.fichasLideradas = fichas;
+      this.misSitiosACargoIds = new Set(sitiosACargo.map((s) => s.id_sitio));
       await this.cargarStocks();
     } catch (e) {
       this.toast.httpError(e, 'No se pudieron cargar las solicitudes.');

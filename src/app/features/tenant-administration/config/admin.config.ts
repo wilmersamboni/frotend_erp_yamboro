@@ -124,11 +124,17 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     servicioEliminar: 'organizacion.gestionar',
     // sede.controller.ts solo expone @Patch(':id') — mismo bug que municipios.
     usePatch: true,
+    // Sin esto (único módulo del catálogo que no lo tenía) `activeColumns()`
+    // caía a la derivación dinámica por `Object.keys(rows[0])` — frágil (headers
+    // vacíos hasta el primer load, y no filtra `idSede` porque esa exclusión
+    // solo reconoce sufijo `...Id`/prefijo `id_`, no un PK camelCase como este).
+    columnas: ['nombre', 'centroFormacion'],
     campos: ['nombre', 'centroFormacionId'],
     placeholders: { nombre: 'Ej: Sede Principal, Sede Norte…' },
     selectores: {
       centroFormacionId: { modulo: 'centros', label: 'nombre', value: 'idCentro' },
     },
+    columnLabels: { centroFormacion: 'Centro de formación', centroFormacionId: 'Centro de formación' },
   },
 
   centros: {
@@ -337,6 +343,11 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
         { label: 'Inactivo', value: 'inactivo' },
       ],
     },
+    columnLabels: {
+      nombre: 'nombre', apellido: 'Apellido',tipoDocumento: 'Documento', cedula: 'Cedula', rol: 'Rol',
+      personaId: 'Persona', aplicativoId: 'Aplicativo', rolId: 'Rol',
+      password: 'Contraseña (vacío = no cambiar)',
+    },
   },
 
   matriculas: {
@@ -404,6 +415,11 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
       fechaFin:   'fechaInicio',
       finLectiva: 'fechaInicio',
     },
+    columnLabels: {
+      codigo: 'Código', area: 'Área', programa: 'Programa', lider: 'Líder',
+      fechaInicio: 'Fecha inicio', fechaFin: 'Fecha fin', finLectiva: 'Fin lectiva',
+      areaId: 'Área', programaId: 'Programa', liderId: 'Líder (instructor)',
+    },
   },
 
   programas: {
@@ -465,11 +481,11 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     // sensible. Reservado a administrador_erp/administrador.
     servicio: 'usuarios.gestionar',
     usePatch: true,
-    columnas: ['persona', 'aplicativo', 'login', 'rol'],
+    columnas: ['persona','apellido', 'aplicativo', 'login', 'rol'],
     campos: ['personaId', 'aplicativoId', 'login', 'password', 'rolId'],
     placeholders: { login: 'Ej: juan.perez' },
     selectores: {
-      personaId:    { modulo: 'personas',    label: 'nombre', value: 'idPersona'    },
+      personaId:    { modulo: 'personas',    label: 'nombre', value: 'idPersona'   },
       aplicativoId: { modulo: 'aplicativos', label: 'nombre', value: 'idAplicativo' },
       rolId:        { modulo: 'roles',       label: 'nombre', value: 'idRol'        },
     },
@@ -477,7 +493,7 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
       password: 'password',
     },
     columnLabels: {
-      persona: 'Persona', aplicativo: 'Aplicativo', login: 'Login', rol: 'Rol',
+      persona: 'Persona', apellido: 'Apellido',aplicativo: 'Aplicativo', login: 'Login', rol: 'Rol',
       personaId: 'Persona', aplicativoId: 'Aplicativo', rolId: 'Rol',
       password: 'Contraseña (vacío = no cambiar)',
     },
