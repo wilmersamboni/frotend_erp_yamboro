@@ -251,6 +251,19 @@ export class AdminService {
         }));
       }
 
+      // Usuarios: 'apellido' es columna propia en CONFIG.usuarios.columnas,
+      // pero el backend solo lo trae anidado en `persona.apellido` — sin
+      // aplanarlo acá queda `undefined` siempre (columna vacía), porque
+      // `resolverSelectores` ya resuelve `personaId` → `persona` como el
+      // NOMBRE solo (selector.label: 'nombre'), pisando el objeto `persona`
+      // original antes de que `aplanarFila` pudiera sacarle el apellido.
+      if (mod === 'usuarios') {
+        rows = rows.map((u: any) => ({
+          ...u,
+          apellido: u.persona?.apellido ?? '—',
+        }));
+      }
+
       // Guarda copia cruda (con UUIDs reales) para usar en edición
       this.rawData.update(d => ({ ...d, [mod]: rows }));
 

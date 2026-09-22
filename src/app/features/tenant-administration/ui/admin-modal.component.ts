@@ -41,7 +41,7 @@ import { TuiDayCache } from '../../../shared/utils/tui-day.util';
               @if (!parCoordenadas || col !== parCoordenadas.lng) {
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">
-                  {{ parCoordenadas && col === parCoordenadas.lat ? 'Ubicación' : columnLabels[col] }}
+                  {{ parCoordenadas && col === parCoordenadas.lat ? 'Ubicación' : (columnLabels[col] ?? formatLabel(col)) }}
                 </label>
 
                 @if (parCoordenadas && col === parCoordenadas.lat) {

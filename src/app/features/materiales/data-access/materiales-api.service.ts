@@ -299,6 +299,11 @@ export interface Solicitud {
   /** `sitio.estado` de esa misma bodega — `false` bloquea Aprobar/Entregar
    *  (ver plan 2026-09-18); `null`/`undefined` si no se pudo resolver bodega. */
   bodega_activa?: boolean | null;
+  /** Id de esa misma bodega (2026-09-21) — cruzar contra `sitiosACargo()`
+   *  (mismo `SitiosACargoService` que usa el backend para autorizar) para
+   *  saber si el usuario puede gestionar esta solicitud por LIDERAR EL ÁREA
+   *  de esta bodega, no solo cuando `bodega_responsable_id` coincide con él. */
+  id_sitio?: string | null;
   /** Justificación del rechazo — presente solo si `estado === 'RECHAZADA'`. */
   motivo_rechazo?: string | null;
 }
@@ -531,12 +536,12 @@ export interface Asignacion {
   estado: EstadoAsignacion;
   fecha_devolucion?: string | null;
   producto?: Producto;
+  lineas?: { id_producto: string; producto_nombre: string | null; cantidad: number; id_items: string[] }[];
 }
 
 export interface CreateAsignacionDto {
   id_curso: string;
-  id_producto: string;
-  cantidad: number;
+  lineas:{id_producto:string, cantidad:number}[],
   observacion?: string;
   fecha_devolucion?: string;
 }
