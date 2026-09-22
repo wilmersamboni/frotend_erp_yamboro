@@ -73,7 +73,7 @@ import { AdminLoadingSpinnerComponent } from '../../../../shared/components/admi
                   <td class="px-5 py-3"><app-admin-badge-estado [estado]="tenant.estado" /></td>
                   <td class="px-5 py-3 text-right">
                     <div class="flex items-center justify-end gap-1.5">
-                      <button type="button" (click)="reinicializarTenant(tenant)" [disabled]="reinicializandoId() === tenant.id"
+                      <button type="button" (click)="solicitarReinicializar(tenant)" [disabled]="reinicializandoId() === tenant.id"
                         title="Reinicializar" class="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors disabled:opacity-40">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -111,6 +111,15 @@ import { AdminLoadingSpinnerComponent } from '../../../../shared/components/admi
       (confirmar)="confirmarEliminar()"
       (cancelar)="cancelarEliminar()" />
 
+    <app-admin-confirm-dialog
+      [visible]="!!tenantAReinicializar()"
+      titulo="Reinicializar centro"
+      [mensaje]="'¿Deseas reinicializar &quot;' + (tenantAReinicializar()?.nombre ?? '') + '&quot;? Esto invalida la contraseña actual del usuario root y genera una nueva — no se puede deshacer.'"
+      textoConfirmar="Reinicializar"
+      variante="danger"
+      (confirmar)="confirmarReinicializar()"
+      (cancelar)="cancelarReinicializar()" />
+
     <app-admin-credenciales-modal
       [visible]="mostrarCredenciales()"
       titulo="Credenciales reinicializadas"
@@ -128,6 +137,7 @@ export class TenantListComponent {
   readonly cargando          = signal(true);
   readonly busqueda          = signal('');
   readonly tenantAEliminar   = signal<Tenant | null>(null);
+  readonly tenantAReinicializar = signal<Tenant | null>(null);
   readonly reinicializandoId = signal<string | null>(null);
   readonly mostrarCredenciales  = signal(false);
   readonly credencialesActuales = signal<TenantCredenciales | null>(null);
@@ -152,7 +162,13 @@ export class TenantListComponent {
 
   nuevoTenant(): void { this.router.navigate(['/tenants/nuevo']); }
 
-  reinicializarTenant(tenant: Tenant): void {
+  solicitarReinicializar(tenant: Tenant): void { this.tenantAReinicializar.set(tenant); }
+  cancelarReinicializar(): void { this.tenantAReinicializar.set(null); }
+
+  confirmarReinicializar(): void {
+    const tenant = this.tenantAReinicializar();
+    if (!tenant) return;
+    this.tenantAReinicializar.set(null);
     this.reinicializandoId.set(tenant.id);
     this.tenantService.reinicializar(tenant.id).subscribe({
       next: (respuesta) => {

@@ -378,12 +378,18 @@ const VENTANAS = [7, 15, 30] as const;
                       <div class="mt-1 h-1 w-14 rounded-full bg-red-100 overflow-hidden ml-auto"><div class="urg-fill h-full rounded-full bg-red-500" style="width:100%"></div></div>
                     </td>
                     <td class="px-4 py-3 text-right">
-                      <a routerLink="/materiales/devoluciones" [queryParams]="{ id_solicitud: f.id_solicitud }"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white transition-colors whitespace-nowrap hover:brightness-110"
-                        style="background-color: #39A900">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                        Registrar devolución
-                      </a>
+                      @if (puedeRegistrarDevolucion(f)) {
+                        <a [routerLink]="rutaDevoluciones()" [queryParams]="{ id_solicitud: f.id_solicitud }"
+                          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white transition-colors whitespace-nowrap hover:brightness-110"
+                          style="background-color: #39A900">
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                          Registrar devolución
+                        </a>
+                      } @else {
+                        <span class="text-[11px] text-gray-400" [title]="'Solo ' + (f.responsable_nombre || 'el encargado de esa bodega') + ' puede registrar esta devolución'">
+                          Fuera de tu bodega
+                        </span>
+                      }
                     </td>
                   </tr>
                 }
@@ -503,6 +509,34 @@ export class MaterialesVencimientosComponent implements OnInit {
   private pillListo = false;
   private vistaPillListo = false;
   private seccionListo = false;
+
+  /**
+   * "Registrar devolución" es un link fijo — pero la pantalla de destino está
+   * triplicada por cargo (`/materiales/devoluciones` es admin-only vía
+   * `roleGuard`, ver materiales.routes.ts). Antes apuntaba siempre a la ruta
+   * de admin: un instructor/aprendiz que la clickeaba pasaba el guard con
+   * `roles` rechazado → `roleGuard` redirige a `/`, que en la app de tenant
+   * ES el login (no un home) — parecía un logout aunque la sesión seguía
+   * viva. Bug reportado 2026-09-21.
+   */
+  rutaDevoluciones(): string {
+    if (this.auth.isAdmin()) return '/materiales/devoluciones';
+    if (this.auth.cargo() === 'instructor') return '/instructor/materiales/devoluciones';
+    return '/aprendiz/materiales/devoluciones';
+  }
+
+  /**
+   * Vencimientos ensancha la VISIBILIDAD a toda el área del líder, pero no
+   * todas esas filas se pueden gestionar desde acá — antes el botón se
+   * ofrecía siempre, y quien no podía gestionar esa bodega llegaba a
+   * Devoluciones sin poder hacer nada con esa solicitud (bug relacionado,
+   * reportado 2026-09-21). `puede_gestionar_devolucion` ya viene resuelto
+   * por el backend (responsable puntual, líder del área de esa bodega, o
+   * admin — `SitiosACargoService`), no se replica la regla acá.
+   */
+  puedeRegistrarDevolucion(f: FilaVencimiento): boolean {
+    return f.puede_gestionar_devolucion;
+  }
 
   constructor(private api: MaterialesApiService, private auth: AuthService, private toast: ToastService) {
     this.puedeVerPerecederos = this.auth.tieneServicio('materiales.lotes.ver');

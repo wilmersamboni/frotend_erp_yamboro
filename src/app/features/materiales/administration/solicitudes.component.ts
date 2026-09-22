@@ -12,7 +12,7 @@ import { SearchableSelectComponent } from '../../../shared/components/searchable
 import { EntregarSolicitudModalComponent } from '../ui/entregar-solicitud-modal.component';
 import { TuiDayCache } from '../../../shared/utils/tui-day.util';
 import type { TuiDay } from '@taiga-ui/cdk';
-import { MaterialesApiService, Lote, Producto, Sitio, Solicitud, EstadoSolicitud, ResumenExistencias, SeleccionLineaEntregaInput } from '../data-access/materiales-api.service';
+import { MaterialesApiService, Item, Lote, Producto, Sitio, Solicitud, EstadoSolicitud, ResumenExistencias, SeleccionLineaEntregaInput } from '../data-access/materiales-api.service';
 
 /** Línea del modal "Nueva solicitud" — `p:<id>` producto devolutivo, `l:<id>` lote consumible. */
 interface LineaForm {
@@ -531,6 +531,7 @@ export class MaterialesSolicitudesComponent implements OnInit {
   solicitudes: Solicitud[] = [];
   productos: Producto[] = [];
   lotes: Lote[] = [];
+  items: Item[] = [];
   sitios: Sitio[] = [];
   loading = false;
   saving = false;
@@ -717,11 +718,24 @@ seleccionarEstado(valor: EstadoSolicitud | ''): void {
    * consumible con lote aparecía DOS VECES en el selector: una como producto
    * suelto (opción rota — no había nada que entregar) y otra como su lote
    * (reporte QA 2026-09-11: "Abono orgánico" salía duplicado al buscar).
+   *
+   * Filtra por ÍTEMS REALES disponibles en la bodega elegida, no por
+   * `producto.id_sitio` (la bodega "de casa" del producto) — un ítem
+   * devolutivo trasladado a otra bodega cambia `item.id_sitio`, nunca
+   * `producto.id_sitio`. Filtrar por este último recreaba el mismo bug
+   * "Pollo" ya corregido para lotes/consumibles el 2026-09-11, pero nunca
+   * para devolutivos (auditoría 2026-09-16/21). Mismo criterio que
+   * `mi-bodega.component.ts` (`estaEnBodega`).
    */
   private productosDeBodega(): Producto[] {
     if (!this.idSitioSeleccionado) return [];
+    const idsConStockAqui = new Set(
+      this.items
+        .filter((i) => i.id_sitio === this.idSitioSeleccionado && i.estado === 'DISPONIBLE')
+        .map((i) => i.id_producto),
+    );
     return this.productos.filter(
-      (p) => p.id_sitio === this.idSitioSeleccionado && p.tipo_material === 'DEVOLUTIVO',
+      (p) => p.tipo_material === 'DEVOLUTIVO' && idsConStockAqui.has(p.id_producto),
     );
   }
 
@@ -846,15 +860,17 @@ seleccionarEstado(valor: EstadoSolicitud | ''): void {
     try {
       // M9 — solo `listarSolicitudes()` es crítico; si una secundaria da 403
       // (excepción personal) no debe tumbar la tabla entera.
-      const [solicitudes, productos, lotes, sitios] = await Promise.all([
+      const [solicitudes, productos, lotes, items, sitios] = await Promise.all([
         this.api.listarSolicitudes(),
         this.api.listarProductos().catch(() => [] as Producto[]),
         this.api.listarLotes().catch(() => [] as Lote[]),
+        this.api.listarItems().catch(() => [] as Item[]),
         this.api.listarSitios().catch(() => [] as Sitio[]),
       ]);
       this.solicitudes = solicitudes;
       this.productos = productos;
       this.lotes = lotes;
+      this.items = items;
       this.sitios = sitios;
       await this.cargarStocks();
     } catch (e) {

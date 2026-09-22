@@ -415,6 +415,12 @@ export class HistorialComponent implements OnInit {
         ));
       }
       this.docsMap.set(Object.fromEntries(pares));
+    } catch (err: any) {
+      // Antes sin catch (auditoría 2026-09-16): el panel de documentos
+      // quedaba vacío en silencio, sin avisar — mismo patrón que
+      // cargarPersonasLazy() en este mismo componente.
+      console.error('[historial] carga de documentos falló', err?.status ?? err);
+      this.toast.error('Error', 'No se pudieron cargar los documentos de las prácticas.');
     } finally {
       this.cargandoDocs.set(false);
     }

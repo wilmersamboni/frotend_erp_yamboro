@@ -140,22 +140,6 @@ export class NotificacionService {
         });
     }
 
-    /** Admin actualiza un formato → notifica a instructores y aprendices */
-    async notificarFormatoActualizado(params: {
-        destinatarios: string[];
-        formatoNombre: string;
-        adminNombre: string;
-    }): Promise<void> {
-        if (!params.destinatarios.length) return;
-        await this.crear({
-            tipo: 'formato_actualizado',
-            titulo: '✏️ Formato actualizado',
-            mensaje: `El formato "${params.formatoNombre}" fue actualizado por ${params.adminNombre}.`,
-            destinatarios: params.destinatarios,
-            data: { formatoNombre: params.formatoNombre, adminNombre: params.adminNombre },
-        });
-    }
-
     /** Admin elimina un formato → notifica a instructores y aprendices */
     async notificarFormatoEliminado(params: {
         destinatarios: string[];
