@@ -541,7 +541,7 @@ export interface Asignacion {
 
 export interface CreateAsignacionDto {
   id_curso: string;
-  lineas:{id_producto:string, cantidad:number}[],
+  lineas:{id_producto:string, cantidad:number, id_items?: string[]}[];
   observacion?: string;
   fecha_devolucion?: string;
 }
