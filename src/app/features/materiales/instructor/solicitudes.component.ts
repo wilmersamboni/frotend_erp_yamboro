@@ -906,7 +906,7 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
         this.auth.tieneServicio('materiales.sitios.ver') ||
         this.auth.tieneServicio('materiales.traslados.crear');
       const personaId = this.auth.user()?.personaId;
-      const [solicitudes, productos, lotes, items, sitios, fichas] = await Promise.all([
+      const [solicitudes, productos, lotes, items, sitios, fichas, sitiosACargo] = await Promise.all([
         this.api.listarSolicitudes(),
         this.api.listarProductos().catch(() => [] as Producto[]),
         this.api.listarLotes().catch(() => [] as Lote[]),

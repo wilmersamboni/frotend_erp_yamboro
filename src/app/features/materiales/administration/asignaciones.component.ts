@@ -197,7 +197,7 @@ interface Ficha {
             <tbody class="divide-y divide-gray-100">
               @for (a of asignacionesPaginadas; track a.id_asignacion) {
                 <tr class="hover:bg-gray-50/80 transition-colors">
-                  <td class="px-4 py-3 text-gray-700">{{ nombreFicha(a.id_curso) }}</td>
+                  <td class="px-4 py-3 text-gray-700">{{ nombreFicha(a) }}</td>
                   <td class="px-4 py-3 text-gray-700">{{ descripcionLineas(a) }}</td>
                   <td class="px-4 py-3 text-gray-700">{{ a.cantidad }}</td>
                   <td class="px-4 py-3"><app-status-badge [value]="a.estado" /></td>
@@ -411,7 +411,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
     return this.asignaciones.filter((a) => {
       if (this.filtroEstado && a.estado !== this.filtroEstado) return false;
       if (!q) return true;
-      return this.nombreFicha(a.id_curso).toLowerCase().includes(q) ||
+      return this.nombreFicha(a).toLowerCase().includes(q) ||
         (a.producto?.nombre?.toLowerCase().includes(q) ?? false);
     });
   }
@@ -524,9 +524,18 @@ export class MaterialesAsignacionesComponent implements OnInit {
     
   }
 
-  nombreFicha(idCurso: string): string {
-    const f = this.fichas.find((x) => x.idCurso === idCurso);
-    return f ? `${f.codigo}${f.programa ? ' — ' + f.programa : ''}` : idCurso.slice(0, 8) + '…';
+  /**
+   * Prefiere `a.ficha_codigo`/`ficha_programa` (resueltos por el backend vía
+   * SQL directo a `cursos`, sin recorte de RLS) sobre `this.fichas` (viene de
+   * `GET /api/cursos`, recortado a "mis cursos" — no incluye la ficha de una
+   * asignación ajena, ej. la de otro instructor que un líder de área está
+   * viendo). Cae al lookup local solo para asignaciones creadas antes de este
+   * fix (respuesta vieja en caché) o si el backend no pudo resolverla.
+   */
+  nombreFicha(a: { id_curso: string; ficha_codigo?: string | null; ficha_programa?: string | null }): string {
+    if (a.ficha_codigo) return `${a.ficha_codigo}${a.ficha_programa ? ' — ' + a.ficha_programa : ''}`;
+    const f = this.fichas.find((x) => x.idCurso === a.id_curso);
+    return f ? `${f.codigo}${f.programa ? ' — ' + f.programa : ''}` : a.id_curso.slice(0, 8) + '…';
   }
 
   descripcionLineas(a: Asignacion): string {

@@ -828,7 +828,7 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
     this.loading = true;
     try {
       const verSitios = this.auth.tieneServicio('materiales.sitios.ver');
-      const [solicitudes, productos, lotes, items, sitios] = await Promise.all([
+      const [solicitudes, productos, lotes, items, sitios, sitiosACargo] = await Promise.all([
         this.api.listarSolicitudes(),
         this.api.listarProductos().catch(() => [] as Producto[]),
         this.api.listarLotes().catch(() => [] as Lote[]),

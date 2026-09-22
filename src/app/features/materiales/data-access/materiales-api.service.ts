@@ -537,11 +537,16 @@ export interface Asignacion {
   fecha_devolucion?: string | null;
   producto?: Producto;
   lineas?: { id_producto: string; producto_nombre: string | null; cantidad: number; id_items: string[] }[];
+  /** Resueltos por el backend vía SQL directo a `cursos` — no dependen de que
+   *  el `GET /api/cursos` del cliente (recortado por RLS a "mis cursos")
+   *  incluya la ficha de esta asignación, que puede ser de otro instructor. */
+  ficha_codigo?: string | null;
+  ficha_programa?: string | null;
 }
 
 export interface CreateAsignacionDto {
   id_curso: string;
-  lineas:{id_producto:string, cantidad:number}[],
+  lineas:{id_producto:string, cantidad:number, id_items?: string[]}[],
   observacion?: string;
   fecha_devolucion?: string;
 }
