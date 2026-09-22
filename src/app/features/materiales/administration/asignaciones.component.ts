@@ -12,6 +12,7 @@ import { SearchableSelectComponent } from '../../../shared/components/searchable
 import { TuiDayCache } from '../../../shared/utils/tui-day.util';
 import type { TuiDay } from '@taiga-ui/cdk';
 import { Asignacion, CreateAsignacionDto, EstadoAsignacion, MaterialesApiService, Producto, Sitio } from '../data-access/materiales-api.service';
+import { ElegirPlacasAsignacionModalComponent } from '../ui/elegir-placas-asignacion-modal.component';
 
 interface LineaAsignacionForm{
   id_producto:string;
@@ -30,10 +31,7 @@ interface Ficha {
  * doble confirmación ni aprobación — el admin la crea directamente y el
  * backend descuenta stock (marca ítems DISPONIBLE→PRESTADO) automáticamente
  * según la cantidad pedida. Solo dos estados: ACTIVA → ANULADA (terminal,
- * restaura el stock). No hay selección de ítems específicos en este v1
- * (el backend lo soporta vía `id_items`, pero se deja fuera para no
- * complicar el formulario — mismo criterio que se usó para simplificar
- * Traslados/Solicitudes).
+ * restaura el stock).
  *
  * Gating de botones: solo admin (ver nota en Novedades/Traslados/
  * Solicitudes — responsable-de-sitio queda pendiente).
@@ -41,7 +39,7 @@ interface Ficha {
 @Component({
   selector: 'app-materiales-asignaciones',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent],
+  imports: [FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, ElegirPlacasAsignacionModalComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -358,7 +356,14 @@ interface Ficha {
           </div>
         </div>
       </div>
+      
     }
+    <app-elegir-placas-asignacion-modal
+  [abierto]="elegirPlacasOpen"
+  [lineas]="lineasParaElegirPlacas"
+  (cerrado)="elegirPlacasOpen = false"
+  (confirmado)="confirmarCreacionAsignacion($event)">
+</app-elegir-placas-asignacion-modal>
   `,
 })
 export class MaterialesAsignacionesComponent implements OnInit {
@@ -432,6 +437,8 @@ export class MaterialesAsignacionesComponent implements OnInit {
   modalOpen = false;
   form: Record<string, any> = {};
   readonly cacheFechaDevolucion = new TuiDayCache();
+  elegirPlacasOpen = false;
+  lineasParaElegirPlacas: { id_producto: string; nombre: string; cantidad: number }[] = [];
 
   /** <app-date-input> trabaja con TuiDay; el resto del componente sigue en 'yyyy-MM-dd'. */
   tuiDayToIso(day: TuiDay | null): string {
@@ -634,25 +641,41 @@ export class MaterialesAsignacionesComponent implements OnInit {
         
       return;
     }
-    this.saving = true;
     this.error = null;
-    try {
-      const dto: CreateAsignacionDto = {
-        id_curso: this.form['id_curso'],
-        lineas: this.lineas.map((l)=>({id_producto: l.id_producto, cantidad: Number(l.cantidad) || 1})),
-        observacion: this.form['observacion'] || undefined,
-        fecha_devolucion: this.form['fecha_devolucion'] || undefined,
-      };
-      await this.api.crearAsignacion(dto);
-      this.toast.ok('Asignación creada');
-      this.modalOpen = false;
-      await this.cargar();
-    } catch (e: any) {
-      this.error = e?.error?.message ?? 'No se pudo crear la asignación.';
-    } finally {
-      this.saving = false;
-    }
+    this.lineasParaElegirPlacas = this.lineas.map((l)=>({
+      id_producto: l.id_producto,
+      nombre: this.productosAsignables.find((p)=> p.id_producto === l.id_producto)?.nombre ?? 'Producto',
+      cantidad:Number(l.cantidad) || 1
+    }))
+    this.elegirPlacasOpen = true
   }
+
+  async confirmarCreacionAsignacion(seleccion: { id_producto: string; id_items: string[] }[] | undefined): Promise<void> {
+  this.elegirPlacasOpen = false;
+  this.saving = true;
+  this.error = null;
+  try {
+    const dto: CreateAsignacionDto = {
+      id_curso: this.form['id_curso'],
+      lineas: this.lineas.map((l) => ({
+        id_producto: l.id_producto,
+        cantidad: Number(l.cantidad) || 1,
+        id_items: seleccion?.find((s) => s.id_producto === l.id_producto)?.id_items,
+      })),
+      observacion: this.form['observacion'] || undefined,
+      fecha_devolucion: this.form['fecha_devolucion'] || undefined,
+    };
+    await this.api.crearAsignacion(dto);
+    this.toast.ok('Asignación creada');
+    this.modalOpen = false;
+    await this.cargar();
+  } catch (e: any) {
+    this.error = e?.error?.message ?? 'No se pudo crear la asignación.';
+  } finally {
+    this.saving = false;
+  }
+}
+  
 
   async anular(a: Asignacion): Promise<void> {
     if (!(await this.confirm.ask(`¿Anular la asignación #${a.id_asignacion}? El stock de los ítems prestados se restaurará.`))) return;
