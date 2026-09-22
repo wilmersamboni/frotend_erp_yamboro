@@ -275,6 +275,10 @@ export class InstructorMaterialesTrasladosComponent implements OnInit {
   readonly opcionesEstadoFiltro = [{ label: 'Todos los estados', value: '' }, { label: 'Pendiente', value: 'PENDIENTE' }, { label: 'Aprobado', value: 'APROBADO' }, { label: 'Rechazado', value: 'RECHAZADO' }];
   items: Item[] = [];
   sitios: Sitio[] = [];
+  /** Bodegas donde soy responsable puntual O líder del área — viene de
+   *  `GET /sitios/a-cargo` (mismo `SitiosACargoService` que el backend usa
+   *  para autorizar). Mismo patrón que `solicitudes.component.ts` (2026-09-21). */
+  misSitiosACargoIds = new Set<string>();
   loading = false;
   saving = false;
   error: string | null = null;
@@ -328,6 +332,14 @@ export class InstructorMaterialesTrasladosComponent implements OnInit {
    * admin siempre; si el ORIGEN tiene responsable, solo él (salvo que sea
    * además el solicitante → ahí también el responsable del DESTINO); si el
    * origen no tiene responsable, el del destino, o cualquiera si tampoco hay.
+   *
+   * También autorizado si es LÍDER DEL ÁREA del sitio que manda en cada caso
+   * (2026-09-21, "Ajuste 2026-09-21" en `TrasladosService.assertPuedeResolver`):
+   * `misSitiosACargoIds` viene de `GET /sitios/a-cargo`, que ya resuelve
+   * "responsable puntual O líder del área de esa bodega" — mismo criterio que
+   * `SitiosACargoService.puedeGestionarSitio()`. Sin esto, un líder de área
+   * podía aprobar/rechazar por API pero nunca veía los botones (mismo bug ya
+   * corregido ese mismo día en `solicitudes.component.ts`, nunca replicado acá).
    */
   esResponsableDelSitio(t: Traslado): boolean {
     if (this.auth.isAdmin()) return true;
@@ -336,9 +348,11 @@ export class InstructorMaterialesTrasladosComponent implements OnInit {
     const respDestino = t.sitio_destino?.id_responsable ?? null;
     if (respOrigen) {
       const origenEsSolicitante = respOrigen === t.id_usuario_solicita;
-      return respOrigen === uid || (origenEsSolicitante && respDestino === uid);
+      if (respOrigen === uid || (origenEsSolicitante && respDestino === uid)) return true;
+      return this.misSitiosACargoIds.has(t.id_sitio_origen);
     }
-    return !respDestino || respDestino === uid;
+    if (!respDestino || respDestino === uid) return true;
+    return this.misSitiosACargoIds.has(t.id_sitio_destino);
   }
 
   /** Origen o destino ya no acepta aprobar (ver plan 2026-09-18) — deshabilita
@@ -465,14 +479,16 @@ export class InstructorMaterialesTrasladosComponent implements OnInit {
     try {
       // M9 — solo `listarTraslados()` es crítico; una secundaria con 403
       // (excepción personal) no debe tumbar la tabla entera.
-      const [traslados, items, sitios] = await Promise.all([
+      const [traslados, items, sitios, sitiosACargo] = await Promise.all([
         this.api.listarTraslados(),
         this.api.listarItems().catch(() => [] as Item[]),
         this.api.listarSitios().catch(() => [] as Sitio[]),
+        this.api.sitiosACargo().catch(() => [] as Sitio[]),
       ]);
       this.traslados = traslados;
       this.items = items;
       this.sitios = sitios;
+      this.misSitiosACargoIds = new Set(sitiosACargo.map((s) => s.id_sitio));
     } catch (e) {
       this.toast.httpError(e, 'No se pudieron cargar los traslados.');
     } finally {
