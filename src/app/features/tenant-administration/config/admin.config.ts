@@ -83,6 +83,8 @@ export interface ModuloConfig {
   parCoordenadas?: { lat: string; lng: string };
   /** Etiqueta legible opcional por columna/campo — cabecera de tabla y label del modal. */
   columnLabels?: Record<string, string>;
+  /** Placeholder de ejemplo opcional por campo, para el `<input>` normal del modal. */
+  placeholders?: Record<string, string>;
   /**
    * Para un campo de fecha, el nombre de OTRO campo de fecha cuyo valor actúa
    * como mínimo seleccionable (ej. `fechaFin` no puede ser anterior a
@@ -123,6 +125,7 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     // sede.controller.ts solo expone @Patch(':id') — mismo bug que municipios.
     usePatch: true,
     campos: ['nombre', 'centroFormacionId'],
+    placeholders: { nombre: 'Ej: Sede Principal, Sede Norte…' },
     selectores: {
       centroFormacionId: { modulo: 'centros', label: 'nombre', value: 'idCentro' },
     },
@@ -163,6 +166,7 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     usePatch: true,
     columnas: ['nombre', 'departamento'],
     campos: ['nombre', 'departamentoId'],
+    placeholders: { nombre: 'Ej: Medellín, Bello…' },
     selectores: {
       departamentoId: { modulo: 'departamentos', label: 'nombre', value: 'idDepartamento' },
     },
@@ -178,6 +182,7 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     usePatch: true,
     columnas: ['nombre'],
     campos: ['nombre'],
+    placeholders: { nombre: 'Ej: ERP, Prácticas…' },
   },
 
   modulos: {
@@ -191,6 +196,7 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     // aplicativo viene como objeto anidado (eager); aplanarFila extrae 'nombre'
     columnas: ['nombre', 'aplicativo'],
     campos: ['nombre', 'aplicativoId'],
+    placeholders: { nombre: 'Ej: Materiales, Horarios…' },
     selectores: {
       aplicativoId: { modulo: 'aplicativos', label: 'nombre', value: 'idAplicativo' },
     },
@@ -206,6 +212,7 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     usePatch: true,
     columnas: ['nombre', 'url', 'modulo'],
     campos: ['nombre', 'url', 'moduloId'],
+    placeholders: { nombre: 'Ej: materiales.sitios.crear', url: 'Ej: /materiales/sitios' },
     selectores: {
       moduloId: { modulo: 'modulos', label: 'nombre', value: 'idModulo' },
     },
@@ -271,6 +278,7 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     // sede/municipio/area vienen como objetos anidados (eager); aplanarFila extrae 'nombre'
     columnas: ['nombre', 'tipo', 'sede', 'municipio', 'area'],
     campos: ['nombre', 'tipo', 'sedeId', 'municipioId', 'areaId'],
+    placeholders: { nombre: 'Ej: Y-14, Auditorio Principal…' },
     selectores: {
       sedeId:      { modulo: 'sedes',      label: 'nombre', value: 'idSede'      },
       municipioId: { modulo: 'municipios', label: 'nombre', value: 'idMunicipio' },
@@ -297,6 +305,13 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     grupo: 'epsas', categoria: 'Personas y Cuentas',
     servicio: 'personas.ver',
     campos: ['nombre', 'cedula', 'telefono', 'municipioId', 'direccion', 'correo', 'genero', 'cargo', 'estado'],
+    placeholders: {
+      nombre: 'Ej: Juan Pérez',
+      cedula: 'Ej: 1020304050',
+      telefono: 'Ej: 3001234567',
+      direccion: 'Ej: Cra 45 # 12-30',
+      correo: 'Ej: nombre@correo.com',
+    },
     selectores: {
       municipioId: { modulo: 'municipios', label: 'nombre', value: 'idMunicipio' },
     },
@@ -373,6 +388,7 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     // area, programa y lider vienen como objetos anidados (eager); aplanarFila extrae 'nombre'
     columnas: ['codigo', 'area', 'programa', 'lider', 'fechaInicio', 'fechaFin'],
     campos: ['codigo', 'fechaInicio', 'fechaFin', 'finLectiva', 'areaId', 'programaId', 'liderId'],
+    placeholders: { codigo: 'Ej: 3186657' },
     selectores: {
       areaId:     { modulo: 'areas',     label: 'nombre', value: 'idArea'     },
       programaId: { modulo: 'programas', label: 'nombre', value: 'idPrograma' },
@@ -401,6 +417,7 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     usePatch: true,
     columnas: ['nombre', 'tipo'],
     campos: ['nombre', 'tipo'],
+    placeholders: { nombre: 'Ej: Análisis y Desarrollo de Software' },
     opcionesEstaticas: {
       tipo: [
         { label: 'Tecnólogo', value: 'tecnologo' },
@@ -422,6 +439,7 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     // sede y lider vienen como objetos anidados (eager); aplanarFila extrae 'nombre'
     columnas: ['nombre', 'sede', 'lider'],
     campos: ['nombre', 'sedeId', 'liderId'],
+    placeholders: { nombre: 'Ej: Redes, Software…' },
     columnLabels: { liderId: 'Líder de área (instructor)' },
     selectores: {
       sedeId:  { modulo: 'sedes',    label: 'nombre', value: 'idSede' },
@@ -449,6 +467,7 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     usePatch: true,
     columnas: ['persona', 'aplicativo', 'login', 'rol'],
     campos: ['personaId', 'aplicativoId', 'login', 'password', 'rolId'],
+    placeholders: { login: 'Ej: juan.perez' },
     selectores: {
       personaId:    { modulo: 'personas',    label: 'nombre', value: 'idPersona'    },
       aplicativoId: { modulo: 'aplicativos', label: 'nombre', value: 'idAplicativo' },
@@ -504,6 +523,12 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     usePatch: true,
     columnas: ['nit', 'nombre', 'municipio', 'telefono', 'correo', 'estado'],
     campos: ['nit', 'nombre', 'direccion', 'telefono', 'correo', 'municipio', 'estado', 'tipo', 'longitud', 'latitud'],
+    placeholders: {
+      nit: 'Ej: 900123456-7',
+      nombre: 'Ej: Empresa S.A.S.',
+      direccion: 'Ej: Cra 45 # 12-30',
+      correo: 'Ej: contacto@empresa.com',
+    },
     selectores: {
       municipio: { modulo: 'municipios', label: 'nombre', value: 'nombre' },
     },
@@ -567,6 +592,7 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     usePatch: true,
     columnas: ['empresa', 'modalidad', 'estado', 'fecha_inicio', 'fecha_fin', 'avance'],
     campos: ['empresaId', 'modalidadId', 'matriculaId', 'fecha_inicio', 'fecha_fin', 'estado', 'observacion'],
+    placeholders: { observacion: 'Ej: Observaciones sobre la etapa…' },
     selectores: {
       empresaId:   { modulo: 'empresas',    label: 'nombre',     value: 'id' },
       modalidadId: { modulo: 'modalidades', label: 'nombre',     value: 'id' },
@@ -601,6 +627,7 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     usePatch: true,
     columnas: ['instructor', 'fecha_inicio', 'fecha_fin', 'estado', 'horas'],
     campos: ['etapaId', 'instructor', 'fecha_inicio', 'fecha_fin', 'estado', 'horas'],
+    placeholders: { horas: 'Ej: 40' },
     selectores: {
       etapaId:    { modulo: 'etapas',   label: 'aprendiz', value: 'id' },
       instructor: { modulo: 'personas', label: 'nombre',   value: 'idPersona', filtro: { cargo: 'instructor' } },
@@ -629,6 +656,7 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
       usePatch: true,
       columnas: ['aprendiz', 'estado', 'observacion', 'fecha_inicio', 'fecha_fin'],
       campos: ['etapaId', 'asignacionId', 'observacion', 'fecha_inicio', 'fecha_fin', 'estado'],
+      placeholders: { observacion: 'Ej: Observaciones del seguimiento…' },
       selectores: {
         etapaId:      { modulo: 'etapas',       label: 'aprendiz',   value: 'id' },
         asignacionId: { modulo: 'asignaciones', label: 'instructor', value: 'id' },
@@ -711,6 +739,7 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     usePatch: true,
     columnas: ['tipo', 'nombre_original', 'mime_type', 'estado'],
     campos: ['tipo', 'nombre'],
+    placeholders: { tipo: 'Ej: bitacora, acta…', nombre: 'Ej: Formato de bitácora' },
   },
 
 };
