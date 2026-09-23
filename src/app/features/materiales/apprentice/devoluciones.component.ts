@@ -8,6 +8,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
+import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 import {
   CreateDevolucionConsumibleDto,
   CreateDevolucionDto,
@@ -51,7 +52,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
 @Component({
   selector: 'app-aprendiz-materiales-devoluciones',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent],
+  imports: [FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -66,9 +67,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
       </div>
 
       @if (loading) {
-        <div class="flex justify-center py-12">
-          <div class="w-8 h-8 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
-        </div>
+        <app-loading-skeleton variant="table" [rows]="6" [columns]="5" [showToolbar]="false" label="Cargando devoluciones" />
       } @else if (devoluciones.length === 0) {
         <p class="text-center text-gray-400 text-sm py-10">No hay devoluciones registradas</p>
       } @else {

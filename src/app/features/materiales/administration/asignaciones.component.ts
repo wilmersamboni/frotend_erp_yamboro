@@ -13,6 +13,7 @@ import { TuiDayCache } from '../../../shared/utils/tui-day.util';
 import type { TuiDay } from '@taiga-ui/cdk';
 import { Asignacion, CreateAsignacionDto, EstadoAsignacion, MaterialesApiService, Producto, Sitio } from '../data-access/materiales-api.service';
 import { ElegirPlacasAsignacionModalComponent } from '../ui/elegir-placas-asignacion-modal.component';
+import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 
 interface LineaAsignacionForm{
   id_producto:string;
@@ -39,7 +40,7 @@ interface Ficha {
 @Component({
   selector: 'app-materiales-asignaciones',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, ElegirPlacasAsignacionModalComponent],
+  imports: [FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, ElegirPlacasAsignacionModalComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -63,9 +64,7 @@ interface Ficha {
       }
 
       @if (loading) {
-        <div class="flex justify-center py-12">
-          <div class="w-8 h-8 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
-        </div>
+        <app-loading-skeleton variant="table" [rows]="6" [columns]="5" [showToolbar]="false" label="Cargando asignaciones" />
       } @else if (asignaciones.length === 0) {
         <p class="text-center text-gray-400 text-sm py-10">No hay asignaciones registradas</p>
       } @else {

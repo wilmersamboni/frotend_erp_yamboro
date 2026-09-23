@@ -9,6 +9,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { TableFilterComponent } from '../../../shared/components/table-filter.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
+import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from '../data-access/materiales-api.service';
 
 /**
@@ -28,7 +29,7 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
 @Component({
   selector: 'app-instructor-materiales-traslados',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, TableFilterComponent],
+  imports: [FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, TableFilterComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -59,9 +60,7 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
       </div>
 
       @if (loading) {
-        <div class="flex justify-center py-12">
-          <div class="w-8 h-8 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
-        </div>
+        <app-loading-skeleton variant="table" [rows]="6" [columns]="6" [showToolbar]="false" label="Cargando traslados" />
       } @else if (trasladosFiltrados.length === 0) {
         <p class="text-center text-gray-400 text-sm py-10">No hay traslados que cumplan los filtros seleccionados.</p>
       } @else {

@@ -6,6 +6,7 @@ import gsap from 'gsap';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { TableFilterComponent, TableFilterOption } from '../../shared/components/table-filter.component';
+import { LoadingSkeletonComponent } from '../../shared/components/loading-skeleton.component';
 import { FilaVencimiento, Lote, MaterialesApiService, Sitio } from './data-access/materiales-api.service';
 
 const VENTANAS = [7, 15, 30] as const;
@@ -56,7 +57,7 @@ const VENTANAS = [7, 15, 30] as const;
 @Component({
   selector: 'app-materiales-vencimientos',
   standalone: true,
-  imports: [DatePipe, FormsModule, RouterLink, TableFilterComponent],
+  imports: [DatePipe, FormsModule, RouterLink, TableFilterComponent, LoadingSkeletonComponent],
   styles: [
     `
       .urg-fill { transform-origin: left center; }
@@ -164,9 +165,7 @@ const VENTANAS = [7, 15, 30] as const;
       }
 
       @if (loading) {
-        <div class="flex justify-center py-16">
-          <div class="w-8 h-8 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
-        </div>
+        <app-loading-skeleton variant="table" [rows]="6" [columns]="5" [showToolbar]="false" label="Cargando vencimientos" />
       } @else if (vista() === 'perecederos') {
         <!-- Productos perecederos: fecha real de vencimiento de cada lote. -->
         <section #seccionVista class="mb-9">

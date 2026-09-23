@@ -8,6 +8,7 @@ import { AdminModalComponent } from '../../tenant-administration/ui/admin-modal.
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { StatCardComponent } from '../../../shared/components/stat-card.component';
 import { TableFilterComponent } from '../../../shared/components/table-filter.component';
+import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 import { OpcionSelect } from '../../tenant-administration/services/admin.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
@@ -51,7 +52,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
 @Component({
   selector: 'app-instructor-materiales-novedades',
   standalone: true,
-  imports: [FormsModule, DatePipe, AdminModalComponent, StatusBadgeComponent, StatCardComponent, TableFilterComponent],
+  imports: [FormsModule, DatePipe, AdminModalComponent, StatusBadgeComponent, StatCardComponent, TableFilterComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -78,9 +79,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
       </div>
 
       @if (loading) {
-        <div class="flex justify-center py-12">
-          <div class="w-8 h-8 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
-        </div>
+        <app-loading-skeleton variant="table" [rows]="6" [columns]="6" [showToolbar]="false" label="Cargando novedades" />
       } @else if (novedadesFiltradas.length === 0) {
         <p class="text-center text-gray-400 text-sm py-10">No hay novedades {{ idItemFiltro ? 'para este ítem' : 'registradas' }}</p>
       } @else {

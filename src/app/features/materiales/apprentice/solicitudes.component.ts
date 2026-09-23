@@ -9,6 +9,7 @@ import { StatusBadgeComponent } from '../../../shared/components/status-badge.co
 import { DateInputComponent } from '../../../shared/components/date-input.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
 import { EntregarSolicitudModalComponent } from '../ui/entregar-solicitud-modal.component';
+import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 import { TuiDayCache } from '../../../shared/utils/tui-day.util';
 import type { TuiDay } from '@taiga-ui/cdk';
 import {
@@ -47,7 +48,7 @@ interface LineaForm {
 @Component({
   selector: 'app-aprendiz-materiales-solicitudes',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent],
+  imports: [FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -71,9 +72,7 @@ interface LineaForm {
       }
 
       @if (loading) {
-        <div class="flex justify-center py-12">
-          <div class="w-8 h-8 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
-        </div>
+        <app-loading-skeleton variant="table" [rows]="6" [columns]="5" [showToolbar]="false" label="Cargando solicitudes" />
       } @else if (solicitudes.length === 0) {
         <p class="text-center text-gray-400 text-sm py-10">No tenés solicitudes registradas</p>
       } @else {
