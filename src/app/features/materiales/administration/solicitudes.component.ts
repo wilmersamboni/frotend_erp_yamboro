@@ -13,6 +13,10 @@ import { EntregarSolicitudModalComponent } from '../ui/entregar-solicitud-modal.
 import { TuiDayCache } from '../../../shared/utils/tui-day.util';
 import type { TuiDay } from '@taiga-ui/cdk';
 import { MaterialesApiService, Item, Lote, Producto, Sitio, Solicitud, EstadoSolicitud, ResumenExistencias, SeleccionLineaEntregaInput } from '../data-access/materiales-api.service';
+import { NetworkStatusService } from '../../../core/offline/network-status.service';
+import { SyncQueueService } from '../../../core/offline/sync-queue.service';
+import { OfflineSnapshotService } from '../../../core/offline/offline-snapshot.service';
+import { prepararSnapshotEntregaOffline } from '../ui/solicitud-entrega-offline.util';
 
 /** Línea del modal "Nueva solicitud" — `p:<id>` producto devolutivo, `l:<id>` lote consumible. */
 interface LineaForm {
@@ -258,6 +262,10 @@ interface LineaForm {
                               [style.opacity]="bodegaInactiva(s) ? 0.45 : 1" [style.cursor]="bodegaInactiva(s) ? 'not-allowed' : 'pointer'"
                               [style.backgroundColor]="bodegaInactiva(s) ? '#f3f4f6' : '#fff'" [style.color]="bodegaInactiva(s) ? '#9ca3af' : '#2563eb'" [style.borderColor]="bodegaInactiva(s) ? '#e5e7eb' : '#bfdbfe'"
                               class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors">Marcar en entrega</button>
+                            @if (red.alcanzable()) {
+                              <button (click)="prepararEntregaOffline(s)" title="Descarga las placas disponibles de esta solicitud para poder entregarla sin conexión"
+                                class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-500 bg-white hover:border-gray-400 transition-colors">Preparar offline</button>
+                            }
                           }
                           @if (s.estado === 'APROBADA' && puedeRechazar && puedeGestionar(s)) {
                             <button (click)="cancelar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">Cancelar</button>
@@ -642,7 +650,15 @@ seleccionarEstado(valor: EstadoSolicitud | ''): void {
     private auth: AuthService,
     private live: MaterialesLiveService,
     private destroyRef: DestroyRef,
+    public red: NetworkStatusService,
+    private syncQueue: SyncQueueService,
+    private offlineSnapshot: OfflineSnapshotService,
   ) {}
+
+  async prepararEntregaOffline(s: Solicitud): Promise<void> {
+    const preparo = await prepararSnapshotEntregaOffline(s, this.api, this.offlineSnapshot);
+    if (preparo) this.toast.ok('Preparada para entregar sin conexión');
+  }
 
   /**
    * Cada acción de estado gateada por su propio servicio
@@ -1117,13 +1133,27 @@ seleccionarEstado(valor: EstadoSolicitud | ''): void {
   async confirmarEntrega(seleccion: SeleccionLineaEntregaInput[] | undefined): Promise<void> {
     const s = this.solicitudAEntregar;
     if (!s) return;
+
+    if (!this.red.alcanzable()) {
+      await this.syncQueue.enqueue('materiales.entregarSolicitud', { id_solicitud: s.id_solicitud, seleccion });
+      this.toast.ok('Guardado localmente — se enviará cuando haya señal');
+      this.solicitudAEntregar = null;
+      return;
+    }
+
     try {
       await this.api.entregarSolicitud(s.id_solicitud, seleccion);
       this.toast.ok('Solicitud marcada en entrega');
       this.solicitudAEntregar = null;
       await this.cargar();
-    } catch (e) {
-      this.toast.httpError(e, 'No se pudo marcar en entrega.');
+    } catch (e: any) {
+      if (e?.status === 0) {
+        await this.syncQueue.enqueue('materiales.entregarSolicitud', { id_solicitud: s.id_solicitud, seleccion });
+        this.toast.ok('Sin conexión — guardado localmente, se enviará cuando haya señal');
+        this.solicitudAEntregar = null;
+      } else {
+        this.toast.httpError(e, 'No se pudo marcar en entrega.');
+      }
     }
   }
 

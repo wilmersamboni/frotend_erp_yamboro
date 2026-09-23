@@ -7,6 +7,10 @@ import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 import { Item, MaterialesApiService, Producto, Sitio } from './data-access/materiales-api.service';
+import { BarcodeScannerComponent } from '../../shared/scanner/barcode-scanner.component';
+import { SyncQueueService } from '../../core/offline/sync-queue.service';
+import { OfflineSnapshotService } from '../../core/offline/offline-snapshot.service';
+import { NetworkStatusService } from '../../core/offline/network-status.service';
 
 const OPCIONES_ESTADO: OpcionSelect[] = [
   { label: 'Disponible', value: 'DISPONIBLE' },
@@ -49,16 +53,24 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
 @Component({
   selector: 'app-materiales-items',
   standalone: true,
-  imports: [FormsModule, AdminTableComponent, AdminModalComponent],
+  imports: [FormsModule, AdminTableComponent, AdminModalComponent, BarcodeScannerComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-4">
         <h1 class="text-xl font-bold text-gray-800">Ítems</h1>
-        @if (puedeEditar() && productosConPlacasPendientes.length > 0) {
-          <button (click)="abrirAsignarPlacas()"
-            class="px-3 py-2 text-sm font-medium rounded-lg border border-[#39A900] text-[#39A900] hover:bg-[#39A900]/5 transition-colors">
-            Asignar placas SENA
-          </button>
+        @if (puedeEditar() && opcionesProductoPlacas.length > 0) {
+          <div class="flex gap-2">
+            @if (red.alcanzable() && productosConPlacasPendientes.length > 0) {
+              <button (click)="prepararOffline()"
+                class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors">
+                Preparar para trabajar offline
+              </button>
+            }
+            <button (click)="abrirAsignarPlacas()"
+              class="px-3 py-2 text-sm font-medium rounded-lg border border-[#39A900] text-[#39A900] hover:bg-[#39A900]/5 transition-colors">
+              Asignar placas SENA
+            </button>
+          </div>
         }
       </div>
 
@@ -140,13 +152,18 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
               <label class="block text-xs font-medium text-gray-600 mb-1">Producto</label>
               <select [(ngModel)]="placasProductoId" (ngModelChange)="onProductoPlacasChange()"
                 class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
-                @for (p of productosConPlacasPendientes; track p.id_producto) {
+                @for (p of opcionesProductoPlacas; track p.id_producto) {
                   <option [value]="p.id_producto">{{ p.nombre }} — {{ p.count }} sin placa</option>
                 }
               </select>
+              @if (!red.alcanzable()) {
+                <p class="text-[11px] text-amber-600 mt-1">Sin conexión — mostrando lo preparado la última vez con señal.</p>
+              }
             </div>
 
             @if (filasPlacas.length > 0) {
+              <app-barcode-scanner [activo]="asignarPlacasOpen" [modoManual]="false" (scanned)="onCodigoEscaneado($event)"></app-barcode-scanner>
+
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Pegar lista (una placa por línea)</label>
                 <textarea [(ngModel)]="pegado" (ngModelChange)="aplicarPegado()" rows="3"
@@ -212,6 +229,10 @@ export class MaterialesItemsComponent implements OnInit {
   pegado = '';
   asignarPlacasSaving = false;
   asignarPlacasError: string | null = null;
+  /** Productos preparados para escanear/asignar sin red (ver plan de escaneo
+   *  offline) — cargado del snapshot local, no de `this.productos`/`this.items`
+   *  (que pueden estar vacíos si la PWA se abrió ya sin señal). */
+  productosOfflinePreparados: { id_producto: string; nombre: string; count: number }[] = [];
 
   placeholders: Record<string, string> = { placa_sena: 'Ej: SENA-00123 (opcional)' };
 
@@ -257,6 +278,9 @@ export class MaterialesItemsComponent implements OnInit {
     private toast: ToastService,
     private auth: AuthService,
     private confirm: ConfirmService,
+    private syncQueue: SyncQueueService,
+    private offlineSnapshot: OfflineSnapshotService,
+    public red: NetworkStatusService,
   ) {}
 
   /** Botón "Desactivar"/"Reactivar" por fila — mismo servicio que editar,
@@ -295,6 +319,12 @@ export class MaterialesItemsComponent implements OnInit {
 
   ngOnInit(): void {
     this.cargar();
+    this.cargarIndexOffline();
+  }
+
+  private async cargarIndexOffline(): Promise<void> {
+    const snap = await this.offlineSnapshot.obtener<typeof this.productosOfflinePreparados>('materiales.placas', '__index__');
+    if (snap) this.productosOfflinePreparados = snap.data;
   }
 
   get columnas(): string[] {
@@ -482,22 +512,69 @@ export class MaterialesItemsComponent implements OnInit {
     return this.filasPlacas.filter((f) => f.placa.trim()).length;
   }
 
-  abrirAsignarPlacas(): void {
-    if (!this.puedeEditar()) return;
+  /** Con red: los productos pendientes en vivo. Sin red: lo que se haya
+   *  preparado antes con `prepararOffline()` (índice guardado localmente,
+   *  no depende de que `this.productos`/`this.items` sigan en memoria). */
+  get opcionesProductoPlacas(): { id_producto: string; nombre: string; count: number }[] {
+    return this.red.alcanzable() ? this.productosConPlacasPendientes : this.productosOfflinePreparados;
+  }
+
+  /** Descarga un snapshot local (por producto) de los ítems pendientes de
+   *  placa — para poder abrir el modal y escanear sin red más adelante. */
+  async prepararOffline(): Promise<void> {
     const pendientes = this.productosConPlacasPendientes;
     if (pendientes.length === 0) return;
-    this.placasProductoId = pendientes[0].id_producto;
+    for (const p of pendientes) {
+      const filas = this.items
+        .filter((i) => i.id_producto === p.id_producto && !i.placa_sena?.trim())
+        .map((i) => ({ id_item: i.id_item, estado: i.estado }));
+      await this.offlineSnapshot.guardar('materiales.placas', p.id_producto, filas);
+    }
+    this.productosOfflinePreparados = pendientes;
+    await this.offlineSnapshot.guardar('materiales.placas', '__index__', this.productosOfflinePreparados);
+    this.toast.ok(`Preparado para trabajar offline: ${pendientes.length} producto(s)`);
+  }
+
+  abrirAsignarPlacas(): void {
+    if (!this.puedeEditar()) return;
+    const opciones = this.opcionesProductoPlacas;
+    if (opciones.length === 0) return;
+    this.placasProductoId = opciones[0].id_producto;
     this.pegado = '';
     this.asignarPlacasError = null;
     this.onProductoPlacasChange();
     this.asignarPlacasOpen = true;
   }
 
-  onProductoPlacasChange(): void {
+  async onProductoPlacasChange(): Promise<void> {
     this.pegado = '';
-    this.filasPlacas = this.items
-      .filter((i) => i.id_producto === this.placasProductoId && !i.placa_sena?.trim())
-      .map((i) => ({ id_item: i.id_item, estado: i.estado, placa: '' }));
+    if (!this.placasProductoId) {
+      this.filasPlacas = [];
+      return;
+    }
+    if (this.red.alcanzable()) {
+      this.filasPlacas = this.items
+        .filter((i) => i.id_producto === this.placasProductoId && !i.placa_sena?.trim())
+        .map((i) => ({ id_item: i.id_item, estado: i.estado, placa: '' }));
+      return;
+    }
+    const snap = await this.offlineSnapshot.obtener<{ id_item: string; estado: string }[]>(
+      'materiales.placas',
+      this.placasProductoId,
+    );
+    this.filasPlacas = (snap?.data ?? []).map((f) => ({ ...f, placa: '' }));
+  }
+
+  /** El escáner de cámara escribe en la primera fila sin placa todavía y
+   *  avanza — pensado para escanear ítem físico tras ítem físico sin tocar
+   *  el teclado. */
+  onCodigoEscaneado(codigo: string): void {
+    const fila = this.filasPlacas.find((f) => !f.placa.trim());
+    if (!fila) {
+      this.toast.warn('Sin filas libres', 'Ya completaste todas las placas de este producto.');
+      return;
+    }
+    fila.placa = codigo;
   }
 
   aplicarPegado(): void {
@@ -527,15 +604,49 @@ export class MaterialesItemsComponent implements OnInit {
     }
     this.asignarPlacasSaving = true;
     this.asignarPlacasError = null;
+
+    if (!this.red.alcanzable()) {
+      await this.encolarPlacasOffline(asignaciones);
+      this.asignarPlacasSaving = false;
+      return;
+    }
+
     try {
       const { actualizados } = await this.api.asignarPlacasItems(asignaciones);
       this.toast.ok(`Se asignaron ${actualizados} placa(s) SENA`);
       this.asignarPlacasOpen = false;
       await this.cargar();
     } catch (e: any) {
-      this.asignarPlacasError = e?.error?.message ?? 'No se pudieron asignar las placas.';
+      // status 0 = no llegó al servidor (ver error.interceptor.ts) — puede
+      // que `red.alcanzable()` todavía no se haya actualizado (el ping es
+      // periódico, no instantáneo ante un corte). Se trata igual que "sin
+      // conexión" en vez de mostrar error.
+      if (e?.status === 0) {
+        await this.encolarPlacasOffline(asignaciones);
+      } else {
+        this.asignarPlacasError = e?.error?.message ?? 'No se pudieron asignar las placas.';
+      }
     } finally {
       this.asignarPlacasSaving = false;
     }
+  }
+
+  /** Guarda localmente lo que no se pudo enviar ya — optimista: saca esos
+   *  ítems de la grilla y del snapshot para no invitar a re-escanearlos. La
+   *  asignación real todavía no ocurrió en el servidor (ver
+   *  `SyncQueueService`/reconciliación si el backend luego la rechaza). */
+  private async encolarPlacasOffline(asignaciones: { id_item: string; placa_sena: string }[]): Promise<void> {
+    await this.syncQueue.enqueue('materiales.asignarPlacas', { asignaciones, id_producto: this.placasProductoId });
+    const idsAsignados = new Set(asignaciones.map((a) => a.id_item));
+    this.filasPlacas = this.filasPlacas.filter((f) => !idsAsignados.has(f.id_item));
+    if (this.placasProductoId) {
+      await this.offlineSnapshot.guardar(
+        'materiales.placas',
+        this.placasProductoId,
+        this.filasPlacas.map((f) => ({ id_item: f.id_item, estado: f.estado })),
+      );
+    }
+    this.toast.ok(`Guardado localmente — se enviará cuando haya señal (${asignaciones.length} placa(s))`);
+    if (this.filasPlacas.length === 0) this.asignarPlacasOpen = false;
   }
 }

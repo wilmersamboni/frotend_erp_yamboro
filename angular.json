@@ -20,28 +20,31 @@
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
             "assets": [
-                {
-                  "glob": "**/*",
-                  "input": "public"
-                },
-                {
-                  "glob": "**/*",
-                  "input": "node_modules/@taiga-ui/icons/src",
-                  "output": "assets/taiga-ui/icons"
-                },
-                {
-    "glob": "**/*",
-    "input": "node_modules/leaflet/dist/images",
-    "output": "assets/leaflet"
-  }
-              ],
-            "styles": [
-              "node_modules/leaflet/dist/leaflet.css",
-              "src/styles.css"
+              {
+                "glob": "**/*",
+                "input": "public"
+              },
+              {
+                "glob": "**/*",
+                "input": "node_modules/@taiga-ui/icons/src",
+                "output": "assets/taiga-ui/icons"
+              },
+              {
+                "glob": "**/*",
+                "input": "node_modules/leaflet/dist/images",
+                "output": "assets/leaflet"
+              }
             ],
+            "styles": ["node_modules/leaflet/dist/leaflet.css", "src/styles.css"],
             "allowedCommonJsDependencies": [
-              "canvg", "core-js", "raf", "rgbcolor", "exceljs",
-              "lottie-web", "leaflet", "html2canvas"
+              "canvg",
+              "core-js",
+              "raf",
+              "rgbcolor",
+              "exceljs",
+              "lottie-web",
+              "leaflet",
+              "html2canvas"
             ]
           },
           "configurations": {
@@ -57,7 +60,6 @@
 
                   "maximumWarning": "16kB",
                   "maximumError": "16kB"
-
                 }
               ],
               "outputHashing": "all",
@@ -66,7 +68,8 @@
                   "replace": "src/environments/environment.ts",
                   "with": "src/environments/environment.production.ts"
                 }
-              ]
+              ],
+              "serviceWorker": "ngsw-config.json"
             },
             "development": {
               "optimization": false,
@@ -77,19 +80,19 @@
           "defaultConfiguration": "production"
         },
         "serve": {
-  "builder": "@angular/build:dev-server",
-  "options": {},
-  "configurations": {
-    "production": {
-      "buildTarget": "epsas-angular:build:production"
-    },
-    "development": {
-      "buildTarget": "epsas-angular:build:development",
-      "proxyConfig": "proxy.conf.js"
-    }
-  },
-  "defaultConfiguration": "development"
-},
+          "builder": "@angular/build:dev-server",
+          "options": {},
+          "configurations": {
+            "production": {
+              "buildTarget": "epsas-angular:build:production"
+            },
+            "development": {
+              "buildTarget": "epsas-angular:build:development",
+              "proxyConfig": "proxy.conf.js"
+            }
+          },
+          "defaultConfiguration": "development"
+        },
         "test": {
           "builder": "@angular/build:unit-test"
         }

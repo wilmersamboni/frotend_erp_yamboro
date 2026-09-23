@@ -6,11 +6,12 @@ import { TuiRoot } from '@taiga-ui/core';
 import { ThemeService } from './core/services/theme.service';
 import { ToastModule } from 'primeng/toast';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { SyncStatusBadgeComponent } from './shared/components/sync-status-badge.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, FloatingButtons, TuiRoot, ToastModule, ConfirmDialogModule],
+  imports: [RouterOutlet, FloatingButtons, TuiRoot, ToastModule, ConfirmDialogModule, SyncStatusBadgeComponent],
   template: `
     <tui-root>
       <!-- Toast global — todas las features lo comparten -->
@@ -25,6 +26,9 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
       @if (mostrarBotFlotante()) {
         <app-floating-buttons></app-floating-buttons>
       }
+      <!-- Escaneo offline (ver plan): invisible salvo que haya algo pendiente
+           o en conflicto en la cola de sync — no depende de mostrarBotFlotante. -->
+      <app-sync-status-badge></app-sync-status-badge>
     </tui-root>
   `
 })

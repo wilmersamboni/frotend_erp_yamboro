@@ -1,18 +1,20 @@
 import { Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
-  Item,
   MaterialesApiService,
   SeleccionLineaEntregaInput,
   Solicitud,
 } from '../data-access/materiales-api.service';
+import { BarcodeScannerComponent } from '../../../shared/scanner/barcode-scanner.component';
+import { NetworkStatusService } from '../../../core/offline/network-status.service';
+import { OfflineSnapshotService } from '../../../core/offline/offline-snapshot.service';
+import {
+  LineaDevolutivaConOpciones,
+  lineasDevolutivasDeSolicitud,
+  leerSnapshotEntregaOffline,
+} from './solicitud-entrega-offline.util';
 
-interface LineaParaElegir {
-  id_detalle: string | null;
-  id_producto: string;
-  nombre: string;
-  cantidad: number;
-  opciones: Item[];
+interface LineaParaElegir extends LineaDevolutivaConOpciones {
   elegidos: string[];
 }
 
@@ -37,7 +39,7 @@ interface LineaParaElegir {
 @Component({
   selector: 'app-entregar-solicitud-modal',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, BarcodeScannerComponent],
   template: `
     @if (abierto) {
       <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cancelar()">
@@ -49,6 +51,14 @@ interface LineaParaElegir {
 
           @if (loading) {
             <p class="text-sm text-gray-400 py-6 text-center">Cargando ítems disponibles…</p>
+          } @else if (sinPreparar) {
+            <p class="text-sm text-red-500">
+              Esta solicitud no fue preparada para entrega offline — no hay placas guardadas localmente para elegir.
+              Conectate y volvé a abrir este modal, o usá "Preparar entrega offline" desde la lista.
+            </p>
+            <div class="flex justify-end gap-2 mt-6">
+              <button (click)="cancelar()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cerrar</button>
+            </div>
           } @else if (lineas.length === 0) {
             <p class="text-sm text-gray-500">
               Esta solicitud no tiene ítems para elegir (solo consumibles/lotes) — se entrega automático.
@@ -84,6 +94,10 @@ interface LineaParaElegir {
                 Elegí exactamente la cantidad pedida de cada línea. Útil para descartar una unidad en mal estado
                 aunque el sistema la marque disponible.
               </p>
+              <app-barcode-scanner class="block mb-2" [activo]="abierto && modo === 'manual'" (scanned)="onCodigoEscaneado($event)"></app-barcode-scanner>
+              @if (codigoNoEncontrado) {
+                <p class="text-xs text-red-500 mb-2">Placa "{{ codigoNoEncontrado }}" no encontrada en esta solicitud (o ya elegida / línea completa).</p>
+              }
               <div class="space-y-4">
                 @for (linea of lineas; track linea.id_producto + (linea.id_detalle ?? '')) {
                   <div class="rounded-xl border border-gray-100 p-3">
@@ -144,12 +158,23 @@ export class EntregarSolicitudModalComponent implements OnChanges {
   modo: 'auto' | 'manual' = 'auto';
   loading = false;
   lineas: LineaParaElegir[] = [];
+  /** true si estamos sin red y esta solicitud nunca se preparó con
+   *  "Preparar entrega offline" — no hay de dónde sacar las opciones. */
+  sinPreparar = false;
+  /** Última placa escaneada que no matcheó ningún ítem elegible — se
+   *  muestra hasta el próximo escaneo o hasta que cambie de modo. */
+  codigoNoEncontrado: string | null = null;
 
-  constructor(private api: MaterialesApiService) {}
+  constructor(
+    private api: MaterialesApiService,
+    private red: NetworkStatusService,
+    private offlineSnapshot: OfflineSnapshotService,
+  ) {}
 
   ngOnChanges(): void {
     if (this.abierto) {
       this.modo = 'auto';
+      this.sinPreparar = false;
       this.prepararLineas();
     }
   }
@@ -164,18 +189,23 @@ export class EntregarSolicitudModalComponent implements OnChanges {
   }
 
   private async prepararLineas(): Promise<void> {
-    const base = this.solicitud.lineas?.length
-      ? this.solicitud.lineas
-          .filter((l) => !l.id_lote && l.id_producto)
-          .map((l) => ({ id_detalle: l.id_detalle as string | null, id_producto: l.id_producto as string, nombre: l.producto_nombre ?? 'Producto', cantidad: l.cantidad }))
-      : this.tieneLineasParaElegir
-        ? [{ id_detalle: null, id_producto: this.solicitud.id_producto as string, nombre: this.solicitud.producto?.nombre ?? 'Producto', cantidad: this.solicitud.cantidad }]
-        : [];
-
+    const base = lineasDevolutivasDeSolicitud(this.solicitud);
     if (base.length === 0) {
       this.lineas = [];
       return;
     }
+
+    if (!this.red.alcanzable()) {
+      const snapshot = await leerSnapshotEntregaOffline(this.solicitud, this.offlineSnapshot);
+      if (!snapshot) {
+        this.sinPreparar = true;
+        this.lineas = [];
+        return;
+      }
+      this.lineas = snapshot.map((l) => ({ ...l, elegidos: [] as string[] }));
+      return;
+    }
+
     this.loading = true;
     try {
       this.lineas = await Promise.all(
@@ -187,6 +217,25 @@ export class EntregarSolicitudModalComponent implements OnChanges {
     } finally {
       this.loading = false;
     }
+  }
+
+  /** El escáner busca la placa entre las opciones de TODAS las líneas (no
+   *  solo la visible) — el operador puede escanear en cualquier orden. Si no
+   *  matchea ningún ítem del snapshot/lista actual, no se descarta en
+   *  silencio: se avisa, puede ser una placa de otro producto o un dato mal
+   *  cargado en el sistema. */
+  onCodigoEscaneado(codigo: string): void {
+    for (const linea of this.lineas) {
+      const item = linea.opciones.find((i) => i.placa_sena === codigo);
+      if (item && !this.estaElegido(linea, item.id_item) && linea.elegidos.length < linea.cantidad) {
+        this.toggleItem(linea, item.id_item);
+        this.codigoNoEncontrado = null;
+        return;
+      }
+      // La placa existe en esta línea pero ya está elegida o la línea ya
+      // está completa — seguimos buscando por si aparece en otra línea.
+    }
+    this.codigoNoEncontrado = codigo;
   }
 
   estaElegido(linea: LineaParaElegir, idItem: string): boolean {
