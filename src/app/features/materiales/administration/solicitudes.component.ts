@@ -18,6 +18,7 @@ import { NetworkStatusService } from '../../../core/offline/network-status.servi
 import { SyncQueueService } from '../../../core/offline/sync-queue.service';
 import { OfflineSnapshotService } from '../../../core/offline/offline-snapshot.service';
 import { prepararSnapshotEntregaOffline } from '../ui/solicitud-entrega-offline.util';
+import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 
 /** Línea del modal "Nueva solicitud" — `p:<id>` producto devolutivo, `l:<id>` lote consumible. */
 interface LineaForm {
@@ -55,7 +56,7 @@ interface LineaForm {
 @Component({
   selector: 'app-materiales-solicitudes',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent],
+  imports: [EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -81,7 +82,7 @@ interface LineaForm {
       @if (loading) {
         <app-loading-skeleton variant="table" [rows]="6" [columns]="6" [showToolbar]="false" label="Cargando solicitudes" />
       } @else if (solicitudes.length === 0) {
-        <p class="text-center text-gray-400 text-sm py-10">No hay solicitudes registradas</p>
+        <app-empty-state titulo="No hay solicitudes registradas" />
       } @else {
         <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
           <!-- Toolbar: búsqueda + filtro de estado + filas por página -->
@@ -196,7 +197,7 @@ interface LineaForm {
           </div>
 
           @if (solicitudesFiltradas.length === 0) {
-            <p class="text-center text-gray-400 text-sm py-10">Sin resultados para estos filtros</p>
+            <app-empty-state titulo="Sin resultados para estos filtros" variante="busqueda" />
           } @else {
             <div class="overflow-x-auto">
               <table class="w-full text-sm">

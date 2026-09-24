@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { StatusBadgeComponent } from './status-badge.component';
 import { TableFilterComponent } from './table-filter.component';
 import { LoadingSkeletonComponent } from './loading-skeleton.component';
+import { EmptyStateComponent } from './empty-state.component';
 
 
 /** Enlace de navegación cruzada por fila (ej. Producto → Existencias filtradas por ese producto). */
@@ -42,7 +43,7 @@ export interface TableRowLink {
 @Component({
   selector: 'app-admin-table',
   standalone: true,
-  imports: [FormsModule, RouterLink, StatusBadgeComponent, TableFilterComponent, LoadingSkeletonComponent],
+  imports: [FormsModule, RouterLink, StatusBadgeComponent, TableFilterComponent, LoadingSkeletonComponent, EmptyStateComponent],
   template: `
     <div [class]="searchable
         ? 'bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden'
@@ -137,9 +138,9 @@ export interface TableRowLink {
         <app-loading-skeleton variant="table" [rows]="6" [columns]="skeletonColumnCount"
           [showToolbar]="searchable" label="Cargando registros" />
       } @else if (rows.length === 0) {
-        <p class="text-center text-gray-400 text-sm py-10">No hay registros</p>
+        <app-empty-state titulo="No hay registros" ayuda="Cuando se agregue información aparecerá aquí." />
       } @else if (filasVisibles.length === 0) {
-        <p class="text-center text-gray-400 text-sm py-10">Sin resultados para "{{ busqueda }}"</p>
+        <app-empty-state titulo="Sin resultados para «{{ busqueda }}»" variante="busqueda" />
       } @else {
         <div [class]="searchable ? 'overflow-x-auto' : 'overflow-x-auto rounded-xl border border-gray-100'">
           <table class="w-full text-sm">

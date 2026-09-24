@@ -11,6 +11,7 @@ import { TableFilterComponent } from '../../../shared/components/table-filter.co
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from '../data-access/materiales-api.service';
+import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 
 /**
  * Traslados de ítems entre sitios para instructor: crear siempre disponible;
@@ -29,7 +30,7 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
 @Component({
   selector: 'app-instructor-materiales-traslados',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, TableFilterComponent, LoadingSkeletonComponent],
+  imports: [EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, TableFilterComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -62,7 +63,7 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
       @if (loading) {
         <app-loading-skeleton variant="table" [rows]="6" [columns]="6" [showToolbar]="false" label="Cargando traslados" />
       } @else if (trasladosFiltrados.length === 0) {
-        <p class="text-center text-gray-400 text-sm py-10">No hay traslados que cumplan los filtros seleccionados.</p>
+        <app-empty-state titulo="No hay traslados que cumplan los filtros seleccionados." variante="busqueda" />
       } @else {
         <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
           <div class="overflow-x-auto">

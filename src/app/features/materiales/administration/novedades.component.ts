@@ -15,6 +15,7 @@ import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { PersonaService } from '../../../core/services/persona.service';
 import { EstadoItem, Item, MaterialesApiService, Novedad, Sitio, TipoNovedad } from '../data-access/materiales-api.service';
+import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 
 /** Estados en los que puede quedar el ítem al mover una novedad (Tier SigMat M7). */
 const OPCIONES_ESTADO_ITEM: { label: string; value: EstadoItem | '' }[] = [
@@ -63,7 +64,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
 @Component({
   selector: 'app-materiales-novedades',
   standalone: true,
-  imports: [FormsModule, DatePipe, AdminModalComponent, StatusBadgeComponent, StatCardComponent, TableFilterComponent, LoadingSkeletonComponent],
+  imports: [EmptyStateComponent, FormsModule, DatePipe, AdminModalComponent, StatusBadgeComponent, StatCardComponent, TableFilterComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -92,7 +93,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
       @if (loading) {
         <app-loading-skeleton variant="table" [rows]="6" [columns]="6" [showToolbar]="false" label="Cargando novedades" />
       } @else if (novedadesFiltradas.length === 0) {
-        <p class="text-center text-gray-400 text-sm py-10">No hay novedades {{ idItemFiltro ? 'para este ítem' : 'registradas' }}</p>
+        <app-empty-state titulo="No hay novedades {{ idItemFiltro ? 'para este ítem' : 'registradas' }}" />
       } @else {
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           <app-stat-card label="Total" [value]="novedadesFiltradas.length" tono="neutral">

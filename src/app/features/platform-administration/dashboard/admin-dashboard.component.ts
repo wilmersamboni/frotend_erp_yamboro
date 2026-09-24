@@ -5,11 +5,12 @@ import { TenantAdminService } from '../../../core/services/admin/tenant-admin.se
 import { AuditLogAdminService } from '../../../core/services/admin/audit-log-admin.service';
 import { Tenant } from '../../../shared/models/admin/tenant.model';
 import { AuditLog, ACCION_COLORES } from '../../../shared/models/admin/audit-log.model';
+import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [RouterLink, DatePipe],
+  imports: [LoadingSkeletonComponent, RouterLink, DatePipe],
   template: `
     <div class="mb-6">
       <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Dashboard</h1>
@@ -17,13 +18,7 @@ import { AuditLog, ACCION_COLORES } from '../../../shared/models/admin/audit-log
     </div>
 
     @if (cargando()) {
-      <div class="flex flex-col items-center justify-center py-16">
-        <svg class="animate-spin" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#39A900" stroke-width="3">
-          <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
-          <path d="M12 2a10 10 0 0 1 10 10" />
-        </svg>
-        <p class="text-sm text-gray-400 mt-3">Cargando información...</p>
-      </div>
+      <app-loading-skeleton variant="cards" label="Cargando información" />
     } @else {
       <!-- Métricas -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

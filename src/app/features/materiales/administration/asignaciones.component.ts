@@ -14,6 +14,7 @@ import type { TuiDay } from '@taiga-ui/cdk';
 import { Asignacion, CreateAsignacionDto, EstadoAsignacion, MaterialesApiService, Producto, Sitio } from '../data-access/materiales-api.service';
 import { ElegirPlacasAsignacionModalComponent } from '../ui/elegir-placas-asignacion-modal.component';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
+import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 
 interface LineaAsignacionForm{
   id_producto:string;
@@ -40,7 +41,7 @@ interface Ficha {
 @Component({
   selector: 'app-materiales-asignaciones',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, ElegirPlacasAsignacionModalComponent, LoadingSkeletonComponent],
+  imports: [EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, ElegirPlacasAsignacionModalComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -66,7 +67,7 @@ interface Ficha {
       @if (loading) {
         <app-loading-skeleton variant="table" [rows]="6" [columns]="5" [showToolbar]="false" label="Cargando asignaciones" />
       } @else if (asignaciones.length === 0) {
-        <p class="text-center text-gray-400 text-sm py-10">No hay asignaciones registradas</p>
+        <app-empty-state titulo="No hay asignaciones registradas" />
       } @else {
         <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
           <!-- Toolbar: búsqueda + filtro de estado + filas por página -->
@@ -176,7 +177,7 @@ interface Ficha {
           </div>
 
           @if (asignacionesFiltradas.length === 0) {
-            <p class="text-center text-gray-400 text-sm py-10">Sin resultados para estos filtros</p>
+            <app-empty-state titulo="Sin resultados para estos filtros" variante="busqueda" />
           } @else {
           <div class="overflow-x-auto">
           <table class="w-full text-sm">
