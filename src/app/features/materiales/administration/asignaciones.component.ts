@@ -394,7 +394,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
   pageSizeDropdownOpen = signal(false);
   estadoDropdownOpen = signal(false);
   page = 0;
-  readonly estadosAsignacion: EstadoAsignacion[] = ['ACTIVA', 'ANULADA'];
+  readonly estadosAsignacion: EstadoAsignacion[] = ['ACTIVA', 'DEVUELTA', 'ANULADA'];
 
   seleccionarPageSize(size: number): void {
     this.pageSize.set(size);
@@ -556,6 +556,17 @@ export class MaterialesAsignacionesComponent implements OnInit {
     return a.producto?.nombre ?? '-'
   }
 
+  /** Resumen corto para diálogos: los primeros `max` productos y "y N más". */
+  resumenLineas(a: Asignacion, max = 2): string {
+    const ls = a.lineas ?? [];
+    if (ls.length === 0) return a.producto?.nombre ?? 'sin productos';
+    const vistos = ls
+      .slice(0, max)
+      .map((l) => `${l.producto_nombre ?? 'Producto'} (x${l.cantidad})`)
+      .join(', ');
+    return ls.length > max ? `${vistos} y ${ls.length - max} más` : vistos;
+  }
+
   /**
    * El ambiente de una ficha no vive en Materiales — solo en Horarios
    * (AsignacionHorario: ficha + ambiente + día/jornada). Se consulta bajo
@@ -682,7 +693,8 @@ export class MaterialesAsignacionesComponent implements OnInit {
   
 
   async anular(a: Asignacion): Promise<void> {
-    if (!(await this.confirm.ask(`¿Anular la asignación #${a.id_asignacion}? El stock de los ítems prestados se restaurará.`))) return;
+    const msg = `¿Anular la asignación de ${this.resumenLineas(a)} a la ficha ${this.nombreFicha(a)}? Los ítems que sigan prestados volverán al inventario.`;
+    if (!(await this.confirm.ask(msg))) return;
     try {
       await this.api.anularAsignacion(a.id_asignacion);
       this.toast.ok('Asignación anulada');
