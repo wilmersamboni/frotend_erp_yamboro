@@ -523,7 +523,7 @@ export interface Acta {
   solicitud?: Solicitud;
 }
 
-export type EstadoAsignacion = 'ACTIVA' | 'ANULADA';
+export type EstadoAsignacion = 'ACTIVA' | 'ANULADA' | 'DEVUELTA';
 
 export interface Asignacion {
   id_asignacion: string;
