@@ -328,7 +328,7 @@ interface Ficha {
 
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Fecha de devolución (opcional)</label>
-              <app-date-input placeholder="DD/MM/AAAA"
+              <app-date-input placeholder="DD/MM/AAAA" [min]="hoyTuiDay"
                 [ngModel]="cacheFechaDevolucion.get(form['fecha_devolucion'])"
                 (ngModelChange)="form['fecha_devolucion'] = tuiDayToIso($event)"></app-date-input>
             </div>
@@ -437,6 +437,13 @@ export class MaterialesAsignacionesComponent implements OnInit {
   modalOpen = false;
   form: Record<string, any> = {};
   readonly cacheFechaDevolucion = new TuiDayCache();
+  /** Mínimo del calendario: hoy en hora LOCAL (el backend rechaza fechas pasadas con el mismo criterio). */
+  readonly hoyTuiDay = (() => {
+    const d = new Date();
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    const dia = String(d.getDate()).padStart(2, '0');
+    return TuiDayCache.fromIso(`${d.getFullYear()}-${mes}-${dia}`);
+  })();
   elegirPlacasOpen = false;
   lineasParaElegirPlacas: { id_producto: string; nombre: string; cantidad: number }[] = [];
 

@@ -625,7 +625,11 @@ seleccionarEstado(valor: EstadoSolicitud | ''): void {
   aprobarRef: Solicitud | null = null;
   fechaDevAprobar = '';
   aprobando = false;
-  readonly hoyISO = new Date().toISOString().slice(0, 10);
+  readonly hoyISO = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,
+  '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })();
   readonly hoyTuiDay = TuiDayCache.fromIso(this.hoyISO);
   readonly cacheFechaDevAprobar = new TuiDayCache();
 

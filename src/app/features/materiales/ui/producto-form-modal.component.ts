@@ -214,7 +214,7 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
               }
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Stock mínimo</label>
-                <input type="number" [(ngModel)]="form['stock_minimo']" placeholder="Ej: 5"
+                <input type="number" min="0" [(ngModel)]="form['stock_minimo']" placeholder="Ej: 5"
                   class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
               </div>
             </div>
@@ -222,7 +222,7 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
             @if (!editando && form['tipo_material'] === 'DEVOLUTIVO') {
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Cantidad de ítems a generar</label>
-                <input type="number" [(ngModel)]="form['cantidad']" placeholder="Ej: 10"
+                <input type="number" min="1" [(ngModel)]="form['cantidad']" placeholder="Ej: 10"
                   class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
               </div>
             }
@@ -484,6 +484,19 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
     if (!form['unidad_medida']?.trim()) {
       this.error = 'La unidad de medida es obligatoria.';
       return;
+    }
+    // `min="0"` del <input> solo marca el campo: no impide teclear un negativo ni bloquea Guardar.
+    const stockMinimo = Number(form['stock_minimo']);
+    if (!Number.isInteger(stockMinimo) || stockMinimo < 0) {
+      this.error = 'El stock mínimo debe ser un número entero de 0 en adelante.';
+      return;
+    }
+    if (!this.editando && form['tipo_material'] === 'DEVOLUTIVO') {
+      const cantidad = Number(form['cantidad']);
+      if (!Number.isInteger(cantidad) || cantidad < 1) {
+        this.error = 'La cantidad de ítems a generar debe ser un entero de 1 en adelante.';
+        return;
+      }
     }
     this.saving = true;
     this.error = null;
