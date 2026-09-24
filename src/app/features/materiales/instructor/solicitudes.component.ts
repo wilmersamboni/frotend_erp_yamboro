@@ -925,11 +925,16 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
         this.auth.tieneServicio('materiales.sitios.ver') ||
         this.auth.tieneServicio('materiales.traslados.crear');
       const personaId = this.auth.user()?.personaId;
+      // Mismos servicios que acepta el backend en GET /items y GET /lotes: pedir lo que el
+      // rol no puede ver dispara un 403 y el aviso global "Sin permiso" aunque se ignore.
+      const tiene = (...servicios: string[]) => servicios.some((x) => this.auth.tieneServicio(x));
+      const verItems = tiene('materiales.items.ver', 'materiales.novedades.crear', 'materiales.traslados.crear');
+      const verLotes = tiene('materiales.lotes.ver', 'materiales.solicitudes.crear');
       const [solicitudes, productos, lotes, items, sitios, fichas, sitiosACargo] = await Promise.all([
         this.api.listarSolicitudes(),
         this.api.listarProductos().catch(() => [] as Producto[]),
-        this.api.listarLotes().catch(() => [] as Lote[]),
-        this.api.listarItems().catch(() => [] as Item[]),
+        verLotes ? this.api.listarLotes().catch(() => [] as Lote[]) : Promise.resolve([] as Lote[]),
+        verItems ? this.api.listarItems().catch(() => [] as Item[]) : Promise.resolve([] as Item[]),
         verSitios ? this.api.listarSitios().catch(() => [] as Sitio[]) : Promise.resolve([] as Sitio[]),
         personaId ? this.erpApi.obtenerCursosLiderados(personaId).catch(() => [] as CursoLiderado[]) : Promise.resolve([] as CursoLiderado[]),
         this.api.sitiosACargo().catch(() => [] as Sitio[]),
