@@ -5,6 +5,7 @@ import { Component, OnInit, signal, computed } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../../../core/services/api.service';
 import { AuthService } from '../../../../core/services/auth.service';
+import { LoadingSkeletonComponent } from '../../../../shared/components/loading-skeleton.component';
 
 import { SeguimientosModalComponent }  from '../seguimientos-modal.component';
 import { ObservacionModalComponent }   from '../observacion-modal.component';
@@ -31,6 +32,7 @@ import {
     TableHeaderComponent,
     TableBodyComponent,
     TablePaginationComponent,
+    LoadingSkeletonComponent,
   ],
   template: `
     <div class="p-6">
@@ -52,9 +54,7 @@ import {
       <!-- Tabla -->
       <div class="overflow-x-auto min-h-[260px]" style="scrollbar-width:none">
         @if (loading()) {
-          <div class="flex justify-center py-12">
-            <div class="w-8 h-8 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
-          </div>
+          <app-loading-skeleton variant="table" [rows]="6" [columns]="6" [showToolbar]="false" label="Cargando seguimientos" />
         } @else {
           <table class="w-full text-sm border-collapse">
 

@@ -27,7 +27,7 @@ import { AdminAuthService } from '../../core/admin-auth/admin-auth.service';
           <a routerLink="/dashboard" class="flex items-center gap-2.5 select-none">
             <img
               src="/img/logo.png"
-              class="h-8 w-8 object-contain flex-shrink-0"
+              class="h-10 w-10 object-contain flex-shrink-0"
               alt="EPSAS"
               onerror="this.style.display='none'"
             />

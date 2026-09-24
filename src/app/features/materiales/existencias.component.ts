@@ -4,6 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ToastService } from '../../core/services/toast.service';
 import { MaterialesApiService, ResumenExistencias } from './data-access/materiales-api.service';
 import { StatCardComponent } from '../../shared/components/stat-card.component';
+import { LoadingSkeletonComponent } from '../../shared/components/loading-skeleton.component';
 
 /**
  * Panel de existencias — SOLO LECTURA (Tier SigMat M6). Reemplaza el CRUD que
@@ -31,7 +32,7 @@ import { StatCardComponent } from '../../shared/components/stat-card.component';
 @Component({
   selector: 'app-materiales-existencias',
   standalone: true,
-  imports: [FormsModule, StatCardComponent],
+  imports: [FormsModule, StatCardComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="mb-5">
@@ -40,9 +41,7 @@ import { StatCardComponent } from '../../shared/components/stat-card.component';
       </div>
 
       @if (loading) {
-        <div class="flex justify-center py-12">
-          <div class="w-8 h-8 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
-        </div>
+        <app-loading-skeleton variant="table" [rows]="6" [columns]="5" [showToolbar]="false" label="Cargando existencias" />
       } @else {
         <!-- Tarjetas resumen -->
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">

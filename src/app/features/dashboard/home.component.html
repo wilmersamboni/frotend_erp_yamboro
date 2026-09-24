@@ -17,8 +17,11 @@
       <p class="dash-date">{{ fecha }}</p>
     </div>
 
-    @if (!esAprendiz()) {
-      <div class="export-buttons">
+    <div class="dash-actions">
+    
+        
+      @if (!esAprendiz()) {
+        <div class="export-buttons">
         <p-splitButton
           [label]="exportando ? 'Exportando...' : 'Exportar'"
           icon="pi pi-file-pdf"
@@ -27,8 +30,9 @@
           [disabled]="exportando || cargando"
           (onClick)="exportarPDF()"
         />
-      </div>
-    }
+        </div>
+      }
+    </div>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════════════

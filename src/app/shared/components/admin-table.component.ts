@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { StatusBadgeComponent } from './status-badge.component';
 import { TableFilterComponent } from './table-filter.component';
+import { LoadingSkeletonComponent } from './loading-skeleton.component';
 
 
 /** Enlace de navegación cruzada por fila (ej. Producto → Existencias filtradas por ese producto). */
@@ -41,7 +42,7 @@ export interface TableRowLink {
 @Component({
   selector: 'app-admin-table',
   standalone: true,
-  imports: [FormsModule, RouterLink, StatusBadgeComponent, TableFilterComponent],
+  imports: [FormsModule, RouterLink, StatusBadgeComponent, TableFilterComponent, LoadingSkeletonComponent],
   template: `
     <div [class]="searchable
         ? 'bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden'
@@ -133,9 +134,8 @@ export interface TableRowLink {
       }
 
       @if (loading) {
-        <div class="flex justify-center py-12">
-          <div class="w-8 h-8 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
-        </div>
+        <app-loading-skeleton variant="table" [rows]="6" [columns]="skeletonColumnCount"
+          [showToolbar]="searchable" label="Cargando registros" />
       } @else if (rows.length === 0) {
         <p class="text-center text-gray-400 text-sm py-10">No hay registros</p>
       } @else if (filasVisibles.length === 0) {
@@ -371,6 +371,10 @@ export class AdminTableComponent implements DoCheck {
 
   get visibleColumns(): string[] {
     return this.columns.filter(col => !this.hiddenColumns.includes(col));
+  }
+
+  get skeletonColumnCount(): number {
+    return Math.max(3, this.visibleColumns.length + (this.canEdit || this.canDelete || this.rowLinks.length ? 1 : 0));
   }
 
   /** `rows` filtradas por el texto de búsqueda (todos los valores de la fila,
