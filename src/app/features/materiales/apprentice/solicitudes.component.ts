@@ -28,6 +28,7 @@ import { OfflineSnapshotService } from '../../../core/offline/offline-snapshot.s
 import { prepararSnapshotEntregaOffline } from '../ui/solicitud-entrega-offline.util';
 import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 import { ConfirmService } from '../../../core/services/confirm.service';
+import { AlertComponent } from '../../../shared/ui/alert.component';
 
 /**
  * Solicitudes de préstamo para aprendiz: crear + ver propias + confirmar
@@ -50,7 +51,7 @@ interface LineaForm {
 @Component({
   selector: 'app-aprendiz-materiales-solicitudes',
   standalone: true,
-  imports: [EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent],
+  imports: [AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -63,14 +64,10 @@ interface LineaForm {
       </div>
 
       @if (bodegasInactivas().length > 0) {
-        <div class="mb-4 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-start gap-2">
-          <span>⚠️</span>
-          <span>
-            {{ bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas' }}:
-            <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
-            — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
-          </span>
-        </div>
+        <app-alert class="mb-4" variante="advertencia" [titulo]="bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas'">
+          <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
+          — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
+        </app-alert>
       }
 
       @if (loading) {

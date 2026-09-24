@@ -1,5 +1,4 @@
 import { ApplicationConfig, provideZoneChangeDetection, LOCALE_ID } from '@angular/core';
-import { MessageService, ConfirmationService } from 'primeng/api';
 import { signal } from '@angular/core'; // ← agrega signal
 import { provideRouter, withViewTransitions } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
@@ -195,8 +194,6 @@ export const appConfig: ApplicationConfig = {
     ...provideTaiga({ scrollbars: 'native' }),
     tuiAssetsPathProvider('assets/taiga-ui/icons'),
     provideLottieOptions({ player: () => player }),
-    MessageService, // ← proveedor global para ToastService
-    ConfirmationService, // ← proveedor global; el <p-confirmDialog> vive en app.ts (Ronda 6)
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000',

@@ -3,9 +3,6 @@ import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { AuthService } from '../../../core/services/auth.service';
-import { ToastModule } from 'primeng/toast';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { MessageService, ConfirmationService } from 'primeng/api';
 
 import { CONFIG, MODULOS, MODULOS_EPSAS, MODULOS_PRACTICA, MODULOS_ADMIN, CATEGORIA_ORDEN, CATEGORIA_ICONOS, CATEGORIA_DESCRIPCIONES, Modulo } from '../config/admin.config';
 import { AdminService } from '../services/admin.service';
@@ -16,26 +13,15 @@ import { RegistroRapidoModalComponent } from '../components/registro-rapido-moda
 import { AdminInicioComponent } from '../components/admin-inicio.component';
 import { CrearPracticaModalComponent } from '../../practice/components/crear-practica-modal.component';
 import { PermisosPanelComponent } from '../permisos/permisos-panel.component';
+import { ConfirmService } from '../../../core/services/confirm.service';
+import { ToastService } from '../../../core/services/toast.service';
 
 @Component({
   selector: 'app-admin-panel',
   standalone: true,
-  imports: [
-    FormsModule,
-    LucideAngularModule,
-    ToastModule,
-    ConfirmDialogModule,
-    AdminTableComponent,
-    AdminModalComponent,
-    RegistroRapidoModalComponent,
-    AdminInicioComponent,
-    CrearPracticaModalComponent,
-    PermisosPanelComponent,
-  ],
-  providers: [MessageService, ConfirmationService, AdminService],
+  imports: [FormsModule, LucideAngularModule, AdminTableComponent, AdminModalComponent, RegistroRapidoModalComponent, AdminInicioComponent, CrearPracticaModalComponent, PermisosPanelComponent],
+  providers: [AdminService],
   template: `
-    <p-toast position="top-right" [baseZIndex]="9999" />
-    <p-confirmdialog />
 
     <div class="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-50 p-4 lg:p-8">
       <div class="max-w-[1600px] mx-auto space-y-6">
@@ -515,7 +501,7 @@ export class AdminPanelComponent implements OnInit {
 
   constructor(
     public admin: AdminService,
-    private msg: MessageService,
+    private msg: ToastService,
     public auth: AuthService,
     private api: ApiService,
     private route: ActivatedRoute,

@@ -1,9 +1,9 @@
 import { Component, Input, OnChanges, signal } from '@angular/core';
-import { ConfirmationService } from 'primeng/api';
 import { AdminService } from '../services/admin.service';
 import { PermisosGestionService, Permiso } from '../../../core/services/permisos-gestion.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
+import { ConfirmService } from '../../../core/services/confirm.service';
 
 /**
  * Traducción de `servicio.nombre` técnico → frase en español. No es
@@ -378,7 +378,7 @@ export class PermisosPanelComponent implements OnChanges {
     private admin: AdminService,
     private permisosSvc: PermisosGestionService,
     private toast: ToastService,
-    private confirmSvc: ConfirmationService,
+    private confirmSvc: ConfirmService,
   ) {}
 
   async ngOnChanges(): Promise<void> {

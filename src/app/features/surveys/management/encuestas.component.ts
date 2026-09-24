@@ -2,9 +2,6 @@ import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { ToastModule } from 'primeng/toast';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { MessageService, ConfirmationService } from 'primeng/api';
 
 import {
   EncuestasApiService,
@@ -22,17 +19,15 @@ import { SearchableSelectComponent, SSOption } from '../../../shared/components/
 import { DateInputComponent } from '../../../shared/components/date-input.component';
 import { TimeInputComponent } from '../../../shared/components/time-input.component';
 import { TuiDay } from '@taiga-ui/cdk';
+import { ConfirmService } from '../../../core/services/confirm.service';
 
 type Filtro = 'TODAS' | EstadoEncuesta;
 
 @Component({
   selector: 'app-encuestas',
   standalone: true,
-  imports: [FormsModule, RouterLink, DatePipe, ToastModule, ConfirmDialogModule, TablePaginationComponent, SearchableSelectComponent, DateInputComponent, TimeInputComponent],
-  providers: [MessageService, ConfirmationService],
+  imports: [FormsModule, RouterLink, DatePipe, TablePaginationComponent, SearchableSelectComponent, DateInputComponent, TimeInputComponent],
   template: `
-    <p-toast position="top-right" [baseZIndex]="9999" />
-    <p-confirmdialog />
 
     <div class="bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-50 p-3 sm:p-4 lg:p-8">
       <div class="max-w-5xl mx-auto space-y-4 sm:space-y-6">
@@ -485,7 +480,7 @@ export class EncuestasComponent implements OnInit, OnDestroy {
   api      = inject(EncuestasApiService);
   private catalogo = inject(ErpCatalogoService);
   private toast    = inject(ToastService);
-  private confirm  = inject(ConfirmationService);
+  private confirm  = inject(ConfirmService);
   private realtime = inject(EncuestasRealtimeService);
 
   filtros: { value: Filtro; label: string }[] = [

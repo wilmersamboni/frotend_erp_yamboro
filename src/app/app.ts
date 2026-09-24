@@ -4,22 +4,19 @@ import { filter } from 'rxjs/operators';
 import { FloatingButtons } from './shell/floating-controls/floating-buttons';
 import { TuiRoot } from '@taiga-ui/core';
 import { ThemeService } from './core/services/theme.service';
-import { ToastModule } from 'primeng/toast';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { NgxSonnerToaster } from 'ngx-sonner';
 import { SyncStatusBadgeComponent } from './shared/components/sync-status-badge.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, FloatingButtons, TuiRoot, ToastModule, ConfirmDialogModule, SyncStatusBadgeComponent],
+  imports: [RouterOutlet, FloatingButtons, TuiRoot, NgxSonnerToaster, SyncStatusBadgeComponent],
   template: `
     <tui-root>
-      <!-- Toast global — todas las features lo comparten -->
-      <p-toast position="top-right" [baseZIndex]="9999" />
-      <!-- Diálogo de confirmación global (Ronda 6): ConfirmationService es
-           singleton, así que un solo <p-confirmDialog> montado acá sirve para
-           cualquier feature que no monte el suyo propio (ej. Materiales). -->
-      <p-confirmDialog [baseZIndex]="10000" />
+      <!-- Avisos globales (ToastService -> Sonner) y confirmaciones (ConfirmService -> Spartan,
+           se abre por codigo en un overlay del CDK: no necesita marcado aqui). -->
+      <!-- offset 72px: la barra superior mide 56px; sin esto el aviso tapaba el perfil y las notificaciones. -->
+      <ngx-sonner-toaster position="top-right" [offset]="72" [closeButton]="true" [toastOptions]="toastOptions" />
       <router-outlet></router-outlet>
       <!-- Oculto en /responder/:token: el botón flotante tapa las opciones
            Sí/No del formulario en móvil y no aporta nada en ese flujo público. -->
@@ -35,6 +32,19 @@ import { SyncStatusBadgeComponent } from './shared/components/sync-status-badge.
 export class AppComponent implements OnInit {
   private theme = inject(ThemeService);
   private router = inject(Router);
+
+  /** Avisos con el aspecto del Alert de Spartan: tarjeta blanca con borde y texto del color del tipo. */
+  readonly toastOptions = {
+    classes: {
+      toast: '!rounded-xl !border !border-gray-200 !bg-white !shadow-lg !text-sm',
+      title: '!font-medium',
+      description: '!text-inherit !opacity-80',
+      error: '!text-red-600',
+      warning: '!bg-amber-50 !border-amber-200 !text-amber-900',
+      success: '!text-emerald-700',
+      info: '!text-sky-700',
+    },
+  };
 
   mostrarBotFlotante = signal(true);
 

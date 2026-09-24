@@ -12,6 +12,7 @@ import { SearchableSelectComponent } from '../../../shared/components/searchable
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from '../data-access/materiales-api.service';
 import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
+import { AlertComponent } from '../../../shared/ui/alert.component';
 
 /**
  * Traslados de ítems entre sitios para instructor: crear siempre disponible;
@@ -30,7 +31,7 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state.comp
 @Component({
   selector: 'app-instructor-materiales-traslados',
   standalone: true,
-  imports: [EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, TableFilterComponent, LoadingSkeletonComponent],
+  imports: [AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, TableFilterComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -43,14 +44,10 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state.comp
       </div>
 
       @if (bodegasInactivas().length > 0) {
-        <div class="mb-4 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-start gap-2">
-          <span>⚠️</span>
-          <span>
-            {{ bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas' }}:
-            <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
-            — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
-          </span>
-        </div>
+        <app-alert class="mb-4" variante="advertencia" [titulo]="bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas'">
+          <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
+          — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
+        </app-alert>
       }
 
       <div class="flex flex-wrap gap-2 mb-5">
