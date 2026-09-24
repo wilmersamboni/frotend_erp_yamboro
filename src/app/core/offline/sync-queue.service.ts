@@ -42,9 +42,12 @@ export class SyncQueueService {
 
   readonly pendientes = signal(0);
   readonly conflictos = signal(0);
+  /** Ids de solicitud con una entrega guardada localmente y aún sin enviar
+   *  (de la sesión actual) — para marcar la fila y no dejar entregarla dos veces. */
+  readonly entregasPendientes = signal<ReadonlySet<string>>(new Set());
 
   constructor() {
-    this.refrescarContadores();
+    this.recuperarInterrumpidas();
 
     // Dispara al pasar de sin-red a con-red.
     effect(() => {
@@ -52,10 +55,59 @@ export class SyncQueueService {
     });
 
     // Reintento periódico — solo si hay algo que enviar y hay señal (evita
-    // pings de cola vacía cada 20s todo el día).
+    // pings de cola vacía cada 20s todo el día). También refresca los
+    // contadores: la sesión pudo cambiar (otro usuario entró al mismo celular).
     setInterval(() => {
+      this.refrescarContadores();
       if (this.red.alcanzable() && this.pendientes() > 0) this.procesarCola();
     }, INTERVALO_REINTENTO_MS);
+  }
+
+  /** Sesión actual, leída de donde la guarda `AuthService` (no se inyecta
+   *  para no acoplar este motor genérico al login). */
+  private contexto(): { usuarioId: string | null; tenant: string | null } {
+    let usuarioId: string | null = null;
+    try {
+      usuarioId = JSON.parse(localStorage.getItem('user') ?? 'null')?.id ?? null;
+    } catch {
+      usuarioId = null;
+    }
+    let tenant: string | null = null;
+    try {
+      tenant = localStorage.getItem('tenantSlug') || null;
+    } catch {
+      tenant = null;
+    }
+    return { usuarioId, tenant };
+  }
+
+  /** ¿Esta acción es de la sesión actual? Sin sello (acciones anteriores a
+   *  este cambio) se considera propia; con sello, debe coincidir. */
+  private esDeEstaSesion(a: AccionPendiente): boolean {
+    if (a.usuarioId == null && a.tenant == null) return true;
+    const c = this.contexto();
+    return a.usuarioId === c.usuarioId && a.tenant === c.tenant;
+  }
+
+  /**
+   * Al arrancar la app no puede haber nada realmente "enviando": si el proceso
+   * se cerró (celular bloqueado, pestaña cerrada) a mitad de un envío, esa
+   * acción quedó en `enviando` y `procesarCola` solo toma las `pendiente` — se
+   * habría contado como pendiente para siempre sin enviarse nunca. Se devuelve a
+   * `pendiente`; si el servidor sí llegó a aplicarla, el reintento vuelve como
+   * rechazo (400/409) y termina en `conflicto` para revisión humana, sin duplicar.
+   */
+  async recuperarInterrumpidas(): Promise<void> {
+    try {
+      const atascadas = await this.db.listarAccionesPorEstado('enviando');
+      for (const a of atascadas) {
+        a.estado = 'pendiente';
+        await this.db.actualizarAccion(a);
+      }
+    } catch {
+      // Sin IndexedDB (tests/navegador restringido): no hay cola que recuperar.
+    }
+    await this.refrescarContadores();
   }
 
   /** Cada flujo (Fase 2/3) registra acá cómo llamar a su propio endpoint —
@@ -74,6 +126,7 @@ export class SyncQueueService {
       intentos: 0,
       ultimoError: null,
       estado: 'pendiente',
+      ...this.contexto(),
     });
     await this.refrescarContadores();
     if (this.red.alcanzable()) this.procesarCola();
@@ -84,9 +137,9 @@ export class SyncQueueService {
     if (this.procesando) return;
     this.procesando = true;
     try {
-      const acciones = (await this.db.listarAccionesPorEstado('pendiente')).sort(
-        (a, b) => a.creadoEn - b.creadoEn,
-      );
+      const acciones = (await this.db.listarAccionesPorEstado('pendiente'))
+        .filter((a) => this.esDeEstaSesion(a))
+        .sort((a, b) => a.creadoEn - b.creadoEn);
       for (const accion of acciones) {
         if (!this.red.alcanzable()) break; // se cortó la señal a mitad de la cola
         await this.procesarUna(accion);
@@ -148,14 +201,23 @@ export class SyncQueueService {
    *  recién cuando `handler` resuelve sin error (`eliminarAccion`), así que
    *  no hace falta filtrar por estado acá: lo que está, importa. */
   async listarPendientesYConflictos(): Promise<AccionPendiente[]> {
-    const todas = await this.db.listarAcciones();
+    const todas = (await this.db.listarAcciones()).filter((a) => this.esDeEstaSesion(a));
     return todas.sort((a, b) => a.creadoEn - b.creadoEn);
   }
 
   private async refrescarContadores(): Promise<void> {
     // Sin IndexedDB (SSR/tests/navegador restringido) no hay cola que contar: quedan en 0.
-    const todas = await this.db.listarAcciones().catch(() => []);
-    this.pendientes.set(todas.filter((a) => a.estado === 'pendiente' || a.estado === 'enviando').length);
+    const todas = (await this.db.listarAcciones().catch(() => [])).filter((a) => this.esDeEstaSesion(a));
+    const enCurso = todas.filter((a) => a.estado === 'pendiente' || a.estado === 'enviando');
+    this.pendientes.set(enCurso.length);
     this.conflictos.set(todas.filter((a) => a.estado === 'conflicto').length);
+    this.entregasPendientes.set(
+      new Set(
+        enCurso
+          .filter((a) => a.tipo === 'materiales.entregarSolicitud')
+          .map((a) => (a.payload as { id_solicitud?: string })?.id_solicitud)
+          .filter((id): id is string => !!id),
+      ),
+    );
   }
 }

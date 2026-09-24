@@ -91,10 +91,10 @@ interface LineaParaElegir extends LineaDevolutivaConOpciones {
               </p>
             } @else {
               <p class="text-xs text-gray-400 mb-4">
-                Elegí exactamente la cantidad pedida de cada línea. Útil para descartar una unidad en mal estado
-                aunque el sistema la marque disponible.
+                Elegí exactamente la cantidad pedida de cada línea, marcando las placas de la lista o escaneándolas con la cámara.
+                Útil para descartar una unidad en mal estado aunque el sistema la marque disponible.
               </p>
-              <app-barcode-scanner class="block mb-2" [activo]="abierto && modo === 'manual'" (scanned)="onCodigoEscaneado($event)"></app-barcode-scanner>
+              <app-barcode-scanner class="block mb-2" [modoManual]="false" [activo]="abierto && modo === 'manual'" (scanned)="onCodigoEscaneado($event)"></app-barcode-scanner>
               @if (codigoNoEncontrado) {
                 <p class="text-xs text-red-500 mb-2">Placa "{{ codigoNoEncontrado }}" no encontrada en esta solicitud (o ya elegida / línea completa).</p>
               }
@@ -224,9 +224,12 @@ export class EntregarSolicitudModalComponent implements OnChanges {
    *  matchea ningún ítem del snapshot/lista actual, no se descarta en
    *  silencio: se avisa, puede ser una placa de otro producto o un dato mal
    *  cargado en el sistema. */
-  onCodigoEscaneado(codigo: string): void {
+  onCodigoEscaneado(leido: string): void {
+    // Los lectores a veces devuelven espacios o cambian mayúsculas/minúsculas.
+    const norm = (t: string | null | undefined) => (t ?? '').trim().toLowerCase();
+    const codigo = leido.trim();
     for (const linea of this.lineas) {
-      const item = linea.opciones.find((i) => i.placa_sena === codigo);
+      const item = linea.opciones.find((i) => norm(i.placa_sena) === norm(codigo));
       if (item && !this.estaElegido(linea, item.id_item) && linea.elegidos.length < linea.cantidad) {
         this.toggleItem(linea, item.id_item);
         this.codigoNoEncontrado = null;
