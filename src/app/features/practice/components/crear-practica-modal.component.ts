@@ -79,9 +79,6 @@ import { OnInit } from '@angular/core';
                     <p class="text-sm font-semibold text-gray-800">{{ alumnoPreseleccionado.name }}</p>
                     <p class="text-xs text-gray-400">{{ alumnoPreseleccionado.programa }} · {{ alumnoPreseleccionado.area }}</p>
                   </div>
-                  <span class="text-[10px] bg-[#39A900]/10 text-[#39A900] px-2 py-0.5 rounded-full font-medium">
-                    ID: {{ alumnoPreseleccionado.id }}
-                  </span>
                 </div>
               }
 

@@ -369,7 +369,7 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
   nombreUsuario(n: Novedad): string {
     if (n.usuario_nombre) return n.usuario_nombre;
     const u = this.usuarios.find((x) => x.idUsuario === n.id_usuario);
-    return u ? `${u.persona?.nombre ?? ''} ${u.persona?.apellido ?? ''}`.trim() || n.id_usuario : n.id_usuario;
+    return (u && `${u.persona?.nombre ?? ''} ${u.persona?.apellido ?? ''}`.trim()) || 'Usuario no disponible';
   }
 
   contarEstado(estado: string): number {
@@ -415,7 +415,7 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
   }
 
   private etiquetaPlaca(item: Item): string {
-    return item.placa_sena?.trim() || `Sin placa SENA (${item.codigo_sku || item.id_item})`;
+    return item.placa_sena?.trim() || `Sin placa SENA (${item.codigo_sku || item.producto?.nombre || 'sin código'})`;
   }
 
   async guardar(form: Record<string, any>): Promise<void> {

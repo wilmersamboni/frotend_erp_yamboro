@@ -117,7 +117,7 @@ export class InstructorMaterialesKardexComponent implements OnInit {
       .map((k) => ({
         ...k,
         fecha: new Date(k.fecha).toLocaleString('es-CO'),
-        item_sku: k.item?.producto?.nombre ?? k.item?.codigo_sku ?? k.id_item,
+        item_sku: k.item?.producto?.nombre ?? k.item?.codigo_sku ?? k.item?.placa_sena ?? '—',
         observacion: k.observacion ?? '—',
       }));
   }

@@ -324,7 +324,7 @@ return this.forkJoinLimitado(conDatos);
       const programa = curso.programa ?? {};
       return {
         idMatricula: m.idMatricula ?? m.id_matricula ?? m.id,
-        idCurso: curso.codigo ?? curso.idCurso ?? '',
+        idCurso: curso.codigo ?? '',
         nombreCurso: programa.nombre ?? curso.codigo ?? 'Curso',
         creditos: 0,
         nota: 0,

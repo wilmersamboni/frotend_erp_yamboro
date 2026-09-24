@@ -70,7 +70,7 @@ interface LineaParaElegir{
                                                 (change)="toggleItem(linea, item.id_item)"
                                                 />
 
-                                                <span class="font-mono truncate">{{item.placa_sena || item.codigo_sku || item.id_item.slice(0,8)}} </span>
+                                                <span class="font-mono truncate">{{item.placa_sena || item.codigo_sku || 'Sin placa'}} </span>
                                                 
                                                 </label>
                                                 }
