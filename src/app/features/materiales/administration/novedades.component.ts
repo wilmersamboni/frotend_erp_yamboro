@@ -330,8 +330,15 @@ export class MaterialesNovedadesComponent implements OnInit {
   get puedeEditar(): boolean {
     return this.auth.tieneServicio('materiales.novedades.editar');
   }
+  /**
+   * OCULTO a propósito (2026-09-24): una novedad es un registro histórico y
+   * no debería borrarse. Pendiente decidir si se corrige (validar bodega en
+   * el backend, QA-03) o se elimina definitivamente el borrado — ver vault,
+   * "QA-03" en la prueba a gran escala de Materiales. Para reactivarlo:
+   * `return this.auth.tieneServicio('materiales.novedades.eliminar');`
+   */
   get puedeEliminar(): boolean {
-    return this.auth.tieneServicio('materiales.novedades.eliminar');
+    return false;
   }
 
   /**
