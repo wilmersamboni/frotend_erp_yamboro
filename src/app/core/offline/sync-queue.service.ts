@@ -153,7 +153,8 @@ export class SyncQueueService {
   }
 
   private async refrescarContadores(): Promise<void> {
-    const todas = await this.db.listarAcciones();
+    // Sin IndexedDB (SSR/tests/navegador restringido) no hay cola que contar: quedan en 0.
+    const todas = await this.db.listarAcciones().catch(() => []);
     this.pendientes.set(todas.filter((a) => a.estado === 'pendiente' || a.estado === 'enviando').length);
     this.conflictos.set(todas.filter((a) => a.estado === 'conflicto').length);
   }
