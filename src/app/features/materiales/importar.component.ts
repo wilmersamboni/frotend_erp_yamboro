@@ -10,7 +10,7 @@ import {
   FilaImportacion,
   FilaConfirmada,
   TipoMaterial,
-} from '../../core/services/materiales/materiales-api.service';
+} from './data-access/materiales-api.service';
 
 /** Fila del resumen: lo parseado + lo que el encargado elige antes de confirmar. */
 type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string };

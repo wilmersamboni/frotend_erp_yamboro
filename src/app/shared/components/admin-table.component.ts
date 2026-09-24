@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { StatusBadgeComponent } from './status-badge.component';
 import { TableFilterComponent } from './table-filter.component';
+import { LoadingSkeletonComponent } from './loading-skeleton.component';
 
 
 /** Enlace de navegación cruzada por fila (ej. Producto → Existencias filtradas por ese producto). */
@@ -41,7 +42,7 @@ export interface TableRowLink {
 @Component({
   selector: 'app-admin-table',
   standalone: true,
-  imports: [FormsModule, RouterLink, StatusBadgeComponent, TableFilterComponent],
+  imports: [FormsModule, RouterLink, StatusBadgeComponent, TableFilterComponent, LoadingSkeletonComponent],
   template: `
     <div [class]="searchable
         ? 'bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden'
@@ -133,9 +134,8 @@ export interface TableRowLink {
       }
 
       @if (loading) {
-        <div class="flex justify-center py-12">
-          <div class="w-8 h-8 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
-        </div>
+        <app-loading-skeleton variant="table" [rows]="6" [columns]="skeletonColumnCount"
+          [showToolbar]="searchable" label="Cargando registros" />
       } @else if (rows.length === 0) {
         <p class="text-center text-gray-400 text-sm py-10">No hay registros</p>
       } @else if (filasVisibles.length === 0) {
@@ -198,10 +198,10 @@ export interface TableRowLink {
                             Editar
                           </button>
                         }
-                        @if (canDelete) {
+                        @if (rowCanDelete(row)) {
                           <button (click)="delete.emit(row); $event.stopPropagation()"
                             class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-red-400 hover:text-red-600 transition-colors">
-                            {{ deleteLabel }}
+                            {{ rowDeleteLabel(row) }}
                           </button>
                         }
                       </div>
@@ -247,9 +247,22 @@ export class AdminTableComponent implements DoCheck {
   @Input() columns:   string[] = [];
   @Input() loading  = false;
   @Input() canEdit  = true;
-  @Input() canDelete = true;
-  /** Texto del botón de la derecha (por defecto "Eliminar"). Ej.: "Desactivar" / "Reactivar". */
-  @Input() deleteLabel = 'Eliminar';
+  /** Puede ser un booleano fijo para toda la tabla, o una función `(row) =>
+   *  boolean` cuando la tabla mezcla filas en distinto estado (ej. Ítems
+   *  activos e inactivos a la vez) y el botón debe decidirse por fila. */
+  @Input() canDelete: boolean | ((row: any) => boolean) = true;
+  /** Texto del botón de la derecha (por defecto "Eliminar"). Ej.: "Desactivar" / "Reactivar".
+   *  También acepta una función `(row) => string` para variar el texto por fila
+   *  (ver `canDelete`). */
+  @Input() deleteLabel: string | ((row: any) => string) = 'Eliminar';
+
+  rowCanDelete(row: any): boolean {
+    return typeof this.canDelete === 'function' ? this.canDelete(row) : this.canDelete;
+  }
+
+  rowDeleteLabel(row: any): string {
+    return typeof this.deleteLabel === 'function' ? this.deleteLabel(row) : this.deleteLabel;
+  }
 
   /** Columnas a ocultar de la vista (el id sigue disponible en los eventos) */
   @Input() hiddenColumns: string[] = ['idPersona'];
@@ -358,6 +371,10 @@ export class AdminTableComponent implements DoCheck {
 
   get visibleColumns(): string[] {
     return this.columns.filter(col => !this.hiddenColumns.includes(col));
+  }
+
+  get skeletonColumnCount(): number {
+    return Math.max(3, this.visibleColumns.length + (this.canEdit || this.canDelete || this.rowLinks.length ? 1 : 0));
   }
 
   /** `rows` filtradas por el texto de búsqueda (todos los valores de la fila,

@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, OnInit, WritableSignal, effect, signal, viewChild, viewChildren } from '@angular/core';
+import { Component, ElementRef, HostListener, Injector, OnInit, WritableSignal, afterNextRender, effect, signal, viewChild, viewChildren } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -6,7 +6,8 @@ import gsap from 'gsap';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { TableFilterComponent, TableFilterOption } from '../../shared/components/table-filter.component';
-import { FilaVencimiento, Lote, MaterialesApiService, Sitio } from '../../core/services/materiales/materiales-api.service';
+import { LoadingSkeletonComponent } from '../../shared/components/loading-skeleton.component';
+import { FilaVencimiento, Lote, MaterialesApiService, Sitio } from './data-access/materiales-api.service';
 
 const VENTANAS = [7, 15, 30] as const;
 
@@ -31,9 +32,12 @@ const VENTANAS = [7, 15, 30] as const;
  * `materiales.lotes.ver` (admin, encargado de bodega, líder de área). Un
  * instructor/aprendiz común ya no lo tiene por defecto desde el recorte de
  * esta misma sesión, así que directo no ve la pestaña ni se pide `/lotes` —
- * solo ve "Préstamos", que YA estaba bien scopeado ("patrón Solicitudes":
- * propias + bodegas a cargo, vía `obtenerVencimientos` → `obtenerSolicitudes`
- * en el backend, sin cambios ahí).
+ * solo ve "Préstamos", scopeado en el backend (`obtenerVencimientos`) a:
+ * propias + bodegas a cargo puntuales + TODAS las bodegas de su área si
+ * pertenece a una (2026-09-18, pedido explícito — "solo visibilidad no
+ * gestión": un líder de área ve acá los préstamos de toda su área, pero
+ * aprobar/rechazar/entregar/cancelar sigue atado solo a `id_responsable`
+ * puntual de la bodega, no al área).
  *
  * Remaster visual (2026-09-15, GSAP): este módulo concentra "cosas que se
  * vencen" de dos mundos distintos (lotes perecederos + préstamos), así que se
@@ -53,7 +57,7 @@ const VENTANAS = [7, 15, 30] as const;
 @Component({
   selector: 'app-materiales-vencimientos',
   standalone: true,
-  imports: [DatePipe, FormsModule, RouterLink, TableFilterComponent],
+  imports: [DatePipe, FormsModule, RouterLink, TableFilterComponent, LoadingSkeletonComponent],
   styles: [
     `
       .urg-fill { transform-origin: left center; }
@@ -161,9 +165,7 @@ const VENTANAS = [7, 15, 30] as const;
       }
 
       @if (loading) {
-        <div class="flex justify-center py-16">
-          <div class="w-8 h-8 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
-        </div>
+        <app-loading-skeleton variant="table" [rows]="6" [columns]="5" [showToolbar]="false" label="Cargando vencimientos" />
       } @else if (vista() === 'perecederos') {
         <!-- Productos perecederos: fecha real de vencimiento de cada lote. -->
         <section #seccionVista class="mb-9">
@@ -375,12 +377,18 @@ const VENTANAS = [7, 15, 30] as const;
                       <div class="mt-1 h-1 w-14 rounded-full bg-red-100 overflow-hidden ml-auto"><div class="urg-fill h-full rounded-full bg-red-500" style="width:100%"></div></div>
                     </td>
                     <td class="px-4 py-3 text-right">
-                      <a routerLink="/materiales/devoluciones" [queryParams]="{ id_solicitud: f.id_solicitud }"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white transition-colors whitespace-nowrap hover:brightness-110"
-                        style="background-color: #39A900">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                        Registrar devolución
-                      </a>
+                      @if (puedeRegistrarDevolucion(f)) {
+                        <a [routerLink]="rutaDevoluciones()" [queryParams]="{ id_solicitud: f.id_solicitud }"
+                          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white transition-colors whitespace-nowrap hover:brightness-110"
+                          style="background-color: #39A900">
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                          Registrar devolución
+                        </a>
+                      } @else {
+                        <span class="text-[11px] text-gray-400" [title]="'Solo ' + (f.responsable_nombre || 'el encargado de esa bodega') + ' puede registrar esta devolución'">
+                          Fuera de tu bodega
+                        </span>
+                      }
                     </td>
                   </tr>
                 }
@@ -501,7 +509,40 @@ export class MaterialesVencimientosComponent implements OnInit {
   private vistaPillListo = false;
   private seccionListo = false;
 
-  constructor(private api: MaterialesApiService, private auth: AuthService, private toast: ToastService) {
+  /**
+   * "Registrar devolución" es un link fijo — pero la pantalla de destino está
+   * triplicada por cargo (`/materiales/devoluciones` es admin-only vía
+   * `roleGuard`, ver materiales.routes.ts). Antes apuntaba siempre a la ruta
+   * de admin: un instructor/aprendiz que la clickeaba pasaba el guard con
+   * `roles` rechazado → `roleGuard` redirige a `/`, que en la app de tenant
+   * ES el login (no un home) — parecía un logout aunque la sesión seguía
+   * viva. Bug reportado 2026-09-21.
+   */
+  rutaDevoluciones(): string {
+    if (this.auth.isAdmin()) return '/materiales/devoluciones';
+    if (this.auth.cargo() === 'instructor') return '/instructor/materiales/devoluciones';
+    return '/aprendiz/materiales/devoluciones';
+  }
+
+  /**
+   * Vencimientos ensancha la VISIBILIDAD a toda el área del líder, pero no
+   * todas esas filas se pueden gestionar desde acá — antes el botón se
+   * ofrecía siempre, y quien no podía gestionar esa bodega llegaba a
+   * Devoluciones sin poder hacer nada con esa solicitud (bug relacionado,
+   * reportado 2026-09-21). `puede_gestionar_devolucion` ya viene resuelto
+   * por el backend (responsable puntual, líder del área de esa bodega, o
+   * admin — `SitiosACargoService`), no se replica la regla acá.
+   */
+  puedeRegistrarDevolucion(f: FilaVencimiento): boolean {
+    return f.puede_gestionar_devolucion;
+  }
+
+  constructor(
+    private api: MaterialesApiService,
+    private auth: AuthService,
+    private toast: ToastService,
+    private injector: Injector,
+  ) {
     this.puedeVerPerecederos = this.auth.tieneServicio('materiales.lotes.ver');
     this.vista.set(this.puedeVerPerecederos ? 'perecederos' : 'prestamos');
 
@@ -691,6 +732,14 @@ export class MaterialesVencimientosComponent implements OnInit {
       );
       this.sitios = sitios;
       this.recalcularContadores(true);
+      // El badge del toggle "Perecederos/Préstamos" puede cambiar recién acá
+      // (los contadores son getters planos, no señales, así que el `effect()`
+      // que posiciona el indicador no tiene forma de saber que debe
+      // remedirse). `afterNextRender` espera a que Angular termine de pintar
+      // el badge en el DOM antes de remedir — un `effect()` disparado por una
+      // señal auxiliar corre en paralelo a esa pintura y a veces medía el
+      // ancho viejo (carrera real, confirmada con logging).
+      afterNextRender(() => this.reposicionarVistaPill(), { injector: this.injector });
     } catch (e) {
       this.toast.httpError(e, 'No se pudo cargar el seguimiento de vencimientos.');
     } finally {
@@ -733,6 +782,18 @@ export class MaterialesVencimientosComponent implements OnInit {
     const vars = { x: btn.offsetLeft, width: btn.offsetWidth };
     if (animar) gsap.to(pillEl, { ...vars, duration: 0.35, ease: 'power3.out' });
     else gsap.set(pillEl, vars);
+  }
+
+  /** Remide el indicador del toggle "Perecederos/Préstamos" contra el ancho
+   *  ACTUAL del botón activo — se llama después de que `cargar()` termina
+   *  (vía `afterNextRender`, ya con el badge pintado en el DOM) para que el
+   *  indicador cubra el badge de contador recién aparecido. Sin animación:
+   *  es una corrección de medición, no un cambio de pestaña real. */
+  private reposicionarVistaPill(): void {
+    const btns = this.vistaBtns();
+    if (!btns.length) return;
+    const idx = this.vista() === 'perecederos' ? 0 : 1;
+    this.moverPill(this.vistaPill()?.nativeElement, btns[idx]?.nativeElement, false);
   }
 
   /** Entrada escalonada (fade + slide) de un grupo de filas, más el crecimiento de su barra de urgencia. */

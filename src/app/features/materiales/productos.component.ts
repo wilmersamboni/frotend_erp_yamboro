@@ -2,11 +2,11 @@ import { Component, OnInit, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AdminTableComponent, TableRowLink } from '../../shared/components/admin-table.component';
-import { ProductoFormModalComponent } from '../../shared/components/producto-form-modal.component';
+import { ProductoFormModalComponent } from './ui/producto-form-modal.component';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
-import { Categoria, Item, MaterialesApiService, Producto, Sitio } from '../../core/services/materiales/materiales-api.service';
+import { Categoria, Item, MaterialesApiService, Producto, Sitio } from './data-access/materiales-api.service';
 
 /**
  * CRUD de Productos. Crear un producto DEVOLUTIVO genera automáticamente
@@ -49,6 +49,17 @@ import { Categoria, Item, MaterialesApiService, Producto, Sitio } from '../../co
         }
       </div>
 
+      @if (bodegasInactivas().length > 0) {
+        <div class="mb-4 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-start gap-2">
+          <span>⚠️</span>
+          <span>
+            {{ bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas' }}:
+            <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
+            — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
+          </span>
+        </div>
+      }
+
       <app-admin-table
         [addLabel]="puedeCrear() ? 'Nuevo producto' : null"
         (add)="nuevo()"
@@ -62,8 +73,8 @@ import { Categoria, Item, MaterialesApiService, Producto, Sitio } from '../../co
         [filterValue]="estadoFiltro"
         filterLabel="Estado"
         (filterValueChange)="onEstadoFiltro($event)"
-        [canEdit]="puedeEditar() && estadoFiltro !== 'inactivos'"
-        [canDelete]="puedeEliminar()"
+        [canEdit]="puedeEditar() && estadoFiltro === 'activos'"
+        [canDelete]="puedeGestionarActivo"
         [deleteLabel]="estadoFiltro === 'inactivos' ? 'Reactivar' : 'Desactivar'"
         [rowLinks]="rowLinks"
         (edit)="editar($event)"
@@ -88,10 +99,43 @@ export class MaterialesProductosComponent implements OnInit {
   items: Item[] = [];
   loading = false;
 
+  /** Banner general de la pantalla — lista todas las bodegas inactivas del
+   *  tenant (ver plan 2026-09-18). */
+  bodegasInactivas(): Sitio[] {
+    return this.sitios.filter((s) => !s.estado);
+  }
+
   puedeCrear = computed(() => this.auth.tieneServicio('materiales.productos.crear'));
   puedeEditar = computed(() => this.auth.tieneServicio('materiales.productos.editar'));
   puedeEliminar = computed(() => this.auth.tieneServicio('materiales.productos.eliminar'));
-  puedeVerSitios = computed(() => this.auth.tieneServicio('materiales.sitios.ver'));
+
+  /**
+   * Desactivar/Activar un producto afecta TODAS sus unidades, en TODAS las
+   * bodegas donde tenga stock — el backend (`ProductosService
+   * .eliminarProducto`/`activarProducto`) solo lo permite a quien administra
+   * la bodega DE CASA del producto (`producto.id_sitio`), no a quien
+   * simplemente tiene algunas de sus unidades en la suya propia (2026-09-18,
+   * pedido explícito: para eso está el desactivar POR ÍTEM en la pantalla de
+   * Ítems). Se oculta el botón acá para no ofrecer una acción que el backend
+   * va a rechazar con 403 — antes el usuario lo veía, lo intentaba y recién
+   * ahí se enteraba.
+   */
+  private esResponsableDeSitio(idSitio: string | null | undefined): boolean {
+    if (this.auth.isAdmin()) return true;
+    if (!idSitio) return false;
+    const sitio = this.sitios.find((s) => s.id_sitio === idSitio);
+    return !!sitio?.id_responsable && sitio.id_responsable === this.auth.user()?.id;
+  }
+  puedeGestionarActivo = (row: any): boolean =>
+    this.puedeEliminar() && this.estadoFiltro !== 'todos' && this.esResponsableDeSitio(row.id_sitio);
+  // `GET /sitios` (backend) ya acepta `materiales.sitios.ver` O
+  // `materiales.traslados.crear` (ver SitiosController) — antes acá solo se
+  // chequeaba el primero, más estricto de lo que el backend permite, así
+  // que alguien con solo `traslados.crear` no cargaba bodegas ni veía el
+  // aviso de bodega inactiva (2026-09-18), aunque sí lo viera en Solicitudes.
+  puedeVerSitios = computed(() =>
+    this.auth.tieneServicio('materiales.sitios.ver') || this.auth.tieneServicio('materiales.traslados.crear'),
+  );
 
   modalOpen = false;
   editando: Producto | null = null;
@@ -142,13 +186,19 @@ export class MaterialesProductosComponent implements OnInit {
   ];
 
   /** B1 — filtro de estado del toolbar (solo se ofrece a quien puede desactivar).
-   *  'activos' = solo activos (default); 'inactivos' = solo los desactivados,
-   *  para reactivarlos. */
+   *  'todos' = activos + desactivados mezclados, solo lectura (default);
+   *  'activos' = solo activos, editable/desactivable; 'inactivos' = solo los
+   *  desactivados, para reactivarlos. Edit/Reactivar/Desactivar quedan
+   *  deshabilitados en 'todos' porque `<app-admin-table>` no soporta un
+   *  label o permiso distinto por fila — mezclar activos/inactivos en la
+   *  misma tabla haría ambiguo un solo botón "Desactivar"/"Reactivar" para
+   *  toda la tabla. Para mutar un registro, cambiar a la vista específica. */
   readonly estadoOpciones = [
+    { value: 'todos', label: 'Todos' },
     { value: 'activos', label: 'Activos' },
     { value: 'inactivos', label: 'Desactivados' },
   ];
-  estadoFiltro: 'activos' | 'inactivos' = 'activos';
+  estadoFiltro: 'todos' | 'activos' | 'inactivos' = 'todos';
 
   get filas(): any[] {
     return this.productos.map((p) => ({
@@ -161,7 +211,7 @@ export class MaterialesProductosComponent implements OnInit {
   }
 
   onEstadoFiltro(v: string): void {
-    this.estadoFiltro = v === 'inactivos' ? 'inactivos' : 'activos';
+    this.estadoFiltro = v === 'inactivos' || v === 'activos' ? v : 'todos';
     this.cargar();
   }
 
@@ -178,16 +228,19 @@ export class MaterialesProductosComponent implements OnInit {
       const verSitios = this.puedeVerSitios();
       const verCategorias = this.auth.tieneServicio('materiales.categorias.ver');
       const verItems = this.auth.tieneServicio('materiales.items.ver');
-      const soloInactivos = this.estadoFiltro === 'inactivos';
+      // Quien no puede desactivar tampoco ve el filtro (línea 61) — para esa
+      // audiencia el comportamiento se mantiene igual que siempre: solo activos.
+      const incluirInactivos = this.puedeEliminar() && this.estadoFiltro !== 'activos';
       const [productos, categorias, sitios, items] = await Promise.all([
-        this.api.listarProductos(soloInactivos),
+        this.api.listarProductos(incluirInactivos),
         verCategorias ? this.api.listarCategorias().catch(() => [] as Categoria[]) : Promise.resolve([] as Categoria[]),
         verSitios ? this.api.listarSitios().catch(() => [] as Sitio[]) : Promise.resolve([] as Sitio[]),
         verItems ? this.api.listarItems().catch(() => [] as Item[]) : Promise.resolve([] as Item[]),
       ]);
       // `listarProductos(true)` trae activos + desactivados; en modo
-      // "Desactivados" nos quedamos solo con los que están dados de baja.
-      this.productos = soloInactivos
+      // "Desactivados" nos quedamos solo con los que están dados de baja, en
+      // "Todos" se muestran ambos tal cual llegan.
+      this.productos = this.estadoFiltro === 'inactivos'
         ? productos.filter((p) => (p as any).activo === false)
         : productos;
       this.categorias = categorias;

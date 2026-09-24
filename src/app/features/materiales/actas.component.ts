@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { AdminTableComponent } from '../../shared/components/admin-table.component';
 import { StatCardComponent } from '../../shared/components/stat-card.component';
 import { ToastService } from '../../core/services/toast.service';
-import { Acta, MaterialesApiService } from '../../core/services/materiales/materiales-api.service';
+import { Acta, MaterialesApiService } from './data-access/materiales-api.service';
 
 /**
  * Actas de entrega/devolución — solo lectura. El backend las genera solo
@@ -52,7 +52,7 @@ import { Acta, MaterialesApiService } from '../../core/services/materiales/mater
         [rows]="filas"
         [searchable]="true"
         [searchPlaceholder]="'Buscar por solicitud…'"
-        [columns]="['fecha', 'tipo', 'referencia', 'estado_solicitud']"
+        [columns]="['fecha', 'tipo', 'referencia', 'solicitante', 'estado_solicitud']"
         [columnLabels]="columnLabels"
         [statusColumn]="'estado_solicitud'"
         [loading]="loading"
@@ -81,6 +81,7 @@ export class MaterialesActasComponent implements OnInit {
   columnLabels: Record<string, string> = {
     tipo: 'Tipo',
     referencia: 'Solicitud',
+    solicitante: 'Solicitante',
     estado_solicitud: 'Estado',
   };
 
@@ -94,14 +95,19 @@ export class MaterialesActasComponent implements OnInit {
     const texto = this.filtroTexto.trim().toLowerCase();
     return this.actas
       .filter((a) => !texto || a.id_solicitud.toLowerCase().includes(texto))
+      // Más reciente primero, comparando la fecha REAL — antes se ordenaba
+      // después de formatearla a texto ("17 de septiembre de 2026, 10:30..."),
+      // y comparar esos strings con localeCompare no siempre coincide con el
+      // orden cronológico real (2026-09-17).
+      .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
       .map((a) => ({
         ...a,
         fecha: new Date(a.fecha).toLocaleString('es-CO'),
         tipo: a.tipo === 'DEVOLUCION' ? 'Devolución' : 'Entrega',
         referencia: `#${a.id_solicitud.slice(0, 8)}`,
+        solicitante: a.solicitud?.usuario_nombre ?? '—',
         estado_solicitud: a.solicitud?.estado ?? '—',
-      }))
-      .sort((a, b) => b.fecha.localeCompare(a.fecha));
+      }));
   }
 
   contarTipo(tipo: 'ENTREGA' | 'DEVOLUCION'): number {

@@ -1,12 +1,12 @@
 import { Component, OnInit, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AdminTableComponent } from '../../shared/components/admin-table.component';
-import { AdminModalComponent } from '../../shared/components/admin-modal.component';
-import { OpcionSelect } from '../admin/services/admin.service';
+import { AdminModalComponent } from '../tenant-administration/ui/admin-modal.component';
+import { OpcionSelect } from '../tenant-administration/services/admin.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
-import { Item, MaterialesApiService, Sitio } from '../../core/services/materiales/materiales-api.service';
+import { Item, MaterialesApiService, Sitio } from './data-access/materiales-api.service';
 import { PersonaService } from '../../core/services/persona.service';
 
 const OPCIONES_FILTRO_TIPO = [
@@ -293,7 +293,14 @@ export class MaterialesSitiosComponent implements OnInit {
     try {
       const [sitios, responsables, centros, areas, items] = await Promise.all([
         this.api.listarSitios(),
-        this.personaApi.listarResponsablesBodega(),
+        // `usuarios.gestionar` (ERP-wide) es admin-only — un líder de área
+        // con `materiales.sitios.crear/editar` (2026-09-18) no lo tiene, y
+        // sin este catch el 403 tumbaba el Promise.all completo (mismo bug
+        // que ya se había corregido para categorías/items en productos —
+        // ver la sesión de permisos del 09-16). El selector "Responsable"
+        // queda vacío para quien no tiene ese servicio; el resto de la
+        // pantalla sigue funcionando.
+        this.personaApi.listarResponsablesBodega().catch(() => [] as any[]),
         this.personaApi.listarCentros(),
         this.personaApi.listarAreas().catch(() => [] as any[]),
         this.api.listarItems(),

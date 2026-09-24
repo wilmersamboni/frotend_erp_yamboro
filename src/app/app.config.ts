@@ -1,6 +1,6 @@
 import { ApplicationConfig, provideZoneChangeDetection, LOCALE_ID } from '@angular/core';
 import { MessageService, ConfirmationService } from 'primeng/api';
-import { signal } from '@angular/core';  // ← agrega signal
+import { signal } from '@angular/core'; // ← agrega signal
 import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
@@ -85,79 +85,126 @@ import {
   XCircle,
   Youtube,
   ZoomIn,
+  Camera,
+  Keyboard,
+  Flashlight,
+  FlashlightOff,
+  CloudOff,
 } from 'lucide-angular';
 
-import { importProvidersFrom } from '@angular/core';
-
+import { importProvidersFrom, isDevMode, provideAppInitializer } from '@angular/core';
+import { provideServiceWorker } from '@angular/service-worker';
+import { registerOfflineHandlers } from './core/offline/register-offline-handlers';
 
 registerLocaleData(localeEs);
 
 export const appConfig: ApplicationConfig = {
   providers: [
-  provideZoneChangeDetection({ eventCoalescing: true }),
-  provideRouter(routes),
-  provideHttpClient(withInterceptors([
-    authInterceptor,
-    errorInterceptor,
-    // Solo en desarrollo: loguea respuestas no-JSON/no-ok en consola.
-    ...(environment.production ? [] : [debugInterceptor]),
-  ])),
-  provideAnimationsAsync(),
+    provideZoneChangeDetection({ eventCoalescing: true }),
+    provideRouter(routes),
+    provideHttpClient(
+      withInterceptors([
+        authInterceptor,
+        errorInterceptor,
+        // Solo en desarrollo: loguea respuestas no-JSON/no-ok en consola.
+        ...(environment.production ? [] : [debugInterceptor]),
+      ]),
+    ),
+    provideAnimationsAsync(),
 
-  importProvidersFrom(
-  LucideAngularModule.pick({
-    Plus,
-    ChevronLeft,
-    ChevronRight,
-    ChevronDown,
-    Calendar,
-    Clock,
-    Sunrise,
-    Sun,
-    Moon,
-    Download,
-    Search,
-    Pencil,
-    Trash2,
-    X,
-    Users,
-    BookOpen,
-    Info,
-    Save,
-    Check,
-    Loader,
-    MessageCircle,
-    CheckCircle,
-    RefreshCw,
-    ChevronUp,
-    User,
-    Building2,
-    ArrowRight,
-    MessageSquare,
-    ShieldCheck, Inbox,
-    MapPin,
-    CalendarClock,
-    AlertTriangle,
-    ClipboardCheck,
-    Umbrella, HelpCircle, PanelRightOpen, PanelRightClose,
-    UserPlus, GraduationCap, ClipboardPlus, LayoutGrid,
-    Copy, Hourglass, Send,
-    AlertCircle, Ban, Bell, CalendarX, Facebook, Filter, GitBranch, List,
-    Music2, Paperclip, Play, Radio, SearchX, Shuffle, Square, Twitter,
-    XCircle, Youtube, ZoomIn,
-  })
-),
+    importProvidersFrom(
+      LucideAngularModule.pick({
+        Plus,
+        ChevronLeft,
+        ChevronRight,
+        ChevronDown,
+        Calendar,
+        Clock,
+        Sunrise,
+        Sun,
+        Moon,
+        Download,
+        Search,
+        Pencil,
+        Trash2,
+        X,
+        Users,
+        BookOpen,
+        Info,
+        Save,
+        Check,
+        Loader,
+        MessageCircle,
+        CheckCircle,
+        RefreshCw,
+        ChevronUp,
+        User,
+        Building2,
+        ArrowRight,
+        MessageSquare,
+        ShieldCheck,
+        Inbox,
+        MapPin,
+        CalendarClock,
+        AlertTriangle,
+        ClipboardCheck,
+        Umbrella,
+        HelpCircle,
+        PanelRightOpen,
+        PanelRightClose,
+        UserPlus,
+        GraduationCap,
+        ClipboardPlus,
+        LayoutGrid,
+        Copy,
+        Hourglass,
+        Send,
+        AlertCircle,
+        Ban,
+        Bell,
+        CalendarX,
+        Facebook,
+        Filter,
+        GitBranch,
+        List,
+        Music2,
+        Paperclip,
+        Play,
+        Radio,
+        SearchX,
+        Shuffle,
+        Square,
+        Twitter,
+        XCircle,
+        Youtube,
+        ZoomIn,
+        Camera,
+        Keyboard,
+        Flashlight,
+        FlashlightOff,
+        CloudOff,
+      }),
+    ),
 
-  providePrimeNG({ theme: { preset: Aura } }),
+    providePrimeNG({ theme: { preset: Aura } }),
     { provide: LOCALE_ID, useValue: 'es' },
     {
       provide: TUI_LANGUAGE,
-      useFactory: () => signal(TUI_SPANISH_LANGUAGE),  // ← signal()
+      useFactory: () => signal(TUI_SPANISH_LANGUAGE), // ← signal()
     },
     ...provideTaiga({ scrollbars: 'native' }),
     tuiAssetsPathProvider('assets/taiga-ui/icons'),
     provideLottieOptions({ player: () => player }),
-    MessageService,   // ← proveedor global para ToastService
-    ConfirmationService,   // ← proveedor global; el <p-confirmDialog> vive en app.ts (Ronda 6)
+    MessageService, // ← proveedor global para ToastService
+    ConfirmationService, // ← proveedor global; el <p-confirmDialog> vive en app.ts (Ronda 6)
+    provideServiceWorker('ngsw-worker.js', {
+      enabled: !isDevMode(),
+      registrationStrategy: 'registerWhenStable:30000',
+    }),
+    // Escaneo offline (ver plan): registra los handlers de sync al arrancar
+    // la app, no al recién visitar cada pantalla — así una acción encolada
+    // en una sesión anterior se procesa apenas vuelve la señal, sin
+    // depender de qué pantalla esté abierta.
+    provideAppInitializer(() => registerOfflineHandlers()),
   ],
 };
