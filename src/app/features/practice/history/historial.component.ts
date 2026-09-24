@@ -14,13 +14,14 @@ import { ToastService } from '../../../core/services/toast.service';
 import { EtapaPracticaItem, ResultadoConsulta } from '../../../shared/models/estudiante.model';
 import { HistorialBuscadorComponent } from './components/historial-buscador.component';
 import { EtapaPracticaCardComponent } from './components/etapa-practica-card.component';
+import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 
 type Estado = 'idle' | 'loading' | 'success' | 'error';
 
 @Component({
   selector: 'app-historial',
   standalone: true,
-  imports: [CommonModule, HistorialBuscadorComponent, EtapaPracticaCardComponent],
+  imports: [LoadingSkeletonComponent, CommonModule, HistorialBuscadorComponent, EtapaPracticaCardComponent],
   template: `
     <div class="p-6 max-w-4xl mx-auto">
 
@@ -60,11 +61,7 @@ type Estado = 'idle' | 'loading' | 'success' | 'error';
         }
 
         @if (estado === 'loading') {
-          <div class="flex flex-col items-center gap-3 py-16 px-6">
-            <div class="w-8 h-8 border-4 border-[#39A900]/20 border-t-[#39A900]
-                        rounded-full animate-spin"></div>
-            <p class="text-gray-400 text-sm animate-pulse">Cargando historial...</p>
-          </div>
+          <div class="px-6 py-6"><app-loading-skeleton variant="detail" [rows]="4" label="Cargando historial" /></div>
         }
 
         @if (estado === 'error') {

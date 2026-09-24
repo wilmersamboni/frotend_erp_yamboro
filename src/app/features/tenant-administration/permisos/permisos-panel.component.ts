@@ -1,8 +1,9 @@
 import { Component, Input, OnChanges, signal } from '@angular/core';
-import { ConfirmationService } from 'primeng/api';
 import { AdminService } from '../services/admin.service';
 import { PermisosGestionService, Permiso } from '../../../core/services/permisos-gestion.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
+import { ConfirmService } from '../../../core/services/confirm.service';
 
 /**
  * Traducción de `servicio.nombre` técnico → frase en español. No es
@@ -161,6 +162,7 @@ function labelPasoGenerico(posicion: number, acciones: string[]): string {
 @Component({
   selector: 'app-permisos-panel',
   standalone: true,
+  imports: [LoadingSkeletonComponent],
   template: `
     <div class="w-full bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden mt-4">
       <div class="bg-gray-50/60 border-b border-gray-100 px-6 py-4 flex items-center justify-between flex-wrap gap-2">
@@ -197,9 +199,7 @@ function labelPasoGenerico(posicion: number, acciones: string[]): string {
 
       <div class="p-6">
         @if (cargando()) {
-          <div class="flex justify-center py-10">
-            <div class="w-7 h-7 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
-          </div>
+          <app-loading-skeleton variant="form" [rows]="5" label="Cargando permisos" />
         } @else {
           <div class="max-h-[560px] overflow-y-auto pr-2 flex flex-col gap-6">
             @for (grupo of grupos(); track grupo.modulo) {
@@ -378,7 +378,7 @@ export class PermisosPanelComponent implements OnChanges {
     private admin: AdminService,
     private permisosSvc: PermisosGestionService,
     private toast: ToastService,
-    private confirmSvc: ConfirmationService,
+    private confirmSvc: ConfirmService,
   ) {}
 
   async ngOnChanges(): Promise<void> {

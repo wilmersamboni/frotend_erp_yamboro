@@ -1,8 +1,6 @@
 import { Component, OnInit, ViewChild, signal, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { ConfirmationService } from 'primeng/api';
 import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
 import { ToastService } from '../../../core/services/toast.service';
 import { HorariosApiService } from '../data-access/horarios-api.service';
@@ -10,6 +8,7 @@ import { ErpCatalogoService } from '../data-access/erp-catalogo.service';
 import { to12h as to12hUtil } from '../../../core/utils/horarios.util';
 import { CalendarioEventosComponent } from './calendario-eventos.component';
 import { EventoModalComponent } from './evento-modal.component';
+import { ConfirmService } from '../../../core/services/confirm.service';
 
 const TIPO_COLORS: Record<string, { bg: string; text: string }> = {
   formativo:     { bg: '#dbeafe', text: '#1d4ed8' },
@@ -20,10 +19,8 @@ const TIPO_COLORS: Record<string, { bg: string; text: string }> = {
 
 @Component({
   selector: 'app-programador-eventos',
-  imports: [FormsModule, LucideAngularModule, ConfirmDialogModule, SearchableSelectComponent, CalendarioEventosComponent, EventoModalComponent],
-  providers: [ConfirmationService],
+  imports: [FormsModule, LucideAngularModule, SearchableSelectComponent, CalendarioEventosComponent, EventoModalComponent],
   template: `
-    <p-confirmdialog />
 
     <div class="page-header">
       <div>
@@ -197,7 +194,7 @@ export class ProgramadorEventosComponent implements OnInit {
     ].map(m => ({ value: m.val, label: m.label })),
   ];
 
-  private confirm = inject(ConfirmationService);
+  private confirm = inject(ConfirmService);
 
   constructor(
     private horariosApi: HorariosApiService,

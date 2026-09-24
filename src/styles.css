@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import 'primeicons/primeicons.css';
+@import '@angular/cdk/overlay-prebuilt.css';
+@import 'tw-animate-css';
 
 /* ─── Login animations ───────────────────────────────────────────── */
 @keyframes twinkle {
@@ -250,3 +252,44 @@ body, * {
   -ms-overflow-style: none;
 }
 .pretty-scroll::-webkit-scrollbar { display: none; }
+
+/* ─── Animaciones de interfaz ───────────────────────────────────────────────
+ * Entrada suave para TODOS los modales sin tocar cada componente: comparten el
+ * patrón "overlay fijo a pantalla completa con contenido centrado"
+ * (`fixed inset-0 … justify-center`). El velo aparece con fade y la tarjeta
+ * sube y escala unos milisegundos. Los fondos invisibles que solo capturan
+ * clics (`fixed inset-0 z-10`, sin centrado) no coinciden y no se animan.
+ *
+ * IMPORTANTE: usar `backwards`, NUNCA `both`/`forwards`. Con fill-mode que se queda aplicado
+ * despues de terminar, Chrome convierte a la tarjeta en el bloque contenedor de todo lo
+ * `position: fixed` que tenga dentro, aunque el transform final sea `none` — los desplegables
+ * de app-ss (fixed, con coordenadas del viewport) quedaban corridos dentro de los modales. */
+@keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes fade-up-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.fixed.inset-0.justify-center { animation: overlay-in 0.16s ease-out backwards; }
+.fixed.inset-0.justify-center > * { animation: modal-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.empty-state-enter { animation: fade-up-in 0.25s ease-out backwards; }
+
+/* Transición entre pantallas (Angular withViewTransitions): fundido corto. */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.18s; }
+
+/* Respeta a quien pidió menos movimiento en su sistema operativo. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
+
+/* Las confirmaciones (Spartan, sobre el overlay del CDK) deben quedar por encima de cualquier modal propio (hay hasta z-[1090]). */
+.cdk-overlay-container { z-index: 10000; }

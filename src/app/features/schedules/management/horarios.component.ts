@@ -9,8 +9,6 @@ import {
   to12h as to12hUtil, getDiaLabel,
 } from '../../../core/utils/horarios.util';
 import { LucideAngularModule } from 'lucide-angular';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { ConfirmationService } from 'primeng/api';
 import { ToastService } from '../../../core/services/toast.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { descargarReporteDia } from './reporte-dia.util';
@@ -18,6 +16,7 @@ import { HistorialCompetenciasModalComponent } from './historial-competencias-mo
 import { DisponibilidadAmbientesComponent } from './disponibilidad-ambientes.component';
 import { NuevoHorarioWizardComponent } from './nuevo-horario-wizard.component';
 import { CompetenciaTooltipComponent } from '../../../shared/components/competencia-tooltip.component';
+import { ConfirmService } from '../../../core/services/confirm.service';
 
 /**
  * Portado de ChronoGest; pertenece al dominio Horarios.
@@ -69,10 +68,8 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
 @Component({
   selector: 'app-admin-horarios',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, LucideAngularModule, ConfirmDialogModule, HistorialCompetenciasModalComponent, DisponibilidadAmbientesComponent, NuevoHorarioWizardComponent, CompetenciaTooltipComponent],
-  providers: [ConfirmationService],
+  imports: [FormsModule, LucideAngularModule, HistorialCompetenciasModalComponent, DisponibilidadAmbientesComponent, NuevoHorarioWizardComponent, CompetenciaTooltipComponent],
   template: `
-    <p-confirmdialog />
 
     <div class="page-header" style="display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:16px;">
       <div>
@@ -517,7 +514,7 @@ export class AdminHorariosComponent implements OnInit, OnDestroy {
   });
 
   private toast   = inject(ToastService);
-  private confirm = inject(ConfirmationService);
+  private confirm = inject(ConfirmService);
   private auth    = inject(AuthService);
 
   constructor(

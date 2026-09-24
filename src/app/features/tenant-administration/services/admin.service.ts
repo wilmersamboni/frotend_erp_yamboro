@@ -1,8 +1,9 @@
 import { Injectable, signal, computed, effect } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { MessageService, ConfirmationService } from 'primeng/api';
 import { CONFIG, Modulo } from '../config/admin.config';
+import { ConfirmService } from '../../../core/services/confirm.service';
+import { ToastService } from '../../../core/services/toast.service';
 
 export interface OpcionSelect {
   label: string;
@@ -41,8 +42,8 @@ export class AdminService {
 
   constructor(
     private http:        HttpClient,
-    private msg:         MessageService,
-    private confirmSvc:  ConfirmationService,
+    private msg:         ToastService,
+    private confirmSvc:  ConfirmService,
   ) {
     // Cada cambio de pestaña dispara la carga de ESE módulo (y sus dependencias
     // de FK), en vez de traer las ~24 tablas del sistema de una sola vez al

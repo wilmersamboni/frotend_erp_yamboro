@@ -9,13 +9,14 @@ import { AuditAccion, AuditLog, ACCION_COLORES } from '../../../../shared/models
 import { Tenant } from '../../../../shared/models/admin/tenant.model';
 import { SearchableSelectComponent, SSOption } from '../../../../shared/components/searchable-select.component';
 import { DateInputComponent } from '../../../../shared/components/date-input.component';
+import { LoadingSkeletonComponent } from '../../../../shared/components/loading-skeleton.component';
 
 const ACCIONES: AuditAccion[] = ['CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT'];
 
 @Component({
   selector: 'app-audit-log-list',
   standalone: true,
-  imports: [FormsModule, DatePipe, SearchableSelectComponent, DateInputComponent],
+  imports: [LoadingSkeletonComponent, FormsModule, DatePipe, SearchableSelectComponent, DateInputComponent],
   template: `
     <div class="mb-6">
       <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Registro de Auditoría</h1>
@@ -69,12 +70,7 @@ const ACCIONES: AuditAccion[] = ['CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT'
     <!-- Tabla -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       @if (cargando()) {
-        <div class="flex flex-col items-center justify-center py-16">
-          <svg class="animate-spin" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#39A900" stroke-width="3">
-            <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" />
-          </svg>
-          <p class="text-sm text-gray-400 mt-3">Cargando registros...</p>
-        </div>
+        <div class="p-4"><app-loading-skeleton variant="table" [rows]="8" [columns]="5" [showToolbar]="false" label="Cargando registros" /></div>
       } @else if (logs().length === 0) {
         <div class="flex flex-col items-center justify-center py-16 text-gray-400">
           <p class="text-sm">No hay registros de auditoría para los filtros seleccionados.</p>

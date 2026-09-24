@@ -8,6 +8,7 @@ import { ToastService } from '../../../core/services/toast.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
+import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 import {
   CreateDevolucionConsumibleDto,
   CreateDevolucionDto,
@@ -50,7 +51,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
 @Component({
   selector: 'app-materiales-devoluciones',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, LoadingSkeletonComponent],
+  imports: [EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -65,7 +66,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
       @if (loading) {
         <app-loading-skeleton variant="table" [rows]="6" [columns]="5" [showToolbar]="false" label="Cargando devoluciones" />
       } @else if (devoluciones.length === 0) {
-        <p class="text-center text-gray-400 text-sm py-10">No hay devoluciones registradas</p>
+        <app-empty-state titulo="No hay devoluciones registradas" />
       } @else {
         <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
           <!-- Toolbar: búsqueda + filtro de estado + filas por página -->
@@ -175,7 +176,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
           </div>
 
           @if (devolucionesFiltradas.length === 0) {
-            <p class="text-center text-gray-400 text-sm py-10">Sin resultados para estos filtros</p>
+            <app-empty-state titulo="Sin resultados para estos filtros" variante="busqueda" />
           } @else {
           <div class="overflow-x-auto">
           <table class="w-full text-sm">

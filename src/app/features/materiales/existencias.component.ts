@@ -5,6 +5,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { MaterialesApiService, ResumenExistencias } from './data-access/materiales-api.service';
 import { StatCardComponent } from '../../shared/components/stat-card.component';
 import { LoadingSkeletonComponent } from '../../shared/components/loading-skeleton.component';
+import { EmptyStateComponent } from '../../shared/components/empty-state.component';
 
 /**
  * Panel de existencias — SOLO LECTURA (Tier SigMat M6). Reemplaza el CRUD que
@@ -32,7 +33,7 @@ import { LoadingSkeletonComponent } from '../../shared/components/loading-skelet
 @Component({
   selector: 'app-materiales-existencias',
   standalone: true,
-  imports: [FormsModule, StatCardComponent, LoadingSkeletonComponent],
+  imports: [EmptyStateComponent, FormsModule, StatCardComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="mb-5">
@@ -118,7 +119,7 @@ import { LoadingSkeletonComponent } from '../../shared/components/loading-skelet
         </p>
 
         @if (filtradas().length === 0) {
-          <p class="text-center text-gray-400 text-sm py-10">Sin existencias para mostrar</p>
+          <app-empty-state titulo="Sin existencias para mostrar" />
         } @else {
           <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">

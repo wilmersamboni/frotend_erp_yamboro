@@ -11,6 +11,7 @@ import { BarcodeScannerComponent } from '../../shared/scanner/barcode-scanner.co
 import { SyncQueueService } from '../../core/offline/sync-queue.service';
 import { OfflineSnapshotService } from '../../core/offline/offline-snapshot.service';
 import { NetworkStatusService } from '../../core/offline/network-status.service';
+import { AlertComponent } from '../../shared/ui/alert.component';
 
 const OPCIONES_ESTADO: OpcionSelect[] = [
   { label: 'Disponible', value: 'DISPONIBLE' },
@@ -53,7 +54,7 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
 @Component({
   selector: 'app-materiales-items',
   standalone: true,
-  imports: [FormsModule, AdminTableComponent, AdminModalComponent, BarcodeScannerComponent],
+  imports: [AlertComponent, FormsModule, AdminTableComponent, AdminModalComponent, BarcodeScannerComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-4">
@@ -75,14 +76,10 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
       </div>
 
       @if (bodegasInactivas().length > 0) {
-        <div class="mb-4 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-start gap-2">
-          <span>⚠️</span>
-          <span>
-            {{ bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas' }}:
-            <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
-            — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
-          </span>
-        </div>
+        <app-alert class="mb-4" variante="advertencia" [titulo]="bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas'">
+          <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
+          — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
+        </app-alert>
       }
 
       <app-admin-table

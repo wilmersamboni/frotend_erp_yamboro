@@ -5,11 +5,13 @@ import { BitacorasModalComponent } from './bitacoras-modal.component';
 import { AuthService } from '../../../core/services/auth.service';
 import { SeguimientoService } from '../../../core/services';
 import { ToastService } from '../../../core/services/toast.service';
+import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
+import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 
 @Component({
   selector: 'app-seguimientos-modal',
   standalone: true,
-  imports: [FormsModule, NgClass, BitacorasModalComponent],
+  imports: [LoadingSkeletonComponent, EmptyStateComponent, FormsModule, NgClass, BitacorasModalComponent],
   template: `
     @if (isOpen && alumno) {
       <!-- Backdrop -->
@@ -29,11 +31,9 @@ import { ToastService } from '../../../core/services/toast.service';
           <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
 
             @if (loading()) {
-              <div class="flex justify-center py-8">
-                <div class="w-8 h-8 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
-              </div>
+              <app-loading-skeleton variant="detail" [rows]="3" label="Cargando seguimientos" />
             } @else if (seguimientos().length === 0) {
-              <p class="text-center text-gray-400 text-sm py-8">No hay seguimientos registrados</p>
+              <app-empty-state titulo="No hay seguimientos registrados" />
             } @else {
               @for (item of seguimientos(); track item.id) {
 

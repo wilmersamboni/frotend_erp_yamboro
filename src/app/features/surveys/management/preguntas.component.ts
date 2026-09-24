@@ -1,21 +1,16 @@
 import { Component, OnInit, signal, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { ToastModule } from 'primeng/toast';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { MessageService, ConfirmationService } from 'primeng/api';
 
 import { EncuestasApiService, Pregunta } from '../data-access/encuestas-api.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { ConfirmService } from '../../../core/services/confirm.service';
 
 @Component({
   selector: 'app-preguntas',
   standalone: true,
-  imports: [FormsModule, RouterLink, ToastModule, ConfirmDialogModule],
-  providers: [MessageService, ConfirmationService],
+  imports: [FormsModule, RouterLink],
   template: `
-    <p-toast position="top-right" [baseZIndex]="9999" />
-    <p-confirmdialog />
 
     <div class="bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-50 p-3 sm:p-4 lg:p-8">
       <div class="max-w-3xl mx-auto space-y-4 sm:space-y-6">
@@ -125,7 +120,7 @@ import { ToastService } from '../../../core/services/toast.service';
 export class PreguntasComponent implements OnInit {
   private api   = inject(EncuestasApiService);
   private toast = inject(ToastService);
-  private confirm = inject(ConfirmationService);
+  private confirm = inject(ConfirmService);
 
   preguntas = signal<Pregunta[]>([]);
   loading   = signal(false);

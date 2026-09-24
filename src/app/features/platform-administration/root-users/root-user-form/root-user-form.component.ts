@@ -3,6 +3,7 @@ import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Va
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { RootUserAdminService } from '../../../../core/services/admin/root-user-admin.service';
 import { AdminToastService } from '../../../../core/admin-auth/admin-toast.service';
+import { LoadingSkeletonComponent } from '../../../../shared/components/loading-skeleton.component';
 
 function passwordsCoincidenValidator(): ValidatorFn {
   return (group: AbstractControl): ValidationErrors | null => {
@@ -16,7 +17,7 @@ function passwordsCoincidenValidator(): ValidatorFn {
 @Component({
   selector: 'app-root-user-form',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [LoadingSkeletonComponent, ReactiveFormsModule, RouterLink],
   template: `
     <div class="max-w-2xl mx-auto rounded-3xl p-8">
       <div class="mb-6 mx-auto text-center">
@@ -29,11 +30,7 @@ function passwordsCoincidenValidator(): ValidatorFn {
       </div>
 
       @if (cargando()) {
-        <div class="flex flex-col items-center justify-center py-16">
-          <svg class="animate-spin" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#39A900" stroke-width="3">
-            <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" />
-          </svg>
-        </div>
+        <app-loading-skeleton variant="form" [rows]="4" label="Cargando usuario" />
       } @else {
         <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="space-y-5">
           <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">

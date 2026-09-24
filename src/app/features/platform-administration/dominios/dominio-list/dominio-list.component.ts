@@ -8,6 +8,7 @@ import { Dominio, DOMINIO_ESTADO_COLORES } from '../../../../shared/models/admin
 import { AdminLoadingSpinnerComponent } from '../../../../shared/components/admin/loading-spinner.component';
 import { AdminEmptyStateComponent } from '../../../../shared/components/admin/empty-state.component';
 import { SearchableSelectComponent, SSOption } from '../../../../shared/components/searchable-select.component';
+import { ConfirmService } from '../../../../core/services/confirm.service';
 
 @Component({
   selector: 'app-dominio-list',
@@ -129,6 +130,7 @@ import { SearchableSelectComponent, SSOption } from '../../../../shared/componen
   `,
 })
 export class DominioListComponent {
+  private readonly confirmDlg = inject(ConfirmService);
   private readonly dominioService = inject(DominioAdminService);
   private readonly toast          = inject(AdminToastService);
 
@@ -163,8 +165,8 @@ export class DominioListComponent {
     });
   }
 
-  eliminar(dominio: Dominio): void {
-    if (!confirm(`¿Eliminar el dominio "${dominio.subdominio}"?`)) return;
+  async eliminar(dominio: Dominio): Promise<void> {
+    if (!(await this.confirmDlg.ask(`¿Eliminar el dominio "${dominio.subdominio}"?`, { header: 'Eliminar dominio', acceptLabel: 'Eliminar' }))) return;
     this.dominioService.eliminar(dominio.id).subscribe({
       next: () => { this.dominios.update(lista => lista.filter(d => d.id !== dominio.id)); this.toast.success('Dominio eliminado.'); },
       error: () => this.toast.error('No se pudo eliminar el dominio.'),

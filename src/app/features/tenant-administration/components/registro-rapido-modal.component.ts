@@ -9,6 +9,7 @@ import { environment } from '../../../../environments/environment';
 
 import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
 import { AuthService } from '../../../core/services/auth.service';
+import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 
 const BASE  = environment.apiUrl;
 
@@ -61,7 +62,7 @@ const ESQUEMAS: Record<Cargo, Esquema> = {
 @Component({
   selector: 'app-registro-rapido-modal',
   standalone: true,
-  imports: [FormsModule, SearchableSelectComponent],
+  imports: [LoadingSkeletonComponent, FormsModule, SearchableSelectComponent],
   template: `
     @if (isOpen) {
       <!-- Backdrop -->
@@ -120,9 +121,7 @@ const ESQUEMAS: Record<Cargo, Esquema> = {
           <div class="flex-1 overflow-y-auto p-6">
 
             @if (cargando()) {
-              <div class="flex justify-center py-12">
-                <div class="w-8 h-8 border-4 border-gray-200 border-t-[#39A900] rounded-full animate-spin"></div>
-              </div>
+              <app-loading-skeleton variant="form" [rows]="4" label="Cargando datos" />
             } @else if (exito()) {
               <!-- Estado de éxito -->
               <div class="flex flex-col items-center py-8 gap-4">

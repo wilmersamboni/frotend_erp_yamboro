@@ -1,7 +1,4 @@
 import { Component, OnInit, signal, computed, inject } from '@angular/core';
-import { ToastModule } from 'primeng/toast';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { MessageService, ConfirmationService } from 'primeng/api';
 
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -11,6 +8,7 @@ import { NotificacionService } from '../../../core/services/notificacion.service
 
 import { FormatoCardComponent } from './components/formato-card.component';
 import { SubirFormatoModalComponent } from './components/subir-formato-modal.component';
+import { ConfirmService } from '../../../core/services/confirm.service';
 
 const TIPOS = [
   { value: 'bitacora',         label: 'Bitácora',        icon: '📋' },
@@ -21,15 +19,12 @@ const TIPOS = [
 @Component({
   selector: 'app-formatos',
   standalone: true,
-  imports: [ToastModule, ConfirmDialogModule, FormatoCardComponent, SubirFormatoModalComponent],
-  providers: [MessageService, ConfirmationService],
+  imports: [FormatoCardComponent, SubirFormatoModalComponent],
   styles: [`
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner { animation: spin 0.8s linear infinite; }
   `],
   template: `
-    <p-toast position="top-right" [baseZIndex]="9999" />
-    <p-confirmdialog />
 
     <section class="min-h-screen bg-gray-50 px-4 py-10">
       <div class="max-w-6xl mx-auto space-y-8">
@@ -136,7 +131,7 @@ export class FormatosComponent implements OnInit {
   private auth            = inject(AuthService);
   private api             = inject(ApiService);
   private toast           = inject(ToastService);
-  private confirm         = inject(ConfirmationService);
+  private confirm         = inject(ConfirmService);
   private notificacionSvc = inject(NotificacionService);
 
   readonly tipos = TIPOS;

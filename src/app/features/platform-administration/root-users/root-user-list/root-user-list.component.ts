@@ -5,11 +5,12 @@ import { RootUserAdminService } from '../../../../core/services/admin/root-user-
 import { AdminToastService } from '../../../../core/admin-auth/admin-toast.service';
 import { RootUser } from '../../../../shared/models/admin/root-user.model';
 import { AdminConfirmDialogComponent } from '../../../../shared/components/admin/confirm-dialog.component';
+import { LoadingSkeletonComponent } from '../../../../shared/components/loading-skeleton.component';
 
 @Component({
   selector: 'app-root-user-list',
   standalone: true,
-  imports: [DatePipe, AdminConfirmDialogComponent],
+  imports: [LoadingSkeletonComponent, DatePipe, AdminConfirmDialogComponent],
   template: `
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
       <div>
@@ -28,12 +29,7 @@ import { AdminConfirmDialogComponent } from '../../../../shared/components/admin
 
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       @if (cargando()) {
-        <div class="flex flex-col items-center justify-center py-16">
-          <svg class="animate-spin" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#39A900" stroke-width="3">
-            <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" />
-          </svg>
-          <p class="text-sm text-gray-400 mt-3">Cargando usuarios...</p>
-        </div>
+        <div class="p-4"><app-loading-skeleton variant="table" [rows]="6" [columns]="4" [showToolbar]="false" label="Cargando usuarios" /></div>
       } @else if (usuarios().length === 0) {
         <div class="flex flex-col items-center justify-center py-16 text-gray-400">
           <p class="text-sm">Aún no hay usuarios root registrados.</p>

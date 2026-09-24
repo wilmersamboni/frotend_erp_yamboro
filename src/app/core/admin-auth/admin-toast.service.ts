@@ -1,9 +1,9 @@
 import { Injectable, inject } from '@angular/core';
-import { MessageService } from 'primeng/api';
+import { ToastService } from '../services/toast.service';
 
 @Injectable({ providedIn: 'root' })
 export class AdminToastService {
-  private readonly msg = inject(MessageService);
+  private readonly msg = inject(ToastService);
 
   success(text: string): void {
     this.msg.add({ severity: 'success', summary: 'Éxito', detail: text, life: 4000 });

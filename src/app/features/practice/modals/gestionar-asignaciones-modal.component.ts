@@ -1,7 +1,7 @@
 import {
   Component, Input, Output, EventEmitter,
   OnChanges, SimpleChanges,
-  signal, computed,
+  signal, computed, inject,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../../core/services/api.service';
@@ -10,6 +10,8 @@ import { ToastService } from '../../../core/services/toast.service';
 import { TuiButton } from '@taiga-ui/core';
 import { TuiDay } from '@taiga-ui/cdk';
 import { DateInputComponent } from '../../../shared/components/date-input.component';
+import { ConfirmService } from '../../../core/services/confirm.service';
+import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 
 interface AsignacionVM {
   id: string;
@@ -29,7 +31,7 @@ interface AsignacionVM {
 @Component({
   selector: 'app-gestionar-asignaciones-modal',
   standalone: true,
-  imports: [FormsModule, TuiButton, DateInputComponent],
+  imports: [LoadingSkeletonComponent, FormsModule, TuiButton, DateInputComponent],
   styles: [`tui-textfield { display: block; }`],
   template: `
     @if (isOpen) {
@@ -59,9 +61,7 @@ interface AsignacionVM {
           <div class="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
 
             @if (cargando()) {
-              <div class="flex justify-center py-8">
-                <div class="w-7 h-7 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
-              </div>
+              <app-loading-skeleton variant="detail" [rows]="3" label="Cargando asignaciones" />
             } @else {
 
               <!-- Lista de asignaciones existentes -->
@@ -339,6 +339,7 @@ interface AsignacionVM {
   `,
 })
 export class GestionarAsignacionesModalComponent implements OnChanges {
+  private readonly confirmDlg = inject(ConfirmService);
 
   @Input() isOpen = false;
   @Input() alumno: any = null;
@@ -544,7 +545,7 @@ export class GestionarAsignacionesModalComponent implements OnChanges {
   }
 
   async eliminar(a: AsignacionVM): Promise<void> {
-    if (!confirm(`¿Eliminar la asignación de "${a.instructorNombre}"?`)) return;
+    if (!(await this.confirmDlg.ask(`¿Eliminar la asignación de "${a.instructorNombre}"?`, { header: 'Eliminar asignación', acceptLabel: 'Eliminar' }))) return;
     try {
       await this.api.eliminarAsignacion(a.id);
       this.asignaciones.update(list => list.filter(x => x.id !== a.id));

@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, signal, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { MaterialesLiveService } from '../data-access/materiales-live.service';
@@ -26,6 +26,9 @@ import { NetworkStatusService } from '../../../core/offline/network-status.servi
 import { SyncQueueService } from '../../../core/offline/sync-queue.service';
 import { OfflineSnapshotService } from '../../../core/offline/offline-snapshot.service';
 import { prepararSnapshotEntregaOffline } from '../ui/solicitud-entrega-offline.util';
+import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
+import { ConfirmService } from '../../../core/services/confirm.service';
+import { AlertComponent } from '../../../shared/ui/alert.component';
 
 /**
  * Solicitudes de préstamo para aprendiz: crear + ver propias + confirmar
@@ -48,7 +51,7 @@ interface LineaForm {
 @Component({
   selector: 'app-aprendiz-materiales-solicitudes',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent],
+  imports: [AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -61,20 +64,16 @@ interface LineaForm {
       </div>
 
       @if (bodegasInactivas().length > 0) {
-        <div class="mb-4 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-start gap-2">
-          <span>⚠️</span>
-          <span>
-            {{ bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas' }}:
-            <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
-            — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
-          </span>
-        </div>
+        <app-alert class="mb-4" variante="advertencia" [titulo]="bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas'">
+          <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
+          — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
+        </app-alert>
       }
 
       @if (loading) {
         <app-loading-skeleton variant="table" [rows]="6" [columns]="5" [showToolbar]="false" label="Cargando solicitudes" />
       } @else if (solicitudes.length === 0) {
-        <p class="text-center text-gray-400 text-sm py-10">No tenés solicitudes registradas</p>
+        <app-empty-state titulo="No tenés solicitudes registradas" />
       } @else {
         <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
           <!-- Toolbar: búsqueda + filtro de estado + filas por página -->
@@ -184,7 +183,7 @@ interface LineaForm {
           </div>
 
           @if (solicitudesFiltradas.length === 0) {
-            <p class="text-center text-gray-400 text-sm py-10">Sin resultados para estos filtros</p>
+            <app-empty-state titulo="Sin resultados para estos filtros" variante="busqueda" />
           } @else {
           <div class="overflow-x-auto">
           <table class="w-full text-sm">
@@ -490,6 +489,7 @@ interface LineaForm {
   `,
 })
 export class AprendizMaterialesSolicitudesComponent implements OnInit {
+  private readonly confirmDlg = inject(ConfirmService);
   solicitudes: Solicitud[] = [];
   productos: Producto[] = [];
   lotes: Lote[] = [];
@@ -847,11 +847,16 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
     this.loading = true;
     try {
       const verSitios = this.auth.tieneServicio('materiales.sitios.ver');
+      // Mismos servicios que acepta el backend en GET /items y GET /lotes: pedir lo que el
+      // rol no puede ver dispara un 403 y el aviso global "Sin permiso" aunque se ignore.
+      const tiene = (...servicios: string[]) => servicios.some((x) => this.auth.tieneServicio(x));
+      const verItems = tiene('materiales.items.ver', 'materiales.novedades.crear', 'materiales.traslados.crear');
+      const verLotes = tiene('materiales.lotes.ver', 'materiales.solicitudes.crear');
       const [solicitudes, productos, lotes, items, sitios, sitiosACargo] = await Promise.all([
         this.api.listarSolicitudes(),
         this.api.listarProductos().catch(() => [] as Producto[]),
-        this.api.listarLotes().catch(() => [] as Lote[]),
-        this.api.listarItems().catch(() => [] as Item[]),
+        verLotes ? this.api.listarLotes().catch(() => [] as Lote[]) : Promise.resolve([] as Lote[]),
+        verItems ? this.api.listarItems().catch(() => [] as Item[]) : Promise.resolve([] as Item[]),
         verSitios ? this.api.listarSitios().catch(() => [] as Sitio[]) : Promise.resolve([] as Sitio[]),
         this.api.sitiosACargo().catch(() => [] as Sitio[]),
       ]);
@@ -1043,10 +1048,10 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
   }
 
   async cancelar(s: Solicitud): Promise<void> {
-    if (!confirm(
-      `¿Cancelar esta solicitud aprobada de "${s.producto?.nombre ?? 'este producto'}"?\n\n` +
-      `El solicitante será notificado y no se entregará. No afecta el inventario.`,
-    )) return;
+    if (!(await this.confirmDlg.ask(
+      `¿Cancelar esta solicitud aprobada de "${s.producto?.nombre ?? 'este producto'}"? El solicitante será notificado y no se entregará. No afecta el inventario.`,
+      { header: 'Cancelar solicitud', acceptLabel: 'Sí, cancelar', rejectLabel: 'Volver' },
+    ))) return;
     try {
       await this.api.cancelarSolicitud(s.id_solicitud);
       this.toast.ok('Solicitud cancelada');

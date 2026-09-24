@@ -6,11 +6,12 @@ import { AdminToastService } from '../../../../core/admin-auth/admin-toast.servi
 import { AdminCredencialesModalComponent } from '../../../../shared/components/admin/credenciales-modal.component';
 import { TenantCredenciales } from '../../../../shared/models/admin/tenant.model';
 import { SearchableSelectComponent, SSOption } from '../../../../shared/components/searchable-select.component';
+import { LoadingSkeletonComponent } from '../../../../shared/components/loading-skeleton.component';
 
 @Component({
   selector: 'app-tenant-form',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, AdminCredencialesModalComponent, SearchableSelectComponent],
+  imports: [LoadingSkeletonComponent, ReactiveFormsModule, RouterLink, AdminCredencialesModalComponent, SearchableSelectComponent],
   template: `
     <div class="max-w-3xl mx-auto rounded-3xl p-8">
       <div class="mb-6 mx-auto text-center">
@@ -23,11 +24,7 @@ import { SearchableSelectComponent, SSOption } from '../../../../shared/componen
       </div>
 
       @if (cargando()) {
-        <div class="flex flex-col items-center justify-center py-16">
-          <svg class="animate-spin" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#39A900" stroke-width="3">
-            <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" />
-          </svg>
-        </div>
+        <app-loading-skeleton variant="form" [rows]="5" label="Cargando centro" />
       } @else {
         <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="space-y-5 max-w-3xl mx-auto">
           <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
