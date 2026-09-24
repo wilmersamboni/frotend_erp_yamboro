@@ -255,7 +255,7 @@ export interface CreateNovedadDto {
 }
 
 export type EstadoTraslado = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO';
-export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'EN_ENTREGA' | 'ENTREGADA' | 'DEVUELTA' | 'CANCELADA';
+export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'EN_ENTREGA' | 'ENTREGADA' | 'DEVUELTA' | 'CANCELADA' | 'CONSUMIDA';
 
 /** Línea de una solicitud multi-línea (Tier SigMat M4). Producto devolutivo XOR lote consumible. */
 export interface LineaSolicitud {
@@ -440,6 +440,8 @@ export interface LineaConsumiblePendiente {
   cantidad_entregada: number;
   cantidad_ya_devuelta: number;
   cantidad_pendiente: number;
+  /** Hasta cuándo se acepta sobrante (entrega + 30 días); después la solicitud pasa a CONSUMIDA. */
+  fecha_limite: string;
 }
 
 export interface CreateDevolucionConsumibleDto {

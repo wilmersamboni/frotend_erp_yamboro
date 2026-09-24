@@ -41,6 +41,7 @@ export class StatusBadgeComponent {
     RESUELTA: { bg: '#DCFCE7', fg: '#15803D' },
     ENTREGADA: { bg: '#DCFCE7', fg: '#15803D' },
     DEVUELTA: { bg: '#DCFCE7', fg: '#15803D' },
+    CONSUMIDA: { bg: '#E0E7FF', fg: '#4338CA' },
     BUENO: { bg: '#DCFCE7', fg: '#15803D' },
     CONFIRMADA: { bg: '#DCFCE7', fg: '#15803D' },
     // En curso / pendiente / requiere atención

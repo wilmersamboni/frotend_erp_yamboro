@@ -563,7 +563,7 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
   estadoDropdownOpen = signal(false);
   page = 0;
   readonly estadosSolicitud: EstadoSolicitud[] =
-    ['PENDIENTE', 'APROBADA', 'EN_ENTREGA', 'ENTREGADA', 'DEVUELTA', 'RECHAZADA', 'CANCELADA'];
+    ['PENDIENTE', 'APROBADA', 'EN_ENTREGA', 'ENTREGADA', 'DEVUELTA', 'CONSUMIDA', 'RECHAZADA', 'CANCELADA'];
 
   seleccionarPageSize(size: number): void {
     this.pageSize.set(size);

@@ -564,7 +564,7 @@ seleccionarEstado(valor: EstadoSolicitud | ''): void {
   this.estadoDropdownOpen.set(false);
 }
   readonly estadosSolicitud: EstadoSolicitud[] =
-    ['PENDIENTE', 'APROBADA', 'EN_ENTREGA', 'ENTREGADA', 'DEVUELTA', 'RECHAZADA', 'CANCELADA'];
+    ['PENDIENTE', 'APROBADA', 'EN_ENTREGA', 'ENTREGADA', 'DEVUELTA', 'CONSUMIDA', 'RECHAZADA', 'CANCELADA'];
 
   /**
    * Texto para la columna "Producto" — todas las líneas si es multi-línea
