@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { firstValueFrom, map, Observable } from 'rxjs';
+import { HttpClient, HttpEventType } from '@angular/common/http';
+import { filter, firstValueFrom, map, Observable, tap } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 
 // Materiales vive dentro de backend-epsas-horarios (mismo backend que
@@ -647,14 +647,25 @@ export class MaterialesApiService {
     );
   }
   /** #5 PASO 1 — sube un .xlsx/.csv y devuelve el RESUMEN para revisar. No registra nada. */
-  previsualizarImportacion(archivo: File) {
+  /** `onProgreso` (opcional) recibe el % REAL de subida del archivo (0–100). */
+  previsualizarImportacion(archivo: File, onProgreso?: (pct: number) => void) {
     const fd = new FormData();
     fd.append('archivo', archivo);
     return this.unwrap(
-      this.http.post<Envelope<ResultadoPrevisualizacion>>(
-        `${BASE}/productos/importar/previsualizar`,
-        fd,
-      ),
+      this.http
+        .post<Envelope<ResultadoPrevisualizacion>>(`${BASE}/productos/importar/previsualizar`, fd, {
+          reportProgress: true,
+          observe: 'events',
+        })
+        .pipe(
+          tap((ev) => {
+            if (ev.type === HttpEventType.UploadProgress && ev.total) {
+              onProgreso?.(Math.round((ev.loaded / ev.total) * 100));
+            }
+          }),
+          filter((ev) => ev.type === HttpEventType.Response),
+          map((ev) => ev.body as Envelope<ResultadoPrevisualizacion>),
+        ),
     );
   }
   /** #5 PASO 2 — el encargado ya revisó: registra productos + stock. */
