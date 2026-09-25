@@ -285,6 +285,8 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     columnas: ['nombre', 'tipo', 'sede', 'municipio', 'area'],
     campos: ['nombre', 'tipo', 'sedeId', 'municipioId', 'areaId'],
     placeholders: { nombre: 'Ej: Y-14, Auditorio Principal…' },
+    // Sede, municipio y área son obligatorios: todo ambiente pertenece a un área.
+    columnLabels: { sedeId: 'Sede *', municipioId: 'Municipio *', areaId: 'Área *' },
     selectores: {
       sedeId:      { modulo: 'sedes',      label: 'nombre', value: 'idSede'      },
       municipioId: { modulo: 'municipios', label: 'nombre', value: 'idMunicipio' },
