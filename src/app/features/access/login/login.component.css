@@ -400,6 +400,14 @@
 /* ══════════════════════════════════════════════════════════════════════════
    RESPONSIVE
 ══════════════════════════════════════════════════════════════════════════ */
+/* Panel izquierdo angosto (≈761–1100px): el badge "Centro Yamboró" y los 7
+   puntos no caben en la misma franja y se encimaban. Los puntos bajan a una
+   segunda fila, debajo del badge. Por debajo de 760px el layout se apila y
+   los puntos se ocultan (ver abajo). */
+@media (min-width: 761px) and (max-width: 1100px) {
+  .left-dots { top: 68px; right: auto; left: 19px; }
+}
+
 @media (max-width: 760px) {
   .login-page { padding: 0; align-items: stretch; }
   .login-stage { max-width: 100%; }

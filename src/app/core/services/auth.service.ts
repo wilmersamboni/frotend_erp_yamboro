@@ -13,8 +13,17 @@ export class AuthService {
   readonly user            = this._user.asReadonly();
   readonly isAuthenticated = computed(() => this._user() !== null);
 
-  /** Cargo del usuario autenticado: 'administrador' | 'instructor' | 'aprendiz' | '' */
-  readonly cargo       = computed(() => this._user()?.cargo ?? '');
+  /**
+   * Rol efectivo del usuario autenticado: 'administrador' | 'instructor' |
+   * 'aprendiz' | ... | ''. Sale de `rolNombre` (el Rol asignado a la
+   * credencial), NO de persona.cargo, que puede no coincidir. Se cae al cargo
+   * solo para sesiones viejas en localStorage sin `rolNombre` (hasta que
+   * vuelvan a iniciar sesión). Se llama `cargo` por compatibilidad con los
+   * consumidores existentes.
+   */
+  readonly cargo       = computed(() => this._user()?.rolNombre ?? this._user()?.cargo ?? '');
+  /** Cargo de la persona (solo para mostrar). */
+  readonly personaCargo = computed(() => this._user()?.cargo ?? '');
   readonly isAdmin     = computed(() => this.cargo() === 'administrador' || this.cargo() === 'administrador_erp');
   readonly isAdminErp  = computed(() => this.cargo() === 'administrador_erp');
 

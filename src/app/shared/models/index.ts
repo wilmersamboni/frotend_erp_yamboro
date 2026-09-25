@@ -3,7 +3,10 @@ export interface Usuario {
   id?: string;
   personaId?: string;
   nombre?: string;
+  /** Cargo de la persona — solo informativo/visual. */
   cargo?: string;
+  /** Rol realmente asignado a la credencial — fuente de verdad para acceso. */
+  rolNombre?: string;
   correo?: string;
   login?: string;
   aplicativoId?: string;
