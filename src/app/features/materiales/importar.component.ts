@@ -11,6 +11,7 @@ import {
   FilaConfirmada,
   TipoMaterial,
 } from './data-access/materiales-api.service';
+import { SearchableSelectComponent, SSOption } from '../../shared/components/searchable-select.component';
 
 /** Fila del resumen: lo parseado + lo que el encargado elige antes de confirmar. */
 type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string };
@@ -30,16 +31,13 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
 @Component({
   selector: 'app-materiales-importar',
   standalone: true,
-  imports: [RouterLink, FormsModule],
+  imports: [RouterLink, FormsModule, SearchableSelectComponent],
   styles: [`
     :host { display:block; }
     .card { background:#fff; border:1px solid rgb(226 232 240 / .8); border-radius:1rem; }
     .field { border:1px solid #e2e8f0; border-radius:.5rem; font-size:.8125rem; padding:.375rem .5rem; background:#fff; transition:border-color .15s, box-shadow .15s; }
     .field:focus { outline:none; border-color:#39A900; box-shadow:0 0 0 3px rgb(57 169 0 / .12); }
-    .field--warn { border-color:#fbbf24; background:#fffdf5; }
-    select.field { padding-right:1.6rem; -webkit-appearance:none; appearance:none;
-      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-      background-repeat:no-repeat; background-position:right .35rem center; }
+    .ss-warn ::ng-deep .ss-trigger { border-color:#fbbf24; background:#fffdf5; }
     .btn-primary { display:inline-flex; align-items:center; justify-content:center; background:#39A900; color:#fff; border-radius:.625rem; font-weight:600; text-decoration:none; transition:background .15s, opacity .15s; }
     .btn-primary:hover:not(:disabled) { background:#2d8000; }
     .btn-primary:disabled { opacity:.5; cursor:not-allowed; }
@@ -188,32 +186,30 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
           <div class="flex flex-wrap items-end gap-x-4 gap-y-3">
             <div class="flex flex-col gap-1">
               <label class="text-[11px] font-medium text-gray-500">Tipo de material</label>
-              <select [(ngModel)]="bulkTipo" class="field w-40">
-                <option value="">— sin cambiar —</option>
-                <option value="CONSUMO">Consumo</option>
-                <option value="DEVOLUTIVO">Devolutivo</option>
-                <option value="PERECEDERO">Perecedero</option>
-              </select>
+              <div class="w-40">
+                <app-ss [options]="opcionesTipo" placeholder="-Sin cambiar-" [(ngModel)]="bulkTipo">
+                </app-ss>
+              </div>
             </div>
             <div class="flex flex-col gap-1">
               <label class="text-[11px] font-medium text-gray-500">Bodega</label>
-              <select [(ngModel)]="bulkSitio" class="field w-48">
-                <option value="">— sin cambiar —</option>
-                @for (s of prev.catalogos.sitios; track s.id_sitio) { <option [value]="s.id_sitio">{{ s.nombre }}</option> }
-              </select>
+              <div class="w-40">
+                <app-ss [options]="opcionesSitio" placeholder="-Sin cambiar-" [(ngModel)]="bulkSitio">
+                </app-ss>
+              </div>
             </div>
             <div class="flex flex-col gap-1">
               <label class="text-[11px] font-medium text-gray-500">Categoría</label>
-              <select [(ngModel)]="bulkCategoria" class="field w-48">
-                <option value="">— sin cambiar —</option>
-                @for (c of prev.catalogos.categorias; track c.id_categoria) { <option [value]="c.id_categoria">{{ c.nombre }}</option> }
-              </select>
+              <div class="w-48">
+                <app-ss [options]="opcionesCategoria" placeholder="-Sin cambiar-" [(ngModel)]="bulkCategoria">
+                </app-ss>
+              </div>
             </div>
             <button (click)="aplicarLote()" [disabled]="!haySeleccionLote"
               class="btn-primary px-4 py-1.5 text-xs">Aplicar a todas</button>
           </div>
           <p class="text-[11px] text-gray-400 mt-2">
-            Copia a todas las filas solo los campos que hayas cambiado; los que queden en «— sin cambiar —» no se tocan.
+            Copia a todas las filas solo los campos que hayas cambiado; los que queden en «-Sin cambiar-» no se tocan.
           </p>
         </div>
 
@@ -251,24 +247,20 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
                       <input type="number" min="0" [(ngModel)]="f.cantidad" class="field w-16 text-right tabular-nums" />
                     </td>
                     <td class="px-2.5 py-2">
-                      <select [(ngModel)]="f.tipo_material" class="field w-full" [class.field--warn]="!f.tipo_material">
-                        <option [ngValue]="null">— elegí —</option>
-                        <option [ngValue]="'CONSUMO'">Consumo</option>
-                        <option [ngValue]="'DEVOLUTIVO'">Devolutivo</option>
-                        <option [ngValue]="'PERECEDERO'">Perecedero</option>
-                      </select>
+                      <div [class.ss-warn]="!f.tipo_material">
+                        <app-ss [options]="opcionesTipo" placeholder="-Elegí-" [(ngModel)]="f.tipo_material">
+                        </app-ss>
+                      </div>
                     </td>
                     <td class="px-2.5 py-2">
-                      <select [(ngModel)]="f.id_sitio" class="field w-full">
-                        <option value="">— sin bodega —</option>
-                        @for (s of prev.catalogos.sitios; track s.id_sitio) { <option [value]="s.id_sitio">{{ s.nombre }}</option> }
-                      </select>
+                      <app-ss [options]="opcionesSitio" placeholder="-Sin bodega-" [(ngModel)]="f.id_sitio">
+                      </app-ss>
                     </td>
                     <td class="px-2.5 py-2">
-                      <select [(ngModel)]="f.id_categoria" class="field w-full" [class.field--warn]="!f.id_categoria">
-                        <option value="">— elegí —</option>
-                        @for (c of prev.catalogos.categorias; track c.id_categoria) { <option [value]="c.id_categoria">{{ c.nombre }}</option> }
-                      </select>
+                      <div [class.ss-warn]="!f.id_categoria">
+                        <app-ss [options]="opcionesCategoria" placeholder="-Elegí-" [(ngModel)]="f.id_categoria">
+                        </app-ss>
+                      </div>
                     </td>
                     <td class="px-2.5 py-2">
                       <input type="text" [(ngModel)]="f.sku" class="field w-28 font-mono text-xs bg-gray-50/60" />
@@ -410,6 +402,15 @@ export class MaterialesImportarComponent implements OnInit {
   bulkSitio = '';
   bulkCategoria = '';
 
+  readonly opcionesTipo: SSOption[] = [
+    { value: 'CONSUMO', label: 'Consumo'},
+    { value: 'DEVOLUTIVO', label: 'Devolutivo'},
+    { value: 'PERECEDERO', label: 'Perecedero'}
+  ];
+
+  opcionesSitio: SSOption[] = [];
+  opcionesCategoria: SSOption[] = [];
+
   readonly pasos = [
     { n: 1, t: 'Subís el archivo', d: 'Excel de la entrega o la plantilla' },
     { n: 2, t: 'Revisás y ajustás', d: 'Tipo, bodega y categoría por fila' },
@@ -482,6 +483,10 @@ export class MaterialesImportarComponent implements OnInit {
     try {
       const prev = await this.api.previsualizarImportacion(this.archivo);
       this.prev = prev;
+      const sitios = prev.catalogos.sitios.map((s) => ({ value: s.id_sitio, label: s.nombre }));
+      const categorias = prev.catalogos.categorias.map((c) => ({ value: c.id_categoria, label: c.nombre }));
+      this.opcionesSitio = sitios; // sin opción vacía: «-Sin bodega-»/«-Sin cambiar-» son solo placeholder
+      this.opcionesCategoria = categorias;
       this.filas = prev.filas.map((f) => ({
         ...f,
         id_categoria: '',
