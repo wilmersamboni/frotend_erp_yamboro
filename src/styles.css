@@ -273,9 +273,15 @@ body, * {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }
 }
-.fixed.inset-0.justify-center { animation: overlay-in 0.16s ease-out backwards; }
-.fixed.inset-0.justify-center > * { animation: modal-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+/* `.anim-gsap`: el componente anima su propio modal con GSAP — sin esta
+ * exclusión corrían las dos animaciones y el modal "entraba dos veces". */
+.fixed.inset-0.justify-center:not(.anim-gsap) { animation: overlay-in 0.16s ease-out backwards; }
+.fixed.inset-0.justify-center:not(.anim-gsap) > * { animation: modal-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
 .empty-state-enter { animation: fade-up-in 0.25s ease-out backwards; }
+
+/* Lista con scroll pero sin barra visible (sigue desplazándose con rueda/touch). */
+.scroll-oculto { scrollbar-width: none; }
+.scroll-oculto::-webkit-scrollbar { display: none; }
 
 /* Transición entre pantallas (Angular withViewTransitions): fundido corto. */
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.18s; }

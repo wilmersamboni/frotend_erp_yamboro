@@ -1,7 +1,8 @@
-import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, inject, ElementRef, Injector, afterNextRender } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import gsap from 'gsap';
 
 import {
   EncuestasApiService,
@@ -108,11 +109,11 @@ type Filtro = 'TODAS' | EstadoEncuesta;
             </div>
             <div class="w-full sm:w-48">
               <app-ss [options]="fichaSelectOptions()" placeholder="Todas las fichas"
-                [ngModel]="filtroFichaId()" (ngModelChange)="filtroFichaId.set($event); resetPage()"></app-ss>
+                [ngModel]="filtroFichaId()" (ngModelChange)="filtroFichaId.set($event); resetPage(); animarLista()"></app-ss>
             </div>
             <div class="w-full sm:w-48">
               <app-ss [options]="instructorSelectOptions()" placeholder="Todos los instructores"
-                [ngModel]="filtroInstructorId()" (ngModelChange)="filtroInstructorId.set($event); resetPage()"></app-ss>
+                [ngModel]="filtroInstructorId()" (ngModelChange)="filtroInstructorId.set($event); resetPage(); animarLista()"></app-ss>
             </div>
           </div>
 
@@ -138,12 +139,12 @@ type Filtro = 'TODAS' | EstadoEncuesta;
           @if (!loading() && filtradas().length > 0) {
           <div class="border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
             @for (e of paged(); track e.id) {
-              <div class="p-4 bg-gray-50/60">
+              <div class="p-4 bg-gray-50/60" [attr.data-enc-id]="e.id">
                 <div class="flex items-center justify-between gap-3 flex-wrap">
                   <div>
                     <p class="text-sm font-semibold text-gray-900">Ficha {{ e.numeroFicha }} — {{ e.instructorNombre }}</p>
                     <p class="text-xs text-gray-400 mt-0.5">
-                      {{ e.respuestasActuales }} / {{ e.maxRespuestas }} respuestas ·
+                      <span class="tabular-nums">{{ vivos()[e.id] ?? e.respuestasActuales }}</span> / {{ e.maxRespuestas }} respuestas ·
                       {{ e.estado === 'ACTIVA' ? 'Iniciada' : 'Cerrada' }} el {{ (e.estado === 'ACTIVA' ? e.fechaInicio : e.fechaFin) | date:'d MMM, h:mm a' }}
                       @if (e.estado === 'ACTIVA' && e.fechaLimite) {
                         · vence el {{ e.fechaLimite | date:'d MMM, h:mm a' }}
@@ -151,7 +152,7 @@ type Filtro = 'TODAS' | EstadoEncuesta;
                     </p>
                   </div>
                   <div class="flex items-center gap-2 flex-shrink-0">
-                    <span [class]="'px-2.5 py-1 rounded-lg text-xs font-semibold ' +
+                    <span data-anim="badge-estado" [class]="'inline-block px-2.5 py-1 rounded-lg text-xs font-semibold ' +
                       (e.estado === 'ACTIVA' ? 'bg-[#39A900]/10 text-[#2d8400]' : 'bg-gray-100 text-gray-500')">
                       {{ e.estado === 'ACTIVA' ? 'Activa' : 'Cerrada' }}
                     </span>
@@ -176,15 +177,15 @@ type Filtro = 'TODAS' | EstadoEncuesta;
 
                 <!-- Barra de progreso: color según % de respuestas recibidas -->
                 <div class="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div class="h-full transition-all"
+                  <div data-anim="enc-barra" class="h-full"
                        [class]="colorProgreso(e)"
                        [style.width.%]="porcentajeProgreso(e)"></div>
                 </div>
 
                 <!-- Panel link/QR — un único link por grupo, cubre a todos los instructores creados juntos -->
                 @if (linkVisibleId() === e.id) {
-                  <div class="mt-3 p-3 bg-gray-50 rounded-xl flex items-center gap-4 flex-wrap">
-                    <img [src]="qrUrl(linkDeGrupo(e.grupoId))" alt="QR" class="w-24 h-24 rounded-lg border border-gray-200 bg-white" />
+                  <div data-anim="panel-link" class="mt-3 p-3 bg-gray-50 rounded-xl flex items-center gap-4 flex-wrap overflow-hidden">
+                    <img data-anim="qr" [src]="qrUrl(linkDeGrupo(e.grupoId))" alt="QR" class="w-24 h-24 rounded-lg border border-gray-200 bg-white" />
                     <div class="flex-1 min-w-[200px]">
                       <p class="text-xs text-gray-500 mb-1">Comparte este link con los aprendices de la ficha — los llevará a responder, uno por uno, a cada instructor del grupo:</p>
                       <div class="flex items-center gap-2">
@@ -201,21 +202,35 @@ type Filtro = 'TODAS' | EstadoEncuesta;
 
                 <!-- Panel resultados -->
                 @if (metricasVisibles() && metricasVisibles()!.encuesta.id === e.id) {
-                  <div class="mt-3 p-3 bg-gray-50 rounded-xl space-y-2">
+                  <div data-anim="resultados" class="mt-3 p-4 bg-white border border-gray-100 rounded-xl space-y-3">
                     @for (p of metricasVisibles()!.porPregunta; track p.pregunta) {
-                      <div class="flex items-center justify-between gap-3 text-xs">
-                        <span class="text-gray-600">{{ p.pregunta }}</span>
-                        <span class="font-semibold text-gray-800">{{ p.porcentajeSi }}% Sí ({{ p.totalSi }}/{{ p.totalRespuestas }})</span>
+                      <div>
+                        <div class="flex items-start justify-between gap-3 text-xs mb-1">
+                          <span class="text-gray-600">{{ p.pregunta }}</span>
+                          <span class="flex-none font-semibold text-gray-800 tabular-nums">
+                            {{ p.porcentajeSi }}% Sí <span class="font-normal text-gray-400">({{ p.totalSi }}/{{ p.totalRespuestas }})</span>
+                          </span>
+                        </div>
+                        <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div data-anim="res-barra" class="h-full rounded-full" [class]="colorSemaforo(p.porcentajeSi)"
+                            [style.width.%]="p.porcentajeSi"></div>
+                        </div>
                       </div>
                     }
-                    <div class="flex items-center justify-between pt-2 border-t border-gray-200">
-                      <span class="text-sm font-bold"
-                        [class.text-green-600]="metricasVisibles()!.semaforo === 'verde'"
-                        [class.text-yellow-600]="metricasVisibles()!.semaforo === 'amarillo'"
-                        [class.text-red-600]="metricasVisibles()!.semaforo === 'rojo'">
-                        Desempeño global: {{ metricasVisibles()!.promedioGlobal }}%
-                      </span>
-                      <div class="flex gap-2">
+                    <div class="pt-3 border-t border-gray-100">
+                      <div class="flex items-center justify-between gap-3 mb-1.5">
+                        <span class="text-sm font-bold"
+                          [class.text-green-600]="metricasVisibles()!.semaforo === 'verde'"
+                          [class.text-yellow-600]="metricasVisibles()!.semaforo === 'amarillo'"
+                          [class.text-red-600]="metricasVisibles()!.semaforo === 'rojo'">
+                          Desempeño global: <span class="tabular-nums">{{ globalAnimado() ?? metricasVisibles()!.promedioGlobal }}</span>%
+                        </span>
+                      </div>
+                      <div class="h-3 bg-gray-100 rounded-full overflow-hidden mb-3">
+                        <div data-anim="res-barra" class="h-full rounded-full" [class]="colorSemaforo(metricasVisibles()!.promedioGlobal)"
+                          [style.width.%]="metricasVisibles()!.promedioGlobal"></div>
+                      </div>
+                      <div class="flex justify-end gap-2">
                         <button (click)="descargarExcel(e.id)"
                           class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200">
                           Excel
@@ -231,7 +246,7 @@ type Filtro = 'TODAS' | EstadoEncuesta;
               </div>
             }
           </div>
-          <app-table-pagination [page]="page()" [pages]="pages()" (pageChange)="page.set($event)" />
+          <app-table-pagination [page]="page()" [pages]="pages()" (pageChange)="page.set($event); animarLista()" />
           }
         </div>
 
@@ -240,12 +255,15 @@ type Filtro = 'TODAS' | EstadoEncuesta;
 
     <!-- ═══════════ Modal: nueva encuesta (2 pasos, como el registro rápido de personas) ═══════════ -->
     @if (wizardAbierto()) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarWizard()">
-        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]" (click)="$event.stopPropagation()">
+      <div data-anim="wiz-overlay" class="anim-gsap fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarWizard()">
+        <div data-anim="wiz-panel" class="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]" (click)="$event.stopPropagation()">
 
           @if (encuestasCreadas().length > 0) {
             <!-- ── Éxito ── -->
-            <div class="p-6">
+            <div data-anim="wiz-exito" class="p-6">
+              <div data-anim="wiz-exito-icono" class="w-14 h-14 rounded-full bg-[#39A900]/10 text-[#2d8500] grid place-items-center mb-4">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path data-anim="wiz-check" d="M20 6 9 17l-5-5"/></svg>
+              </div>
               <h2 class="text-lg font-bold text-gray-900 mb-1">
                 ¡Encuesta{{ encuestasCreadas().length !== 1 ? 's' : '' }} creada{{ encuestasCreadas().length !== 1 ? 's' : '' }}!
               </h2>
@@ -305,7 +323,7 @@ type Filtro = 'TODAS' | EstadoEncuesta;
             <div class="flex-1 overflow-y-auto p-6">
               @if (wizardPaso() === 1) {
                 <!-- ── PASO 1: Ficha e instructores ── -->
-                <div class="space-y-4">
+                <div data-anim="wiz-paso" class="space-y-4">
                   <div>
                     <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Ficha</label>
                     <div class="mt-1">
@@ -370,7 +388,7 @@ type Filtro = 'TODAS' | EstadoEncuesta;
                 </div>
               } @else {
                 <!-- ── PASO 2: Preguntas ── -->
-                <div class="space-y-4">
+                <div data-anim="wiz-paso" class="space-y-4">
                   <!-- Resumen de lo elegido en el paso 1 -->
                   <div class="p-3 rounded-xl bg-gray-50 border border-gray-100">
                     <p class="text-xs font-semibold text-gray-500 mb-1.5">Ficha e instructores seleccionados</p>
@@ -383,14 +401,25 @@ type Filtro = 'TODAS' | EstadoEncuesta;
                   </div>
 
                   <div>
-                    <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Preguntas base (para todos)</label>
+                    <div class="flex items-center justify-between gap-2">
+                      <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        Preguntas base (para todos)
+                        <span class="normal-case font-normal text-gray-400">— {{ preguntaIds.size }} de {{ preguntasDisponibles().length }}</span>
+                      </label>
+                      @if (preguntasDisponibles().length > 0) {
+                        <button type="button" (click)="toggleTodasPreguntas()"
+                          class="text-xs font-semibold text-[#2d8500] hover:text-[#39A900] px-2 py-1 rounded-lg hover:bg-[#39A900]/5 transition-colors">
+                          {{ todasPreguntasSeleccionadas() ? 'Quitar todas' : 'Seleccionar todas' }}
+                        </button>
+                      }
+                    </div>
                     @if (preguntasDisponibles().length === 0) {
                       <p class="text-xs text-gray-400 mt-2">
                         No hay preguntas activas todavía.
                         <a routerLink="/encuestas/preguntas" class="text-[#39A900] font-semibold">Crea algunas aquí</a>.
                       </p>
                     } @else {
-                      <div class="mt-1 max-h-40 overflow-y-auto space-y-1.5 border border-gray-200 rounded-xl p-2">
+                      <div class="mt-1 max-h-48 overflow-y-auto scroll-oculto space-y-1.5 border border-gray-200 rounded-xl p-2">
                         @for (p of preguntasDisponibles(); track p.id) {
                           <label class="flex items-center gap-2 text-sm text-gray-700 px-1 py-1">
                             <input type="checkbox" [checked]="preguntaIds.has(p.id)" (change)="togglePregunta(p.id)" />
@@ -455,7 +484,7 @@ type Filtro = 'TODAS' | EstadoEncuesta;
                   </svg>
                 </button>
               } @else {
-                <button (click)="wizardPaso.set(1)" class="flex items-center gap-1 px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                <button (click)="irPasoAnterior()" class="flex items-center gap-1 px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path d="M15 19l-7-7 7-7"/>
                   </svg>
@@ -482,6 +511,16 @@ export class EncuestasComponent implements OnInit, OnDestroy {
   private toast    = inject(ToastService);
   private confirm  = inject(ConfirmService);
   private realtime = inject(EncuestasRealtimeService);
+  private host     = inject(ElementRef).nativeElement as HTMLElement;
+  private injector = inject(Injector);
+
+  // ── Animaciones (GSAP) — desactivadas con prefers-reduced-motion ────────
+  readonly reducirMovimiento =
+    typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  /** Contador "N / M respuestas" mientras sube animado tras una respuesta en vivo (id → valor mostrado). */
+  vivos = signal<Partial<Record<string, number>>>({});
+  /** "Desempeño global" mientras sube animado; `null` = el valor real. */
+  globalAnimado = signal<number | null>(null);
 
   filtros: { value: Filtro; label: string }[] = [
     { value: 'TODAS', label: 'Todas' },
@@ -564,6 +603,11 @@ export class EncuestasComponent implements OnInit, OnDestroy {
   // en ngOnDestroy sin cerrar el socket compartido (ver comentario en
   // EncuestasRealtimeService.off) — otras páginas siguen usándolo.
   private onEncuestaActualizada = (ev: { id: string; respuestasActuales: number; maxRespuestas: number; estado: string; fechaFin: string | null }) => {
+    const antes = this.encuestas().find((e) => e.id === ev.id);
+    const llegoRespuesta = !!antes && ev.respuestasActuales > antes.respuestasActuales && !this.reducirMovimiento;
+    // Se fija el valor VIEJO antes de actualizar la lista, así el render no
+    // muestra un frame con el número nuevo antes de que empiece a subir.
+    if (llegoRespuesta) this.vivos.update((m) => ({ ...m, [ev.id]: antes!.respuestasActuales }));
     this.encuestas.update((lista) => {
       const filtroActual = this.filtro();
       const yaNoCalza = filtroActual !== 'TODAS' && filtroActual !== ev.estado;
@@ -572,6 +616,9 @@ export class EncuestasComponent implements OnInit, OnDestroy {
         ? { ...e, respuestasActuales: ev.respuestasActuales, maxRespuestas: ev.maxRespuestas, estado: ev.estado as EstadoEncuesta, fechaFin: ev.fechaFin }
         : e);
     });
+    if (llegoRespuesta) {
+      afterNextRender(() => this.animarNuevaRespuesta(antes!, ev.respuestasActuales, ev.maxRespuestas), { injector: this.injector });
+    }
   };
 
   ngOnInit(): void {
@@ -587,6 +634,60 @@ export class EncuestasComponent implements OnInit, OnDestroy {
     return e.maxRespuestas > 0 ? (e.respuestasActuales / e.maxRespuestas) * 100 : 0;
   }
 
+  /** Mismos cortes que `semaforoDe()` del backend (reportes.service): ≥80 verde, ≥60 amarillo. */
+  colorSemaforo(pct: number): string {
+    if (pct >= 80) return 'bg-[#39A900]';
+    if (pct >= 60) return 'bg-amber-500';
+    return 'bg-red-400';
+  }
+
+  // ── 1 + 2 · Lista en cascada, barras de respuestas y respuesta en vivo ─
+  /**
+   * Las tarjetas de la página visible entran en cascada y sus barras se
+   * llenan desde 0 — al cargar, al cambiar de página y al filtrar por ficha
+   * o instructor. NO al tipear en el buscador: una cascada por tecla distrae.
+   */
+  animarLista(): void {
+    if (this.reducirMovimiento) return;
+    afterNextRender(() => {
+      const tarjetas = this.host.querySelectorAll('[data-enc-id]');
+      gsap.from(tarjetas, { y: 12, opacity: 0, duration: 0.35, stagger: 0.05, ease: 'power2.out', clearProps: 'transform,opacity' });
+      const barras = this.host.querySelectorAll('[data-anim="enc-barra"]');
+      // Sin clearProps: el ancho final es el que Angular puso en [style.width.%].
+      gsap.from(barras, { width: 0, duration: 0.8, stagger: 0.05, delay: 0.15, ease: 'power2.out' });
+    }, { injector: this.injector });
+  }
+
+  /** Contador que sube, barra que avanza y pulso verde en la tarjeta que recibió la respuesta. */
+  private animarNuevaRespuesta(antes: Encuesta, nuevas: number, max: number): void {
+    const id = antes.id;
+    const soltar = () => this.vivos.update((m) => {
+      const resto = { ...m };
+      delete resto[id];
+      return resto;
+    });
+    const card = this.host.querySelector<HTMLElement>(`[data-enc-id="${id}"]`);
+    if (!card) { soltar(); return; } // está en otra página o filtrada
+
+    const proxy = { v: antes.respuestasActuales };
+    gsap.to(proxy, {
+      v: nuevas,
+      duration: 0.7,
+      ease: 'power2.out',
+      onUpdate: () => this.vivos.update((m) => ({ ...m, [id]: Math.round(proxy.v) })),
+      onComplete: soltar,
+    });
+
+    const barra = card.querySelector<HTMLElement>('[data-anim="enc-barra"]');
+    const pctAntes = antes.maxRespuestas > 0 ? (antes.respuestasActuales / antes.maxRespuestas) * 100 : 0;
+    const pctNuevo = max > 0 ? (nuevas / max) * 100 : 0;
+    if (barra) gsap.fromTo(barra, { width: `${pctAntes}%` }, { width: `${pctNuevo}%`, duration: 0.8, ease: 'power2.out' });
+
+    gsap.fromTo(card,
+      { backgroundColor: 'rgba(57,169,0,0.14)', boxShadow: 'inset 3px 0 0 #39A900' },
+      { backgroundColor: 'rgba(57,169,0,0)', boxShadow: 'inset 3px 0 0 rgba(57,169,0,0)', duration: 1.6, ease: 'power2.out', clearProps: 'backgroundColor,boxShadow' });
+  }
+
   colorProgreso(e: Encuesta): string {
     const pct = this.porcentajeProgreso(e);
     if (pct >= 80) return 'bg-[#39A900]';
@@ -594,7 +695,7 @@ export class EncuestasComponent implements OnInit, OnDestroy {
     return 'bg-red-400';
   }
 
-  async cargar(): Promise<void> {
+  async cargar(animar = true): Promise<void> {
     this.loading.set(true);
     this.linkVisibleId.set(null);
     this.metricasVisibles.set(null);
@@ -602,6 +703,7 @@ export class EncuestasComponent implements OnInit, OnDestroy {
       const actual = this.filtro();
       const estado = actual === 'TODAS' ? undefined : (actual as EstadoEncuesta);
       this.encuestas.set(await this.api.getEncuestas(estado));
+      if (animar) this.animarLista();
     } catch (e: any) {
       this.toast.httpError(e, 'No se pudieron cargar las encuestas.');
     } finally {
@@ -611,6 +713,14 @@ export class EncuestasComponent implements OnInit, OnDestroy {
 
   async abrirWizard(): Promise<void> {
     this.wizardAbierto.set(true);
+    if (!this.reducirMovimiento) {
+      afterNextRender(() => {
+        const overlay = this.host.querySelector('[data-anim="wiz-overlay"]');
+        const panel = this.host.querySelector('[data-anim="wiz-panel"]');
+        if (overlay) gsap.from(overlay, { opacity: 0, duration: 0.2, clearProps: 'opacity' });
+        if (panel) gsap.from(panel, { opacity: 0, scale: 0.94, y: 14, duration: 0.35, ease: 'back.out(1.6)', clearProps: 'opacity,transform' });
+      }, { injector: this.injector });
+    }
     this.wizardPaso.set(1);
     this.encuestasCreadas.set([]);
     this.fichaId = '';
@@ -635,9 +745,76 @@ export class EncuestasComponent implements OnInit, OnDestroy {
     }
   }
 
+  private cerrandoWizard = false;
+
   cerrarWizard(): void {
-    this.wizardAbierto.set(false);
-    if (this.encuestasCreadas().length > 0) this.cargar();
+    const cerrar = () => {
+      this.cerrandoWizard = false;
+      this.wizardAbierto.set(false);
+      if (this.encuestasCreadas().length > 0) this.cargar();
+    };
+    const overlay = this.host.querySelector('[data-anim="wiz-overlay"]');
+    const panel = this.host.querySelector('[data-anim="wiz-panel"]');
+    if (this.reducirMovimiento || !overlay || !panel) { cerrar(); return; }
+    if (this.cerrandoWizard) return;
+    this.cerrandoWizard = true;
+    gsap.to(panel, { opacity: 0, scale: 0.96, y: 8, duration: 0.16, ease: 'power2.in' });
+    gsap.to(overlay, { opacity: 0, duration: 0.18, onComplete: cerrar });
+  }
+
+  /** Cambio de paso deslizado: sale hacia un lado y el nuevo entra desde el otro. */
+  private cambiarPaso(nuevo: 1 | 2): void {
+    const adelante = nuevo > this.wizardPaso();
+    const actual = this.host.querySelector('[data-anim="wiz-paso"]');
+    if (this.reducirMovimiento || !actual) { this.wizardPaso.set(nuevo); return; }
+    gsap.to(actual, {
+      x: adelante ? -28 : 28,
+      opacity: 0,
+      duration: 0.15,
+      ease: 'power2.in',
+      onComplete: () => {
+        this.wizardPaso.set(nuevo);
+        afterNextRender(() => {
+          const entra = this.host.querySelector('[data-anim="wiz-paso"]');
+          if (entra) gsap.fromTo(entra, { x: adelante ? 28 : -28, opacity: 0 }, { x: 0, opacity: 1, duration: 0.25, ease: 'power2.out', clearProps: 'transform,opacity' });
+        }, { injector: this.injector });
+      },
+    });
+  }
+
+  irPasoAnterior(): void {
+    this.cambiarPaso(1);
+  }
+
+  /** Pantalla de éxito: el círculo entra con rebote, el ✓ se dibuja y el resto aparece en cascada. */
+  private animarExito(): void {
+    const icono = this.host.querySelector('[data-anim="wiz-exito-icono"]');
+    const check = this.host.querySelector<SVGPathElement>('[data-anim="wiz-check"]');
+    const resto = Array.from(this.host.querySelectorAll('[data-anim="wiz-exito"] > :not([data-anim="wiz-exito-icono"])'));
+    if (icono) gsap.from(icono, { scale: 0.4, opacity: 0, duration: 0.5, ease: 'back.out(2.4)', clearProps: 'transform,opacity' });
+    if (check) {
+      const largo = check.getTotalLength();
+      gsap.fromTo(check, { strokeDasharray: largo, strokeDashoffset: largo }, { strokeDashoffset: 0, duration: 0.5, delay: 0.2, ease: 'power2.out' });
+    }
+    gsap.from(resto, { y: 10, opacity: 0, duration: 0.3, stagger: 0.06, delay: 0.15, ease: 'power2.out', clearProps: 'transform,opacity' });
+  }
+
+  todasPreguntasSeleccionadas(): boolean {
+    const disponibles = this.preguntasDisponibles();
+    return disponibles.length > 0 && disponibles.every((p) => this.preguntaIds.has(p.id));
+  }
+
+  toggleTodasPreguntas(): void {
+    if (this.todasPreguntasSeleccionadas()) {
+      this.preguntaIds = new Set();
+      return;
+    }
+    this.preguntaIds = new Set(this.preguntasDisponibles().map((p) => p.id));
+    // Una pregunta no puede ser base Y extra a la vez (preguntasExtraDisponibles
+    // ya las excluye de la lista): se limpian de los extras para no duplicarlas.
+    for (const set of this.preguntaIdsExtraPorInstructor.values()) {
+      for (const id of this.preguntaIds) set.delete(id);
+    }
   }
 
   togglePregunta(id: string): void {
@@ -697,7 +874,7 @@ export class EncuestasComponent implements OnInit, OnDestroy {
 
   irPasoPreguntas(): void {
     if (!this.fichaId || this.instructorIds.size === 0) return;
-    this.wizardPaso.set(2);
+    this.cambiarPaso(2);
   }
 
   nombreInstructor(id: string): string {
@@ -733,6 +910,7 @@ export class EncuestasComponent implements OnInit, OnDestroy {
         fechaLimite: this.combinarFechaLimite(),
       });
       this.encuestasCreadas.set(creadas);
+      if (!this.reducirMovimiento) afterNextRender(() => this.animarExito(), { injector: this.injector });
       this.toast.ok('Creadas', `${creadas.length} encuesta${creadas.length !== 1 ? 's' : ''} creada${creadas.length !== 1 ? 's' : ''} correctamente.`);
     } catch (e: any) {
       this.toast.httpError(e, 'No se pudieron crear las encuestas.');
@@ -743,7 +921,16 @@ export class EncuestasComponent implements OnInit, OnDestroy {
 
   mostrarLink(e: Encuesta): void {
     this.metricasVisibles.set(null);
-    this.linkVisibleId.set(this.linkVisibleId() === e.id ? null : e.id);
+    const abrir = this.linkVisibleId() !== e.id;
+    this.linkVisibleId.set(abrir ? e.id : null);
+    if (!abrir || this.reducirMovimiento) return;
+    // ── 3 · Panel link/QR: se despliega y el QR entra con rebote ──
+    afterNextRender(() => {
+      const panel = this.host.querySelector('[data-anim="panel-link"]');
+      const qr = this.host.querySelector('[data-anim="qr"]');
+      if (panel) gsap.from(panel, { height: 0, opacity: 0, paddingTop: 0, paddingBottom: 0, duration: 0.3, ease: 'power2.out', clearProps: 'height,opacity,paddingTop,paddingBottom' });
+      if (qr) gsap.from(qr, { scale: 0.6, opacity: 0, duration: 0.45, delay: 0.12, ease: 'back.out(2)', clearProps: 'transform,opacity' });
+    }, { injector: this.injector });
   }
 
   async descargarExcel(id: string): Promise<void> {
@@ -769,10 +956,34 @@ export class EncuestasComponent implements OnInit, OnDestroy {
       return;
     }
     try {
-      this.metricasVisibles.set(await this.api.getMetricas(e.id));
+      const metricas = await this.api.getMetricas(e.id);
+      this.metricasVisibles.set(metricas);
+      if (!this.reducirMovimiento) {
+        this.globalAnimado.set(0);
+        afterNextRender(() => this.animarResultados(metricas.promedioGlobal), { injector: this.injector });
+      }
     } catch (err: any) {
       this.toast.httpError(err, 'No se pudieron cargar los resultados.');
     }
+  }
+
+  // ── 4 · Resultados ──────────────────────────────────────────────────────
+  /** El panel se despliega, cada barra se llena hasta su % y el desempeño global sube desde 0. */
+  private animarResultados(global: number): void {
+    const panel = this.host.querySelector<HTMLElement>('[data-anim="resultados"]');
+    if (!panel) { this.globalAnimado.set(null); return; }
+    gsap.from(panel, { height: 0, opacity: 0, duration: 0.35, ease: 'power2.out', clearProps: 'height,opacity' });
+    const barras = panel.querySelectorAll('[data-anim="res-barra"]');
+    gsap.from(barras, { width: 0, duration: 0.9, stagger: 0.07, delay: 0.15, ease: 'power2.out' });
+    const proxy = { v: 0 };
+    gsap.to(proxy, {
+      v: global,
+      duration: 1,
+      delay: 0.25,
+      ease: 'power2.out',
+      onUpdate: () => this.globalAnimado.set(Math.round(proxy.v)),
+      onComplete: () => this.globalAnimado.set(null),
+    });
   }
 
   confirmarCerrar(e: Encuesta): void {
@@ -786,12 +997,38 @@ export class EncuestasComponent implements OnInit, OnDestroy {
         try {
           await this.api.cerrarEncuesta(e.id);
           this.toast.ok('Cerrada', 'La encuesta fue cerrada correctamente.');
-          await this.cargar();
+          await this.animarCierre(e.id);
         } catch (err: any) {
           this.toast.httpError(err, 'No se pudo cerrar la encuesta.');
         }
       },
     });
+  }
+
+  // ── 5 · Cerrar encuesta ─────────────────────────────────────────────────
+  /**
+   * La tarjeta se atenúa; si el filtro actual es "Activas" se colapsa y sale
+   * de la lista, si no, recarga sin cascada y el badge "Cerrada" entra con
+   * un pequeño rebote.
+   */
+  private async animarCierre(id: string): Promise<void> {
+    const card = this.host.querySelector<HTMLElement>(`[data-enc-id="${id}"]`);
+    if (this.reducirMovimiento || !card) { await this.cargar(); return; }
+
+    await gsap.to(card, { opacity: 0.45, duration: 0.25, ease: 'power1.out' });
+    if (this.filtro() === 'ACTIVA') {
+      await gsap.to(card, { height: 0, paddingTop: 0, paddingBottom: 0, opacity: 0, duration: 0.3, ease: 'power2.in' });
+      await this.cargar(false);
+      return;
+    }
+    await this.cargar(false);
+    afterNextRender(() => {
+      const nueva = this.host.querySelector<HTMLElement>(`[data-enc-id="${id}"]`);
+      if (!nueva) return;
+      gsap.fromTo(nueva, { opacity: 0.45 }, { opacity: 1, duration: 0.3, clearProps: 'opacity' });
+      const badge = nueva.querySelector('[data-anim="badge-estado"]');
+      if (badge) gsap.fromTo(badge, { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, ease: 'back.out(2.4)', clearProps: 'transform,opacity' });
+    }, { injector: this.injector });
   }
 
   /** Un solo link por grupo — resuelve el siguiente instructor pendiente al abrirse (ver ResponderGrupoComponent). */
