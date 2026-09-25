@@ -13,6 +13,11 @@ export interface AccionPendiente<T = unknown> {
   intentos: number;
   ultimoError: string | null;
   estado: EstadoAccionPendiente;
+  /** Quién y en qué tenant se encoló. Una acción solo se envía (y se cuenta)
+   *  con esa misma sesión: si otra persona entra en el mismo celular, no se
+   *  manda a su nombre. Acciones viejas sin estos campos se tratan como propias. */
+  usuarioId?: string | null;
+  tenant?: string | null;
 }
 
 export interface EntradaConflictLog extends AccionPendiente {

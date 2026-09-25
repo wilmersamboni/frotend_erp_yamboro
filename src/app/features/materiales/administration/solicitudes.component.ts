@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, inject, Signal, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, Signal, signal, effect, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { MaterialesLiveService } from '../data-access/materiales-live.service';
@@ -17,7 +17,13 @@ import { MaterialesApiService, Item, Lote, Producto, Sitio, Solicitud, EstadoSol
 import { NetworkStatusService } from '../../../core/offline/network-status.service';
 import { SyncQueueService } from '../../../core/offline/sync-queue.service';
 import { OfflineSnapshotService } from '../../../core/offline/offline-snapshot.service';
-import { prepararSnapshotEntregaOffline } from '../ui/solicitud-entrega-offline.util';
+import {
+  guardarListaSolicitudes,
+  leerListaSolicitudes,
+  lineasDevolutivasDeSolicitud,
+  prepararSnapshotEntregaOffline,
+  prepararTodasEntregaOffline,
+} from '../ui/solicitud-entrega-offline.util';
 import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 import { AlertComponent } from '../../../shared/ui/alert.component';
 
@@ -74,6 +80,23 @@ interface LineaForm {
           <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
           — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
         </app-alert>
+      }
+
+      @if (datosGuardadosDe) {
+        <app-alert class="mb-4" variante="advertencia" titulo="Sin conexión">
+          Mostrando las solicitudes guardadas a las <strong>{{ datosGuardadosDe | date: 'shortTime' }}</strong>.
+          Las entregas que marques se enviarán cuando vuelva la señal.
+        </app-alert>
+      }
+
+      @if (red.alcanzable() && solicitudesPreparables().length > 0) {
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm">
+          <span class="text-gray-600">¿Vas a entregar en un lugar sin señal? Descarga las placas de tus {{ solicitudesPreparables().length }} solicitudes aprobadas.</span>
+          <button (click)="prepararTodasOffline()" [disabled]="preparandoTodas"
+            class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 disabled:opacity-50 transition-colors">
+            {{ preparandoTodas ? 'Preparando…' : 'Preparar todas offline' }}
+          </button>
+        </div>
       }
 
       @if (loading) {
@@ -253,7 +276,10 @@ interface LineaForm {
                               <button (click)="rechazar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-red-400 hover:text-red-600 transition-colors">Rechazar</button>
                             }
                           }
-                          @if (s.estado === 'APROBADA' && puedeEntregar && puedeGestionar(s)) {
+                          @if (s.estado === 'APROBADA' && entregaPendiente(s)) {
+                            <span class="px-3 py-1.5 rounded-full text-xs font-semibold border border-amber-200 bg-amber-50 text-amber-700" title="La entrega quedó guardada en este dispositivo y se enviará cuando haya señal">Entrega pendiente de enviar</span>
+                          }
+                          @if (s.estado === 'APROBADA' && !entregaPendiente(s) && puedeEntregar && puedeGestionar(s)) {
                             <button (click)="abrirEntregar(s)" [disabled]="bodegaInactiva(s)"
                               [title]="bodegaInactiva(s) ? 'Bodega inactiva — no se puede entregar. Cancelá la solicitud en su lugar.' : ''"
                               [style.opacity]="bodegaInactiva(s) ? 0.45 : 1" [style.cursor]="bodegaInactiva(s) ? 'not-allowed' : 'pointer'"
@@ -264,7 +290,7 @@ interface LineaForm {
                                 class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-500 bg-white hover:border-gray-400 transition-colors">Preparar offline</button>
                             }
                           }
-                          @if (s.estado === 'APROBADA' && puedeRechazar && puedeGestionar(s)) {
+                          @if (s.estado === 'APROBADA' && !entregaPendiente(s) && puedeRechazar && puedeGestionar(s)) {
                             <button (click)="cancelar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">Cancelar</button>
                           }
                           @if (s.estado === 'EN_ENTREGA' && puedeConfirmar && esSolicitantePropio(s)) {
@@ -654,7 +680,62 @@ seleccionarEstado(valor: EstadoSolicitud | ''): void {
     public red: NetworkStatusService,
     private syncQueue: SyncQueueService,
     private offlineSnapshot: OfflineSnapshotService,
-  ) {}
+  ) {
+    // Al volver la señal (o cuando una entrega guardada termina de enviarse) la
+    // lista se refresca sola: si no, seguiría mostrando datos guardados o la
+    // solicitud como "Aprobada" hasta que alguien recargue.
+    effect(() => {
+      const enCola = this.syncQueue.entregasPendientes().size;
+      const conectado = this.red.alcanzable();
+      untracked(() => {
+        if (conectado && (this.datosGuardadosDe || enCola < this.entregasEnColaAntes)) void this.cargar();
+        this.entregasEnColaAntes = enCola;
+      });
+    });
+  }
+
+  /** Hora (ms) de la copia guardada que se está mostrando; `null` si son datos en vivo. */
+  datosGuardadosDe: number | null = null;
+  preparandoTodas = false;
+  private entregasEnColaAntes = 0;
+
+  /** APROBADAS que este usuario puede entregar y tienen ítems puntuales que descargar. */
+  solicitudesPreparables(): Solicitud[] {
+    return this.solicitudes.filter(
+      (s) =>
+        s.estado === 'APROBADA' &&
+        this.puedeEntregar &&
+        this.puedeGestionar(s) &&
+        !this.bodegaInactiva(s) &&
+        !this.entregaPendiente(s) &&
+        lineasDevolutivasDeSolicitud(s).length > 0,
+    );
+  }
+
+  async prepararTodasOffline(): Promise<void> {
+    this.preparandoTodas = true;
+    try {
+      const lista = this.solicitudesPreparables();
+      const listas = await prepararTodasEntregaOffline(lista, this.api, this.offlineSnapshot);
+      if (listas === lista.length) this.toast.ok(`${listas} solicitud(es) preparadas para entregar sin conexión`);
+      else this.toast.warn('Preparación incompleta', `Se prepararon ${listas} de ${lista.length}. Reintenta con señal.`);
+    } finally {
+      this.preparandoTodas = false;
+    }
+  }
+
+  private async cargarListaGuardada(): Promise<boolean> {
+    const snap = await leerListaSolicitudes(this.offlineSnapshot);
+    if (!snap) return false;
+    this.solicitudes = snap.data;
+    this.datosGuardadosDe = snap.fetchedAt;
+    return true;
+  }
+
+  /** La entrega de esta solicitud está guardada en el dispositivo, aún sin enviar. */
+  entregaPendiente(s: Solicitud): boolean {
+    return this.syncQueue.entregasPendientes().has(s.id_solicitud);
+  }
 
   async prepararEntregaOffline(s: Solicitud): Promise<void> {
     const preparo = await prepararSnapshotEntregaOffline(s, this.api, this.offlineSnapshot);
@@ -875,6 +956,7 @@ seleccionarEstado(valor: EstadoSolicitud | ''): void {
   private async cargar(): Promise<void> {
     this.loading = true;
     try {
+      if (!this.red.alcanzable() && (await this.cargarListaGuardada())) return;
       // M9 — solo `listarSolicitudes()` es crítico; si una secundaria da 403
       // (excepción personal) no debe tumbar la tabla entera.
       const [solicitudes, productos, lotes, items, sitios] = await Promise.all([
@@ -885,12 +967,15 @@ seleccionarEstado(valor: EstadoSolicitud | ''): void {
         this.api.listarSitios().catch(() => [] as Sitio[]),
       ]);
       this.solicitudes = solicitudes;
+      this.datosGuardadosDe = null;
+      void guardarListaSolicitudes(solicitudes, this.offlineSnapshot);
       this.productos = productos;
       this.lotes = lotes;
       this.items = items;
       this.sitios = sitios;
       await this.cargarStocks();
     } catch (e) {
+      if ((e as { status?: number })?.status === 0 && (await this.cargarListaGuardada())) return;
       this.toast.httpError(e, 'No se pudieron cargar las solicitudes.');
     } finally {
       this.loading = false;

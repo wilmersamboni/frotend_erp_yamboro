@@ -546,7 +546,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
   nombreFicha(a: { id_curso: string; ficha_codigo?: string | null; ficha_programa?: string | null }): string {
     if (a.ficha_codigo) return `${a.ficha_codigo}${a.ficha_programa ? ' — ' + a.ficha_programa : ''}`;
     const f = this.fichas.find((x) => x.idCurso === a.id_curso);
-    return f ? `${f.codigo}${f.programa ? ' — ' + f.programa : ''}` : a.id_curso.slice(0, 8) + '…';
+    return f ? `${f.codigo}${f.programa ? ' — ' + f.programa : ''}` : 'Ficha no disponible';
   }
 
   descripcionLineas(a: Asignacion): string {
@@ -591,7 +591,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
       for (const h of horarios ?? []) {
         if (!h.ambienteId) continue;
         const ambiente = this.ambientes.find((amb) => amb.id === h.ambienteId);
-        nombres.add(ambiente?.nombre ?? `Ambiente ${String(h.ambienteId).slice(0, 8)}…`);
+        nombres.add(ambiente?.nombre ?? 'Ambiente no disponible');
       }
       this.ubicacionesFicha.set(a.id_curso, [...nombres]);
     } catch (e) {

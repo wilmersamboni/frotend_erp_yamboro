@@ -4,6 +4,7 @@ import { DatePipe } from '@angular/common';
 import { MaterialesLiveService } from '../data-access/materiales-live.service';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { BarcodeScannerComponent } from '../../../shared/scanner/barcode-scanner.component';
 import { AdminModalComponent } from '../../tenant-administration/ui/admin-modal.component';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { StatCardComponent } from '../../../shared/components/stat-card.component';
@@ -53,7 +54,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
 @Component({
   selector: 'app-instructor-materiales-novedades',
   standalone: true,
-  imports: [EmptyStateComponent, FormsModule, DatePipe, AdminModalComponent, StatusBadgeComponent, StatCardComponent, TableFilterComponent, LoadingSkeletonComponent],
+  imports: [EmptyStateComponent, FormsModule, DatePipe, AdminModalComponent, BarcodeScannerComponent, StatusBadgeComponent, StatCardComponent, TableFilterComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -169,7 +170,14 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
       [saving]="saving"
       [error]="error"
       (closed)="cerrarModal()"
-      (saved)="guardar($event)" />
+      (saved)="guardar($event)">
+      <div campoExtra class="mt-3">
+        <app-barcode-scanner [modoManual]="false" [activo]="modalOpen" (scanned)="onPlacaEscaneada($event)"></app-barcode-scanner>
+        @if (escaneo) {
+          <p class="mt-2 text-xs" [class.text-green-700]="escaneo.ok" [class.text-red-500]="!escaneo.ok">{{ escaneo.texto }}</p>
+        }
+      </div>
+    </app-admin-modal>
 
     @if (resolverAbierto && resolverNovedad) {
       <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="resolverAbierto = false">
@@ -369,7 +377,7 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
   nombreUsuario(n: Novedad): string {
     if (n.usuario_nombre) return n.usuario_nombre;
     const u = this.usuarios.find((x) => x.idUsuario === n.id_usuario);
-    return u ? `${u.persona?.nombre ?? ''} ${u.persona?.apellido ?? ''}`.trim() || n.id_usuario : n.id_usuario;
+    return (u && `${u.persona?.nombre ?? ''} ${u.persona?.apellido ?? ''}`.trim()) || 'Usuario no disponible';
   }
 
   contarEstado(estado: string): number {
@@ -406,6 +414,7 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
 
   nuevo(): void {
     this.form = { tipo: 'OTRO', descripcion: '', id_item: null };
+    this.escaneo = null;
     this.error = null;
     this.modalOpen = true;
   }
@@ -414,8 +423,31 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
     this.modalOpen = false;
   }
 
+  /** Resultado del último escaneo, para avisar si la placa se seleccionó o no se encontró. */
+  escaneo: { ok: boolean; texto: string } | null = null;
+
+  /**
+   * Un código leído con la cámara selecciona el ítem en el formulario (el mismo
+   * campo "Placa SENA"). Se busca por placa y, si el ítem no la tiene, por su
+   * código. Nunca se descarta en silencio: si no está entre los ítems visibles
+   * para este usuario, se avisa.
+   */
+  onPlacaEscaneada(leido: string): void {
+    const norm = (t: string | null | undefined) => (t ?? '').trim().toLowerCase();
+    const codigo = norm(leido);
+    const item =
+      this.items.find((i) => norm(i.placa_sena) === codigo) ??
+      this.items.find((i) => !i.placa_sena && norm(i.codigo_sku) === codigo);
+    if (!item) {
+      this.escaneo = { ok: false, texto: `No se encontró la placa "${leido.trim()}" entre los ítems que puedes reportar.` };
+      return;
+    }
+    this.form['id_item'] = item.id_item;
+    this.escaneo = { ok: true, texto: `Ítem seleccionado: ${item.producto?.nombre ?? 'ítem'} — ${item.placa_sena ?? item.codigo_sku}` };
+  }
+
   private etiquetaPlaca(item: Item): string {
-    return item.placa_sena?.trim() || `Sin placa SENA (${item.codigo_sku || item.id_item})`;
+    return item.placa_sena?.trim() || `Sin placa SENA (${item.codigo_sku || item.producto?.nombre || 'sin código'})`;
   }
 
   async guardar(form: Record<string, any>): Promise<void> {

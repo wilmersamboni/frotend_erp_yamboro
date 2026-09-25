@@ -113,6 +113,10 @@ import { TuiDayCache } from '../../../shared/utils/tui-day.util';
             }
           </div>
 
+          <!-- Contenido extra que el padre quiera colocar bajo los campos (ej. el
+               escáner de placa en Novedades). Sin contenido proyectado no ocupa nada. -->
+          <ng-content select="[campoExtra]" />
+
           <!-- Error -->
           @if (error) {
             <p class="text-red-500 text-xs mt-3 p-2 bg-red-50 rounded-lg">{{ error }}</p>

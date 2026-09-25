@@ -504,7 +504,9 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
   nombreItem(id: string | null): string {
     if (!id) return '—';
     const item = this.items.find((i) => i.id_item === id);
-    return item ? `${item.codigo_sku}${item.placa_sena ? ' — ' + item.placa_sena : ''}` : '—';
+    if (!item) return '—';
+    // `codigo_sku` es null en los devolutivos con placa (usa_placa_sena=true): no se concatena a ciegas.
+    return [item.codigo_sku, item.placa_sena].filter(Boolean).join(' — ') || item.producto?.nombre || '—';
   }
 
   /** Unidad del lote de una devolución de sobrante — para la tabla de historial. */

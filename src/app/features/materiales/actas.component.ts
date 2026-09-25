@@ -29,7 +29,7 @@ import { Acta, MaterialesApiService } from './data-access/materiales-api.service
           <h1 class="text-xl font-bold text-gray-800">Actas</h1>
           <p class="text-sm text-gray-500 mt-0.5">Generadas automáticamente al entregar o devolver un préstamo.</p>
         </div>
-        <input [(ngModel)]="filtroTexto" placeholder="Buscar por solicitud…"
+        <input [(ngModel)]="filtroTexto" placeholder="Buscar por producto o solicitante…"
           class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] bg-white" />
       </div>
 
@@ -94,7 +94,9 @@ export class MaterialesActasComponent implements OnInit {
   get filas(): any[] {
     const texto = this.filtroTexto.trim().toLowerCase();
     return this.actas
-      .filter((a) => !texto || a.id_solicitud.toLowerCase().includes(texto))
+      .filter((a) => !texto
+        || a.solicitud?.producto?.nombre?.toLowerCase().includes(texto)
+        || a.solicitud?.usuario_nombre?.toLowerCase().includes(texto))
       // Más reciente primero, comparando la fecha REAL — antes se ordenaba
       // después de formatearla a texto ("17 de septiembre de 2026, 10:30..."),
       // y comparar esos strings con localeCompare no siempre coincide con el
@@ -104,7 +106,7 @@ export class MaterialesActasComponent implements OnInit {
         ...a,
         fecha: new Date(a.fecha).toLocaleString('es-CO'),
         tipo: a.tipo === 'DEVOLUCION' ? 'Devolución' : 'Entrega',
-        referencia: `#${a.id_solicitud.slice(0, 8)}`,
+        referencia: a.solicitud?.producto?.nombre ?? '—',
         solicitante: a.solicitud?.usuario_nombre ?? '—',
         estado_solicitud: a.solicitud?.estado ?? '—',
       }));
