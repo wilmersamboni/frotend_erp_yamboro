@@ -126,3 +126,57 @@ export function calcHorasCompetencia(
   if (hrs === 0) return `${min}min`;
   return `${hrs}h ${min}min`;
 }
+
+// ── Estado de las competencias de un horario (icono de libro + tooltip) ──
+
+/** Fecha LOCAL "YYYY-MM-DD" — toISOString() da UTC y en Colombia salta de día desde las 7 pm. */
+export function hoyIsoLocal(d: Date = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Días de calendario entre dos fechas ISO (b - a). */
+export function diasEntre(aIso: string, bIso: string): number {
+  const a = new Date(aIso.slice(0, 10) + 'T00:00:00').getTime();
+  const b = new Date(bIso.slice(0, 10) + 'T00:00:00').getTime();
+  return Math.round((b - a) / 86_400_000);
+}
+
+export type EstadoCompetencias = 'sin' | 'proxima' | 'vigente' | 'por-terminar' | 'vencida';
+
+/** Una competencia vigente que termina en este número de días o menos, sin otra cargada después, se marca "por terminar". */
+export const DIAS_AVISO_FIN_COMPETENCIA = 7;
+
+/**
+ * Resume en qué punto está el horario respecto a sus competencias:
+ * - sin: nunca se le asignó ninguna.
+ * - vigente: hay una en curso (y, si termina pronto, ya hay otra cargada después).
+ * - por-terminar: la vigente termina en ≤ 7 días y no hay ninguna posterior.
+ * - proxima: ninguna en curso, pero hay una que todavía no empieza.
+ * - vencida: todas terminaron y no hay una nueva.
+ * `comp` es la competencia más relevante para mostrar en cada caso.
+ */
+export function estadoCompetencias(
+  comps: any[] | null | undefined,
+  hoy: string = hoyIsoLocal(),
+): { estado: EstadoCompetencias; comp: any | null; dias: number | null } {
+  const lista = comps ?? [];
+  if (!lista.length) return { estado: 'sin', comp: null, dias: null };
+
+  const vigente = lista.find(c =>
+    (!c.fechaInicio || c.fechaInicio.slice(0, 10) <= hoy) &&
+    (!c.fechaFin || c.fechaFin.slice(0, 10) >= hoy));
+  const futuras = lista
+    .filter(c => c.fechaInicio && c.fechaInicio.slice(0, 10) > hoy)
+    .sort((a, b) => a.fechaInicio.localeCompare(b.fechaInicio));
+
+  if (vigente) {
+    const dias = vigente.fechaFin ? diasEntre(hoy, vigente.fechaFin) : null;
+    const porTerminar = dias !== null && dias <= DIAS_AVISO_FIN_COMPETENCIA && !futuras.length;
+    return { estado: porTerminar ? 'por-terminar' : 'vigente', comp: vigente, dias };
+  }
+  if (futuras.length) {
+    return { estado: 'proxima', comp: futuras[0], dias: diasEntre(hoy, futuras[0].fechaInicio) };
+  }
+  const ultima = [...lista].sort((a, b) => (b.fechaFin ?? '').localeCompare(a.fechaFin ?? ''))[0];
+  return { estado: 'vencida', comp: ultima, dias: ultima?.fechaFin ? diasEntre(ultima.fechaFin, hoy) : null };
+}

@@ -81,6 +81,20 @@
   grid-column: 1 / -1; padding: 32px; text-align: center; color: var(--text-muted); font-size: 14px;
 }
 
+/* Estado de carga / error */
+.skeleton {
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%);
+  background-size: 200% 100%; animation: shimmer 1.2s infinite;
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
+.retry-btn {
+  margin-top: 10px; display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 8px; border: 1px solid #39A900;
+  color: #39A900; font-weight: 600; font-size: 13px; background: none; cursor: pointer;
+}
+.retry-btn:hover { background: rgba(57,169,0,.08); }
+
 /* Carrusel de jornadas múltiples */
 /* slot-wrapper llena toda la celda para que la card también lo haga */
 .slot-wrapper { width: 100%; height: 100%; display: flex; flex-direction: column; }
@@ -124,6 +138,19 @@
   font-size: 11px; font-family: inherit;
 }
 .info-time { font-weight: 700; }
+
+/* Estado de la clase (solo columna de hoy) */
+.estado-pill {
+  display: inline-flex; align-items: center; gap: 4px; width: fit-content;
+  font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-top: 6px;
+}
+.estado-en-curso    { background: #dcfce7; color: #166534; }
+.estado-finalizada  { background: #e0e7ff; color: #312e81; }
+.estado-proxima     { background: var(--surface2); color: var(--text-muted); }
+.estado-sin-iniciar { background: #fef3c7; color: #92400e; }
+.estado-no-iniciada { background: #fee2e2; color: #991b1b; }
+.progress-bar { width: 100%; height: 4px; border-radius: 999px; background: var(--surface2); overflow: hidden; }
+.progress-fill { height: 100%; background: #39A900; border-radius: 999px; transition: width .4s; }
 
 /* Badge horario finalizado */
 .status-pill { display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; padding: 3px 8px; font-size: 10px; font-weight: 700; width: fit-content; }
@@ -200,6 +227,13 @@
 }
 .card-help-btn:hover { color: #39A900; background: rgba(57,169,0,.12); }
 .card-help-active { color: #39A900 !important; background: rgba(57,169,0,.12) !important; }
+
+/* Estado de la competencia en el icono de libro */
+.card-help-btn.comp-sin          { color: #9ca3af; }
+.card-help-btn.comp-proxima      { color: #9ca3af; }
+.card-help-btn.comp-vigente      { color: #39A900; }
+.card-help-btn.comp-por-terminar { color: #d97706; background: #fef3c7; }
+.card-help-btn.comp-vencida      { color: #dc2626; background: #fee2e2; }
 
 /* Botón de notificación de evento */
 .ev-notif-btn {

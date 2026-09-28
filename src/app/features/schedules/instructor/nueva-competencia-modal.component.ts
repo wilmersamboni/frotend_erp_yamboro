@@ -168,29 +168,49 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
             }
           }
         </div>
+        </div>
 
-        <div class="btn-row mt-4">
+        <div class="btn-row">
           <button class="border border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold rounded-xl px-5 py-2 transition-all" (click)="cerrar()">Cancelar</button>
           <button class="bg-sena-gradient hover:opacity-90 text-white font-semibold rounded-xl px-5 py-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed" [disabled]="!compFormValid()" (click)="saveComp()"
                   [title]="compFormValid() ? '' : 'Completa todos los campos antes de guardar'">
             Guardar
           </button>
         </div>
-        </div>
       </div>
     </div>
     }
   `,
   styles: [`
-    .comp-modal-wide { max-width: 440px; width: 100%; }
+    /* max-height + flex column: el formulario puede crecer mucho (varios
+       resultados, cada uno con su propio mini-calendario) y antes no tenía
+       límite ni scroll — en pantallas bajas el modal se salía del viewport
+       y el botón Guardar quedaba fuera de la vista, inalcanzable. */
+    .comp-modal-wide {
+      max-width: 440px; width: 100%;
+      max-height: 92vh; display: flex; flex-direction: column;
+    }
 
     /* .modal (global) no trae padding propio — sólo .modal-header lo tiene.
        Sin este wrapper, Nombre/Resultados/fechas quedaban pegados a los
-       bordes del modal y Cancelar/Guardar sin margen inferior. */
-    .modal-body { padding: 20px 24px 24px; }
+       bordes del modal y Cancelar/Guardar sin margen inferior.
+       flex:1 + overflow-y:auto: es la única zona que scrollea — el header y
+       el footer (.btn-row) quedan siempre visibles. Scrollbar oculta (sigue
+       scrolleando con rueda/trackpad/teclado, solo no se dibuja la barra),
+       mismo criterio que .pretty-scroll en styles.css. */
+    .modal-body {
+      padding: 20px 24px 24px;
+      flex: 1; min-height: 0; overflow-y: auto;
+      scrollbar-width: none; -ms-overflow-style: none;
+    }
+    .modal-body::-webkit-scrollbar { display: none; }
 
-    /* .btn-row tampoco existe globalmente. */
-    .btn-row { display: flex; justify-content: flex-end; gap: 10px; }
+    /* .btn-row tampoco existe globalmente. Footer fijo fuera del scroll. */
+    .btn-row {
+      display: flex; justify-content: flex-end; gap: 10px;
+      padding: 14px 24px; border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
 
     .comp-cal-wrap {
       border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px;

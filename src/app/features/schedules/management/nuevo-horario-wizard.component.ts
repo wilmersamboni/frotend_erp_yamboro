@@ -150,6 +150,9 @@ interface DiaConfig {
                           placeholder="Seleccionar ficha..."
                           [(ngModel)]="wizardForm.diasConfig[d].fichaId"
                           (ngModelChange)="onFichaChange(d, $event)"></app-ss>
+                  @if (fichaOcupada(d)) {
+                    <div class="wt-cruce"><lucide-icon name="alert-triangle" [size]="11"></lucide-icon> La ficha ya tiene clase este día en esta jornada</div>
+                  }
                 </td>
                 <!-- Instructor -->
                 <td class="wt-td">
@@ -157,6 +160,9 @@ interface DiaConfig {
                           placeholder="Seleccionar instructor..."
                           [(ngModel)]="wizardForm.diasConfig[d].instructorId"
                           (ngModelChange)="onInstructorChange(d, $event)"></app-ss>
+                  @if (cruceInstructor(d); as c) {
+                    <div class="wt-cruce"><lucide-icon name="alert-triangle" [size]="11"></lucide-icon> Ya tiene clase de {{ c.horaInicio?.slice(0, 5) }} a {{ c.horaFin?.slice(0, 5) }}</div>
+                  }
                 </td>
                 <!-- Ambiente -->
                 <td class="wt-td">
@@ -495,9 +501,46 @@ export class NuevoHorarioWizardComponent {
     }
   }
 
+  /** Horas efectivas que se van a guardar (las manuales o las por defecto de la jornada). */
+  private horasEfectivas(): { ini: number; fin: number } {
+    const j = JORNADAS.find(x => x.key === this.wizardForm.jornada);
+    const aMin = (t: string) => { const [h, m] = (t ?? '').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+    const ini = aMin(this.wizardForm.horaInicio || j?.inicio || '07:00');
+    let fin = aMin(this.wizardForm.horaFin || j?.fin || '12:00');
+    if (fin <= ini) fin = 24 * 60; // cruza medianoche
+    return { ini, fin };
+  }
+
+  /**
+   * Otro horario del mismo instructor ese día que se cruce con las horas del
+   * wizard. El backend también lo valida (y rechaza todo el lote); esto es
+   * solo para avisar antes de guardar.
+   */
+  cruceInstructor(dia: string): any | null {
+    const instructorId = this.wizardForm.diasConfig[dia]?.instructorId;
+    if (!instructorId || !this.wizardForm.jornada) return null;
+    const { ini, fin } = this.horasEfectivas();
+    const aMin = (t: string) => { const [h, m] = (t ?? '').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+    return (this.horarios ?? []).find(h => {
+      if (h.diaSemana !== dia || String(h.instructorId) !== String(instructorId) || !h.horaInicio || !h.horaFin) return false;
+      const hi = aMin(h.horaInicio);
+      let hf = aMin(h.horaFin);
+      if (hf <= hi) hf = 24 * 60;
+      return ini < hf && hi < fin;
+    }) ?? null;
+  }
+
+  fichaOcupada(dia: string): boolean {
+    const fichaId = this.wizardForm.diasConfig[dia]?.fichaId;
+    if (!fichaId || !this.wizardForm.jornada) return false;
+    return (this.horarios ?? []).some(h =>
+      h.diaSemana === dia && h.jornada === this.wizardForm.jornada && String(h.fichaId) === String(fichaId));
+  }
+
   esWizardValido(): boolean {
     if (!this.wizardForm.jornada || this.wizardForm.dias.length === 0) return false;
     for (const d of this.wizardForm.dias) {
+      if (this.cruceInstructor(d) || this.fichaOcupada(d)) return false;
       const config = this.wizardForm.diasConfig[d];
       if (!config || !config.fichaId || !config.instructorId) return false;
       // Ambiente requerido sólo para instructores no-transversales
