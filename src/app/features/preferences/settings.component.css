@@ -57,6 +57,7 @@
 }
 .foto-visor-nombre { font-size: 16px; font-weight: 700; color: var(--text); margin: 0; }
 .foto-visor-acciones { display: flex; gap: 10px; width: 100%; justify-content: flex-end; }
+.foto-visor-quitar { margin-right: auto; }
 .foto-visor-cerrar {
   position: absolute; top: 10px; right: 10px; width: 32px; height: 32px;
   border-radius: 50%; border: none; background: color-mix(in srgb, var(--surface) 90%, transparent);

@@ -7,6 +7,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { ThemeService, TEMAS, MODOS, ModoTema } from '../../core/services/theme.service';
 import { ApiService } from '../../core/services/api.service';
 import { ToastService } from '../../core/services/toast.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 import { environment } from '../../../environments/environment';
 
 type Tab = 'perfil' | 'password' | 'apariencia' | 'notificaciones' | 'sistema';
@@ -475,6 +476,9 @@ interface MiAcceso {
             <img [src]="fotoUrl()" alt="Foto de perfil" class="foto-visor-img" />
             <p class="foto-visor-nombre">{{ user()?.nombre ?? 'Usuario' }}</p>
             <div class="foto-visor-acciones">
+              <button type="button" class="btn-danger foto-visor-quitar" [disabled]="subiendoFoto()" (click)="quitarFoto()">
+                Quitar foto
+              </button>
               <button type="button" class="btn-secundario" (click)="verFoto.set(false)">Cerrar</button>
               <button type="button" class="btn-primary" [disabled]="subiendoFoto()"
                       (click)="verFoto.set(false); fotoInput.click()">
@@ -494,6 +498,7 @@ export class SettingsComponent implements OnInit {
   private theme  = inject(ThemeService);
   private apiSvc = inject(ApiService);
   private toast  = inject(ToastService);
+  private confirm = inject(ConfirmService);
 
   tab            = signal<Tab>('perfil');
   saving         = signal(false);
@@ -635,6 +640,24 @@ perfil: {
     } catch (e: any) {
       this.toast.httpError(e, 'Error al guardar el perfil.');
     } finally { this.saving.set(false); }
+  }
+
+  /** Quita la foto de perfil: vuelven las iniciales en Ajustes y en el navbar. */
+  async quitarFoto(): Promise<void> {
+    const ok = await this.confirm.ask('Se volverán a mostrar tus iniciales en lugar de la foto.', {
+      header: '¿Quitar foto de perfil?', acceptLabel: 'Quitar foto',
+    });
+    if (!ok) return;
+    this.subiendoFoto.set(true);
+    try {
+      await firstValueFrom(this.http.delete('/api/personas/mi-perfil/foto'));
+      this.perfil.fotoPerfil = null;
+      this.auth.actualizarUser({ fotoPerfil: null });
+      this.verFoto.set(false);
+      this.toast.ok('Foto eliminada', 'Ahora se muestran tus iniciales.');
+    } catch (e) {
+      this.toast.httpError(e, 'No se pudo quitar la foto.');
+    } finally { this.subiendoFoto.set(false); }
   }
 
   /** Sube/reemplaza la foto de perfil — valida en el cliente lo mismo que ya valida el backend (mimetype/tamaño), para no esperar el 400. */
