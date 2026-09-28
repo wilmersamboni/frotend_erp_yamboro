@@ -22,7 +22,7 @@ import { AdminSidebarComponent } from './admin-sidebar.component';
         <app-admin-sidebar [open]="sidebarOpen() || mobileMenuOpen()" [mobileOpen]="mobileMenuOpen()" />
       </div>
 
-      <div class="flex flex-col flex-1 min-h-screen overflow-hidden" style="background:#F0F2F5;">
+      <div class="flex flex-col flex-1 min-h-screen overflow-hidden" style="background:var(--bg-app);">
         <app-admin-navbar (menuClick)="mobileMenuOpen.update(v => !v)" [menuOpen]="mobileMenuOpen()" />
         <!-- Mismo tratamiento que MainLayoutComponent (ver su comentario):
              tarjeta blanca directo en main, gutter por margen + padding

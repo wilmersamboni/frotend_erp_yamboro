@@ -41,7 +41,7 @@ import { AdminLoadingSpinnerComponent } from '../../../../shared/components/admi
           <input type="text" placeholder="Buscar por nombre, slug o dominio..."
             [ngModel]="busqueda()" (ngModelChange)="busqueda.set($event)"
             class="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-gray-200 outline-none transition-colors focus:border-[#39A900]"
-            style="background:#f8fafc;" />
+            style="background:var(--surface2);" />
         </div>
       </div>
 
@@ -54,7 +54,7 @@ import { AdminLoadingSpinnerComponent } from '../../../../shared/components/admi
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead>
-              <tr class="text-left text-gray-500 border-b border-gray-100" style="background:#fafbfc;">
+              <tr class="text-left text-gray-500 border-b border-gray-100" style="background:var(--surface2);">
                 <th class="px-5 py-3 font-semibold">Nombre</th>
                 <th class="px-5 py-3 font-semibold">Slug</th>
                 <th class="px-5 py-3 font-semibold">Dominio</th>

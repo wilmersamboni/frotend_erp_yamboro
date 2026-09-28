@@ -168,29 +168,49 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
             }
           }
         </div>
+        </div>
 
-        <div class="btn-row mt-4">
+        <div class="btn-row">
           <button class="border border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold rounded-xl px-5 py-2 transition-all" (click)="cerrar()">Cancelar</button>
           <button class="bg-sena-gradient hover:opacity-90 text-white font-semibold rounded-xl px-5 py-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed" [disabled]="!compFormValid()" (click)="saveComp()"
                   [title]="compFormValid() ? '' : 'Completa todos los campos antes de guardar'">
             Guardar
           </button>
         </div>
-        </div>
       </div>
     </div>
     }
   `,
   styles: [`
-    .comp-modal-wide { max-width: 440px; width: 100%; }
+    /* max-height + flex column: el formulario puede crecer mucho (varios
+       resultados, cada uno con su propio mini-calendario) y antes no tenía
+       límite ni scroll — en pantallas bajas el modal se salía del viewport
+       y el botón Guardar quedaba fuera de la vista, inalcanzable. */
+    .comp-modal-wide {
+      max-width: 440px; width: 100%;
+      max-height: 92vh; display: flex; flex-direction: column;
+    }
 
     /* .modal (global) no trae padding propio — sólo .modal-header lo tiene.
        Sin este wrapper, Nombre/Resultados/fechas quedaban pegados a los
-       bordes del modal y Cancelar/Guardar sin margen inferior. */
-    .modal-body { padding: 20px 24px 24px; }
+       bordes del modal y Cancelar/Guardar sin margen inferior.
+       flex:1 + overflow-y:auto: es la única zona que scrollea — el header y
+       el footer (.btn-row) quedan siempre visibles. Scrollbar oculta (sigue
+       scrolleando con rueda/trackpad/teclado, solo no se dibuja la barra),
+       mismo criterio que .pretty-scroll en styles.css. */
+    .modal-body {
+      padding: 20px 24px 24px;
+      flex: 1; min-height: 0; overflow-y: auto;
+      scrollbar-width: none; -ms-overflow-style: none;
+    }
+    .modal-body::-webkit-scrollbar { display: none; }
 
-    /* .btn-row tampoco existe globalmente. */
-    .btn-row { display: flex; justify-content: flex-end; gap: 10px; }
+    /* .btn-row tampoco existe globalmente. Footer fijo fuera del scroll. */
+    .btn-row {
+      display: flex; justify-content: flex-end; gap: 10px;
+      padding: 14px 24px; border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
 
     .comp-cal-wrap {
       border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px;
@@ -217,19 +237,19 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
       transition: background .1s, color .1s; user-select: none;
     }
     .comp-cal-other { color: var(--text-muted); opacity: .3; }
-    .comp-cal-dayhdr.weekend { color: #dc2626; }
-    .comp-cal-cell.weekend { color: #dc2626; }
+    .comp-cal-dayhdr.weekend { color: var(--err-text); }
+    .comp-cal-cell.weekend { color: var(--err-text); }
     .comp-cal-inrange { cursor: pointer; }
-    .comp-cal-inrange:not(.comp-cal-sel):hover { background: rgba(57,169,0,.12); color: #2d8500; }
+    .comp-cal-inrange:not(.comp-cal-sel):hover { background: rgba(57,169,0,.12); color: var(--accent-text); }
     /* Días de clase ya asignados a OTRO resultado — tachados y no clicables,
        para que no se puedan volver a elegir por error. */
     .r-cal-ocupado {
       text-decoration: line-through; cursor: not-allowed;
       color: var(--text-muted); background: var(--surface2); opacity: .6;
     }
-    .r-cal-allowed { cursor: pointer; background: rgba(57,169,0,.08); font-weight: 600; color: #2d8500; }
+    .r-cal-allowed { cursor: pointer; background: rgba(57,169,0,.08); font-weight: 600; color: var(--accent-text); }
     .r-cal-allowed:hover { background: rgba(57,169,0,.16); }
-    .r-cal-inrange { cursor: pointer; background: rgba(57,169,0,.22); color: #226600; }
+    .r-cal-inrange { cursor: pointer; background: rgba(57,169,0,.22); color: var(--accent-text); }
     .r-cal-boundary {
       cursor: pointer;
       background: var(--tui-primary) !important; color: white !important;
@@ -237,11 +257,11 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
     }
     .comp-cal-boundary {
       cursor: pointer;
-      background: #fff7ed; color: #c2410c;
-      font-weight: 700; outline: 2px solid #fed7aa; outline-offset: -2px;
+      background: var(--warn-bg); color: var(--warn-text);
+      font-weight: 700; outline: 2px solid var(--warn-border); outline-offset: -2px;
       border-radius: 8px;
     }
-    .comp-cal-boundary:hover:not(.comp-cal-sel) { background: #ffedd5; }
+    .comp-cal-boundary:hover:not(.comp-cal-sel) { background: var(--warn-bg); }
     .comp-cal-sel {
       background: var(--tui-primary) !important; color: white !important;
       font-weight: 700; box-shadow: 0 1px 4px rgba(57,169,0,.35);

@@ -85,11 +85,11 @@ interface TipoMeta {
 }
 
 const MODULOS_META: Record<ModuloId, { label: string; icono: string; color: string }> = {
-  materiales:     { label: 'Materiales',     icono: 'cubo',       color: '#0369a1' },
-  horarios:       { label: 'Horarios',       icono: 'calendario', color: '#7c3aed' },
+  materiales:     { label: 'Materiales',     icono: 'cubo',       color: 'light-dark(#0369a1, #7dd3fc)' },
+  horarios:       { label: 'Horarios',       icono: 'calendario', color: 'light-dark(#7c3aed, #c4b5fd)' },
   etapa_practica: { label: 'Etapa Práctica', icono: 'documento',  color: '#007832' },
   encuestas:      { label: 'Encuestas',      icono: 'grafico',    color: '#db2777' },
-  general:        { label: 'General',        icono: 'campana',   color: '#525252' },
+  general:        { label: 'General',        icono: 'campana',   color: 'light-dark(#525252, #9ba19e)' },
 };
 
 const TIPO_META: Record<string, TipoMeta> = {

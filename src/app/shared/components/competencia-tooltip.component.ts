@@ -5,7 +5,8 @@ import {
   estadoResultadoIcon as estadoResultadoIconUtil,
   estadoResultadoInfo as estadoResultadoInfoUtil,
   diaPluralLabel, formatFechaCorta, to12h as to12hUtil,
-  fechaInicioDelDia, fechaFinDelDia,
+  fechaInicioDelDia, fechaFinDelDia, hoyIsoLocal, diasEntre,
+  DIAS_AVISO_FIN_COMPETENCIA,
 } from '../../core/utils/horarios.util';
 import { AuthService } from '../../core/services/auth.service';
 
@@ -76,7 +77,9 @@ export interface CompetenciaTooltipState {
           </button>
         </div>
         <!-- Nombre -->
-        <p style="color:var(--text);font-weight:700;font-size:14px;margin:0 0 6px;">{{ state()!.comp.nombre }}</p>
+        <p style="color:var(--text);font-weight:700;font-size:14px;margin:0 0 4px;">{{ state()!.comp.nombre }}</p>
+        @let est = estadoComp(state()!.comp);
+        <span [class]="'ctt-estado ctt-estado-' + est.tono">{{ est.texto }}</span>
         <!-- Ficha + Instructor -->
         <div class="ctt-meta-row">
           <div>
@@ -106,11 +109,47 @@ export interface CompetenciaTooltipState {
         <p style="color:var(--text);font-size:12px;margin:2px 0 4px;">
           {{ formatFechaLarga(state()!.comp.fechaInicio) }} — {{ formatFechaLarga(state()!.comp.fechaFin) }}
         </p>
-        <p class="ctt-label mt-2">PROGRESO</p>
-        <div class="progress-bar">
-          <div class="progress-fill" [style.width.%]="getProgresoCompetencia(state()!.comp)"></div>
-        </div>
-        <p style="font-size:11px;color:var(--text-muted);text-align:right;margin:4px 0 0;">{{ getProgresoCompetencia(state()!.comp) }}%</p>
+        @let res = resumen(state()!.comp, state()!.h);
+        @if (res.progreso !== null) {
+          <!-- Progreso por HORAS: clases del calendario ya pasadas × duración de la clase -->
+          <p class="ctt-label mt-2">PROGRESO EN HORAS</p>
+          <div class="progress-bar">
+            <div class="progress-fill" [style.width.%]="res.progreso"></div>
+          </div>
+          <p class="ctt-horas-txt">
+            <strong>{{ fmtH(res.transcurridas) }} h</strong> de {{ fmtH(res.requeridas ?? res.programadas) }} h
+            {{ res.requeridas ? 'requeridas' : 'programadas' }} · {{ res.progreso }}%
+          </p>
+          @if (res.requeridas) {
+            <p class="ctt-horas-sub">Programadas en calendario: {{ fmtH(res.programadas) }} h</p>
+            @if (res.faltanProgramar > 0) {
+              <p class="ctt-aviso">
+                <lucide-icon name="alert-triangle" [size]="11"></lucide-icon>
+                Faltan {{ fmtH(res.faltanProgramar) }} h por programar para cumplir las requeridas
+              </p>
+            }
+          }
+          <p class="ctt-horas-sub" style="font-style:italic;">Según las fechas de clase marcadas, no según asistencia real.</p>
+        } @else {
+          <p class="ctt-label mt-2">PROGRESO</p>
+          <div class="progress-bar">
+            <div class="progress-fill" [style.width.%]="getProgresoCompetencia(state()!.comp)"></div>
+          </div>
+          <p style="font-size:11px;color:var(--text-muted);text-align:right;margin:4px 0 0;">{{ getProgresoCompetencia(state()!.comp) }}%</p>
+        }
+
+        @if (res.dias.length > 0) {
+          <p class="ctt-label mt-2">PRÓXIMA CLASE</p>
+          @if (res.proxima) {
+            <p class="ctt-proxima">
+              <lucide-icon name="calendar-clock" [size]="13"></lucide-icon>
+              {{ labelProxima(res.proxima, state()!.h) }}
+            </p>
+            <p class="ctt-horas-sub">Quedan {{ res.restantes }} de {{ res.dias.length }} clases</p>
+          } @else {
+            <p class="ctt-horas-sub">Ya pasaron todas las clases programadas ({{ res.dias.length }}).</p>
+          }
+        }
         <!-- Horario recurrente — una sola vez -->
         <p class="ctt-label mt-2">HORARIO</p>
         <div class="ctt-horario-compact">
@@ -122,8 +161,12 @@ export interface CompetenciaTooltipState {
         @if ((state()!.comp.diasClase ?? []).length > 0) {
           <p class="ctt-label mt-2">CLASES ({{ (state()!.comp.diasClase ?? []).length }})</p>
           <div class="ctt-clases-chips">
-            @for (iso of (state()!.comp.diasClase ?? []); track iso) {
-              <span class="ctt-clase-chip">{{ formatFechaCorta(iso) }}</span>
+            @for (iso of res.dias; track iso) {
+              <span class="ctt-clase-chip"
+                    [class.ctt-clase-pasada]="esPasada(iso, state()!.h)"
+                    [class.ctt-clase-hoy]="iso === hoy()"
+                    [class.ctt-clase-proxima]="iso === res.proxima && iso !== hoy()"
+                    [title]="iso === hoy() ? 'Hoy' : esPasada(iso, state()!.h) ? 'Clase pasada' : ''">{{ formatFechaCorta(iso) }}</span>
             }
           </div>
         }
@@ -136,6 +179,7 @@ export interface CompetenciaTooltipState {
       position: fixed; z-index: 9999; width: 320px; max-width: calc(100vw - 16px); padding: 14px 16px;
       background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px;
       box-shadow: 0 10px 30px rgba(0,0,0,.18);
+      max-height: calc(100vh - 16px); overflow-y: auto;
     }
     .ctt-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin: 0; }
     .ctt-meta-row { display: flex; gap: 12px; margin: 0 0 8px; }
@@ -148,15 +192,15 @@ export interface CompetenciaTooltipState {
       background: var(--surface2); cursor: pointer; color: var(--text-muted);
       transition: all .15s; flex-shrink: 0;
     }
-    .ctt-copy-btn:hover { background: #eff6ff; color: var(--blue); border-color: var(--blue); }
-    .ctt-copy-btn.ctt-copy-ok { background: #dcfce7; color: #166534; border-color: #86efac; }
+    .ctt-copy-btn:hover { background: var(--info-bg); color: var(--blue); border-color: var(--blue); }
+    .ctt-copy-btn.ctt-copy-ok { background: var(--ok-bg); color: var(--ok-text); border-color: var(--ok-border); }
     .ctt-close-btn {
       display: flex; align-items: center; justify-content: center;
       width: 24px; height: 24px; border-radius: 6px;
       border: 1px solid var(--border); background: var(--surface2);
       cursor: pointer; color: var(--text-muted); transition: all .15s;
     }
-    .ctt-close-btn:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+    .ctt-close-btn:hover { background: var(--err-bg); color: var(--err-text); border-color: var(--err-border); }
 
     /* ── Card de competencia compacta: resultados / horario / clases ── */
     .ctt-resultados-list { display:flex; flex-direction:column; gap:3px; margin:2px 0 0; }
@@ -165,18 +209,36 @@ export interface CompetenciaTooltipState {
     .ctt-horario-row { display:flex; align-items:center; gap:6px; }
     .ctt-horario-row lucide-icon { color:var(--text-muted); flex-shrink:0; }
     .ctt-clases-chips { display:flex; flex-wrap:wrap; gap:5px; margin:4px 0 0; }
-    .ctt-clase-chip { font-size:10px; font-weight:600; color:#1d4ed8; background:#eff6ff; border:1px solid #bfdbfe; border-radius:5px; padding:2px 6px; }
+    .ctt-clase-chip { font-size:10px; font-weight:600; color:var(--info-text); background:var(--info-bg); border:1px solid var(--info-border); border-radius:5px; padding:2px 6px; }
+    .ctt-clase-chip.ctt-clase-pasada { color:var(--text-muted); background:var(--surface2); border-color:var(--border); text-decoration:line-through; opacity:.7; }
+    .ctt-clase-chip.ctt-clase-hoy { color:#fff; background:#39A900; border-color:#39A900; }
+    .ctt-clase-chip.ctt-clase-proxima { border-width:2px; border-color:var(--info-text); }
+
+    /* Estado de la competencia (junto al nombre) */
+    .ctt-estado { display:inline-block; font-size:10px; font-weight:700; padding:2px 8px; border-radius:999px; margin-bottom:8px; }
+    .ctt-estado-verde { background:var(--ok-bg); color:var(--ok-text); }
+    .ctt-estado-ambar { background:var(--warn-bg); color:var(--warn-text); }
+    .ctt-estado-rojo  { background:var(--err-bg); color:var(--err-text); }
+    .ctt-estado-azul  { background:var(--info-bg); color:var(--info-text); }
+
+    .ctt-horas-txt { font-size:12px; color:var(--text); margin:4px 0 0; }
+    .ctt-horas-sub { font-size:11px; color:var(--text-muted); margin:2px 0 0; }
+    .ctt-aviso { display:flex; align-items:center; gap:4px; font-size:11px; font-weight:600; color:var(--warn-text); background:var(--warn-bg); border:1px solid var(--warn-border); border-radius:6px; padding:4px 7px; margin:4px 0 0; }
+    .ctt-proxima { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:var(--text); margin:3px 0 0; text-transform:capitalize; }
+    .ctt-proxima lucide-icon { color:var(--accent-text); }
 
     /* progress-bar/progress-fill: copia local — el host ya tiene su propia
        versión para el indicador "en curso" de la card, fuera de este tooltip. */
-    .progress-bar { height: 6px; background: var(--gray-200, #e5e7eb); border-radius: 3px; overflow: hidden; }
+    .progress-bar { height: 6px; background: var(--gray-200, var(--border)); border-radius: 3px; overflow: hidden; }
     .progress-fill { height: 100%; background: var(--blue); border-radius: 3px; transition: width .3s ease; }
 
     /* ── Dark mode overrides ── */
   `],
 })
 export class CompetenciaTooltipComponent {
-  private readonly hoyIso = new Date().toISOString().slice(0, 10);
+  /** Fecha LOCAL de hoy, recalculada en cada uso (el tooltip puede quedar abierto de un día para otro). */
+  hoy(): string { return hoyIsoLocal(); }
+  private get hoyIso(): string { return hoyIsoLocal(); }
   private readonly auth = inject(AuthService);
 
   readonly state = signal<CompetenciaTooltipState | null>(null);
@@ -291,6 +353,77 @@ export class CompetenciaTooltipComponent {
     return Number.isInteger(horas) ? String(horas) : horas.toFixed(1);
   }
 
+  /** Estado de UNA competencia respecto a hoy, para la etiqueta junto al nombre. */
+  estadoComp(c: any): { texto: string; tono: 'verde' | 'ambar' | 'rojo' | 'azul' } {
+    const hoy = this.hoy();
+    const ini = c?.fechaInicio?.slice(0, 10);
+    const fin = c?.fechaFin?.slice(0, 10);
+    if (ini && ini > hoy) {
+      const d = diasEntre(hoy, ini);
+      return { texto: d === 1 ? 'Inicia mañana' : `Inicia en ${d} días (${formatFechaCorta(ini)})`, tono: 'azul' };
+    }
+    if (fin && fin < hoy) return { texto: `Terminó el ${formatFechaCorta(fin)}`, tono: 'rojo' };
+    if (fin) {
+      const d = diasEntre(hoy, fin);
+      if (d === 0) return { texto: 'Termina hoy', tono: 'ambar' };
+      if (d <= DIAS_AVISO_FIN_COMPETENCIA) return { texto: `Termina en ${d} día${d === 1 ? '' : 's'}`, tono: 'ambar' };
+      return { texto: `Vigente · termina el ${formatFechaCorta(fin)}`, tono: 'verde' };
+    }
+    return { texto: 'Vigente', tono: 'verde' };
+  }
+
+  /** Clase del calendario que ya pasó: fecha anterior a hoy, o hoy con la hora de fin ya cumplida. */
+  esPasada(iso: string, h: any): boolean {
+    const hoy = this.hoy();
+    if (iso < hoy) return true;
+    if (iso > hoy || !h?.horaFin) return false;
+    const [ih, im] = (h.horaInicio ?? '00:00').split(':').map(Number);
+    const [fh, fm] = h.horaFin.split(':').map(Number);
+    let finMin = fh * 60 + fm;
+    if (finMin <= ih * 60 + im) finMin = 24 * 60; // cruza medianoche
+    const now = new Date();
+    return now.getHours() * 60 + now.getMinutes() >= finMin;
+  }
+
+  /**
+   * Horas y clases de la competencia según su calendario (diasClase) y la
+   * duración del horario. `progreso` es null si no hay ni clases marcadas ni
+   * horas requeridas — ahí se usa el progreso por fechas de antes.
+   */
+  resumen(c: any, h: any) {
+    const dias: string[] = [...(c?.diasClase ?? [])].map((d: string) => d.slice(0, 10)).sort();
+    const dur = durHorarioMin(h) / 60;
+    const dadas = dias.filter(d => this.esPasada(d, h)).length;
+    const programadas = dias.length * dur;
+    const transcurridas = dadas * dur;
+    const requeridas: number | null = c?.horasRequeridas || null;
+    const base = requeridas ?? programadas;
+    return {
+      dias,
+      restantes: dias.length - dadas,
+      proxima: dias.find(d => !this.esPasada(d, h)) ?? null,
+      programadas,
+      transcurridas,
+      requeridas,
+      faltanProgramar: requeridas ? Math.max(0, requeridas - programadas) : 0,
+      progreso: base > 0 ? Math.min(100, Math.round((transcurridas / base) * 100)) : null,
+    };
+  }
+
+  /** "Hoy · 1:00 pm" o "jueves, 2 oct · 1:00 pm" */
+  labelProxima(iso: string, h: any): string {
+    const hora = this.to12h(h?.horaInicio);
+    if (iso === this.hoy()) return `Hoy · ${hora}`;
+    const fecha = new Date(iso + 'T00:00:00').toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' });
+    return `${fecha} · ${hora}`;
+  }
+
+  /** 4 → "4", 4.5 → "4.5" */
+  fmtH(n: number | null): string {
+    if (n === null || n === undefined) return '0';
+    return Number.isInteger(n) ? String(n) : n.toFixed(1);
+  }
+
   getProgresoCompetencia(c: any): number {
     if (!c || !c.fechaInicio) return 0;
     const start = fechaInicioDelDia(c.fechaInicio).getTime();
@@ -320,7 +453,14 @@ export class CompetenciaTooltipComponent {
       lines.push(`Resultados: ${compResultadosCopy.map(r => `${r.texto} (${this.estadoResultadoInfo(r).label})`).join(' | ')}`);
     }
     if (comp.fechaInicio) lines.push(`Período: ${this.fmtCopiado(comp.fechaInicio)} — ${this.fmtCopiado(comp.fechaFin ?? comp.fechaInicio)}`);
-    lines.push(`Progreso: ${this.getProgresoCompetencia(comp)}%`);
+    const res = this.resumen(comp, h);
+    if (res.progreso !== null) {
+      lines.push(`Horas: ${this.fmtH(res.transcurridas)} de ${this.fmtH(res.requeridas ?? res.programadas)} ${res.requeridas ? 'requeridas' : 'programadas'} (${res.progreso}%)`);
+      if (res.faltanProgramar > 0) lines.push(`Faltan ${this.fmtH(res.faltanProgramar)} h por programar`);
+    } else {
+      lines.push(`Progreso: ${this.getProgresoCompetencia(comp)}%`);
+    }
+    if (res.proxima) lines.push(`Próxima clase: ${this.labelProxima(res.proxima, h)} (quedan ${res.restantes} de ${res.dias.length})`);
     if (diasArr.length > 0) {
       const rango = `${this.to12h(h.horaInicio)} — ${this.to12h(h.horaFin)}`;
       lines.push(`Horario: Todos los ${this.diaPluralLabel(h.diaSemana)}, ${rango} (${this.formatHorasPorDiaStr(h)} por clase, ${horas}h en total)`);

@@ -1,6 +1,6 @@
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.error-msg { background: #fee2e2; color: #991b1b; border-radius: 8px; padding: 10px 14px; font-size: 13px; }
+.error-msg { background: var(--err-bg); color: var(--err-text); border-radius: 8px; padding: 10px 14px; font-size: 13px; }
 
 .wizard-modal {
   background: var(--surface);
@@ -35,8 +35,8 @@
   padding: 7px 11px; border-radius: 8px; font-size: 12px; font-weight: 600;
   align-self: flex-end; margin-bottom: 1px;
 }
-.jornada-det-ok   { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
-.jornada-det-span { background: #fff7ed; color: #92400e; border: 1px solid #fcd34d; }
+.jornada-det-ok   { background: var(--ok-bg); color: var(--ok-text); border: 1px solid var(--ok-border); }
+.jornada-det-span { background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn-border); }
 .wiz-sel-count {
   display: inline-flex; align-items: center; gap: 5px;
   background: #39A900; color: #fff;
@@ -60,11 +60,11 @@
   width: 100%; min-width: 720px; border-collapse: collapse; table-layout: fixed;
 }
 .wiz-table thead tr {
-  background: #f9fafb; position: sticky; top: 0; z-index: 2;
+  background: var(--surface2); position: sticky; top: 0; z-index: 2;
   border-bottom: 2px solid var(--border);
 }
 .wiz-table th {
-  padding: 11px 14px; font-size: 11px; font-weight: 800; color: #374151;
+  padding: 11px 14px; font-size: 11px; font-weight: 800; color: var(--text-2);
   text-transform: uppercase; letter-spacing: .06em; text-align: left;
   white-space: nowrap;
 }
@@ -83,16 +83,16 @@
   margin-top: 6px; cursor: pointer;
   font-size: 10px; font-weight: 500;
   text-transform: none; letter-spacing: 0;
-  opacity: .8; color: #9ca3af;
+  opacity: .8; color: var(--text-faint);
   transition: opacity .15s, color .15s;
 }
-.wt-apply-all:hover { opacity: 1; color: #374151; }
+.wt-apply-all:hover { opacity: 1; color: var(--text-2); }
 .wt-apply-all input[type="checkbox"] {
   width: 13px; height: 13px; cursor: pointer;
   accent-color: #39A900; flex-shrink: 0;
 }
 .wt-apply-all input[type="checkbox"]:checked + span {
-  color: #111827; font-weight: 700;
+  color: var(--text); font-weight: 700;
 }
 
 /* Filas de datos */
@@ -117,7 +117,7 @@
   font-size: 13px; font-weight: 700; color: var(--text-muted);
   text-transform: capitalize;
 }
-.wt-day-on .wt-day-name { color: #39A900; }
+.wt-day-on .wt-day-name { color: var(--accent-text); }
 
 /* Celdas con select */
 .wt-td { padding: 8px 10px; vertical-align: middle; }
@@ -133,8 +133,8 @@
 /* Badge transversal */
 .wt-transversal-pill {
   display: inline-flex; align-items: center; gap: 5px;
-  font-size: 11px; color: #d97706;
-  background: #fffbeb; border: 1px solid #fcd34d;
+  font-size: 11px; color: var(--warn-text);
+  background: var(--warn-bg); border: 1px solid var(--warn-border);
   border-radius: 6px; padding: 5px 10px; font-weight: 600; white-space: nowrap;
 }
 
@@ -143,4 +143,10 @@
   display: flex; align-items: center; justify-content: flex-end; gap: 12px;
   padding: 16px 28px; border-top: 1px solid var(--border);
   background: var(--surface2); flex-shrink: 0;
+}
+
+/* Aviso de choque (ficha ocupada / cruce de instructor) bajo el select del día */
+.wt-cruce {
+  display: flex; align-items: center; gap: 4px; margin-top: 4px;
+  font-size: 11px; font-weight: 600; color: var(--err-text);
 }

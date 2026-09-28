@@ -2,6 +2,7 @@ import { Component, inject, computed, signal, ElementRef, HostListener, Input, O
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificacionesCampanaComponent } from './notificaciones-campana.component';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-navbar',
@@ -52,14 +53,18 @@ import { NotificacionesCampanaComponent } from './notificaciones-campana.compone
             <app-notificaciones-campana [cargo]="userCargo()" />
           }
 
-          <!-- Avatar con iniciales — despliega el menú de cuenta -->
+          <!-- Avatar — foto de perfil si el usuario subió una (Ajustes > Perfil), iniciales por defecto -->
           <div class="relative">
             <button type="button" (click)="toggleMenu($event)"
               class="w-9 h-9 rounded-full flex items-center justify-center
                      text-sm font-bold flex-shrink-0 select-none cursor-pointer
                      bg-[#007832]/10 text-[#007832] border-2 border-[#007832]/20
-                     hover:bg-[#007832]/20 transition-colors">
-              {{ userInitials() }}
+                     hover:bg-[#007832]/20 transition-colors overflow-hidden">
+              @if (userFotoUrl()) {
+                <img [src]="userFotoUrl()" alt="" class="w-full h-full object-cover" />
+              } @else {
+                {{ userInitials() }}
+              }
             </button>
 
             @if (menuAbierto()) {
@@ -93,6 +98,11 @@ export class NavbarComponent {
     (this.auth.user()?.nombre ?? 'U')
       .split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
   );
+  /** Ruta relativa guardada en `Usuario.fotoPerfil` (ver settings.component.ts) → URL completa, o null si no ha subido ninguna. */
+  userFotoUrl     = computed(() => {
+    const ruta = this.auth.user()?.fotoPerfil;
+    return ruta ? `${environment.apiUrl}/${ruta}` : null;
+  });
   estaAutenticado = computed(() => this.auth.isAuthenticated());
 
   menuAbierto = signal(false);

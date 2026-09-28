@@ -79,7 +79,7 @@ const ACCIONES: AuditAccion[] = ['CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT'
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead>
-              <tr class="text-left text-gray-500 border-b border-gray-100" style="background:#fafbfc;">
+              <tr class="text-left text-gray-500 border-b border-gray-100" style="background:var(--surface2);">
                 <th class="px-5 py-3 font-semibold">Fecha</th>
                 <th class="px-5 py-3 font-semibold">Tenant</th>
                 <th class="px-5 py-3 font-semibold">Usuario</th>

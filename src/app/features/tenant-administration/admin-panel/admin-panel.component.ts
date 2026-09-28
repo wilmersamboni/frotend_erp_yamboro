@@ -8,6 +8,7 @@ import { CONFIG, MODULOS, MODULOS_EPSAS, MODULOS_PRACTICA, MODULOS_ADMIN, CATEGO
 import { AdminService } from '../services/admin.service';
 import { ApiService } from '../../../core/services/api.service';
 import { AdminTableComponent } from '../../../shared/components/admin-table.component';
+import { PageSizeSelectComponent } from '../../../shared/components/page-size-select.component';
 import { AdminModalComponent } from '../ui/admin-modal.component';
 import { RegistroRapidoModalComponent } from '../components/registro-rapido-modal.component';
 import { AdminInicioComponent } from '../components/admin-inicio.component';
@@ -19,7 +20,7 @@ import { ToastService } from '../../../core/services/toast.service';
 @Component({
   selector: 'app-admin-panel',
   standalone: true,
-  imports: [FormsModule, LucideAngularModule, AdminTableComponent, AdminModalComponent, RegistroRapidoModalComponent, AdminInicioComponent, CrearPracticaModalComponent, PermisosPanelComponent],
+  imports: [FormsModule, LucideAngularModule, AdminTableComponent, AdminModalComponent, RegistroRapidoModalComponent, AdminInicioComponent, CrearPracticaModalComponent, PermisosPanelComponent, PageSizeSelectComponent],
   providers: [AdminService],
   template: `
 
@@ -185,17 +186,9 @@ import { ToastService } from '../../../core/services/toast.service';
                 </div>
 
                 <!-- Filas por página -->
-                <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
-                  <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filas</span>
-                  <select [ngModel]="admin.registrosPorPagina()"
-                    (ngModelChange)="admin.setRegistrosPorPagina($event)"
-                    class="text-sm font-semibold bg-transparent border-none focus:ring-0 text-gray-700 cursor-pointer">
-                    <option [ngValue]="10">10</option>
-                    <option [ngValue]="20">20</option>
-                    <option [ngValue]="50">50</option>
-                    <option [ngValue]="100">100</option>
-                  </select>
-                </div>
+                <app-page-size-select
+                  [value]="admin.registrosPorPagina()"
+                  (valueChange)="admin.setRegistrosPorPagina($event)" />
               </div>
 
               <!-- Botón Agregar -->

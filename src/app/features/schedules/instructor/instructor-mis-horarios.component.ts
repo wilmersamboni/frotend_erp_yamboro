@@ -141,15 +141,15 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
                         <span class="info-val">
                           @if (ambienteSeleccionado()[h.id]) {
                             <!-- Pre-selección antes de iniciar (transversal o conflicto) -->
-                            <span style="font-weight:700;color:#39A900">{{ ambienteSeleccionado()[h.id].nombre }}</span>
+                            <span style="font-weight:700;color:var(--accent-text)">{{ ambienteSeleccionado()[h.id].nombre }}</span>
                             @if (!isHorarioActivo(d, h)) {
                               <button class="limpiar-amb-btn" title="Quitar selección" (click)="limpiarAmbiente(h)">✕</button>
                             }
                           } @else if (h.ubicacionTransversalNombre && h.ambiente?.nombre) {
                             <!-- Instructor regular con ubicación temporal — tooltip al hover -->
                             <span class="amb-temp-wrap">
-                              <span style="color:#d97706;font-weight:700;">{{ h.ubicacionTransversalNombre }}</span>
-                              <lucide-icon name="info" [size]="10" style="color:#d97706;flex-shrink:0;"></lucide-icon>
+                              <span style="color:var(--warn-text);font-weight:700;">{{ h.ubicacionTransversalNombre }}</span>
+                              <lucide-icon name="info" [size]="10" style="color:var(--warn-text);flex-shrink:0;"></lucide-icon>
                               <span class="amb-temp-tooltip">
                                 <span class="amb-temp-row">
                                   <span class="amb-temp-lbl">Temporal</span>
@@ -164,7 +164,7 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
                           } @else if (h.ambiente?.nombre) {
                             {{ h.ambiente.nombre }}
                           } @else if (h.ubicacionTransversalNombre) {
-                            <span style="font-weight:700;color:#39A900">{{ h.ubicacionTransversalNombre }}</span>
+                            <span style="font-weight:700;color:var(--accent-text)">{{ h.ubicacionTransversalNombre }}</span>
                           } @else {
                             {{ esTransversal() ? 'Sin ambiente' : '—' }}
                           }
@@ -248,7 +248,7 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
                     <div class="card-help-btn"
                          [class.card-help-active]="compTooltip.state()?.h?.id === h.id"
                          (click)="compTooltip.abrir(h, getCompetenciaVigente(h), $event)">
-                      <lucide-icon name="help-circle" [size]="15"></lucide-icon>
+                      <lucide-icon name="book-open" [size]="15"></lucide-icon>
                     </div>
                     @if (fichaEvs?.length && isToday(d)) {
                       @for (ev of fichaEvs; track ev.id) {

@@ -87,10 +87,10 @@ import { SearchableSelectComponent, SSOption } from '../../../../shared/componen
     </div>
   `,
   styles: [`
-    .form-label { display:block; font-size:11px; font-weight:700; color:#374151; margin-bottom:6px; text-transform:uppercase; letter-spacing:.4px; }
-    .form-input { width:100%; padding:9px 12px; border:1.5px solid #e5e7eb; border-radius:10px; font-size:13px; color:#1f2937; outline:none; transition:border-color .15s; }
+    .form-label { display:block; font-size:11px; font-weight:700; color:var(--text-2); margin-bottom:6px; text-transform:uppercase; letter-spacing:.4px; }
+    .form-input { width:100%; padding:9px 12px; border:1.5px solid var(--border); border-radius:10px; font-size:13px; color:var(--text); outline:none; transition:border-color .15s; }
     .form-input:focus { border-color:#39A900; }
-    .form-error { font-size:11px; color:#dc2626; margin-top:4px; }
+    .form-error { font-size:11px; color:var(--err-text); margin-top:4px; }
   `],
 })
 export class DominioFormComponent {
