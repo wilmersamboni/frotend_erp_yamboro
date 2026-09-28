@@ -9,6 +9,8 @@ export interface Usuario {
   rolNombre?: string;
   correo?: string;
   login?: string;
+  /** Ruta relativa devuelta por POST /personas/mi-perfil/foto — se arma la URL completa con environment.apiUrl. */
+  fotoPerfil?: string | null;
   aplicativoId?: string;
   aplicativoNombre?: string;
 }
