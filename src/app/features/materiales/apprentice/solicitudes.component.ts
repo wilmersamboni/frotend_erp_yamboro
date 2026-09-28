@@ -240,7 +240,7 @@ interface LineaForm {
                         <button (click)="aprobar(s)" [disabled]="bodegaInactiva(s)"
                           [title]="bodegaInactiva(s) ? 'Bodega inactiva — no se puede aprobar. Rechazá o cancelá en su lugar.' : ''"
                           [style.opacity]="bodegaInactiva(s) ? 0.45 : 1" [style.cursor]="bodegaInactiva(s) ? 'not-allowed' : 'pointer'"
-                          [style.backgroundColor]="bodegaInactiva(s) ? 'var(--surface3)' : 'var(--surface)'" [style.color]="bodegaInactiva(s) ? 'var(--text-faint)' : '#16a34a'" [style.borderColor]="bodegaInactiva(s) ? 'var(--border)' : '#bbf7d0'"
+                          [style.backgroundColor]="bodegaInactiva(s) ? 'var(--surface3)' : 'var(--surface)'" [style.color]="bodegaInactiva(s) ? 'var(--text-faint)' : 'var(--ok-text)'" [style.borderColor]="bodegaInactiva(s) ? 'var(--border)' : 'var(--ok-border)'"
                           class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors">Aprobar</button>
                       }
                       @if (s.estado === 'PENDIENTE' && puedeRechazar && puedeGestionar(s)) {
@@ -253,7 +253,7 @@ interface LineaForm {
                         <button (click)="abrirEntregar(s)" [disabled]="bodegaInactiva(s)"
                           [title]="bodegaInactiva(s) ? 'Bodega inactiva — no se puede entregar. Cancelá la solicitud en su lugar.' : ''"
                           [style.opacity]="bodegaInactiva(s) ? 0.45 : 1" [style.cursor]="bodegaInactiva(s) ? 'not-allowed' : 'pointer'"
-                          [style.backgroundColor]="bodegaInactiva(s) ? 'var(--surface3)' : 'var(--surface)'" [style.color]="bodegaInactiva(s) ? 'var(--text-faint)' : '#2563eb'" [style.borderColor]="bodegaInactiva(s) ? 'var(--border)' : '#bfdbfe'"
+                          [style.backgroundColor]="bodegaInactiva(s) ? 'var(--surface3)' : 'var(--surface)'" [style.color]="bodegaInactiva(s) ? 'var(--text-faint)' : 'var(--info-text)'" [style.borderColor]="bodegaInactiva(s) ? 'var(--border)' : 'var(--info-border)'"
                           class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors">Marcar en entrega</button>
                         @if (red.alcanzable()) {
                           <button (click)="prepararEntregaOffline(s)" title="Descarga las placas disponibles de esta solicitud para poder entregarla sin conexión"

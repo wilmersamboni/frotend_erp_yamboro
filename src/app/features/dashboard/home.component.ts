@@ -279,8 +279,8 @@ export class HomeComponent implements OnInit {
       labels: ['Completado', 'Pendiente'],
       datasets: [{
         data: [avance, 100 - avance],
-        backgroundColor: [this.tokenColor('--accent-brand', '#39A900'), '#e2e8f0'],
-        hoverBackgroundColor: [this.tokenColor('--accent-brand-dark', '#2d8600'), '#d1d5db'],
+        backgroundColor: [this.tokenColor('--accent-brand', '#39A900'), this.tokenColor('--border', '#e2e8f0')],
+        hoverBackgroundColor: [this.tokenColor('--accent-brand-dark', '#2d8600'), this.tokenColor('--border-strong', '#d1d5db')],
         borderWidth: 0
       }]
     };
