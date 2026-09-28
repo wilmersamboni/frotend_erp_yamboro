@@ -1,6 +1,7 @@
-import { Component, OnInit, signal, inject } from '@angular/core';
+import { Component, OnInit, signal, inject, ElementRef, Injector, afterNextRender } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import gsap from 'gsap';
 
 import { EncuestasApiService, Pregunta } from '../data-access/encuestas-api.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -86,12 +87,13 @@ import { ConfirmService } from '../../../core/services/confirm.service';
           @if (!loading() && preguntas().length > 0) {
             <ul class="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
               @for (p of preguntas(); track p.id) {
-                <li class="flex items-center justify-between gap-3 px-4 py-3 bg-gray-50/60">
+                <li [attr.data-pid]="p.id" class="flex items-center justify-between gap-3 px-4 py-3 bg-gray-50/60 overflow-hidden">
                   <span class="text-sm text-gray-800" [class.line-through]="!p.activo" [class.text-gray-400]="!p.activo">
                     {{ p.texto }}
                   </span>
                   <div class="flex items-center gap-1.5 flex-shrink-0">
                     <button
+                      data-anim="badge-activo"
                       (click)="toggleActivo(p)"
                       [class]="'px-2.5 py-1 rounded-lg text-xs font-bold transition-all ' +
                         (p.activo ? 'bg-[#39A900]/10 text-[#2d8500]' : 'bg-gray-100 text-gray-500')">
@@ -122,6 +124,13 @@ export class PreguntasComponent implements OnInit {
   private toast = inject(ToastService);
   private confirm = inject(ConfirmService);
 
+  private host     = inject(ElementRef).nativeElement as HTMLElement;
+  private injector = inject(Injector);
+
+  /** Animaciones GSAP (2026-09-25) — desactivadas con prefers-reduced-motion. */
+  readonly reducirMovimiento =
+    typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
   preguntas = signal<Pregunta[]>([]);
   loading   = signal(false);
   guardando = signal(false);
@@ -129,15 +138,29 @@ export class PreguntasComponent implements OnInit {
 
   ngOnInit(): void { this.cargar(); }
 
-  async cargar(): Promise<void> {
-    this.loading.set(true);
+  /**
+   * `silencioso`: recarga sin pasar por "Cargando…" — antes cada alta,
+   * activación o baja vaciaba la lista y la volvía a pintar (parpadeo).
+   */
+  async cargar(silencioso = false): Promise<void> {
+    if (!silencioso) this.loading.set(true);
     try {
       this.preguntas.set(await this.api.getPreguntas());
+      if (!silencioso && !this.reducirMovimiento) {
+        afterNextRender(() => {
+          const filas = Array.from(this.host.querySelectorAll('[data-pid]')).slice(0, 15);
+          gsap.from(filas, { y: 10, opacity: 0, duration: 0.3, stagger: 0.04, ease: 'power2.out', clearProps: 'transform,opacity' });
+        }, { injector: this.injector });
+      }
     } catch (e: any) {
       this.toast.httpError(e, 'No se pudieron cargar las preguntas.');
     } finally {
-      this.loading.set(false);
+      if (!silencioso) this.loading.set(false);
     }
+  }
+
+  private fila(id: string): HTMLElement | null {
+    return this.host.querySelector<HTMLElement>(`[data-pid="${id}"]`);
   }
 
   async crear(): Promise<void> {
@@ -145,10 +168,22 @@ export class PreguntasComponent implements OnInit {
     if (!texto) return;
     this.guardando.set(true);
     try {
+      const antes = new Set(this.preguntas().map((x) => x.id));
       await this.api.crearPregunta(texto);
       this.nuevoTexto = '';
       this.toast.ok('Agregada', 'Pregunta creada correctamente.');
-      await this.cargar();
+      await this.cargar(true);
+      // La pregunta nueva entra deslizándose con un destello verde.
+      const nueva = this.preguntas().find((x) => !antes.has(x.id));
+      if (nueva && !this.reducirMovimiento) {
+        afterNextRender(() => {
+          const li = this.fila(nueva.id);
+          if (!li) return;
+          gsap.fromTo(li,
+            { x: -16, opacity: 0, backgroundColor: 'rgba(57,169,0,0.16)' },
+            { x: 0, opacity: 1, backgroundColor: 'rgba(249,250,251,0.6)', duration: 0.9, ease: 'power2.out', clearProps: 'transform,opacity,backgroundColor' });
+        }, { injector: this.injector });
+      }
     } catch (e: any) {
       this.toast.httpError(e, 'No se pudo crear la pregunta.');
     } finally {
@@ -159,7 +194,13 @@ export class PreguntasComponent implements OnInit {
   async toggleActivo(p: Pregunta): Promise<void> {
     try {
       await this.api.actualizarPregunta(p.id, { activo: !p.activo });
-      await this.cargar();
+      await this.cargar(true);
+      if (!this.reducirMovimiento) {
+        afterNextRender(() => {
+          const badge = this.fila(p.id)?.querySelector('[data-anim="badge-activo"]');
+          if (badge) gsap.fromTo(badge, { scale: 0.8 }, { scale: 1, duration: 0.4, ease: 'back.out(3)', clearProps: 'transform' });
+        }, { injector: this.injector });
+      }
     } catch (e: any) {
       this.toast.httpError(e, 'No se pudo actualizar la pregunta.');
     }
@@ -177,7 +218,12 @@ export class PreguntasComponent implements OnInit {
         try {
           await this.api.eliminarPregunta(p.id);
           this.toast.ok('Eliminada', 'Pregunta eliminada correctamente.');
-          await this.cargar();
+          // La fila se colapsa antes de salir de la lista.
+          const li = this.fila(p.id);
+          if (li && !this.reducirMovimiento) {
+            await gsap.to(li, { height: 0, paddingTop: 0, paddingBottom: 0, opacity: 0, duration: 0.3, ease: 'power2.in' });
+          }
+          await this.cargar(true);
         } catch (e: any) {
           this.toast.httpError(e, 'No se pudo eliminar la pregunta.');
         }

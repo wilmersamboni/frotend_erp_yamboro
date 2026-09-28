@@ -538,7 +538,7 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
   estadoDropdownOpen = signal(false);
   page = 0;
   readonly estadosSolicitud: EstadoSolicitud[] =
-    ['PENDIENTE', 'APROBADA', 'EN_ENTREGA', 'ENTREGADA', 'DEVUELTA', 'RECHAZADA', 'CANCELADA'];
+    ['PENDIENTE', 'APROBADA', 'EN_ENTREGA', 'ENTREGADA', 'DEVUELTA', 'CONSUMIDA', 'RECHAZADA', 'CANCELADA'];
 
   seleccionarPageSize(size: number): void {
     this.pageSize.set(size);
@@ -780,7 +780,7 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
    */
   private productosDeBodega(): Producto[] {
     if (!this.pasoBodega) {
-      return this.productos.filter((p) => p.tipo_material === 'DEVOLUTIVO');
+      return this.productos.filter((p) => p.tipo_material === 'DEVOLUTIVO' && !!p.id_sitio);
     }
     if (!this.idSitioSeleccionado) return [];
     const idsConStockAqui = new Set(
@@ -789,7 +789,16 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
         .map((i) => i.id_producto),
     );
     return this.productos.filter(
-      (p) => p.tipo_material === 'DEVOLUTIVO' && idsConStockAqui.has(p.id_producto),
+      (p) => p.tipo_material === 'DEVOLUTIVO' && !!p.id_sitio && idsConStockAqui.has(p.id_producto),
+    );
+  }
+
+  /** Un lote puede heredar la bodega del producto; si ninguno la tiene, el
+   * backend también lo rechaza y no debe llegar al selector. */
+  private loteTieneBodega(lote: Lote): boolean {
+    return !!(
+      lote.id_sitio ??
+      this.productos.find((producto) => producto.id_producto === lote.id_producto)?.id_sitio
     );
   }
 
@@ -798,6 +807,7 @@ export class AprendizMaterialesSolicitudesComponent implements OnInit {
       (l) =>
         l.estado === 'ACTIVO' &&
         l.cantidad_disponible > 0 &&
+        this.loteTieneBodega(l) &&
         (!this.pasoBodega || !this.idSitioSeleccionado || l.id_sitio === this.idSitioSeleccionado),
     );
   }

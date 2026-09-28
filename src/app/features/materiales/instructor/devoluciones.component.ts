@@ -322,7 +322,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                   <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">Sobrante a devolver</label>
                     <p class="text-[11px] text-gray-400 mb-2">
-                      Un consumible/perecedero normalmente NO vuelve. Si sobró algo sin usar, cargalo acá.
+                      Un consumible/perecedero normalmente NO vuelve. Si sobró algo sin usar, cargalo acá — hay plazo hasta el {{ lineasConsumibles[0].fecha_limite | date: 'dd/MM/yyyy' }}; después el préstamo se da por consumido.
                     </p>
                     <div class="space-y-2">
                       @for (l of lineasConsumibles; track l.id_lote) {

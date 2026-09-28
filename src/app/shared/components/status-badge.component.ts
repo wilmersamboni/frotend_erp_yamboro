@@ -41,8 +41,10 @@ export class StatusBadgeComponent {
     RESUELTA: { bg: 'var(--ok-bg)', fg: 'var(--ok-text)' },
     ENTREGADA: { bg: 'var(--ok-bg)', fg: 'var(--ok-text)' },
     DEVUELTA: { bg: 'var(--ok-bg)', fg: 'var(--ok-text)' },
+    CONSUMIDA: { bg: 'var(--indigo-bg)', fg: 'var(--indigo-text)' },
     BUENO: { bg: 'var(--ok-bg)', fg: 'var(--ok-text)' },
     CONFIRMADA: { bg: 'var(--ok-bg)', fg: 'var(--ok-text)' },
+
     // En curso / pendiente / requiere atención
     PENDIENTE: { bg: 'var(--warn-bg)', fg: 'var(--warn-text)' },
     EN_PROCESO: { bg: 'var(--warn-bg)', fg: 'var(--warn-text)' },
