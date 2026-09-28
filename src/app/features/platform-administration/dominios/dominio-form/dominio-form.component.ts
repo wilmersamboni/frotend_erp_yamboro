@@ -56,7 +56,7 @@ import { SearchableSelectComponent, SSOption } from '../../../../shared/componen
             </div>
             <button type="button" (click)="toggleSSL()"
               class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none"
-              [style.background]="form.controls['ssl'].value ? '#39A900' : '#d1d5db'">
+              [style.background]="form.controls['ssl'].value ? 'var(--accent-brand)' : 'var(--border-strong)'">
               <span class="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform"
                 [class.translate-x-6]="form.controls['ssl'].value"
                 [class.translate-x-1]="!form.controls['ssl'].value">
@@ -78,7 +78,7 @@ import { SearchableSelectComponent, SSOption } from '../../../../shared/componen
             </a>
             <button type="submit" [disabled]="guardando() || form.invalid"
               class="px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-              style="background:#39A900;">
+              style="background:var(--accent-brand);">
               @if (guardando()) { Guardando... } @else { {{ modoEdicion() ? 'Guardar cambios' : 'Registrar dominio' }} }
             </button>
           </div>
@@ -89,7 +89,7 @@ import { SearchableSelectComponent, SSOption } from '../../../../shared/componen
   styles: [`
     .form-label { display:block; font-size:11px; font-weight:700; color:var(--text-2); margin-bottom:6px; text-transform:uppercase; letter-spacing:.4px; }
     .form-input { width:100%; padding:9px 12px; border:1.5px solid var(--border); border-radius:10px; font-size:13px; color:var(--text); outline:none; transition:border-color .15s; }
-    .form-input:focus { border-color:#39A900; }
+    .form-input:focus { border-color:var(--accent-brand); }
     .form-error { font-size:11px; color:var(--err-text); margin-top:4px; }
   `],
 })

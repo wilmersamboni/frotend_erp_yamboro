@@ -190,7 +190,7 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
             <button (click)="cerrarAsignarPlacas()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
             <button (click)="guardarPlacas()" [disabled]="asignarPlacasSaving || placasLlenas === 0"
               class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
-              style="background-color: #39A900">
+              style="background-color: var(--accent-brand)">
               {{ asignarPlacasSaving ? 'Asignando…' : 'Asignar ' + placasLlenas + ' placa(s)' }}
             </button>
           </div>

@@ -80,7 +80,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
         </div>
         <button (click)="nuevo()"
           class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-          style="background-color: #39A900">
+          style="background-color: var(--accent-brand)">
           + Nueva novedad
         </button>
       </div>
@@ -211,7 +211,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
           <div class="flex justify-end gap-2 mt-6">
             <button (click)="resolverAbierto = false" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
             <button (click)="confirmarResolver()" [disabled]="resolviendo"
-              class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors" style="background-color: #39A900">
+              class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors" style="background-color: var(--accent-brand)">
               {{ resolviendo ? 'Guardando...' : 'Confirmar' }}
             </button>
           </div>

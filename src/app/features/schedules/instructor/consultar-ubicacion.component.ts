@@ -230,7 +230,7 @@ import { to12h, jornadaLabel } from '../../../core/utils/horarios.util';
       color: var(--text); outline: none; transition: border-color .15s;
       box-sizing: border-box;
     }
-    .amb-search-input:focus { border-color: #39A900; }
+    .amb-search-input:focus { border-color: var(--accent-brand); }
 
     .amb-group-header {
       display: flex; align-items: center; gap: 6px;
@@ -299,7 +299,7 @@ import { to12h, jornadaLabel } from '../../../core/utils/horarios.util';
     .ubi-tab:hover { background: var(--ok-bg); color: var(--accent-text); border-color: var(--ok-border); }
     .ubi-tab-active {
       background: var(--surface); color: var(--accent-text);
-      border-color: #39A900; border-bottom-color: var(--surface);
+      border-color: var(--accent-brand); border-bottom-color: var(--surface);
       font-weight: 800;
     }
 

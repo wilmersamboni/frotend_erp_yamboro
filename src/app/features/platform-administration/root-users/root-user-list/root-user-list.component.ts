@@ -19,7 +19,7 @@ import { LoadingSkeletonComponent } from '../../../../shared/components/loading-
       </div>
       <button type="button" (click)="nuevoUsuario()"
         class="flex items-center gap-2 text-sm font-semibold text-white px-4 py-2.5 rounded-xl transition-opacity hover:opacity-90 flex-shrink-0"
-        style="background:#39A900;">
+        style="background:var(--accent-brand);">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <path stroke-linecap="round" d="M12 5v14m-7-7h14" />
         </svg>

@@ -211,7 +211,7 @@ export interface CompetenciaTooltipState {
     .ctt-clases-chips { display:flex; flex-wrap:wrap; gap:5px; margin:4px 0 0; }
     .ctt-clase-chip { font-size:10px; font-weight:600; color:var(--info-text); background:var(--info-bg); border:1px solid var(--info-border); border-radius:5px; padding:2px 6px; }
     .ctt-clase-chip.ctt-clase-pasada { color:var(--text-muted); background:var(--surface2); border-color:var(--border); text-decoration:line-through; opacity:.7; }
-    .ctt-clase-chip.ctt-clase-hoy { color:#fff; background:#39A900; border-color:#39A900; }
+    .ctt-clase-chip.ctt-clase-hoy { color:#fff; background:var(--accent-brand); border-color:var(--accent-brand); }
     .ctt-clase-chip.ctt-clase-proxima { border-width:2px; border-color:var(--info-text); }
 
     /* Estado de la competencia (junto al nombre) */

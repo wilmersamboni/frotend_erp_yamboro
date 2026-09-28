@@ -86,7 +86,7 @@ import { openOverlay, releaseOverlay } from './overlay-registry';
     }
     .di-open .di-trigger {
       border-color: var(--tui-primary);
-      box-shadow: 0 0 0 3px rgba(57, 169, 0, .15);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-brand) 15%, transparent);
     }
     .di-disabled .di-trigger {
       opacity: .55;

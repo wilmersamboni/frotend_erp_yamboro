@@ -197,7 +197,7 @@ import { ToastService } from '../../../core/services/toast.service';
                   class="group flex items-center gap-2 px-5 py-2 text-white text-sm font-bold rounded-xl
                          shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
                   [style]="vista() === 'epsas'
-                    ? 'background: linear-gradient(135deg, #39A900 0%, #2d8500 100%)'
+                    ? 'background: linear-gradient(135deg, var(--accent-brand) 0%, var(--accent-brand-dark) 100%)'
                     : 'background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)'">
                   <svg class="w-4 h-4 group-hover:rotate-90 transition-transform duration-300"
                     fill="none" stroke="currentColor" viewBox="0 0 24 24">

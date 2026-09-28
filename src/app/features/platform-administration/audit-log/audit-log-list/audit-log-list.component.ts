@@ -59,7 +59,7 @@ const ACCIONES: AuditAccion[] = ['CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT'
         <div class="flex gap-2">
           <button type="button" (click)="aplicarFiltros()"
             class="flex-1 text-sm font-semibold text-white px-4 py-2 rounded-xl transition-opacity hover:opacity-90"
-            style="background:#39A900;">Filtrar</button>
+            style="background:var(--accent-brand);">Filtrar</button>
           <button type="button" (click)="limpiarFiltros()"
             class="text-sm font-semibold px-4 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
             Limpiar</button>

@@ -240,16 +240,16 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
     .comp-cal-dayhdr.weekend { color: var(--err-text); }
     .comp-cal-cell.weekend { color: var(--err-text); }
     .comp-cal-inrange { cursor: pointer; }
-    .comp-cal-inrange:not(.comp-cal-sel):hover { background: rgba(57,169,0,.12); color: var(--accent-text); }
+    .comp-cal-inrange:not(.comp-cal-sel):hover { background: color-mix(in srgb, var(--accent-brand) 12%, transparent); color: var(--accent-text); }
     /* Días de clase ya asignados a OTRO resultado — tachados y no clicables,
        para que no se puedan volver a elegir por error. */
     .r-cal-ocupado {
       text-decoration: line-through; cursor: not-allowed;
       color: var(--text-muted); background: var(--surface2); opacity: .6;
     }
-    .r-cal-allowed { cursor: pointer; background: rgba(57,169,0,.08); font-weight: 600; color: var(--accent-text); }
-    .r-cal-allowed:hover { background: rgba(57,169,0,.16); }
-    .r-cal-inrange { cursor: pointer; background: rgba(57,169,0,.22); color: var(--accent-text); }
+    .r-cal-allowed { cursor: pointer; background: color-mix(in srgb, var(--accent-brand) 8%, transparent); font-weight: 600; color: var(--accent-text); }
+    .r-cal-allowed:hover { background: color-mix(in srgb, var(--accent-brand) 16%, transparent); }
+    .r-cal-inrange { cursor: pointer; background: color-mix(in srgb, var(--accent-brand) 22%, transparent); color: var(--accent-text); }
     .r-cal-boundary {
       cursor: pointer;
       background: var(--tui-primary) !important; color: white !important;
@@ -264,7 +264,7 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
     .comp-cal-boundary:hover:not(.comp-cal-sel) { background: var(--warn-bg); }
     .comp-cal-sel {
       background: var(--tui-primary) !important; color: white !important;
-      font-weight: 700; box-shadow: 0 1px 4px rgba(57,169,0,.35);
+      font-weight: 700; box-shadow: 0 1px 4px color-mix(in srgb, var(--accent-brand) 35%, transparent);
       outline: none !important;
     }
     .comp-cal-total {
@@ -290,7 +290,7 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
     }
     .resultado-activo {
       border-color: var(--tui-primary);
-      background: rgba(57,169,0,.05);
+      background: color-mix(in srgb, var(--accent-brand) 5%, transparent);
     }
   `],
 })

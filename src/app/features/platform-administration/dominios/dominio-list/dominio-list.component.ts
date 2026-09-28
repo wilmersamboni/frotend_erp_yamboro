@@ -22,7 +22,7 @@ import { ConfirmService } from '../../../../core/services/confirm.service';
       </div>
       <a routerLink="nuevo"
         class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
-        style="background:#39A900;">
+        style="background:var(--accent-brand);">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <path stroke-linecap="round" d="M12 5v14M5 12h14"/>
         </svg>
@@ -80,7 +80,7 @@ import { ConfirmService } from '../../../../core/services/confirm.service';
                 <tr class="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                   <td class="px-5 py-3">
                     <div class="flex items-center gap-2">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#39A900" stroke-width="2">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="stroke: var(--accent-brand)" stroke-width="2">
                         <circle cx="12" cy="12" r="10"/>
                         <path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
                       </svg>

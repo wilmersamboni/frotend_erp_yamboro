@@ -314,15 +314,15 @@ function labelPasoGenerico(posicion: number, acciones: string[]): string {
     }
     .perm-escalera .perm-escalon:last-child { border-right: none; }
     .perm-escalon:hover { background: var(--surface2); }
-    .perm-escalon.activo { background: var(--nivel-color, #007832); color: #fff; }
+    .perm-escalon.activo { background: var(--nivel-color, var(--accent)); color: #fff; }
 
     .perm-extras { display: flex; gap: 6px; flex-wrap: wrap; }
     .perm-extra-chip {
       font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; border: 1.4px solid var(--border);
       background: var(--surface); color: var(--text-faint); cursor: pointer; white-space: nowrap; transition: all .12s ease;
     }
-    .perm-extra-chip.on { border-color: #39A900; color: var(--accent-text); background: rgba(57,169,0,.08); }
-    .perm-extra-chip:hover { border-color: #39A900; }
+    .perm-extra-chip.on { border-color: var(--accent-brand); color: var(--accent-text); background: color-mix(in srgb, var(--accent-brand) 8%, transparent); }
+    .perm-extra-chip:hover { border-color: var(--accent-brand); }
 
     .perm-group-header {
       width: 100%; display: flex; align-items: center; gap: 8px;
@@ -340,11 +340,11 @@ function labelPasoGenerico(posicion: number, acciones: string[]): string {
 
     .perm-activar-modulo-btn {
       font-size: 10.5px; font-weight: 700; text-transform: none; letter-spacing: normal;
-      color: var(--accent-text); background: var(--surface); border: 1.4px solid #39A900;
+      color: var(--accent-text); background: var(--surface); border: 1.4px solid var(--accent-brand);
       border-radius: 999px; padding: 3px 10px; cursor: pointer; white-space: nowrap;
       transition: background .15s ease;
     }
-    .perm-activar-modulo-btn:hover:not(:disabled) { background: rgba(57,169,0,.08); }
+    .perm-activar-modulo-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--accent-brand) 8%, transparent); }
     .perm-activar-modulo-btn:disabled { opacity: .5; cursor: not-allowed; }
 
     .panel-action-btn {

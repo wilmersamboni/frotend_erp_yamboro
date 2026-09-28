@@ -49,7 +49,7 @@ interface Ficha {
         <h1 class="text-xl font-bold text-gray-800">Asignaciones</h1>
         <button (click)="nuevo()"
           class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-          style="background-color: #39A900">
+          style="background-color: var(--accent-brand)">
           + Nueva asignación
         </button>
       </div>
@@ -231,7 +231,7 @@ interface Ficha {
                       } @else {
                         @for (nombre of ubicacionesFicha.get(a.id_curso); track nombre) {
                           <span class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full mr-1.5"
-                            style="background-color: rgba(57,169,0,0.1); color: var(--accent-text);">
+                            style="background-color: color-mix(in srgb, var(--accent-brand) 10%, transparent); color: var(--accent-text);">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z"/>
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -347,7 +347,7 @@ interface Ficha {
               [style.opacity]="(saving || !puedeGuardar()) ? 0.6 : 1"
               [style.cursor]="(saving || !puedeGuardar()) ? 'not-allowed' : 'pointer'"
               class="px-5 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-              style="background-color: #39A900">
+              style="background-color: var(--accent-brand)">
               {{ saving ? 'Guardando...' : 'Guardar' }}
             </button>
           </div>

@@ -70,7 +70,7 @@ interface LineaForm {
         <h1 class="text-xl font-bold text-gray-800">Solicitudes</h1>
         <button (click)="nuevo()"
           class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-          style="background-color: #39A900">
+          style="background-color: var(--accent-brand)">
           + Nueva solicitud
         </button>
       </div>
@@ -427,7 +427,7 @@ interface LineaForm {
             <button (click)="cerrarModal()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
             <button (click)="guardar()" [disabled]="saving || !puedeGuardar()"
               class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
-              style="background-color: #39A900">
+              style="background-color: var(--accent-brand)">
               {{ saving ? 'Guardando...' : 'Guardar' }}
             </button>
           </div>
@@ -542,7 +542,7 @@ interface LineaForm {
             <button (click)="cerrarAprobar()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
             <button (click)="confirmarAprobar()" [disabled]="aprobando"
               class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
-              style="background-color: #39A900">
+              style="background-color: var(--accent-brand)">
               {{ aprobando ? 'Aprobando...' : 'Aprobar' }}
             </button>
           </div>

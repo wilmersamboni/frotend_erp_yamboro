@@ -16,7 +16,7 @@
 
 /* Header */
 .chat-header {
-  background: var(--tui-primary, #39A900);
+  background: var(--tui-primary, var(--accent-brand));
   color: white;
   padding: 14px 16px;
   display: flex;
@@ -71,7 +71,7 @@
 }
 
 .mensaje.usuario {
-  background: var(--tui-primary, #39A900);
+  background: var(--tui-primary, var(--accent-brand));
   color: white;
   align-self: flex-end;
   border-bottom-right-radius: 4px;
@@ -111,7 +111,7 @@
 }
 
 .chat-input textarea:focus {
-  border-color: var(--tui-primary, #39A900);
+  border-color: var(--tui-primary, var(--accent-brand));
 }
 
 /* Chrome/Edge/Safari: scroll delgado y discreto en vez del default grueso */
@@ -131,7 +131,7 @@
 .chat-input button {
   flex-shrink: 0;
   align-self: flex-end;
-  background: var(--tui-primary, #39A900);
+  background: var(--tui-primary, var(--accent-brand));
   color: white;
   border: none;
   border-radius: 20px;

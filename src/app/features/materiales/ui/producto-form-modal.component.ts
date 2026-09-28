@@ -262,7 +262,7 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
               [style.opacity]="(saving || bodegaSeleccionadaInactiva) ? 0.6 : 1"
               [style.cursor]="(saving || bodegaSeleccionadaInactiva) ? 'not-allowed' : 'pointer'"
               class="w-full sm:w-auto px-5 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-              style="background-color: #39A900">
+              style="background-color: var(--accent-brand)">
               {{ saving ? 'Guardando...' : (editando ? 'Guardar' : 'Crear producto') }}
             </button>
           </div>

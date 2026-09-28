@@ -130,7 +130,7 @@
   font-size: 18px;
 }
 
-.box-green  { background: var(--ok-bg); color: var(--accent-text); box-shadow: 0 3px 10px rgba(57,169,0,.22); }
+.box-green  { background: var(--accent-soft); color: var(--accent-text); box-shadow: 0 3px 10px color-mix(in srgb, var(--accent-brand) 22%, transparent); }
 .box-blue   { background: var(--info-bg); color: #3b82f6; box-shadow: 0 3px 10px rgba(59,130,246,.22); }
 .box-orange { background: var(--warn-bg); color: #f97316; box-shadow: 0 3px 10px rgba(249,115,22,.22); }
 .box-purple { background: var(--violet-bg); color: #a855f7; box-shadow: 0 3px 10px rgba(168,85,247,.22); }
@@ -197,8 +197,8 @@
   border-radius: 3px 3px 0 0;
 }
 
-.s-green        { background: rgba(57,169,0,.2); }
-.s-green-solid  { background: #39A900; }
+.s-green        { background: color-mix(in srgb, var(--accent-brand) 20%, transparent); }
+.s-green-solid  { background: var(--accent-brand); }
 .s-blue         { background: rgba(59,130,246,.2); }
 .s-blue-solid   { background: #3b82f6; }
 .s-orange       { background: rgba(249,115,22,.2); }
@@ -404,7 +404,7 @@
   transition: width 0.7s ease;
 }
 
-.fill-green  { background: #39A900; }
+.fill-green  { background: var(--accent-brand); }
 .fill-blue   { background: #3b82f6; }
 .fill-orange { background: #f97316; }
 
@@ -484,7 +484,7 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(57,169,0,.12);
+  background: color-mix(in srgb, var(--accent-brand) 12%, transparent);
   color: var(--accent-text);
   font-size: 11px;
   font-weight: 700;
@@ -536,7 +536,7 @@
 
 .avance-fill {
   height: 100%;
-  background: linear-gradient(90deg, #39A900, #5ec900);
+  background: linear-gradient(90deg, var(--accent-brand), var(--accent-brand-light));
   border-radius: 99px;
   transition: width 0.5s ease;
 }
@@ -587,7 +587,7 @@
 .donut-legend { display: flex; flex-direction: column; gap: 9px; }
 .legend-item  { display: flex; align-items: center; gap: 8px; }
 .legend-dot   { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-.dot-green    { background: #39A900; }
+.dot-green    { background: var(--accent-brand); }
 .dot-blue     { background: #2563eb; }
 .dot-orange   { background: #f97316; }
 .dot-gray     { background: var(--border); }
@@ -666,8 +666,8 @@
    el texto (forzado a color:white) quedaba invisible o de bajísimo contraste. */
 :host ::ng-deep .hero-card.p-card {
   border-radius: 20px;
-  box-shadow: 0 4px 20px rgba(57,169,0,0.25);
-  background: linear-gradient(135deg, #39A900 0%, #2d8600 100%);
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--accent-brand) 25%, transparent);
+  background: linear-gradient(135deg, var(--accent-brand) 0%, var(--accent-brand-dark) 100%);
 }
 :host ::ng-deep .hero-card .p-card-body { padding: 26px; }
 
@@ -696,7 +696,7 @@
   background: var(--border);
 }
 :host ::ng-deep .sena-progress .p-progressbar-value {
-  background: linear-gradient(90deg, #39A900, #5ec900);
+  background: linear-gradient(90deg, var(--accent-brand), var(--accent-brand-light));
   border-radius: 99px;
 }
 

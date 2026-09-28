@@ -137,7 +137,7 @@ interface EditForm {
     }
     .jornada-badge {
       display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 8px;
-      background: rgba(57,169,0,.08); color: var(--accent-text); font-size: 12px; border: 1px solid rgba(57,169,0,.25);
+      background: color-mix(in srgb, var(--accent-brand) 8%, transparent); color: var(--accent-text); font-size: 12px; border: 1px solid color-mix(in srgb, var(--accent-brand) 25%, transparent);
     }
     .transversal-pill {
       display: inline-flex; align-items: center; gap: 5px; padding: 8px 10px; border-radius: 8px;

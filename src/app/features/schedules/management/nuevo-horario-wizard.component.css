@@ -39,7 +39,7 @@
 .jornada-det-span { background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn-border); }
 .wiz-sel-count {
   display: inline-flex; align-items: center; gap: 5px;
-  background: #39A900; color: #fff;
+  background: var(--accent-brand); color: #fff;
   border-radius: 20px; padding: 3px 12px; font-size: 12px; font-weight: 700;
 }
 .wiz-sel-hint { font-size: 12px; color: var(--text-muted); font-style: italic; }
@@ -89,7 +89,7 @@
 .wt-apply-all:hover { opacity: 1; color: var(--text-2); }
 .wt-apply-all input[type="checkbox"] {
   width: 13px; height: 13px; cursor: pointer;
-  accent-color: #39A900; flex-shrink: 0;
+  accent-color: var(--accent-brand); flex-shrink: 0;
 }
 .wt-apply-all input[type="checkbox"]:checked + span {
   color: var(--text); font-weight: 700;
@@ -111,7 +111,7 @@
   cursor: pointer; user-select: none;
 }
 .wt-checkbox {
-  width: 16px; height: 16px; cursor: pointer; accent-color: #39A900; flex-shrink: 0;
+  width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent-brand); flex-shrink: 0;
 }
 .wt-day-name {
   font-size: 13px; font-weight: 700; color: var(--text-muted);
