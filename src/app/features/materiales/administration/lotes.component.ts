@@ -164,14 +164,22 @@ export class MaterialesLotesComponent implements OnInit {
     return this.productos.find((p) => p.id_producto === id) ?? this.editando?.producto;
   }
 
-  get esPerecedero(): boolean {
-    return this.productoDelForm?.tipo_material === 'PERECEDERO';
+  /**
+   * "Fecha de vencimiento" — antes solo se mostraba para PERECEDERO. Un
+   * CONSUMO también puede vencer (ej. un insumo químico, un medicamento) sin
+   * ser tan crítico como para forzar el seguimiento de vencimientos que sí
+   * aplica a PERECEDERO — por eso ahora se muestra para ambos, siempre
+   * opcional (el backend nunca la exigió: `CreateLoteDto.fecha_vencimiento`
+   * es `@IsOptional()` sin importar el tipo de material).
+   */
+  get mostrarVencimiento(): boolean {
+    const tipo = this.productoDelForm?.tipo_material;
+    return tipo === 'PERECEDERO' || tipo === 'CONSUMO';
   }
 
   get camposModal(): string[] {
-    // "Fecha de vencimiento" solo aplica si el producto del lote es PERECEDERO.
     // `unidad_medida` NO va en el form — se hereda siempre de `producto.unidad_medida`.
-    const venc = this.esPerecedero ? ['fecha_vencimiento'] : [];
+    const venc = this.mostrarVencimiento ? ['fecha_vencimiento'] : [];
     return this.editando
       ? ['codigo_lote', ...venc, 'id_sitio', 'cantidad_disponible', 'estado']
       : ['id_producto', 'cantidad_inicial', 'codigo_lote', ...venc, 'id_sitio'];
@@ -290,8 +298,8 @@ export class MaterialesLotesComponent implements OnInit {
     this.saving = true;
     this.error = null;
     try {
-      // Solo mandamos fecha de vencimiento si el producto del lote es perecedero.
-      const fechaVenc = this.esPerecedero ? (form['fecha_vencimiento'] || undefined) : undefined;
+      // Solo mandamos fecha de vencimiento si el producto la admite (PERECEDERO o CONSUMO) — siempre opcional.
+      const fechaVenc = this.mostrarVencimiento ? (form['fecha_vencimiento'] || undefined) : undefined;
       // El lote SIEMPRE hereda la unidad de medida de su producto — nunca se
       // pregunta aparte (evita que diverjan, ej. "kg" del lote vs "KILOGRAMO"
       // del producto). Al editar, esto también auto-corrige un lote viejo
