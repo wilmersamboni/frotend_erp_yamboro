@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, inject, computed } from '@angular/core';
+import { Component, OnInit, signal, inject, computed, HostListener } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -33,25 +33,46 @@ interface MiAcceso {
 
       <!-- ── Encabezado ─────────────────────────────────────────── -->
       <div class="settings-header">
-        <button type="button" class="settings-avatar-btn" title="Cambiar foto de perfil"
-                [disabled]="subiendoFoto()" (click)="fotoInput.click()">
-          @if (fotoUrl()) {
-            <img [src]="fotoUrl()" alt="" class="settings-avatar-img" />
-          } @else {
-            <div class="settings-avatar">{{ iniciales() }}</div>
-          }
-          <span class="settings-avatar-overlay">
-            @if (subiendoFoto()) {
-              <div class="spinner" style="width:18px;height:18px;border-width:3px;"></div>
+        <!-- Clic en la foto = verla en grande (si hay); la camarita = cambiarla.
+             Antes el clic en la foto siempre abría el selector de archivos,
+             así que no había forma de solo mirarla. -->
+        <div class="settings-avatar-wrap">
+          <button type="button" class="settings-avatar-btn"
+                  [title]="fotoUrl() ? 'Ver foto de perfil' : 'Subir foto de perfil'"
+                  [disabled]="subiendoFoto()"
+                  (click)="fotoUrl() ? verFoto.set(true) : fotoInput.click()">
+            @if (fotoUrl()) {
+              <img [src]="fotoUrl()" alt="" class="settings-avatar-img" />
             } @else {
-              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="16" height="16">
-                <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" stroke-linecap="round" stroke-linejoin="round"/>
-                <circle cx="12" cy="13" r="4"/>
-              </svg>
+              <div class="settings-avatar">{{ iniciales() }}</div>
             }
-          </span>
-        </button>
+            <span class="settings-avatar-overlay">
+              @if (subiendoFoto()) {
+                <div class="spinner" style="width:18px;height:18px;border-width:3px;"></div>
+              } @else if (fotoUrl()) {
+                <!-- ojo: ver -->
+                <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="18" height="18">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              } @else {
+                <ng-container [ngTemplateOutlet]="camaraIcon"></ng-container>
+              }
+            </span>
+          </button>
+          <button type="button" class="settings-avatar-cam" title="Cambiar foto de perfil"
+                  [disabled]="subiendoFoto()" (click)="fotoInput.click()">
+            <ng-container [ngTemplateOutlet]="camaraIcon"></ng-container>
+          </button>
+        </div>
         <input #fotoInput type="file" accept="image/jpeg,image/png,image/webp" style="display:none" (change)="onFotoSeleccionada($event)" />
+
+        <ng-template #camaraIcon>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+            <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+        </ng-template>
         <div>
           <h1 class="settings-name">{{ user()?.nombre ?? 'Usuario' }}</h1>
           <span class="settings-badge" [class]="'badge-' + (user()?.cargo ?? '')">
@@ -339,7 +360,9 @@ interface MiAcceso {
               <!-- Igual que el encabezado, para que la foto también se vea reflejada acá -->
               <div class="sys-profile">
                 @if (fotoUrl()) {
-                  <img [src]="fotoUrl()" alt="" class="sys-profile-img" />
+                  <button type="button" class="sys-profile-img-btn" title="Ver foto de perfil" (click)="verFoto.set(true)">
+                    <img [src]="fotoUrl()" alt="" class="sys-profile-img" />
+                  </button>
                 } @else {
                   <div class="sys-profile-avatar">{{ iniciales() }}</div>
                 }
@@ -421,6 +444,28 @@ interface MiAcceso {
 
         </div>
       </div>
+
+      <!-- ── Visor de la foto de perfil en grande ── -->
+      @if (verFoto() && fotoUrl()) {
+        <div class="foto-visor" (click)="verFoto.set(false)" role="dialog" aria-modal="true" aria-label="Foto de perfil">
+          <div class="foto-visor-card" (click)="$event.stopPropagation()">
+            <button type="button" class="foto-visor-cerrar" title="Cerrar" (click)="verFoto.set(false)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <img [src]="fotoUrl()" alt="Foto de perfil" class="foto-visor-img" />
+            <p class="foto-visor-nombre">{{ user()?.nombre ?? 'Usuario' }}</p>
+            <div class="foto-visor-acciones">
+              <button type="button" class="btn-secundario" (click)="verFoto.set(false)">Cerrar</button>
+              <button type="button" class="btn-primary" [disabled]="subiendoFoto()"
+                      (click)="verFoto.set(false); fotoInput.click()">
+                Cambiar foto
+              </button>
+            </div>
+          </div>
+        </div>
+      }
     </div>
   `,
   styleUrls: ['./settings.component.css'],
@@ -465,6 +510,13 @@ perfil: {
 
   // Foto de perfil
   subiendoFoto = signal(false);
+  /** Visor en grande — se abre al hacer clic en la foto (cambiarla es el botón de la cámara). */
+  verFoto = signal(false);
+
+  @HostListener('document:keydown.escape')
+  cerrarVisorConEscape(): void {
+    if (this.verFoto()) this.verFoto.set(false);
+  }
   /** Ruta relativa (perfil recién cargado del backend) con fallback al usuario cacheado en localStorage. */
   readonly fotoUrl = computed(() => {
     const ruta = this.perfil.fotoPerfil ?? this.user()?.fotoPerfil;

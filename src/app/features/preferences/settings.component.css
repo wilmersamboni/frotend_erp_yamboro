@@ -22,10 +22,56 @@
 .settings-avatar-btn:disabled { cursor: not-allowed; }
 .settings-avatar-img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
 .settings-avatar-overlay {
-  position: absolute; inset: 0; border-radius: 50%;
+  position: absolute; inset: 0; border-radius: 50%; color: white;
   background: rgba(15,23,42,0); display: flex; align-items: center; justify-content: center;
   opacity: 0; transition: opacity .15s, background .15s;
 }
+/* Contenedor: el botón de cámara va en la esquina, por FUERA del círculo recortado. */
+.settings-avatar-wrap { position: relative; flex-shrink: 0; }
+.settings-avatar-cam {
+  position: absolute; right: -2px; bottom: -2px;
+  width: 24px; height: 24px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: white; color: #475569; border: 1.5px solid #e2e8f0;
+  box-shadow: 0 1px 4px rgba(0,0,0,.12); cursor: pointer; padding: 0;
+  transition: color .15s, border-color .15s;
+}
+.settings-avatar-cam:hover { color: #39A900; border-color: #39A900; }
+.settings-avatar-cam:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Visor de la foto en grande ── */
+.foto-visor {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(15,23,42,.6); backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.foto-visor-card {
+  position: relative; background: white; border-radius: 20px;
+  padding: 24px; width: 100%; max-width: 420px;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  box-shadow: 0 20px 50px rgba(0,0,0,.25);
+}
+.foto-visor-img {
+  width: 100%; max-height: 60vh; aspect-ratio: 1 / 1;
+  object-fit: cover; border-radius: 16px; background: #f1f5f9;
+}
+.foto-visor-nombre { font-size: 16px; font-weight: 700; color: #0f172a; margin: 0; }
+.foto-visor-acciones { display: flex; gap: 10px; width: 100%; justify-content: flex-end; }
+.foto-visor-cerrar {
+  position: absolute; top: 10px; right: 10px; width: 32px; height: 32px;
+  border-radius: 50%; border: none; background: rgba(255,255,255,.9);
+  color: #475569; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,.15); z-index: 1;
+}
+.foto-visor-cerrar:hover { color: #0f172a; }
+.btn-secundario {
+  padding: 10px 20px; background: white; color: #374151;
+  border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: background .15s;
+}
+.btn-secundario:hover { background: #f9fafb; }
+
+.sys-profile-img-btn { padding: 0; border: none; background: none; border-radius: 50%; cursor: zoom-in; flex-shrink: 0; }
 .settings-avatar-btn:hover .settings-avatar-overlay,
 .settings-avatar-btn:disabled .settings-avatar-overlay {
   opacity: 1; background: rgba(15,23,42,.45);
