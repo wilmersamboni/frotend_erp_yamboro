@@ -248,7 +248,7 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
                     <div class="card-help-btn"
                          [class.card-help-active]="compTooltip.state()?.h?.id === h.id"
                          (click)="compTooltip.abrir(h, getCompetenciaVigente(h), $event)">
-                      <lucide-icon name="help-circle" [size]="15"></lucide-icon>
+                      <lucide-icon name="book-open" [size]="15"></lucide-icon>
                     </div>
                     @if (fichaEvs?.length && isToday(d)) {
                       @for (ev of fichaEvs; track ev.id) {

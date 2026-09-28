@@ -1,24 +1,78 @@
-import { Component, OnInit, signal, inject, computed } from '@angular/core';
+import { Component, OnInit, signal, inject, computed, HostListener } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { NgTemplateOutlet } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { ThemeService, TEMAS } from '../../core/services/theme.service';
 import { ApiService } from '../../core/services/api.service';
 import { ToastService } from '../../core/services/toast.service';
+import { environment } from '../../../environments/environment';
 
-type Tab = 'perfil' | 'password' | 'apariencia';
+type Tab = 'perfil' | 'password' | 'apariencia' | 'notificaciones' | 'sistema';
+
+interface CategoriaNotificacion {
+  id: string;
+  label: string;
+  descripcion: string;
+}
+
+interface MiAcceso {
+  idAcceso: string;
+  fechaIngreso: string | null;
+  fechaSalida: string | null;
+  estado: string;
+}
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, NgTemplateOutlet],
   template: `
     <div class="settings-wrap">
 
       <!-- ── Encabezado ─────────────────────────────────────────── -->
       <div class="settings-header">
-        <div class="settings-avatar">{{ iniciales() }}</div>
+        <!-- Clic en la foto = verla en grande (si hay); la camarita = cambiarla.
+             Antes el clic en la foto siempre abría el selector de archivos,
+             así que no había forma de solo mirarla. -->
+        <div class="settings-avatar-wrap">
+          <button type="button" class="settings-avatar-btn"
+                  [title]="fotoUrl() ? 'Ver foto de perfil' : 'Subir foto de perfil'"
+                  [disabled]="subiendoFoto()"
+                  (click)="fotoUrl() ? verFoto.set(true) : fotoInput.click()">
+            @if (fotoUrl()) {
+              <img [src]="fotoUrl()" alt="" class="settings-avatar-img" />
+            } @else {
+              <div class="settings-avatar">{{ iniciales() }}</div>
+            }
+            <span class="settings-avatar-overlay">
+              @if (subiendoFoto()) {
+                <div class="spinner" style="width:18px;height:18px;border-width:3px;"></div>
+              } @else if (fotoUrl()) {
+                <!-- ojo: ver -->
+                <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="18" height="18">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              } @else {
+                <ng-container [ngTemplateOutlet]="camaraIcon"></ng-container>
+              }
+            </span>
+          </button>
+          <button type="button" class="settings-avatar-cam" title="Cambiar foto de perfil"
+                  [disabled]="subiendoFoto()" (click)="fotoInput.click()">
+            <ng-container [ngTemplateOutlet]="camaraIcon"></ng-container>
+          </button>
+        </div>
+        <input #fotoInput type="file" accept="image/jpeg,image/png,image/webp" style="display:none" (change)="onFotoSeleccionada($event)" />
+
+        <ng-template #camaraIcon>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+            <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+        </ng-template>
         <div>
           <h1 class="settings-name">{{ user()?.nombre ?? 'Usuario' }}</h1>
           <span class="settings-badge" [class]="'badge-' + (user()?.cargo ?? '')">
@@ -56,6 +110,30 @@ type Tab = 'perfil' | 'password' | 'apariencia';
                 stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
             Apariencia
+          </button>
+
+          <button (click)="abrirNotificaciones()" [class.active]="tab() === 'notificaciones'">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"
+                stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Notificaciones
+          </button>
+
+          <button (click)="abrirSistema()" [class.active]="tab() === 'sistema'">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65
+                       1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65
+                       0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65
+                       1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6
+                       9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0
+                       001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51
+                       1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0
+                       00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"
+                stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Sistema
           </button>
         </nav>
 
@@ -115,34 +193,32 @@ type Tab = 'perfil' | 'password' | 'apariencia';
               <h2 class="panel-title">Cambiar Contraseña</h2>
               <p class="panel-sub">Por seguridad, ingresa tu contraseña actual</p>
 
+              <!-- Ícono de ojo abierto/cerrado — antes copiado 3 veces, uno por
+                   campo; ahora un solo template reutilizado con ngTemplateOutlet. -->
+              <ng-template #eyeIcon let-abierto>
+                @if (abierto) {
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                    <line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                } @else {
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                }
+              </ng-template>
+
               <div class="form-grid" style="max-width:480px">
                 <div class="form-field" style="grid-column:1/-1">
                   <label>Contraseña actual</label>
                   <div class="input-eye">
                     <input [type]="showPwd.actual ? 'text' : 'password'"
                       [(ngModel)]="pwd.actual" placeholder="••••••••" />
-                    <button type="button" (click)="showPwd.actual = !showPwd.actual">
-                      @if(showPwd.actual){
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-                          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-                          <line x1="1" y1="1" x2="23" y2="23"/>
-                        </svg>
-                      } @else {
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                          <circle cx="12" cy="12" r="3"/>
-                        </svg>
-                      }
+                    <button type="button" (click)="showPwd.actual = !showPwd.actual" [attr.aria-label]="showPwd.actual ? 'Ocultar contraseña' : 'Mostrar contraseña'">
+                      <ng-container [ngTemplateOutlet]="eyeIcon" [ngTemplateOutletContext]="{ $implicit: showPwd.actual }"></ng-container>
                     </button>
-                    
                   </div>
                 </div>
                 <div class="form-field" style="grid-column:1/-1">
@@ -150,28 +226,8 @@ type Tab = 'perfil' | 'password' | 'apariencia';
                   <div class="input-eye">
                     <input [type]="showPwd.nueva ? 'text' : 'password'"
                       [(ngModel)]="pwd.nueva" placeholder="Mín. 8 caracteres" />
-                    <button type="button" (click)="showPwd.nueva = !showPwd.nueva">
-                      @if(showPwd.nueva){
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-                          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-                          <line x1="1" y1="1" x2="23" y2="23"/>
-                        </svg>
-                      }
-                      @else {
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
-                      }
-                      
+                    <button type="button" (click)="showPwd.nueva = !showPwd.nueva" [attr.aria-label]="showPwd.nueva ? 'Ocultar contraseña' : 'Mostrar contraseña'">
+                      <ng-container [ngTemplateOutlet]="eyeIcon" [ngTemplateOutletContext]="{ $implicit: showPwd.nueva }"></ng-container>
                     </button>
                   </div>
                 </div>
@@ -179,30 +235,20 @@ type Tab = 'perfil' | 'password' | 'apariencia';
                   <label>Confirmar nueva contraseña</label>
                   <div class="input-eye">
                     <input [type]="showPwd.confirma ? 'text' : 'password'"
-                      [(ngModel)]="pwd.confirma" placeholder="Repite la contraseña" />
-                    <button type="button" (click)="showPwd.confirma = !showPwd.confirma">
-                      @if(showPwd.confirma){
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-                          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-                          <line x1="1" y1="1" x2="23" y2="23"/>
-                        </svg>
-                      }
-                      @else {
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
-                      }
+                      [(ngModel)]="pwd.confirma" placeholder="Repite la contraseña"
+                      [class.input-err]="pwd.confirma && !passwordsCoinciden()" />
+                    <button type="button" (click)="showPwd.confirma = !showPwd.confirma" [attr.aria-label]="showPwd.confirma ? 'Ocultar contraseña' : 'Mostrar contraseña'">
+                      <ng-container [ngTemplateOutlet]="eyeIcon" [ngTemplateOutletContext]="{ $implicit: showPwd.confirma }"></ng-container>
                     </button>
                   </div>
+                  <!-- Validación en vivo — antes solo se avisaba al hacer clic en "Actualizar". -->
+                  @if (pwd.confirma) {
+                    @if (passwordsCoinciden()) {
+                      <p class="match-ok"><span>✓</span> Las contraseñas coinciden</p>
+                    } @else {
+                      <p class="match-err"><span>✕</span> Las contraseñas no coinciden</p>
+                    }
+                  }
                 </div>
               </div>
 
@@ -221,7 +267,7 @@ type Tab = 'perfil' | 'password' | 'apariencia';
               }
 
               <div class="panel-footer">
-                <button class="btn-primary" (click)="cambiarPassword()" [disabled]="saving()">
+                <button class="btn-primary" (click)="cambiarPassword()" [disabled]="saving() || !formPasswordValido()">
                   {{ saving() ? 'Actualizando…' : 'Actualizar contraseña' }}
                 </button>
               </div>
@@ -272,8 +318,154 @@ type Tab = 'perfil' | 'password' | 'apariencia';
             </div>
           }
 
+          <!-- ════════ NOTIFICACIONES ════════ -->
+          @if (tab() === 'notificaciones') {
+            <div class="panel-section">
+              <h2 class="panel-title">Notificaciones</h2>
+              <p class="panel-sub">Elige qué avisos quieres seguir recibiendo dentro de la app</p>
+
+              @if (cargandoNotif()) {
+                <div class="spinner-wrap"><div class="spinner"></div></div>
+              } @else {
+                <div class="notif-list">
+                  @for (cat of categoriasNotif(); track cat.id) {
+                    <div class="notif-row">
+                      <div>
+                        <p class="pref-label">{{ cat.label }}</p>
+                        <p class="pref-desc">{{ cat.descripcion }}</p>
+                      </div>
+                      <button type="button" class="switch" role="switch"
+                              [attr.aria-checked]="!categoriasApagadas().has(cat.id)"
+                              [class.on]="!categoriasApagadas().has(cat.id)"
+                              [disabled]="guardandoNotifId() === cat.id"
+                              (click)="toggleCategoriaNotif(cat.id)">
+                        <span class="switch-thumb"></span>
+                      </button>
+                    </div>
+                  }
+                  @if (categoriasNotif().length === 0) {
+                    <p class="pref-desc">No hay categorías de notificación configuradas.</p>
+                  }
+                </div>
+              }
+            </div>
+          }
+
+          <!-- ════════ SISTEMA ════════ -->
+          @if (tab() === 'sistema') {
+            <div class="panel-section">
+              <h2 class="panel-title">Sistema</h2>
+              <p class="panel-sub">Información de tu cuenta y sesiones recientes</p>
+
+              <!-- Igual que el encabezado, para que la foto también se vea reflejada acá -->
+              <div class="sys-profile">
+                @if (fotoUrl()) {
+                  <button type="button" class="sys-profile-img-btn" title="Ver foto de perfil" (click)="verFoto.set(true)">
+                    <img [src]="fotoUrl()" alt="" class="sys-profile-img" />
+                  </button>
+                } @else {
+                  <div class="sys-profile-avatar">{{ iniciales() }}</div>
+                }
+                <div>
+                  <p class="sys-profile-name">{{ user()?.nombre ?? 'Usuario' }}</p>
+                  <p class="sys-profile-sub">{{ user()?.correo || user()?.login || '—' }}</p>
+                </div>
+              </div>
+
+              <div class="sys-grid">
+                <div class="sys-card">
+                  <span class="sys-icon">🏫</span>
+                  <div>
+                    <p class="sys-label">Aplicativo</p>
+                    <p class="sys-value">{{ user()?.aplicativoNombre || '—' }}</p>
+                  </div>
+                </div>
+                <div class="sys-card">
+                  <span class="sys-icon">🛡️</span>
+                  <div>
+                    <p class="sys-label">Rol</p>
+                    <p class="sys-value">{{ user()?.rolNombre || user()?.cargo || '—' }}</p>
+                  </div>
+                </div>
+                <div class="sys-card">
+                  <span class="sys-icon">👤</span>
+                  <div>
+                    <p class="sys-label">Usuario (login)</p>
+                    <p class="sys-value">{{ user()?.login || '—' }}</p>
+                  </div>
+                </div>
+                <div class="sys-card">
+                  <span class="sys-icon">🕒</span>
+                  <div>
+                    <p class="sys-label">Última conexión</p>
+                    <p class="sys-value">{{ ultimaConexion() }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <hr class="divider" />
+
+              <p class="pref-label" style="margin-bottom:10px;">Conexiones recientes</p>
+              @if (cargandoAccesos()) {
+                <div class="spinner-wrap"><div class="spinner"></div></div>
+              } @else if (misAccesos().length === 0) {
+                <p class="pref-desc">Sin historial de conexiones todavía.</p>
+              } @else {
+                <div class="accesos-tbl-wrap">
+                  <table class="accesos-tbl">
+                    <thead>
+                      <tr>
+                        <th>Fecha</th>
+                        <th>Ingreso</th>
+                        <th>Salida</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (a of misAccesos(); track a.idAcceso) {
+                        <tr>
+                          <td>{{ formatFechaCorta(a.fechaIngreso) }}</td>
+                          <td>{{ formatHora(a.fechaIngreso) }}</td>
+                          <td>{{ a.fechaSalida ? formatHora(a.fechaSalida) : '—' }}</td>
+                          <td>
+                            <span class="acceso-pill" [class.activo]="a.estado === 'activo'">
+                              <span class="acceso-dot" [class.activo]="a.estado === 'activo'"></span>
+                              {{ a.estado === 'activo' ? 'Activa' : 'Cerrada' }}
+                            </span>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </div>
+          }
+
         </div>
       </div>
+
+      <!-- ── Visor de la foto de perfil en grande ── -->
+      @if (verFoto() && fotoUrl()) {
+        <div class="foto-visor" (click)="verFoto.set(false)" role="dialog" aria-modal="true" aria-label="Foto de perfil">
+          <div class="foto-visor-card" (click)="$event.stopPropagation()">
+            <button type="button" class="foto-visor-cerrar" title="Cerrar" (click)="verFoto.set(false)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <img [src]="fotoUrl()" alt="Foto de perfil" class="foto-visor-img" />
+            <p class="foto-visor-nombre">{{ user()?.nombre ?? 'Usuario' }}</p>
+            <div class="foto-visor-acciones">
+              <button type="button" class="btn-secundario" (click)="verFoto.set(false)">Cerrar</button>
+              <button type="button" class="btn-primary" [disabled]="subiendoFoto()"
+                      (click)="verFoto.set(false); fotoInput.click()">
+                Cambiar foto
+              </button>
+            </div>
+          </div>
+        </div>
+      }
     </div>
   `,
   styleUrls: ['./settings.component.css'],
@@ -307,15 +499,41 @@ perfil: {
   correo: string;
   telefono: number | null;
   direccion: string;
+  fotoPerfil: string | null;
 } = {
   nombre: '',
   correo: '',
   telefono: null,
-  direccion: ''
+  direccion: '',
+  fotoPerfil: null,
 };
+
+  // Foto de perfil
+  subiendoFoto = signal(false);
+  /** Visor en grande — se abre al hacer clic en la foto (cambiarla es el botón de la cámara). */
+  verFoto = signal(false);
+
+  @HostListener('document:keydown.escape')
+  cerrarVisorConEscape(): void {
+    if (this.verFoto()) this.verFoto.set(false);
+  }
+  /** Ruta relativa (perfil recién cargado del backend) con fallback al usuario cacheado en localStorage. */
+  readonly fotoUrl = computed(() => {
+    const ruta = this.perfil.fotoPerfil ?? this.user()?.fotoPerfil;
+    return ruta ? `${environment.apiUrl}/${ruta}` : null;
+  });
+
   // Cambio de contraseña
   pwd       = { actual: '', nueva: '', confirma: '' };
   showPwd   = { actual: false, nueva: false, confirma: false };
+
+  passwordsCoinciden(): boolean {
+    return this.pwd.nueva === this.pwd.confirma;
+  }
+
+  formPasswordValido(): boolean {
+    return !!this.pwd.actual && this.pwd.nueva.length >= 8 && this.passwordsCoinciden();
+  }
 
   // Fortaleza de contraseña (1-4)
   pwdStrength = computed(() => {
@@ -352,10 +570,11 @@ perfil: {
         this.http.get(`/api/personas/${personaId}`)
       );
       this.perfil = {
-        nombre:    data.nombre    ?? '',
-        correo:    data.correo    ?? '',
-        telefono:  data.telefono != null ? Number(data.telefono) : null,
-        direccion: data.direccion ?? '',
+        nombre:     data.nombre     ?? '',
+        correo:     data.correo     ?? '',
+        telefono:   data.telefono != null ? Number(data.telefono) : null,
+        direccion:  data.direccion  ?? '',
+        fotoPerfil: data.fotoPerfil ?? null,
       };
     } catch { this.perfil.nombre = this.user()?.nombre ?? ''; }
     finally { this.cargandoPerfil.set(false); }
@@ -366,15 +585,14 @@ perfil: {
     if (!personaId) return;
     this.saving.set(true);
     try {
-      // PATCH con solo los campos editables — antes hacía GET (para no pisar
-      // genero/municipioId/cargo/estado) y después PUT con todo el objeto:
-      // si otro proceso cambiaba alguno de esos campos entre el GET y el
-      // PUT, este PUT lo pisaba con el valor ya viejo (TOCTOU, auditoría
-      // 2026-09-16). El backend ya mergea parcial (`Object.assign` sobre la
-      // entidad recién leída, PersonasService.actualizar), así que un PATCH
-      // con solo estos 4 campos nunca toca los demás.
+      // Autoservicio (PATCH /personas/mi-perfil) — nunca /personas/:id: ese
+      // endpoint exige `personas.gestionar`, que instructor/aprendiz NUNCA
+      // tienen por defecto, así que "Guardar cambios" les daba 403 (bug real,
+      // corregido junto con esto). mi-perfil solo acepta estos 4 campos —
+      // mismo motivo que antes para no mandar el objeto completo (TOCTOU,
+      // auditoría 2026-09-16): el backend mergea parcial.
       await firstValueFrom(
-        this.http.patch(`/api/personas/${personaId}`, {
+        this.http.patch(`/api/personas/mi-perfil`, {
           nombre:    this.perfil.nombre,
           correo:    this.perfil.correo,
           telefono:  this.perfil.telefono,
@@ -386,6 +604,37 @@ perfil: {
     } catch (e: any) {
       this.toast.httpError(e, 'Error al guardar el perfil.');
     } finally { this.saving.set(false); }
+  }
+
+  /** Sube/reemplaza la foto de perfil — valida en el cliente lo mismo que ya valida el backend (mimetype/tamaño), para no esperar el 400. */
+  async onFotoSeleccionada(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = ''; // permite volver a elegir el mismo archivo más tarde
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      this.toast.warn('Formato no permitido', 'Solo se aceptan imágenes JPG, PNG o WEBP.');
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      this.toast.warn('Imagen muy grande', 'El tamaño máximo es 3 MB.');
+      return;
+    }
+
+    this.subiendoFoto.set(true);
+    try {
+      const form = new FormData();
+      form.append('foto', file);
+      const resp: any = await firstValueFrom(
+        this.http.post('/api/personas/mi-perfil/foto', form)
+      );
+      this.perfil.fotoPerfil = resp.fotoPerfil ?? null;
+      this.auth.actualizarUser({ fotoPerfil: resp.fotoPerfil ?? null });
+      this.toast.ok('Foto actualizada', 'Tu foto de perfil se guardó correctamente.');
+    } catch (e: any) {
+      this.toast.httpError(e, 'No se pudo subir la foto.');
+    } finally { this.subiendoFoto.set(false); }
   }
 
   // ── Contraseña ───────────────────────────────────────────────────────
@@ -427,5 +676,97 @@ perfil: {
     this.theme.apply();
   }
 
+  // ── Notificaciones ───────────────────────────────────────────────────
+  cargandoNotif    = signal(false);
+  categoriasNotif  = signal<CategoriaNotificacion[]>([]);
+  categoriasApagadas = signal<Set<string>>(new Set());
+  /** id de la categoría que se está guardando ahora mismo — deshabilita solo ESE switch, no toda la pestaña. */
+  guardandoNotifId = signal<string | null>(null);
+  private notifCargadas = false;
+
+  /** Cambia a la pestaña y carga los datos la primera vez que se visita — evita pedirlos si el usuario nunca abre esta pestaña. */
+  abrirNotificaciones(): void {
+    this.tab.set('notificaciones');
+    if (!this.notifCargadas) { this.notifCargadas = true; this.cargarNotificaciones(); }
+  }
+
+  private async cargarNotificaciones(): Promise<void> {
+    this.cargandoNotif.set(true);
+    try {
+      const [categorias, prefs] = await Promise.all([
+        firstValueFrom(this.http.get<CategoriaNotificacion[]>('/api/notificaciones/categorias')),
+        firstValueFrom(this.http.get<{ categoriasDesactivadas: string[] }>('/api/notificaciones/preferencias')),
+      ]);
+      this.categoriasNotif.set(categorias ?? []);
+      this.categoriasApagadas.set(new Set(prefs?.categoriasDesactivadas ?? []));
+    } catch (e: any) {
+      this.toast.httpError(e, 'No se pudieron cargar tus preferencias de notificaciones.');
+    } finally { this.cargandoNotif.set(false); }
+  }
+
+  async toggleCategoriaNotif(id: string): Promise<void> {
+    const actuales = this.categoriasApagadas();
+    const nuevas = new Set(actuales);
+    nuevas.has(id) ? nuevas.delete(id) : nuevas.add(id);
+
+    // Optimista: refleja el switch de inmediato y revierte si el guardado falla.
+    this.categoriasApagadas.set(nuevas);
+    this.guardandoNotifId.set(id);
+    try {
+      await firstValueFrom(
+        this.http.put('/api/notificaciones/preferencias', { categoriasDesactivadas: [...nuevas] })
+      );
+    } catch (e: any) {
+      this.categoriasApagadas.set(actuales);
+      this.toast.httpError(e, 'No se pudo guardar el cambio.');
+    } finally { this.guardandoNotifId.set(null); }
+  }
+
   // ── Sistema ──────────────────────────────────────────────────────────
+  cargandoAccesos = signal(false);
+  misAccesos      = signal<MiAcceso[]>([]);
+  private sistemaCargado = false;
+
+  readonly ultimaConexion = computed(() => {
+    const activa = this.misAccesos().find(a => a.estado === 'activo') ?? this.misAccesos()[0];
+    return activa?.fechaIngreso ? this.formatFecha(activa.fechaIngreso) : 'Esta sesión';
+  });
+
+  abrirSistema(): void {
+    this.tab.set('sistema');
+    if (!this.sistemaCargado) { this.sistemaCargado = true; this.cargarAccesos(); }
+  }
+
+  private async cargarAccesos(): Promise<void> {
+    this.cargandoAccesos.set(true);
+    try {
+      const accesos = await firstValueFrom(this.http.get<MiAcceso[]>('/api/accesos/mis-accesos'));
+      this.misAccesos.set(accesos ?? []);
+    } catch (e: any) {
+      this.toast.httpError(e, 'No se pudo cargar tu historial de conexiones.');
+    } finally { this.cargandoAccesos.set(false); }
+  }
+
+  formatFecha(iso: string | null): string {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  /** "28 sep 2026" — solo la fecha, para la columna "Fecha" de la tabla de conexiones. */
+  formatFechaCorta(iso: string | null): string {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  /** "2:35 p. m." — solo la hora, para las columnas "Ingreso"/"Salida". */
+  formatHora(iso: string | null): string {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+  }
 }
