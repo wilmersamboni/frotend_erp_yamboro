@@ -33,44 +33,44 @@ export class StatusBadgeComponent {
 
   private static readonly PALETA: Record<string, { bg: string; fg: string }> = {
     // Positivo / activo / completo
-    ACTIVO: { bg: '#DCFCE7', fg: '#15803D' },
-    ACTIVA: { bg: '#DCFCE7', fg: '#15803D' },
-    DISPONIBLE: { bg: '#DCFCE7', fg: '#15803D' },
-    APROBADO: { bg: '#DCFCE7', fg: '#15803D' },
-    APROBADA: { bg: '#DCFCE7', fg: '#15803D' },
-    RESUELTA: { bg: '#DCFCE7', fg: '#15803D' },
-    ENTREGADA: { bg: '#DCFCE7', fg: '#15803D' },
-    DEVUELTA: { bg: '#DCFCE7', fg: '#15803D' },
-    BUENO: { bg: '#DCFCE7', fg: '#15803D' },
-    CONFIRMADA: { bg: '#DCFCE7', fg: '#15803D' },
+    ACTIVO: { bg: 'var(--ok-bg)', fg: 'var(--ok-text)' },
+    ACTIVA: { bg: 'var(--ok-bg)', fg: 'var(--ok-text)' },
+    DISPONIBLE: { bg: 'var(--ok-bg)', fg: 'var(--ok-text)' },
+    APROBADO: { bg: 'var(--ok-bg)', fg: 'var(--ok-text)' },
+    APROBADA: { bg: 'var(--ok-bg)', fg: 'var(--ok-text)' },
+    RESUELTA: { bg: 'var(--ok-bg)', fg: 'var(--ok-text)' },
+    ENTREGADA: { bg: 'var(--ok-bg)', fg: 'var(--ok-text)' },
+    DEVUELTA: { bg: 'var(--ok-bg)', fg: 'var(--ok-text)' },
+    BUENO: { bg: 'var(--ok-bg)', fg: 'var(--ok-text)' },
+    CONFIRMADA: { bg: 'var(--ok-bg)', fg: 'var(--ok-text)' },
     // En curso / pendiente / requiere atención
-    PENDIENTE: { bg: '#FEF3C7', fg: '#B45309' },
-    EN_PROCESO: { bg: '#FEF3C7', fg: '#B45309' },
-    EN_ENTREGA: { bg: '#FEF3C7', fg: '#B45309' },
-    REGULAR: { bg: '#FEF3C7', fg: '#B45309' },
-    EN_MANTENIMIENTO: { bg: '#FEF3C7', fg: '#B45309' },
-    AGOTADO: { bg: '#FEF3C7', fg: '#B45309' },
+    PENDIENTE: { bg: 'var(--warn-bg)', fg: 'var(--warn-text)' },
+    EN_PROCESO: { bg: 'var(--warn-bg)', fg: 'var(--warn-text)' },
+    EN_ENTREGA: { bg: 'var(--warn-bg)', fg: 'var(--warn-text)' },
+    REGULAR: { bg: 'var(--warn-bg)', fg: 'var(--warn-text)' },
+    EN_MANTENIMIENTO: { bg: 'var(--warn-bg)', fg: 'var(--warn-text)' },
+    AGOTADO: { bg: 'var(--warn-bg)', fg: 'var(--warn-text)' },
     // Negativo / rechazado / de baja
-    RECHAZADA: { bg: '#FEE2E2', fg: '#B91C1C' },
-    RECHAZADO: { bg: '#FEE2E2', fg: '#B91C1C' },
-    CANCELADA: { bg: '#FEE2E2', fg: '#B91C1C' },
-    DAÑADO: { bg: '#FEE2E2', fg: '#B91C1C' },
-    PERDIDO: { bg: '#FEE2E2', fg: '#B91C1C' },
-    INACTIVO: { bg: '#FEE2E2', fg: '#B91C1C' },
-    ANULADA: { bg: '#FEE2E2', fg: '#B91C1C' },
-    VENCIDO: { bg: '#FEE2E2', fg: '#B91C1C' },
-    DADO_DE_BAJA: { bg: '#FEE2E2', fg: '#B91C1C' },
+    RECHAZADA: { bg: 'var(--err-bg)', fg: 'var(--err-text)' },
+    RECHAZADO: { bg: 'var(--err-bg)', fg: 'var(--err-text)' },
+    CANCELADA: { bg: 'var(--err-bg)', fg: 'var(--err-text)' },
+    DAÑADO: { bg: 'var(--err-bg)', fg: 'var(--err-text)' },
+    PERDIDO: { bg: 'var(--err-bg)', fg: 'var(--err-text)' },
+    INACTIVO: { bg: 'var(--err-bg)', fg: 'var(--err-text)' },
+    ANULADA: { bg: 'var(--err-bg)', fg: 'var(--err-text)' },
+    VENCIDO: { bg: 'var(--err-bg)', fg: 'var(--err-text)' },
+    DADO_DE_BAJA: { bg: 'var(--err-bg)', fg: 'var(--err-text)' },
     // Neutral / informativo
-    PRESTADO: { bg: '#DBEAFE', fg: '#1D4ED8' },
-    DEVOLUTIVO: { bg: '#DBEAFE', fg: '#1D4ED8' },
-    CONSUMO: { bg: '#E0E7FF', fg: '#4338CA' },
-    PERECEDERO: { bg: '#E0E7FF', fg: '#4338CA' },
+    PRESTADO: { bg: 'var(--info-bg)', fg: 'var(--info-text)' },
+    DEVOLUTIVO: { bg: 'var(--info-bg)', fg: 'var(--info-text)' },
+    CONSUMO: { bg: 'var(--indigo-bg)', fg: 'var(--indigo-text)' },
+    PERECEDERO: { bg: 'var(--indigo-bg)', fg: 'var(--indigo-text)' },
     // Kardex (tipo de movimiento)
-    ENTRADA: { bg: '#DCFCE7', fg: '#15803D' },
-    SALIDA: { bg: '#FEE2E2', fg: '#B91C1C' },
-    AJUSTE: { bg: '#FEF3C7', fg: '#B45309' },
-    TRASLADO: { bg: '#DBEAFE', fg: '#1D4ED8' },
-    BAJA: { bg: '#FEE2E2', fg: '#B91C1C' },
+    ENTRADA: { bg: 'var(--ok-bg)', fg: 'var(--ok-text)' },
+    SALIDA: { bg: 'var(--err-bg)', fg: 'var(--err-text)' },
+    AJUSTE: { bg: 'var(--warn-bg)', fg: 'var(--warn-text)' },
+    TRASLADO: { bg: 'var(--info-bg)', fg: 'var(--info-text)' },
+    BAJA: { bg: 'var(--err-bg)', fg: 'var(--err-text)' },
   };
 
   private static readonly ETIQUETAS: Record<string, string> = {
@@ -82,7 +82,7 @@ export class StatusBadgeComponent {
 
   color = computed(() => {
     const key = this._value().toUpperCase().trim();
-    return StatusBadgeComponent.PALETA[key] ?? { bg: '#F3F4F6', fg: '#374151' };
+    return StatusBadgeComponent.PALETA[key] ?? { bg: 'var(--surface3)', fg: 'var(--text-2)' };
   });
 
   label = computed(() => {

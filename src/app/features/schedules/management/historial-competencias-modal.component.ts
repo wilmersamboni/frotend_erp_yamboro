@@ -233,40 +233,40 @@ import {
     .hist-ficha-sel {
       height: 28px; padding: 0 8px; font-size: 12px; font-weight: 600;
       border: 1px solid var(--border); border-radius: 6px;
-      background: #fff; color: #15803d; cursor: pointer;
+      background: var(--surface); color: var(--ok-text); cursor: pointer;
       outline: none; max-width: 130px;
     }
     .hist-ficha-sel:focus { border-color: #39A900; box-shadow: 0 0 0 2px rgba(57,169,0,.15); }
     .hist-ficha-clear {
       display: flex; align-items: center; justify-content: center;
       width: 20px; height: 20px; border-radius: 50%;
-      border: 1px solid #bbf7d0; background: #f0fdf4; color: #15803d;
+      border: 1px solid var(--ok-border); background: var(--ok-bg); color: var(--ok-text);
       cursor: pointer; flex-shrink: 0; transition: all .15s;
     }
-    .hist-ficha-clear:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+    .hist-ficha-clear:hover { background: var(--err-bg); color: var(--err-text); border-color: var(--err-border); }
     .hist-table-wrap { overflow-x: auto; }
     .hist-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .hist-table thead tr { background: #f9fafb; position: sticky; top: 0; z-index: 2; border-bottom: 2px solid var(--border); }
-    .hist-table th { padding: 10px 14px; color: #374151; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; text-align: left; white-space: nowrap; }
+    .hist-table thead tr { background: var(--surface2); position: sticky; top: 0; z-index: 2; border-bottom: 2px solid var(--border); }
+    .hist-table th { padding: 10px 14px; color: var(--text-2); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; text-align: left; white-space: nowrap; }
     .hist-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
     .hist-table tbody tr:hover td { background: var(--surface2); }
-    .hist-dia-badge { display:inline-block; background:#f0fdf4; color:#15803d; border-radius:4px; padding:2px 7px; font-size:11px; font-weight:700; text-transform:capitalize; margin-right:4px; }
+    .hist-dia-badge { display:inline-block; background:var(--ok-bg); color:var(--ok-text); border-radius:4px; padding:2px 7px; font-size:11px; font-weight:700; text-transform:capitalize; margin-right:4px; }
     .hist-jorn-badge { display:inline-block; background:var(--surface2); color:var(--text-muted); border-radius:4px; padding:2px 7px; font-size:10px; font-weight:600; text-transform:uppercase; }
-    .hist-horas-btn { display:inline-flex; align-items:center; gap:4px; padding:4px 8px; border:1px solid #bbf7d0; border-radius:6px; background:#f0fdf4; color:#15803d; cursor:default; font-size:11px; font-weight:700; transition:all .15s; }
+    .hist-horas-btn { display:inline-flex; align-items:center; gap:4px; padding:4px 8px; border:1px solid var(--ok-border); border-radius:6px; background:var(--ok-bg); color:var(--ok-text); cursor:default; font-size:11px; font-weight:700; transition:all .15s; }
     .hist-horas-btn:hover { background:#39A900; color:#fff; border-color:#39A900; }
     .hist-dias-popover { position:fixed; z-index:10000; min-width:250px; max-width:min(340px, calc(100vw - 16px)); border:1px solid var(--border); border-radius:7px; box-shadow:0 8px 24px rgba(0,0,0,.15); overflow:hidden; background:var(--surface); pointer-events:none; }
 
     /* ── Compartidas con el tooltip de competencia del grid (duplicadas — CSS de componente no se hereda) ── */
-    .tt-form-header-row { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:5px 9px; background:#dcfce7; border-bottom:1px solid #bbf7d0; }
-    .tt-form-lbl { font-size:10px; font-weight:700; color:#15803d; text-transform:uppercase; letter-spacing:.04em; white-space:nowrap; }
-    .tt-form-lbl strong { color:#14532d; font-weight:800; }
-    .tt-form-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 9px; border-top:1px solid #dcfce7; background:var(--surface); }
+    .tt-form-header-row { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:5px 9px; background:var(--ok-bg); border-bottom:1px solid var(--ok-border); }
+    .tt-form-lbl { font-size:10px; font-weight:700; color:var(--ok-text); text-transform:uppercase; letter-spacing:.04em; white-space:nowrap; }
+    .tt-form-lbl strong { color:var(--ok-text); font-weight:800; }
+    .tt-form-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 9px; border-top:1px solid var(--ok-border); background:var(--surface); }
     .tt-form-dia { font-size:11px; font-weight:700; color:var(--text); min-width:95px; white-space:nowrap; }
     .tt-horario-compact { display:flex; flex-direction:column; gap:3px; margin:2px 0 0; font-size:12px; color:var(--text); }
     .tt-horario-row { display:flex; align-items:center; gap:6px; }
     .tt-horario-row lucide-icon { color:var(--text-muted); flex-shrink:0; }
     .tt-clases-chips { display:flex; flex-wrap:wrap; gap:5px; margin:4px 0 0; }
-    .tt-clase-chip { font-size:10px; font-weight:600; color:#15803d; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:5px; padding:2px 6px; }
+    .tt-clase-chip { font-size:10px; font-weight:600; color:var(--ok-text); background:var(--ok-bg); border:1px solid var(--ok-border); border-radius:5px; padding:2px 6px; }
 
   `],
 })

@@ -111,9 +111,9 @@ const ESQUEMAS: Record<Cargo, Esquema> = {
             <!-- Barra de progreso -->
             <div class="mt-4 flex gap-1.5">
               <div class="h-1.5 flex-1 rounded-full transition-all duration-300"
-                [style.background]="paso() >= 1 ? esquema().hex : '#e5e7eb'"></div>
+                [style.background]="paso() >= 1 ? esquema().hex : 'var(--border)'"></div>
               <div class="h-1.5 flex-1 rounded-full transition-all duration-300"
-                [style.background]="paso() >= 2 ? esquema().hex : '#e5e7eb'"></div>
+                [style.background]="paso() >= 2 ? esquema().hex : 'var(--border)'"></div>
             </div>
           </div>
 

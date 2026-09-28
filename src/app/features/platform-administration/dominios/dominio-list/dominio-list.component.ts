@@ -38,7 +38,7 @@ import { ConfirmService } from '../../../../core/services/confirm.service';
       </div>
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4">
         <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Con SSL activo</p>
-        <p class="text-2xl font-bold" style="color:#39A900;">{{ conSSL() }}</p>
+        <p class="text-2xl font-bold" style="color:var(--accent-text);">{{ conSSL() }}</p>
       </div>
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4">
         <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Pendientes</p>
@@ -67,7 +67,7 @@ import { ConfirmService } from '../../../../core/services/confirm.service';
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead>
-              <tr class="text-left text-gray-500 border-b border-gray-100" style="background:#fafbfc;">
+              <tr class="text-left text-gray-500 border-b border-gray-100" style="background:var(--surface2);">
                 <th class="px-5 py-3 font-semibold">Subdominio</th>
                 <th class="px-5 py-3 font-semibold">Tenant</th>
                 <th class="px-5 py-3 font-semibold text-center">SSL</th>

@@ -38,7 +38,7 @@ import { LoadingSkeletonComponent } from '../../../../shared/components/loading-
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead>
-              <tr class="text-left text-gray-500 border-b border-gray-100" style="background:#fafbfc;">
+              <tr class="text-left text-gray-500 border-b border-gray-100" style="background:var(--surface2);">
                 <th class="px-5 py-3 font-semibold">Nombre</th>
                 <th class="px-5 py-3 font-semibold">Correo</th>
                 <th class="px-5 py-3 font-semibold">Creado en</th>

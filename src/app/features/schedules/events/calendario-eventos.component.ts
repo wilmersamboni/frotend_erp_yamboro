@@ -58,8 +58,8 @@ import { LucideAngularModule } from 'lucide-angular';
       font-weight: 700; color: var(--text-muted);
       background: var(--surface2); border-bottom: 1px solid var(--border);
     }
-    .cal-day-header.weekend { color: #dc2626; }
-    .cal-cell.weekend .cal-day-num { color: #dc2626; }
+    .cal-day-header.weekend { color: var(--err-text); }
+    .cal-cell.weekend .cal-day-num { color: var(--err-text); }
     .cal-cell.weekend.today .cal-day-num { color: #fff; }
     .cal-cell {
       min-height: 90px; padding: 6px; border-right: 1px solid var(--border);
@@ -91,10 +91,10 @@ import { LucideAngularModule } from 'lucide-angular';
 
     /* ── Event type colors — duplicado con el padre y con evento-modal (chips), cada
        componente tiene su propio encapsulamiento de estilos ── */
-    .ev-tipo-formativo     { background: #dbeafe; color: #1d4ed8; }
-    .ev-tipo-institucional { background: #dcfce7; color: #166534; }
-    .ev-tipo-evaluacion    { background: #fed7aa; color: #92400e; }
-    .ev-tipo-festivo       { background: #fee2e2; color: #991b1b; }
+    .ev-tipo-formativo     { background: var(--info-bg); color: var(--info-text); }
+    .ev-tipo-institucional { background: var(--ok-bg); color: var(--ok-text); }
+    .ev-tipo-evaluacion    { background: var(--warn-bg); color: var(--warn-text); }
+    .ev-tipo-festivo       { background: var(--err-bg); color: var(--err-text); }
 
     .ml-auto { margin-left: auto; }
 

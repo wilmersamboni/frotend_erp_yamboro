@@ -101,7 +101,7 @@ import { AlertComponent } from '../../../shared/ui/alert.component';
                           <button (click)="aprobar(t)" [disabled]="bodegaInactiva(t)"
                             [title]="bodegaInactiva(t) ? 'Origen o destino inactivo — no se puede aprobar. Rechazá el traslado en su lugar.' : ''"
                             [style.opacity]="bodegaInactiva(t) ? 0.45 : 1" [style.cursor]="bodegaInactiva(t) ? 'not-allowed' : 'pointer'"
-                            [style.backgroundColor]="bodegaInactiva(t) ? '#f3f4f6' : '#fff'" [style.color]="bodegaInactiva(t) ? '#9ca3af' : '#16a34a'" [style.borderColor]="bodegaInactiva(t) ? '#e5e7eb' : '#bbf7d0'"
+                            [style.backgroundColor]="bodegaInactiva(t) ? 'var(--surface3)' : 'var(--surface)'" [style.color]="bodegaInactiva(t) ? 'var(--text-faint)' : '#16a34a'" [style.borderColor]="bodegaInactiva(t) ? 'var(--border)' : '#bbf7d0'"
                             class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors">
                             Aprobar
                           </button>

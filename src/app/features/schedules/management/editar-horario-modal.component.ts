@@ -137,15 +137,15 @@ interface EditForm {
     }
     .jornada-badge {
       display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 8px;
-      background: rgba(57,169,0,.08); color: #2d8500; font-size: 12px; border: 1px solid rgba(57,169,0,.25);
+      background: rgba(57,169,0,.08); color: var(--accent-text); font-size: 12px; border: 1px solid rgba(57,169,0,.25);
     }
     .transversal-pill {
       display: inline-flex; align-items: center; gap: 5px; padding: 8px 10px; border-radius: 8px;
-      background: #fffbeb; color: #d97706; border: 1px solid #fcd34d; font-size: 12px; font-weight: 600;
+      background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn-border); font-size: 12px; font-weight: 600;
     }
     .error-box {
       display: flex; gap: 8px; align-items: flex-start; margin: 0 24px 16px;
-      background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 8px;
+      background: var(--err-bg); color: var(--err-text); border: 1px solid var(--err-border); border-radius: 8px;
       padding: 10px 12px; font-size: 12px;
     }
     .error-box ul { margin: 0; padding-left: 14px; }

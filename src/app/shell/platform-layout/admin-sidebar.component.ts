@@ -136,35 +136,35 @@ import { AdminAuthService } from '../../core/admin-auth/admin-auth.service';
     .nav-link {
       position: relative; display: flex; align-items: center; gap: 10px;
       padding: 9px 10px 9px 11px; border-radius: 8px; font-size: 13px; font-weight: 500;
-      color: #2B2F38; text-decoration: none; cursor: pointer;
+      color: var(--text); text-decoration: none; cursor: pointer;
       transition: background .15s, color .15s; border-left: 3px solid transparent;
     }
-    .nav-link:hover { background: #f8fafc; color: #1e293b; }
+    .nav-link:hover { background: var(--surface2); color: var(--text); }
     .nav-link-active { background: rgba(0,120,50,.08); color: #007832; border-left-color: #007832; font-weight: 600; }
     .nav-section-label {
       font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
-      color: #656E85; padding: 0 13px; margin: 14px 0 3px;
+      color: var(--text-muted); padding: 0 13px; margin: 14px 0 3px;
     }
     .nav-section-label.mt-0 { margin-top: 4px; }
     .nav-tooltip {
       position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
-      background: #1e293b; color: #fff; font-size: 12px; font-weight: 500;
+      background: var(--tooltip-bg); color: #fff; font-size: 12px; font-weight: 500;
       padding: 5px 10px; border-radius: 7px; white-space: nowrap;
       opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 9999;
       box-shadow: 0 4px 12px rgba(0,0,0,.15);
     }
     .nav-tooltip::before {
       content: ''; position: absolute; right: 100%; top: 50%; transform: translateY(-50%);
-      border: 5px solid transparent; border-right-color: #1e293b;
+      border: 5px solid transparent; border-right-color: var(--tooltip-bg);
     }
     .nav-link:hover .nav-tooltip { opacity: 1; }
     .nav-logout {
       display: flex; align-items: center; gap: 10px;
       padding: 9px 10px; border-radius: 8px; border: none; background: none;
-      font-size: 13px; font-weight: 500; color: #94a3b8;
+      font-size: 13px; font-weight: 500; color: var(--text-faint);
       cursor: pointer; transition: background .15s, color .15s; font-family: inherit;
     }
-    .nav-logout:hover { background: #fef2f2; color: #dc2626; }
+    .nav-logout:hover { background: var(--err-bg); color: var(--err-text); }
 
     /* ── Drawer táctil (<1024px) — ver mismo bloque en sidebar.component.css ── */
     @media (max-width: 1023.98px) {

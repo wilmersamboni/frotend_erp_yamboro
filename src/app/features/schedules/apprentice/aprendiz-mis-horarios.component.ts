@@ -63,11 +63,11 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
       <div class="mt-4" style="display:flex; flex-direction:column; align-items:center; gap:10px;
                                background:var(--surface); border:1px solid var(--border);
                                border-radius:10px; padding:32px 18px; text-align:center;">
-        <lucide-icon name="alert-triangle" [size]="28" style="color:#dc2626;"></lucide-icon>
-        <p style="margin:0; color:#dc2626; font-weight:600; font-size:14px;">{{ errorCarga() }}</p>
+        <lucide-icon name="alert-triangle" [size]="28" style="color:var(--err-text);"></lucide-icon>
+        <p style="margin:0; color:var(--err-text); font-weight:600; font-size:14px;">{{ errorCarga() }}</p>
         <button type="button" (click)="inicializar()"
-                style="padding:6px 18px; border:1px solid #dc2626; border-radius:8px;
-                       background:transparent; color:#dc2626; font-size:13px; font-weight:600; cursor:pointer;">
+                style="padding:6px 18px; border:1px solid var(--err-text); border-radius:8px;
+                       background:transparent; color:var(--err-text); font-size:13px; font-weight:600; cursor:pointer;">
           Reintentar
         </button>
       </div>
@@ -111,8 +111,8 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
                         <span class="info-val">
                           @if (h.ubicacionTransversalNombre && h.ambiente?.nombre) {
                             <span class="amb-temp-wrap">
-                              <span style="color:#d97706;font-weight:700;">{{ h.ubicacionTransversalNombre }}</span>
-                              <lucide-icon name="info" [size]="10" style="color:#d97706;flex-shrink:0;"></lucide-icon>
+                              <span style="color:var(--warn-text);font-weight:700;">{{ h.ubicacionTransversalNombre }}</span>
+                              <lucide-icon name="info" [size]="10" style="color:var(--warn-text);flex-shrink:0;"></lucide-icon>
                               <span class="amb-temp-tooltip">
                                 <span class="amb-temp-row">
                                   <span class="amb-temp-lbl">Temporal</span>
@@ -127,7 +127,7 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
                           } @else if (h.ambiente?.nombre) {
                             {{ h.ambiente.nombre }}
                           } @else if (h.ubicacionTransversalNombre) {
-                            <span style="font-weight:700;color:#39A900">{{ h.ubicacionTransversalNombre }}</span>
+                            <span style="font-weight:700;color:var(--accent-text)">{{ h.ubicacionTransversalNombre }}</span>
                           } @else {
                             —
                           }

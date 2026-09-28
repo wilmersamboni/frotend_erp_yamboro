@@ -185,7 +185,8 @@ export const appConfig: ApplicationConfig = {
       }),
     ),
 
-    providePrimeNG({ theme: { preset: Aura } }),
+    // darkModeSelector: el mismo atributo que usa el resto del modo oscuro (ThemeService / index.html).
+    providePrimeNG({ theme: { preset: Aura, options: { darkModeSelector: '[data-theme="dark"]' } } }),
     { provide: LOCALE_ID, useValue: 'es' },
     {
       provide: TUI_LANGUAGE,

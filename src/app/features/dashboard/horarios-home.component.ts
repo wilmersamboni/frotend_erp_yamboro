@@ -84,7 +84,7 @@ export class HorariosHomeComponent implements OnInit {
         ticks: { font: { size: 11, family: 'Inter' }, color: '#94a3b8' }
       },
       y: {
-        grid: { color: '#f1f5f9' },
+        grid: { color: 'rgba(148, 163, 184, .18)' },
         border: { display: false },
         ticks: { stepSize: 1, font: { size: 11, family: 'Inter' }, color: '#94a3b8' },
         beginAtZero: true

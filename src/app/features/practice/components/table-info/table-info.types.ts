@@ -96,7 +96,7 @@ export function avanceValor(avance: any): number { return parseInt(avance) || 0;
 
 export function avanceColor(avance: any): string {
   const v = avanceValor(avance);
-  return v >= 75 ? '#39A900' : v >= 40 ? '#f5a524' : v > 0 ? '#f31260' : '#e4e4e7';
+  return v >= 75 ? '#39A900' : v >= 40 ? '#f5a524' : v > 0 ? '#f31260' : 'var(--border-strong)';
 }
 
 export function statusDotColor(uid: string): string {

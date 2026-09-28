@@ -51,8 +51,8 @@ import { DIAS_LABELS } from '../../../core/utils/horarios.util';
                (click)="a.disponible && elegir.emit({ ambiente: a, dia: dispDia, jornada: dispJornada })"
                [title]="a.disponible ? 'Click para crear horario en ' + a.nombre : (a.fichaOcupado ? 'Ocupado por ficha ' + a.fichaOcupado : 'Ocupado')">
             <span class="disp-icon">
-              @if (a.disponible) { <lucide-icon name="check-circle" [size]="20" style="color:#16a34a"></lucide-icon> }
-              @else { <lucide-icon name="x-circle" [size]="20" style="color:#dc2626"></lucide-icon> }
+              @if (a.disponible) { <lucide-icon name="check-circle" [size]="20" style="color:var(--ok-text)"></lucide-icon> }
+              @else { <lucide-icon name="x-circle" [size]="20" style="color:var(--err-text)"></lucide-icon> }
             </span>
             <span class="disp-name">{{ a.nombre }}</span>
             @if (a.area_nombre) { <span class="disp-area">{{ a.area_nombre }}</span> }
@@ -73,16 +73,16 @@ import { DIAS_LABELS } from '../../../core/utils/horarios.util';
       display:flex;flex-direction:column;align-items:center;gap:4px;
       border:1.5px solid var(--border);font-size:13px;
     }
-    .disp-card.ocupado { background:#fee2e2;border-color:#fca5a5; }
+    .disp-card.ocupado { background:var(--err-bg);border-color:var(--err-border); }
     .disp-name { font-weight:600;color:var(--text);text-align:center; }
     .disp-area { font-size:10px;color:var(--text-muted);text-align:center;background:var(--surface);border-radius:4px;padding:1px 6px; }
     .disp-status { font-size:11px;color:var(--text-muted);text-align:center; }
-    .disp-tag { display:inline-flex;align-items:center;background:#dcfce7;color:#15803d;border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700; }
+    .disp-tag { display:inline-flex;align-items:center;background:var(--ok-bg);color:var(--ok-text);border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700; }
     .disp-card.disponible-click { cursor: pointer; transition: border-color .15s, background .15s, box-shadow .15s; }
     .disp-card.disponible-click:hover {
       background: rgba(22,163,74,.12); border-color: #16a34a; box-shadow: 0 0 0 2px rgba(22,163,74,.15);
     }
-    .disp-card.disponible-click .disp-status { color: #16a34a; font-weight: 600; font-size: 11px; }
+    .disp-card.disponible-click .disp-status { color: var(--ok-text); font-weight: 600; font-size: 11px; }
 
   `],
 })

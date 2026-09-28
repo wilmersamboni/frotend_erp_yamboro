@@ -11,10 +11,10 @@ import {
 } from '../../../core/utils/horarios.util';
 
 const RESULTADO_ESTADO_INFO: Record<string, { label: string; bg: string; text: string }> = {
-  'sin-fecha':  { label: 'Sin fecha',  bg: '#f3f4f6', text: '#6b7280' },
-  'pendiente':  { label: 'Pendiente',  bg: '#fef3c7', text: '#92400e' },
-  'en-curso':   { label: 'En curso',   bg: '#dbeafe', text: '#1d4ed8' },
-  'completado': { label: 'Completado', bg: '#dcfce7', text: '#166534' },
+  'sin-fecha':  { label: 'Sin fecha',  bg: 'var(--surface3)', text: 'var(--text-muted)' },
+  'pendiente':  { label: 'Pendiente',  bg: 'var(--warn-bg)', text: 'var(--warn-text)' },
+  'en-curso':   { label: 'En curso',   bg: 'var(--info-bg)', text: 'var(--info-text)' },
+  'completado': { label: 'Completado', bg: 'var(--ok-bg)', text: 'var(--ok-text)' },
 };
 
 /**
@@ -203,30 +203,30 @@ const RESULTADO_ESTADO_INFO: Record<string, { label: string; bg: string; text: s
     }
     .hist-table-wrap { overflow-x: auto; }
     .hist-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .hist-table thead tr { background: #f9fafb; position: sticky; top: 0; z-index: 2; border-bottom: 2px solid var(--border); }
-    .hist-table th { padding: 10px 14px; color: #374151; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; text-align: left; white-space: nowrap; }
+    .hist-table thead tr { background: var(--surface2); position: sticky; top: 0; z-index: 2; border-bottom: 2px solid var(--border); }
+    .hist-table th { padding: 10px 14px; color: var(--text-2); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; text-align: left; white-space: nowrap; }
     .hist-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
     .hist-table tbody tr:hover td { background: var(--surface2); }
-    .hist-dia-badge { display:inline-block; background:rgba(57,169,0,.15); color:#2d8500; border-radius:4px; padding:2px 7px; font-size:11px; font-weight:700; text-transform:capitalize; margin-right:4px; }
+    .hist-dia-badge { display:inline-block; background:rgba(57,169,0,.15); color:var(--accent-text); border-radius:4px; padding:2px 7px; font-size:11px; font-weight:700; text-transform:capitalize; margin-right:4px; }
     .hist-jorn-badge { display:inline-block; background:var(--surface2); color:var(--text-muted); border-radius:4px; padding:2px 7px; font-size:10px; font-weight:600; }
 
     .hist-ficha-sel {
       height: 28px; padding: 0 8px; font-size: 12px; font-weight: 600;
-      border: 1px solid #bbf7d0; border-radius: 6px;
-      background: #fff; color: #15803d; cursor: pointer; outline: none; max-width: 140px;
+      border: 1px solid var(--ok-border); border-radius: 6px;
+      background: var(--surface); color: var(--ok-text); cursor: pointer; outline: none; max-width: 140px;
     }
     .hist-ficha-sel:focus { border-color: #39A900; box-shadow: 0 0 0 2px rgba(57,169,0,.15); }
     .hist-ficha-clear {
       display: flex; align-items: center; justify-content: center;
       width: 20px; height: 20px; border-radius: 50%;
-      border: 1px solid #bbf7d0; background: #f0fdf4; color: #15803d;
+      border: 1px solid var(--ok-border); background: var(--ok-bg); color: var(--ok-text);
       cursor: pointer; flex-shrink: 0; transition: all .15s;
     }
-    .hist-ficha-clear:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+    .hist-ficha-clear:hover { background: var(--err-bg); color: var(--err-text); border-color: var(--err-border); }
     .hist-horas-btn {
       display: inline-flex; align-items: center; gap: 4px;
-      padding: 4px 8px; border: 1px solid #bbf7d0; border-radius: 6px;
-      background: #f0fdf4; color: #15803d; cursor: default;
+      padding: 4px 8px; border: 1px solid var(--ok-border); border-radius: 6px;
+      background: var(--ok-bg); color: var(--ok-text); cursor: default;
       font-size: 11px; font-weight: 700; transition: all .15s;
     }
     .hist-horas-btn:hover { background: #39A900; color: #fff; border-color: #39A900; }
@@ -241,23 +241,23 @@ const RESULTADO_ESTADO_INFO: Record<string, { label: string; bg: string; text: s
     }
     .tt-form-header-row {
       display: flex; align-items: center; justify-content: space-between; gap: 6px;
-      padding: 5px 9px; background: #dcfce7; border-bottom: 1px solid #bbf7d0;
+      padding: 5px 9px; background: var(--ok-bg); border-bottom: 1px solid var(--ok-border);
     }
     .tt-form-lbl {
-      font-size: 10px; font-weight: 700; color: #15803d;
+      font-size: 10px; font-weight: 700; color: var(--ok-text);
       text-transform: uppercase; letter-spacing: .04em; white-space: nowrap;
     }
-    .tt-form-lbl strong { color: #14532d; font-weight: 800; }
+    .tt-form-lbl strong { color: var(--ok-text); font-weight: 800; }
     .tt-form-row {
       display: flex; align-items: center; justify-content: space-between; gap: 8px;
-      padding: 4px 9px; border-top: 1px solid #dcfce7; background: var(--surface);
+      padding: 4px 9px; border-top: 1px solid var(--ok-border); background: var(--surface);
     }
     .tt-form-dia { font-size: 11px; font-weight: 700; color: var(--text); min-width: 95px; white-space: nowrap; }
     .tt-horario-compact { display: flex; flex-direction: column; gap: 3px; margin: 2px 0 0; font-size: 12px; color: var(--text); }
     .tt-horario-row { display: flex; align-items: center; gap: 6px; }
     .tt-horario-row lucide-icon { color: var(--text-muted); flex-shrink: 0; }
     .tt-clases-chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 0; }
-    .tt-clase-chip { font-size: 10px; font-weight: 600; color: #15803d; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 5px; padding: 2px 6px; }
+    .tt-clase-chip { font-size: 10px; font-weight: 600; color: var(--ok-text); background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: 5px; padding: 2px 6px; }
 
   `],
 })

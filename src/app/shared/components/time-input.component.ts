@@ -144,7 +144,7 @@ const OPTIONS: string[] = (() => {
       cursor: pointer;
       color: var(--text);
     }
-    .ti-option:hover { background: rgba(57,169,0,.1); color: #2d8500; }
+    .ti-option:hover { background: rgba(57,169,0,.1); color: var(--accent-text); }
     .ti-option.ti-selected { background: var(--tui-primary); color: #fff; font-weight: 600; }
   `],
 })

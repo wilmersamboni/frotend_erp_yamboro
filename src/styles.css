@@ -2,6 +2,9 @@
 @import 'primeicons/primeicons.css';
 @import '@angular/cdk/overlay-prebuilt.css';
 @import 'tw-animate-css';
+/* Modo oscuro: paleta de Tailwind (generada) + tokens y ajustes a mano. */
+@import './styles/dark-tailwind.generated.css';
+@import './styles/dark-theme.css';
 
 /* ─── Login animations ───────────────────────────────────────────── */
 @keyframes twinkle {
@@ -16,6 +19,7 @@
 body, * {
   font-family: 'Sora', sans-serif;
 }
+body { background-color: var(--bg-app); }
 
 /* ─── Taiga UI – tokens globales requeridos ─────────────────────── */
 :root {
@@ -64,15 +68,37 @@ body, * {
   --tui-padding-m:                    0.75rem;
   --tui-stroke-width: 1.5px;
 
-  /* ─── Tokens genéricos usados por las pantallas de horarios ─────── */
-  /* (portadas de ChronoGest — mismo esquema de color light-only que ahí) */
-  --surface:      #ffffff;
-  --surface2:     #f9fafb;
-  --text:         #111827;
-  --text-muted:   #6b7280;
-  --border:       #e5e7eb;
-  --blue:         #2563eb;
-  --gray-300:     #d1d5db;
+  /* ─── Tokens semánticos de color (modo claro) ───────────────────────
+     Toda pantalla nueva o migrada debe usar ESTOS en vez de hex fijos:
+     el modo oscuro solo redefine sus valores (src/styles/dark-theme.css).
+     Los primeros vienen de ChronoGest (horarios); el resto se agregó con
+     el modo oscuro. */
+  --bg-app:        #f0f2f5;   /* fondo detrás de todo */
+  --surface:       #ffffff;   /* tarjetas, navbar, modales */
+  --surface2:      #f9fafb;   /* encabezados de tabla, filas alternas */
+  --surface3:      #f1f5f9;   /* hover, chips */
+  --text:          #111827;
+  --text-2:        #374151;   /* texto secundario con peso */
+  --text-muted:    #6b7280;
+  --text-faint:    #94a3b8;
+  --border:        #e5e7eb;
+  --border-strong: #d1d5db;
+  --border-soft:   #f1f5f9;   /* divisores casi invisibles */
+  --blue:          #2563eb;
+  --gray-300:      #d1d5db;
+
+  --accent:        #39A900;   /* verde SENA: botones y barras */
+  --accent-text:   #2d8500;   /* verde como TEXTO (en oscuro se aclara) */
+  --accent-soft:   rgba(57, 169, 0, .08);
+
+  --ok-bg:   #dcfce7; --ok-text:   #166534; --ok-border:   #bbf7d0;
+  --warn-bg: #fef3c7; --warn-text: #92400e; --warn-border: #fcd34d;
+  --err-bg:  #fee2e2; --err-text:  #991b1b; --err-border:  #fecaca;
+  --info-bg: #dbeafe; --info-text: #1d4ed8; --info-border: #bfdbfe;
+  --indigo-bg: #e0e7ff; --indigo-text: #3730a3;
+  --violet-bg: #f3e8ff; --violet-text: #7c3aed;
+  --tooltip-bg: #1e293b; --tooltip-text: #f1f5f9;   /* tooltips oscuros */
+  --shadow-color: rgba(15, 23, 42, .06);
 }
 
 @layer components {
@@ -171,9 +197,9 @@ body, * {
   text-transform: lowercase;
 }
 .badge.active {
-  background: #dbeafe;
-  color: #1d4ed8;
-  border-color: #bfdbfe;
+  background: var(--info-bg);
+  color: var(--info-text);
+  border-color: var(--info-border);
 }
 .badge.inactive {
   background: var(--surface2);

@@ -33,19 +33,19 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
   imports: [RouterLink, FormsModule],
   styles: [`
     :host { display:block; }
-    .card { background:#fff; border:1px solid rgb(226 232 240 / .8); border-radius:1rem; }
-    .field { border:1px solid #e2e8f0; border-radius:.5rem; font-size:.8125rem; padding:.375rem .5rem; background:#fff; transition:border-color .15s, box-shadow .15s; }
+    .card { background:var(--surface); border:1px solid rgb(226 232 240 / .8); border-radius:1rem; }
+    .field { border:1px solid var(--border); border-radius:.5rem; font-size:.8125rem; padding:.375rem .5rem; background:var(--surface); transition:border-color .15s, box-shadow .15s; }
     .field:focus { outline:none; border-color:#39A900; box-shadow:0 0 0 3px rgb(57 169 0 / .12); }
-    .field--warn { border-color:#fbbf24; background:#fffdf5; }
+    .field--warn { border-color:#fbbf24; background:var(--warn-bg); }
     select.field { padding-right:1.6rem; -webkit-appearance:none; appearance:none;
       background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
       background-repeat:no-repeat; background-position:right .35rem center; }
     .btn-primary { display:inline-flex; align-items:center; justify-content:center; background:#39A900; color:#fff; border-radius:.625rem; font-weight:600; text-decoration:none; transition:background .15s, opacity .15s; }
     .btn-primary:hover:not(:disabled) { background:#2d8000; }
     .btn-primary:disabled { opacity:.5; cursor:not-allowed; }
-    .btn-ghost { display:inline-flex; align-items:center; justify-content:center; border:1px solid #e2e8f0; border-radius:.625rem; color:#475569; font-weight:500; background:#fff; text-decoration:none; transition:border-color .15s, color .15s; }
-    .btn-ghost:hover:not(:disabled) { border-color:#39A900; color:#2d8000; }
-    .dropzone { border-color:#e2e8f0; }
+    .btn-ghost { display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:.625rem; color:var(--text-2); font-weight:500; background:var(--surface); text-decoration:none; transition:border-color .15s, color .15s; }
+    .btn-ghost:hover:not(:disabled) { border-color:#39A900; color:var(--accent-text); }
+    .dropzone { border-color:var(--border); }
     .dropzone--drag { border-color:#39A900; background:rgb(57 169 0 / .06); }
     .dropzone--file { border-color:rgb(57 169 0 / .4); background:rgb(57 169 0 / .035); }
     tbody tr.row-warn { box-shadow: inset 3px 0 0 #fbbf24; background:rgb(255 251 235 / .35); }

@@ -6,11 +6,12 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { COLUMNS, Column } from './table-info.types';
+import { PageSizeSelectComponent } from '../../../../shared/components/page-size-select.component';
 
 @Component({
   selector: 'app-table-toolbar',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, PageSizeSelectComponent],
   template: `
     <div class="px-6 pb-4 flex flex-col gap-4">
 
@@ -69,18 +70,10 @@ import { COLUMNS, Column } from './table-info.types';
       <!-- Sub-toolbar: total + filas por página -->
       <div class="flex justify-between items-center">
         <span class="text-sm text-gray-400">Total {{ total() }} aprendices</span>
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-gray-400">Filas por página:</span>
-          <select
-            [ngModel]="rowsPerPage()"
-            (ngModelChange)="rowsPerPageChange.emit(+$event)"
-            class="border border-gray-200 rounded-lg text-xs text-gray-600 py-1.5 px-2 focus:outline-none focus:border-[#39A900] hover:border-[#39A900]/50">
-            <option [value]="5">5</option>
-            <option [value]="10">10</option>
-            <option [value]="15">15</option>
-            <option [value]="20">20</option>
-          </select>
-        </div>
+        <app-page-size-select
+          [value]="rowsPerPage()"
+          [sizes]="[5, 10, 15, 20]"
+          (valueChange)="rowsPerPageChange.emit($event)" />
       </div>
 
     </div>

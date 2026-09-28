@@ -36,7 +36,7 @@ import { LoadingSkeletonComponent } from '../../../shared/components/loading-ske
         </div>
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
           <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Logs últimas 24h</p>
-          <p class="text-2xl font-bold mt-2" style="color:#00304D;">{{ logsRecientes().length }}</p>
+          <p class="text-2xl font-bold mt-2" style="color:light-dark(#00304D, #8ab4f8);">{{ logsRecientes().length }}</p>
         </div>
       </div>
 
@@ -45,7 +45,7 @@ import { LoadingSkeletonComponent } from '../../../shared/components/loading-ske
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden lg:col-span-2">
           <div class="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
             <h2 class="font-semibold text-sm text-gray-800">Actividad reciente</h2>
-            <a routerLink="/audit-log" class="text-xs font-semibold hover:underline" style="color:#39A900;">Ver todo</a>
+            <a routerLink="/audit-log" class="text-xs font-semibold hover:underline" style="color:var(--accent-text);">Ver todo</a>
           </div>
           @if (ultimosLogs().length === 0) {
             <div class="flex flex-col items-center justify-center py-10 text-gray-400">
@@ -55,7 +55,7 @@ import { LoadingSkeletonComponent } from '../../../shared/components/loading-ske
             <div class="overflow-x-auto">
               <table class="w-full text-sm">
                 <thead>
-                  <tr class="text-left text-gray-500 border-b border-gray-100" style="background:#fafbfc;">
+                  <tr class="text-left text-gray-500 border-b border-gray-100" style="background:var(--surface2);">
                     <th class="px-5 py-2.5 font-semibold">Fecha</th>
                     <th class="px-5 py-2.5 font-semibold">Usuario</th>
                     <th class="px-5 py-2.5 font-semibold">Acción</th>
@@ -96,7 +96,7 @@ import { LoadingSkeletonComponent } from '../../../shared/components/loading-ske
                     <p class="text-sm font-semibold text-gray-800 truncate">{{ tenant.nombre }}</p>
                     <p class="text-xs text-gray-400 truncate">{{ tenant.slug }}</p>
                   </div>
-                  <a [routerLink]="['/tenants', tenant.id]" class="text-xs font-semibold whitespace-nowrap hover:underline" style="color:#dc2626;">Ver</a>
+                  <a [routerLink]="['/tenants', tenant.id]" class="text-xs font-semibold whitespace-nowrap hover:underline" style="color:var(--err-text);">Ver</a>
                 </li>
               }
             </ul>

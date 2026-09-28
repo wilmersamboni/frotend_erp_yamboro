@@ -54,10 +54,10 @@ export function nombreCompleto(p: { nombre?: string; apellido?: string } | null 
 // ── Compartidas por la vista de grid y el historial de competencias ──────
 
 export const RESULTADO_ESTADO_INFO: Record<ResultadoEstado, { label: string; bg: string; text: string }> = {
-  'sin-fecha':  { label: 'Sin fecha',  bg: '#f3f4f6', text: '#6b7280' },
-  'pendiente':  { label: 'Pendiente',  bg: '#fef3c7', text: '#92400e' },
-  'en-curso':   { label: 'En curso',   bg: '#dbeafe', text: '#1d4ed8' },
-  'completado': { label: 'Completado', bg: '#dcfce7', text: '#166534' },
+  'sin-fecha':  { label: 'Sin fecha',  bg: 'var(--surface3)', text: 'var(--text-muted)' },
+  'pendiente':  { label: 'Pendiente',  bg: 'var(--warn-bg)', text: 'var(--warn-text)' },
+  'en-curso':   { label: 'En curso',   bg: 'var(--info-bg)', text: 'var(--info-text)' },
+  'completado': { label: 'Completado', bg: 'var(--ok-bg)', text: 'var(--ok-text)' },
 };
 
 /** Ícono según el estado del resultado: check si ya completó, reloj en otro caso */

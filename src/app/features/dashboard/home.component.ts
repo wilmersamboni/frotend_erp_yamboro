@@ -113,7 +113,7 @@ export class HomeComponent implements OnInit {
         ticks: { font: { size: 11, family: 'Inter' }, color: '#94a3b8' }
       },
       y: {
-        grid: { color: '#f1f5f9' },
+        grid: { color: 'rgba(148, 163, 184, .18)' },  // tenue en claro y en oscuro
         border: { display: false },
         ticks: { stepSize: 1, font: { size: 11, family: 'Inter' }, color: '#94a3b8' },
         beginAtZero: true
@@ -185,11 +185,11 @@ export class HomeComponent implements OnInit {
     const otros = Math.max(0, this.stats.aprendices - activo - certificado - desertado - enRiesgo);
 
     const items = [
-      { key: 'activo',      label: 'Activas',        total: activo,      icon: 'pi-clipboard',            color: '#3b82f6', bg: '#eff6ff' },
-      { key: 'certificado', label: 'Certificadas',    total: certificado, icon: 'pi-check-circle',         color: '#a855f7', bg: '#faf5ff' },
-      { key: 'desertado',   label: 'Desertadas',      total: desertado,   icon: 'pi-times-circle',         color: '#f97316', bg: '#fff7ed' },
-      { key: 'enRiesgo',    label: 'En riesgo',       total: enRiesgo,    icon: 'pi-exclamation-triangle', color: '#f59e0b', bg: '#fffbeb' },
-      { key: 'otros',       label: 'Otros estados',   total: otros,       icon: 'pi-ellipsis-h',           color: '#64748b', bg: '#f1f5f9' },
+      { key: 'activo',      label: 'Activas',        total: activo,      icon: 'pi-clipboard',            color: '#3b82f6', bg: 'var(--info-bg)' },
+      { key: 'certificado', label: 'Certificadas',    total: certificado, icon: 'pi-check-circle',         color: '#a855f7', bg: 'var(--violet-bg)' },
+      { key: 'desertado',   label: 'Desertadas',      total: desertado,   icon: 'pi-times-circle',         color: '#f97316', bg: 'var(--warn-bg)' },
+      { key: 'enRiesgo',    label: 'En riesgo',       total: enRiesgo,    icon: 'pi-exclamation-triangle', color: '#f59e0b', bg: 'var(--warn-bg)' },
+      { key: 'otros',       label: 'Otros estados',   total: otros,       icon: 'pi-ellipsis-h',           color: '#64748b', bg: 'var(--surface3)' },
     ];
 
     this.estadosResumen = items.map(it => ({

@@ -243,10 +243,10 @@ import { TuiDay } from '@taiga-ui/cdk';
 
     /* Colores por tipo — duplicado con el padre y con el calendario, cada
        componente tiene su propio encapsulamiento de estilos */
-    .ev-tipo-formativo     { background: #dbeafe; color: #1d4ed8; }
-    .ev-tipo-institucional { background: #dcfce7; color: #166534; }
-    .ev-tipo-evaluacion    { background: #fed7aa; color: #92400e; }
-    .ev-tipo-festivo       { background: #fee2e2; color: #991b1b; }
+    .ev-tipo-formativo     { background: var(--info-bg); color: var(--info-text); }
+    .ev-tipo-institucional { background: var(--ok-bg); color: var(--ok-text); }
+    .ev-tipo-evaluacion    { background: var(--warn-bg); color: var(--warn-text); }
+    .ev-tipo-festivo       { background: var(--err-bg); color: var(--err-text); }
 
     /* ── Secciones agrupadas del formulario (Cuándo / Dónde) ── */
     .form-section-header {
@@ -268,7 +268,7 @@ import { TuiDay } from '@taiga-ui/cdk';
       display: flex; align-items: center; gap: 8px;
       padding: 12px 0; font-size: 13px; color: var(--text-muted);
     }
-    .fichas-hint-warn { color: #d97706; }
+    .fichas-hint-warn { color: var(--warn-text); }
     .ficha-filter-row {
       display: flex; align-items: center; gap: 8px;
       padding: 8px 0; flex-wrap: wrap;
@@ -291,7 +291,7 @@ import { TuiDay } from '@taiga-ui/cdk';
     }
     .ficha-check-row:last-child { border-bottom: none; }
     .ficha-check-row:hover { background: var(--surface2); }
-    .ficha-check-row.selected { background: #f0fdf4; }
+    .ficha-check-row.selected { background: var(--ok-bg); }
     .ficha-check-row input[type="checkbox"] { flex-shrink: 0; width: 15px; height: 15px; cursor: pointer; }
     .ficha-check-info {
       display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0;
@@ -305,16 +305,16 @@ import { TuiDay } from '@taiga-ui/cdk';
     }
     .ficha-area-tag {
       font-size: 10px; font-weight: 700;
-      background: #ede9fe; color: #6d28d9;
+      background: var(--violet-bg); color: #6d28d9;
       border-radius: 4px; padding: 1px 6px; white-space: nowrap;
     }
     .fichas-count-chip {
       font-size: 11px; font-weight: 700;
-      background: #dcfce7; color: #15803d;
+      background: var(--ok-bg); color: var(--ok-text);
       border-radius: 20px; padding: 2px 8px;
     }
 
-    .error-msg { background:#fee2e2;color:#991b1b;border-radius:8px;padding:10px 14px;font-size:13px; }
+    .error-msg { background:var(--err-bg);color:var(--err-text);border-radius:8px;padding:10px 14px;font-size:13px; }
     textarea.form-control { resize: vertical; font-family: inherit; }
 
     /* ── Dark mode ── */

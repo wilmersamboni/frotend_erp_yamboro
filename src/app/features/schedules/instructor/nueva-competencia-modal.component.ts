@@ -237,19 +237,19 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
       transition: background .1s, color .1s; user-select: none;
     }
     .comp-cal-other { color: var(--text-muted); opacity: .3; }
-    .comp-cal-dayhdr.weekend { color: #dc2626; }
-    .comp-cal-cell.weekend { color: #dc2626; }
+    .comp-cal-dayhdr.weekend { color: var(--err-text); }
+    .comp-cal-cell.weekend { color: var(--err-text); }
     .comp-cal-inrange { cursor: pointer; }
-    .comp-cal-inrange:not(.comp-cal-sel):hover { background: rgba(57,169,0,.12); color: #2d8500; }
+    .comp-cal-inrange:not(.comp-cal-sel):hover { background: rgba(57,169,0,.12); color: var(--accent-text); }
     /* Días de clase ya asignados a OTRO resultado — tachados y no clicables,
        para que no se puedan volver a elegir por error. */
     .r-cal-ocupado {
       text-decoration: line-through; cursor: not-allowed;
       color: var(--text-muted); background: var(--surface2); opacity: .6;
     }
-    .r-cal-allowed { cursor: pointer; background: rgba(57,169,0,.08); font-weight: 600; color: #2d8500; }
+    .r-cal-allowed { cursor: pointer; background: rgba(57,169,0,.08); font-weight: 600; color: var(--accent-text); }
     .r-cal-allowed:hover { background: rgba(57,169,0,.16); }
-    .r-cal-inrange { cursor: pointer; background: rgba(57,169,0,.22); color: #226600; }
+    .r-cal-inrange { cursor: pointer; background: rgba(57,169,0,.22); color: var(--accent-text); }
     .r-cal-boundary {
       cursor: pointer;
       background: var(--tui-primary) !important; color: white !important;
@@ -257,11 +257,11 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
     }
     .comp-cal-boundary {
       cursor: pointer;
-      background: #fff7ed; color: #c2410c;
-      font-weight: 700; outline: 2px solid #fed7aa; outline-offset: -2px;
+      background: var(--warn-bg); color: var(--warn-text);
+      font-weight: 700; outline: 2px solid var(--warn-border); outline-offset: -2px;
       border-radius: 8px;
     }
-    .comp-cal-boundary:hover:not(.comp-cal-sel) { background: #ffedd5; }
+    .comp-cal-boundary:hover:not(.comp-cal-sel) { background: var(--warn-bg); }
     .comp-cal-sel {
       background: var(--tui-primary) !important; color: white !important;
       font-weight: 700; box-shadow: 0 1px 4px rgba(57,169,0,.35);
