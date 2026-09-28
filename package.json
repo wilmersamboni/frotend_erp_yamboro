@@ -6,7 +6,8 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "gen:dark": "node tools/gen-dark-palette.mjs"
   },
   "private": true,
   "packageManager": "npm@11.6.2",

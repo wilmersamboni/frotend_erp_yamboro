@@ -217,11 +217,11 @@ export interface SSOption {
       transition: background .1s;
     }
     .ss-option:hover:not(.ss-opt-disabled) {
-      background: #eff6ff;
+      background: var(--info-bg);
       color: var(--blue);
     }
     .ss-option.ss-selected {
-      background: #eff6ff;
+      background: var(--info-bg);
       color: var(--blue);
       font-weight: 600;
     }
@@ -236,8 +236,8 @@ export interface SSOption {
     .ss-opt-tag {
       margin-left: auto;
       font-size: 10px;
-      background: #fee2e2;
-      color: #991b1b;
+      background: var(--err-bg);
+      color: var(--err-text);
       border-radius: 10px;
       padding: 1px 7px;
       font-weight: 600;

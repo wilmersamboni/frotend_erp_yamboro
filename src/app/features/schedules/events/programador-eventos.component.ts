@@ -11,10 +11,10 @@ import { EventoModalComponent } from './evento-modal.component';
 import { ConfirmService } from '../../../core/services/confirm.service';
 
 const TIPO_COLORS: Record<string, { bg: string; text: string }> = {
-  formativo:     { bg: '#dbeafe', text: '#1d4ed8' },
-  institucional: { bg: '#dcfce7', text: '#166534' },
-  evaluacion:    { bg: '#fed7aa', text: '#92400e' },
-  festivo:       { bg: '#fee2e2', text: '#991b1b' },
+  formativo:     { bg: 'var(--info-bg)', text: 'var(--info-text)' },
+  institucional: { bg: 'var(--ok-bg)', text: 'var(--ok-text)' },
+  evaluacion:    { bg: 'var(--warn-bg)', text: 'var(--warn-text)' },
+  festivo:       { bg: 'var(--err-bg)', text: 'var(--err-text)' },
 };
 
 @Component({

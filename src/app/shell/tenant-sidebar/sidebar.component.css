@@ -9,10 +9,10 @@
   height: calc(100vh - 32px);
   margin: 16px 0 16px 16px;
   border-radius: 22px;
-  background: #fff;
-  border: 1px solid #f1f5f9;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
   box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 12px 28px rgba(15,23,42,.06);
-  color: #2B2F38;
+  color: var(--text);
   overflow: hidden;
 }
 
@@ -32,9 +32,9 @@
   width: 32px;
   height: 32px;
   border-radius: 10px;
-  border: 1px solid #f1f5f9;
-  background: #f8fafc;
-  color: #64748b;
+  border: 1px solid var(--border-soft);
+  background: var(--surface2);
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -43,8 +43,8 @@
   transition: background .15s, color .15s;
 }
 .sb-toggle:hover {
-  background: #f8fafc;
-  color: var(--epsas-accent, #007832);
+  background: var(--surface2);
+  color: var(--accent-text);
 }
 
 /* ── Centro/sede actual ──────────────────────────────────── */
@@ -61,7 +61,7 @@
   border-radius: 9px;
   flex-shrink: 0;
   
-  color: var(--epsas-accent, #000000);
+  color: var(--accent-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -70,7 +70,7 @@
   font-size: 9.5px;
   text-transform: uppercase;
   letter-spacing: .08em;
-  color: #334155;
+  color: var(--text-2);
   font-weight: 700;
   margin: 0;
   line-height: 1.2;
@@ -78,7 +78,7 @@
 .sb-centro-value {
   font-size: 12.5px;
   font-weight: 700;
-  color: #334155;
+  color: var(--text-2);
   margin: 2px 0 0;
   line-height: 1.2;
 }
@@ -117,22 +117,22 @@
   border-radius: 5px;
   font-size: 13px;
   font-weight: 500;
-  color: #2B2F38;
+  color: var(--text);
   text-decoration: none;
   cursor: pointer;
   transition: background .15s, color .15s;
 }
 .nav-link:hover {
   background: #f4f3f3ca;
-  color: #1e293b;
+  color: var(--text);
 }
 /* Estado activo — pastilla lisa e insertada (variante "C" ya aprobada),
    con el tinte suave del acento en vez de fondo sólido. ThemeService
    sobreescribe background/color vía !important si el usuario cambió de
    tema (ver theme.service.ts). */
 .nav-link-active {
-  background: var(--epsas-accent-light, #eafbf1);
-  color: var(--epsas-accent, #007832);
+  background: var(--accent-active-bg, #eafbf1);
+  color: var(--accent-text);
   font-weight: 600;
 }
 
@@ -142,7 +142,7 @@
   font-weight: 700;
   letter-spacing: .09em;
   text-transform: uppercase;
-  color: #656E85;
+  color: var(--text-muted);
   padding: 0 13px;
   margin: 14px 0 3px;
 }
@@ -162,14 +162,14 @@
   font-family: inherit;
 }
 .nav-section-toggle.mt-0 { margin-top: 4px; }
-.nav-section-toggle:hover .nav-section-label { color: var(--epsas-accent, #007832); }
+.nav-section-toggle:hover .nav-section-label { color: var(--accent-text); }
 .nav-section-chevron {
-  color: #94a3b8;
+  color: var(--text-faint);
   flex-shrink: 0;
   transition: transform .18s ease-in-out, color .15s;
 }
 .nav-section-chevron.expanded { transform: rotate(90deg); }
-.nav-section-toggle:hover .nav-section-chevron { color: var(--epsas-accent, #007832); }
+.nav-section-toggle:hover .nav-section-chevron { color: var(--accent-text); }
 
 /* ── Tooltip (modo colapsado) ────────────────────────────── */
 /* position:fixed + top/left puestos por JS (ver mostrarTooltip() en el
@@ -179,7 +179,7 @@
 .nav-tooltip-fixed {
   position: fixed;
   transform: translateY(-50%);
-  background: #1e293b;
+  background: var(--tooltip-bg);
   color: #fff;
   font-size: 12px;
   font-weight: 500;
@@ -198,7 +198,7 @@
   top: 50%;
   transform: translateY(-50%);
   border: 5px solid transparent;
-  border-right-color: #1e293b;
+  border-right-color: var(--tooltip-bg);
 }
 
 /* ── Botones del pie (Contáctanos / Cerrar sesión) ──────────── */
@@ -213,18 +213,18 @@
   background: none;
   font-size: 13px;
   font-weight: 500;
-  color: #7b7b7b;
+  color: var(--text-muted);
   cursor: pointer;
   transition: background .15s, color .15s;
   font-family: inherit;
 }
-.nav-logout:hover { background: #f8fafc; color: #1e293b; }
-.nav-logout-danger:hover { background: #fef2f2; color: #dc2626; }
+.nav-logout:hover { background: var(--surface2); color: var(--text); }
+.nav-logout-danger:hover { background: var(--err-bg); color: var(--err-text); }
 
 /* ── Versión ─────────────────────────────────────────────── */
 .nav-version {
   font-size: 10px;
-  color: #e2e8f0;
+  color: var(--tooltip-text);
   font-weight: 600;
   letter-spacing: .06em;
   text-align: center;
@@ -238,10 +238,10 @@
   bottom: calc(100% + 6px);
   left: 8px;
   width: 200px;
-  background: white;
+  background: var(--surface);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0,0,0,.18);
-  border: 1px solid #f1f5f9;
+  border: 1px solid var(--border-soft);
   padding: 6px;
   display: flex;
   flex-direction: column;
@@ -265,12 +265,12 @@
   background: none;
   font-size: 13px;
   font-weight: 500;
-  color: #2b2f38;
+  color: var(--text);
   text-align: left;
   cursor: pointer;
   font-family: inherit;
 }
-.contacto-opt:hover { background: #f8fafc; }
+.contacto-opt:hover { background: var(--surface2); }
 .contacto-opt.wa:hover { color: #25D366; }
 .contacto-opt.bot:hover { color: #1a73e8; }
 

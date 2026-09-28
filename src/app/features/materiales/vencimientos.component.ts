@@ -130,8 +130,8 @@ const VENTANAS = [7, 15, 30] as const;
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-3">
               <span class="relative flex h-3 w-3 shrink-0">
-                <span class="pulse-dot absolute inline-flex h-full w-full rounded-full bg-white"></span>
-                <span class="relative inline-flex h-3 w-3 rounded-full bg-white"></span>
+                <span class="pulse-dot absolute inline-flex h-full w-full rounded-full bg-[#fff]"></span>
+                <span class="relative inline-flex h-3 w-3 rounded-full bg-[#fff]"></span>
               </span>
               <div>
                 <p class="text-sm font-bold leading-tight">

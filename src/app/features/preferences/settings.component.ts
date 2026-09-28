@@ -4,7 +4,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
-import { ThemeService, TEMAS } from '../../core/services/theme.service';
+import { ThemeService, TEMAS, MODOS, ModoTema } from '../../core/services/theme.service';
 import { ApiService } from '../../core/services/api.service';
 import { ToastService } from '../../core/services/toast.service';
 import { environment } from '../../../environments/environment';
@@ -280,6 +280,24 @@ interface MiAcceso {
               <h2 class="panel-title">Apariencia</h2>
               <p class="panel-sub">Personaliza la interfaz a tu gusto</p>
 
+              <!-- Modo claro / oscuro -->
+              <div class="pref-row">
+                <div>
+                  <p class="pref-label">Modo</p>
+                  <p class="pref-desc">Automático sigue la configuración de tu sistema operativo</p>
+                </div>
+                <div class="modo-seg" role="radiogroup" aria-label="Modo de color">
+                  @for (m of modos; track m.id) {
+                    <button type="button" role="radio" [attr.aria-checked]="modoActual() === m.id"
+                            [class.active]="modoActual() === m.id" (click)="setModo(m.id)">
+                      {{ m.label }}
+                    </button>
+                  }
+                </div>
+              </div>
+
+              <hr class="divider" />
+
               <!-- Color de acento -->
               <div>
                 <p class="pref-label" style="margin-bottom:12px">Color de acento</p>
@@ -517,9 +535,15 @@ perfil: {
   cerrarVisorConEscape(): void {
     if (this.verFoto()) this.verFoto.set(false);
   }
-  /** Ruta relativa (perfil recién cargado del backend) con fallback al usuario cacheado en localStorage. */
+  /**
+   * Sale SIEMPRE del usuario de sesión (una señal): antes leía también
+   * `this.perfil.fotoPerfil`, un objeto normal que computed() no escucha,
+   * así que la foto cargada desde el servidor nunca redibujaba el avatar y
+   * tras volver a iniciar sesión se veían las iniciales. cargarPerfil() y
+   * onFotoSeleccionada() mantienen la sesión al día (actualizarUser).
+   */
   readonly fotoUrl = computed(() => {
-    const ruta = this.perfil.fotoPerfil ?? this.user()?.fotoPerfil;
+    const ruta = this.user()?.fotoPerfil;
     return ruta ? `${environment.apiUrl}/${ruta}` : null;
   });
 
@@ -550,7 +574,9 @@ perfil: {
   // Apariencia
   temaActual = signal(localStorage.getItem('tema') ?? 'verde');
   fontSize   = signal(localStorage.getItem('fontSize') ?? 'normal');
+  modoActual = signal<ModoTema>(this.theme.modo());
   readonly temas = TEMAS;
+  readonly modos = MODOS;
 
   ngOnInit(): void {
     this.cargarPerfil();
@@ -576,6 +602,11 @@ perfil: {
         direccion:  data.direccion  ?? '',
         fotoPerfil: data.fotoPerfil ?? null,
       };
+      // Sincroniza la sesión con la foto real del servidor: corrige de paso
+      // el navbar de quien inició sesión antes de que el login trajera la foto.
+      if ((this.user()?.fotoPerfil ?? null) !== this.perfil.fotoPerfil) {
+        this.auth.actualizarUser({ fotoPerfil: this.perfil.fotoPerfil });
+      }
     } catch { this.perfil.nombre = this.user()?.nombre ?? ''; }
     finally { this.cargandoPerfil.set(false); }
   }
@@ -673,6 +704,12 @@ perfil: {
   setFontSize(size: string): void {
     this.fontSize.set(size);
     localStorage.setItem('fontSize', size);
+    this.theme.apply();
+  }
+
+  setModo(modo: ModoTema): void {
+    this.modoActual.set(modo);
+    localStorage.setItem('modo', modo);
     this.theme.apply();
   }
 

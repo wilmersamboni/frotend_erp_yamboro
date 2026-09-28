@@ -161,7 +161,7 @@ import { EmptyStateComponent } from '../../shared/components/empty-state.compone
                     <td class="px-3 py-3 text-right text-gray-700">{{ totalEfectivo(r) }}</td>
                     <td class="px-3 py-3 text-right">
                       @if (r.lotes_por_vencer > 0) {
-                        <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold" style="background-color:#FEF3C7;color:#B45309">{{ r.lotes_por_vencer }}</span>
+                        <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold" style="background-color:var(--warn-bg);color:var(--warn-text)">{{ r.lotes_por_vencer }}</span>
                       } @else {
                         <span class="text-gray-300">—</span>
                       }

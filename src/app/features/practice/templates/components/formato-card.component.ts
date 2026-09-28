@@ -26,7 +26,7 @@ const TIPOS: { value: string; label: string }[] = [
     .card-enter:nth-child(6) { animation-delay: 0.30s; }
     .card-enter:nth-child(7) { animation-delay: 0.35s; }
     .card-enter:nth-child(8) { animation-delay: 0.40s; }
-    .file-row:hover .file-icon-bg { background: #dcfce7; }
+    .file-row:hover .file-icon-bg { background: var(--ok-bg); }
   `],
   template: `
     <div class="card-enter group bg-white rounded-2xl border border-gray-100 hover:border-gray-200 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden">

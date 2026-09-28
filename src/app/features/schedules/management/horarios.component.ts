@@ -217,8 +217,8 @@ import { ConfirmService } from '../../../core/services/confirm.service';
                       <span class="info-val">
                         @if (h.ubicacionTransversalNombre && h.ambiente?.nombre) {
                           <span class="amb-temp-wrap">
-                            <span style="color:#d97706;font-weight:700;">{{ h.ubicacionTransversalNombre }}</span>
-                            <lucide-icon name="info" [size]="10" style="color:#d97706;flex-shrink:0;"></lucide-icon>
+                            <span style="color:var(--warn-text);font-weight:700;">{{ h.ubicacionTransversalNombre }}</span>
+                            <lucide-icon name="info" [size]="10" style="color:var(--warn-text);flex-shrink:0;"></lucide-icon>
                             <span class="amb-temp-tooltip">
                               <span class="amb-temp-row">
                                 <span class="amb-temp-lbl">Temporal</span>

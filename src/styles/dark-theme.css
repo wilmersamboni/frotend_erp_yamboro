@@ -1,0 +1,121 @@
+/* ════════════════════════════════════════════════════════════════════
+   Modo oscuro — paleta "oscuro neutro" aprobada por el usuario
+   (artifact "Modo oscuro EPSAS", 2026-09-28).
+
+   Cómo funciona: ThemeService pone data-theme="dark" en <html> (también
+   un script en index.html, antes de que cargue Angular, para que no
+   parpadee en blanco). Acá solo se REDEFINEN variables; los componentes
+   no deberían necesitar reglas propias de modo oscuro si usan los tokens
+   de styles.css (--surface, --text, --border…) en vez de hex fijos.
+
+   La adaptación de las clases de color de Tailwind (text-gray-*,
+   bg-green-100…) está en dark-tailwind.generated.css (generado).
+
+   Por qué NO se hace como el intento anterior (commit a957443): aquel
+   perseguía clases con !important y usaba grises slate (azulados). Ver
+   "Cosas que sorprenden (gotchas)" en el vault.
+   ════════════════════════════════════════════════════════════════════ */
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* ── Tokens semánticos ── */
+  --bg-app:        #111312;
+  --surface:       #1a1c1b;
+  --surface2:      #222524;
+  --surface3:      #262a28;
+  --text:          #e6e8e7;
+  --text-2:        #c9cdcb;
+  --text-muted:    #9ba19e;
+  --text-faint:    #6b726e;
+  --border:        #2f3331;
+  --border-strong: #3b403d;
+  --border-soft:   #262a28;
+  --blue:          #3b82f6;
+  --gray-300:      #3b403d;
+
+  --accent:        #39A900;
+  --accent-text:   #6fd13a;
+  --accent-soft:   rgba(111, 209, 58, .10);
+
+  --ok-bg:   #1f2c18; --ok-text:   #8fe05f; --ok-border:   #2f4424;
+  --warn-bg: #2e2413; --warn-text: #f5b04a; --warn-border: #4a3a1a;
+  --err-bg:  #321a19; --err-text:  #ff8a80; --err-border:  #4d2624;
+  --info-bg: #172336; --info-text: #8ab4f8; --info-border: #243a57;
+  --indigo-bg: #1f2036; --indigo-text: #a5b4fc;
+  --violet-bg: #261d33; --violet-text: #c4b5fd;
+  /* Tooltips: en claro eran #1e293b (slate, azulado); en oscuro, un gris
+     neutro un poco más claro que la superficie para que se despeguen. */
+  --tooltip-bg: #313633; --tooltip-text: #e6e8e7;
+  --shadow-color: rgba(0, 0, 0, .35);
+
+  /* ── Taiga UI (calendarios, selector de hora) ── */
+  --tui-text-primary:               #e6e8e7;
+  --tui-text-secondary:             #9ba19e;
+  --tui-text-negative:              #ff8a80;
+  --tui-background-base:            #1a1c1b;
+  --tui-background-base-alt:        #222524;
+  --tui-background-neutral-1:       #2f3331;
+  --tui-background-neutral-1-hover: #3b403d;
+  --tui-background-neutral-2:       #262a28;
+  --tui-background-neutral-2-hover: #2f3331;
+  --tui-background-elevation-1:     #1a1c1b;
+  --tui-background-elevation-2:     #222524;
+  --tui-border-normal:              #3b403d;
+  --tui-border-hover:               #6b726e;
+  --tui-text-action:                #6fd13a;
+  --tui-text-action-hover:          #8fe05f;
+}
+
+:root[data-theme="dark"] body { background-color: var(--bg-app); color: var(--text); }
+
+/* ── Utilidades de Tailwind que no pasan por la paleta de color ──────────
+   bg-white usa --color-white, que también usa text-white (texto de los
+   botones verdes): redefinir la variable dejaría esos textos oscuros. Por
+   eso se ajusta la CLASE, no la variable. Misma capa y especificidad que
+   Tailwind (:where), así hover:/focus: siguen ganando. */
+@layer utilities {
+  :where(:root[data-theme="dark"]) .bg-white,
+  :where(:root[data-theme="dark"]) .focus\:bg-white:focus,
+  :where(:root[data-theme="dark"]) .hover\:bg-white:hover,
+  :where(:root[data-theme="dark"]) .after\:bg-white::after { background-color: var(--surface); }
+  :where(:root[data-theme="dark"]) .bg-white\/95 { background-color: color-mix(in oklab, var(--surface) 95%, transparent); }
+  :where(:root[data-theme="dark"]) .bg-white\/80 { background-color: color-mix(in oklab, var(--surface) 80%, transparent); }
+  :where(:root[data-theme="dark"]) .to-white { --tw-gradient-to: var(--surface); }
+
+  /* Fondos grises fijos escritos como hex arbitrario */
+  :where(:root[data-theme="dark"]) .bg-\[\#F0F2F5\] { background-color: var(--bg-app); }
+  :where(:root[data-theme="dark"]) .bg-\[\#F8F9FA\],
+  :where(:root[data-theme="dark"]) .bg-\[\#F8FFFE\] { background-color: var(--surface2); }
+
+  /* Verde de la marca usado como TEXTO: #39A900/#007832/#2d8xxx se leen mal
+     sobre oscuro → verde claro de la propuesta. (Fondos y bordes verdes se
+     quedan: ThemeService ya los mapea al color de acento elegido.) */
+  :where(:root[data-theme="dark"]) .text-\[\#39A900\],
+  :where(:root[data-theme="dark"]) .text-\[\#007832\],
+  :where(:root[data-theme="dark"]) .text-\[\#2d8000\],
+  :where(:root[data-theme="dark"]) .text-\[\#2d8500\],
+  :where(:root[data-theme="dark"]) .text-\[\#2d8400\],
+  :where(:root[data-theme="dark"]) .text-\[\#2f8a00\] { color: var(--accent-text); }
+  :where(:root[data-theme="dark"]) .hover\:text-\[\#39A900\]:hover { color: var(--accent-text); }
+
+  /* Avisos (ngx-sonner, app.ts): usan !bg-white. Con !important la capa
+     de Tailwind le gana a cualquier regla SIN capa (la cascada se invierte),
+     así que este ajuste tiene que vivir dentro de la misma capa y con más
+     especificidad — por eso acá sí va :root[...] sin :where. */
+  :root[data-theme="dark"] .\!bg-white { background-color: var(--surface) !important; }
+}
+
+/* ── Controles nativos ── */
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] select { color: var(--text); }
+:root[data-theme="dark"] input::placeholder,
+:root[data-theme="dark"] textarea::placeholder { color: var(--text-faint); }
+
+/* Sombras: en oscuro una sombra negra suave se pierde; se refuerza un poco */
+:root[data-theme="dark"] .shadow-sm { --tw-shadow-color: rgba(0, 0, 0, .4); }
+
+/* Mapa (Leaflet): los mosaicos son imágenes claras — se atenúan para que no encandilen */
+:root[data-theme="dark"] .leaflet-tile-pane { filter: brightness(.75) contrast(1.05); }
+:root[data-theme="dark"] .leaflet-container { background: #1a1c1b; }

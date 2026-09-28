@@ -1,18 +1,67 @@
 import { Injectable } from '@angular/core';
 
 export const TEMAS = [
-  { id: 'verde',   label: 'Verde SENA', color: '#007832' },
-  { id: 'azul',    label: 'Azul',       color: '#1e40af' },
-  { id: 'indigo',  label: 'Índigo',     color: '#6366f1' },
-  { id: 'naranja', label: 'Naranja',    color: '#f97316' },
+  // textoClaro / textoOscuro: el acento usado como TEXTO en cada modo
+  // (--accent-text). En verde, textoClaro es el #2d8500 que ya usaban los
+  // textos verdes de las pantallas, para que el modo claro no cambie;
+  // textoOscuro es el de la propuesta aprobada (el base se lee mal en oscuro).
+  { id: 'verde',   label: 'Verde SENA', color: '#007832', textoClaro: '#2d8500', textoOscuro: '#6fd13a' },
+  { id: 'azul',    label: 'Azul',       color: '#1e40af', textoClaro: '#1e40af', textoOscuro: '#8ab4f8' },
+  { id: 'indigo',  label: 'Índigo',     color: '#6366f1', textoClaro: '#4f46e5', textoOscuro: '#a5b4fc' },
+  { id: 'naranja', label: 'Naranja',    color: '#f97316', textoClaro: '#c2410c', textoOscuro: '#fdba74' },
+];
+
+export type ModoTema = 'claro' | 'oscuro' | 'sistema';
+export const MODOS: { id: ModoTema; label: string }[] = [
+  { id: 'claro',   label: 'Claro' },
+  { id: 'oscuro',  label: 'Oscuro' },
+  { id: 'sistema', label: 'Automático' },
 ];
 
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
+  private mediaOscuro = typeof window !== 'undefined' && window.matchMedia
+    ? window.matchMedia('(prefers-color-scheme: dark)')
+    : null;
+  private escuchandoSistema = false;
+
+  /** 'claro' | 'oscuro' | 'sistema' (sigue al sistema operativo). Guardado en localStorage 'modo'. */
+  modo(): ModoTema {
+    const m = localStorage.getItem('modo');
+    return m === 'oscuro' || m === 'sistema' ? m : 'claro';
+  }
+
+  /** ¿Se está viendo en oscuro ahora mismo? (resuelve 'sistema' contra el sistema operativo) */
+  esOscuro(): boolean {
+    const m = this.modo();
+    return m === 'oscuro' || (m === 'sistema' && !!this.mediaOscuro?.matches);
+  }
+
+  /**
+   * Pone data-theme en <html> — de eso cuelga todo el modo oscuro
+   * (src/styles/dark-theme.css + dark-tailwind.generated.css). index.html
+   * hace lo mismo antes de que cargue Angular para evitar el parpadeo blanco.
+   */
+  private aplicarModo(): void {
+    const oscuro = this.esOscuro();
+    document.documentElement.setAttribute('data-theme', oscuro ? 'dark' : 'light');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', oscuro ? '#111312' : '#39A900');
+    // En 'Automático', seguir los cambios del sistema operativo sin recargar.
+    if (this.mediaOscuro && !this.escuchandoSistema) {
+      this.escuchandoSistema = true;
+      this.mediaOscuro.addEventListener('change', () => {
+        if (this.modo() === 'sistema') this.aplicarModo();
+      });
+    }
+  }
 
   /** Lee localStorage y vuelca todos los overrides CSS en <style id="epsas-theme"> */
   apply(): void {
-    const accent   = TEMAS.find(t => t.id === (localStorage.getItem('tema') ?? 'verde'))?.color ?? '#39A900';
+    this.aplicarModo();
+    const tema     = TEMAS.find(t => t.id === (localStorage.getItem('tema') ?? 'verde'));
+    const accent   = tema?.color ?? '#39A900';
+    const accentTextoClaro  = tema?.textoClaro ?? '#2d8500';
+    const accentTextoOscuro = tema?.textoOscuro ?? '#6fd13a';
     const sizeMap: Record<string, string> = { small: '13px', normal: '15px', large: '17px' };
     const fontSize = sizeMap[localStorage.getItem('fontSize') ?? 'normal'] ?? '15px';
 
@@ -35,8 +84,17 @@ export class ThemeService {
 ═══════════════════════════════════════════════════════════ */
 
 /* ── Variables globales ── */
+:root[data-theme="dark"] {
+  --accent-text:      ${accentTextoOscuro};
+  --accent-soft:      rgb(${r} ${g} ${b} / 0.14);
+  --accent-active-bg: rgb(${r} ${g} ${b} / 0.18);
+}
 :root {
   font-size: ${fontSize};
+  --accent:             rgb(${r} ${g} ${b});
+  --accent-text:        ${accentTextoClaro};
+  --accent-soft:        rgb(${r} ${g} ${b} / 0.08);
+  --accent-active-bg:   ${lightHex};   /* enlace activo del sidebar */
   --epsas-accent:       rgb(${r} ${g} ${b});
   --epsas-accent-dark:  rgb(${dr} ${dg} ${db});
   --epsas-accent-light: ${lightHex};
@@ -61,9 +119,11 @@ export class ThemeService {
 .bg-\\[\\#007832\\]\\/20  { background-color: rgb(${r} ${g} ${b} / 0.20) !important; }
 
 /* ══ text-[color] ════════════════════════════════════════ */
+/* var(--accent-text): igual al acento en claro; en oscuro su versión clara
+   (textoOscuro en TEMAS) — el acento base se lee mal sobre fondo oscuro. */
 .text-\\[\\#39A900\\],
 .text-\\[\\#007832\\]
-  { color: rgb(${r} ${g} ${b}) !important; }
+  { color: var(--accent-text) !important; }
 
 /* ══ border-[color] ══════════════════════════════════════ */
 .border-\\[\\#39A900\\]       { border-color:     rgb(${r} ${g} ${b})        !important; }
@@ -102,7 +162,7 @@ export class ThemeService {
 
 .hover\\:bg-\\[\\#39A900\\]\\/5:hover   { background-color: rgb(${r} ${g} ${b} / 0.05) !important; }
 .hover\\:bg-\\[\\#39A900\\]\\/10:hover  { background-color: rgb(${r} ${g} ${b} / 0.10) !important; }
-.hover\\:text-\\[\\#39A900\\]:hover     { color: rgb(${r} ${g} ${b})        !important; }
+.hover\\:text-\\[\\#39A900\\]:hover     { color: var(--accent-text)        !important; }
 .hover\\:text-\\[\\#acd8a7\\]:hover     { color: ${lightHex}                !important; }
 .hover\\:border-\\[\\#39A900\\]:hover   { border-color: rgb(${r} ${g} ${b}) !important; }
 .hover\\:border-\\[\\#39A900\\]\\/30:hover { border-color: rgb(${r} ${g} ${b} / 0.30) !important; }
@@ -146,15 +206,15 @@ a[class*="bg-\\[#007832\\]"]
 .dot-green           { background-color: rgb(${r} ${g} ${b}) !important; }
 .font-size-btns button.active {
   border-color: rgb(${r} ${g} ${b}) !important;
-  color:        rgb(${r} ${g} ${b}) !important;
-  background:   rgb(${r} ${g} ${b} / 0.08) !important;
+  color:        var(--accent-text) !important;
+  background:   var(--accent-soft) !important;
 }
-.color-chip.selected { border-color: #0f172a !important; }
+.color-chip.selected { border-color: var(--text) !important; }
 
 /* ══ Sidebar link activo ══════════════════════════════════ */
 .nav-link-active {
-  background:        rgb(${r} ${g} ${b} / 0.08) !important;
-  color:             rgb(${r} ${g} ${b}) !important;
+  background:        var(--accent-soft) !important;
+  color:             var(--accent-text) !important;
 }
 
 /* SVG inline */

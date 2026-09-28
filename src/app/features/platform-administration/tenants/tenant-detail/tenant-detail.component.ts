@@ -109,7 +109,7 @@ import { AdminConfirmDialogComponent } from '../../../../shared/components/admin
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
               <thead>
-                <tr class="text-left text-gray-500 border-b border-gray-100" style="background:#fafbfc;">
+                <tr class="text-left text-gray-500 border-b border-gray-100" style="background:var(--surface2);">
                   <th class="px-5 py-2.5 font-semibold">Fecha</th>
                   <th class="px-5 py-2.5 font-semibold">Usuario</th>
                   <th class="px-5 py-2.5 font-semibold">Acción</th>

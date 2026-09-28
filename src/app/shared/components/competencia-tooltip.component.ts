@@ -192,15 +192,15 @@ export interface CompetenciaTooltipState {
       background: var(--surface2); cursor: pointer; color: var(--text-muted);
       transition: all .15s; flex-shrink: 0;
     }
-    .ctt-copy-btn:hover { background: #eff6ff; color: var(--blue); border-color: var(--blue); }
-    .ctt-copy-btn.ctt-copy-ok { background: #dcfce7; color: #166534; border-color: #86efac; }
+    .ctt-copy-btn:hover { background: var(--info-bg); color: var(--blue); border-color: var(--blue); }
+    .ctt-copy-btn.ctt-copy-ok { background: var(--ok-bg); color: var(--ok-text); border-color: var(--ok-border); }
     .ctt-close-btn {
       display: flex; align-items: center; justify-content: center;
       width: 24px; height: 24px; border-radius: 6px;
       border: 1px solid var(--border); background: var(--surface2);
       cursor: pointer; color: var(--text-muted); transition: all .15s;
     }
-    .ctt-close-btn:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+    .ctt-close-btn:hover { background: var(--err-bg); color: var(--err-text); border-color: var(--err-border); }
 
     /* ── Card de competencia compacta: resultados / horario / clases ── */
     .ctt-resultados-list { display:flex; flex-direction:column; gap:3px; margin:2px 0 0; }
@@ -209,27 +209,27 @@ export interface CompetenciaTooltipState {
     .ctt-horario-row { display:flex; align-items:center; gap:6px; }
     .ctt-horario-row lucide-icon { color:var(--text-muted); flex-shrink:0; }
     .ctt-clases-chips { display:flex; flex-wrap:wrap; gap:5px; margin:4px 0 0; }
-    .ctt-clase-chip { font-size:10px; font-weight:600; color:#1d4ed8; background:#eff6ff; border:1px solid #bfdbfe; border-radius:5px; padding:2px 6px; }
+    .ctt-clase-chip { font-size:10px; font-weight:600; color:var(--info-text); background:var(--info-bg); border:1px solid var(--info-border); border-radius:5px; padding:2px 6px; }
     .ctt-clase-chip.ctt-clase-pasada { color:var(--text-muted); background:var(--surface2); border-color:var(--border); text-decoration:line-through; opacity:.7; }
     .ctt-clase-chip.ctt-clase-hoy { color:#fff; background:#39A900; border-color:#39A900; }
-    .ctt-clase-chip.ctt-clase-proxima { border-width:2px; border-color:#1d4ed8; }
+    .ctt-clase-chip.ctt-clase-proxima { border-width:2px; border-color:var(--info-text); }
 
     /* Estado de la competencia (junto al nombre) */
     .ctt-estado { display:inline-block; font-size:10px; font-weight:700; padding:2px 8px; border-radius:999px; margin-bottom:8px; }
-    .ctt-estado-verde { background:#dcfce7; color:#166534; }
-    .ctt-estado-ambar { background:#fef3c7; color:#92400e; }
-    .ctt-estado-rojo  { background:#fee2e2; color:#991b1b; }
-    .ctt-estado-azul  { background:#dbeafe; color:#1d4ed8; }
+    .ctt-estado-verde { background:var(--ok-bg); color:var(--ok-text); }
+    .ctt-estado-ambar { background:var(--warn-bg); color:var(--warn-text); }
+    .ctt-estado-rojo  { background:var(--err-bg); color:var(--err-text); }
+    .ctt-estado-azul  { background:var(--info-bg); color:var(--info-text); }
 
     .ctt-horas-txt { font-size:12px; color:var(--text); margin:4px 0 0; }
     .ctt-horas-sub { font-size:11px; color:var(--text-muted); margin:2px 0 0; }
-    .ctt-aviso { display:flex; align-items:center; gap:4px; font-size:11px; font-weight:600; color:#b45309; background:#fffbeb; border:1px solid #fcd34d; border-radius:6px; padding:4px 7px; margin:4px 0 0; }
+    .ctt-aviso { display:flex; align-items:center; gap:4px; font-size:11px; font-weight:600; color:var(--warn-text); background:var(--warn-bg); border:1px solid var(--warn-border); border-radius:6px; padding:4px 7px; margin:4px 0 0; }
     .ctt-proxima { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:var(--text); margin:3px 0 0; text-transform:capitalize; }
-    .ctt-proxima lucide-icon { color:#39A900; }
+    .ctt-proxima lucide-icon { color:var(--accent-text); }
 
     /* progress-bar/progress-fill: copia local — el host ya tiene su propia
        versión para el indicador "en curso" de la card, fuera de este tooltip. */
-    .progress-bar { height: 6px; background: var(--gray-200, #e5e7eb); border-radius: 3px; overflow: hidden; }
+    .progress-bar { height: 6px; background: var(--gray-200, var(--border)); border-radius: 3px; overflow: hidden; }
     .progress-fill { height: 100%; background: var(--blue); border-radius: 3px; transition: width .3s ease; }
 
     /* ── Dark mode overrides ── */

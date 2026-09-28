@@ -231,7 +231,7 @@ interface Ficha {
                       } @else {
                         @for (nombre of ubicacionesFicha.get(a.id_curso); track nombre) {
                           <span class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full mr-1.5"
-                            style="background-color: rgba(57,169,0,0.1); color: #2d7d00;">
+                            style="background-color: rgba(57,169,0,0.1); color: var(--accent-text);">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z"/>
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
