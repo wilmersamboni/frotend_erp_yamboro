@@ -59,7 +59,7 @@ import { SyncQueueService } from './sync-queue.service';
                     <button type="button" (click)="descartar(a)" class="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                       Descartar
                     </button>
-                    <button type="button" (click)="reintentar(a)" class="px-3 py-1.5 text-xs font-medium text-white rounded-lg transition-colors" style="background-color: #39A900">
+                    <button type="button" (click)="reintentar(a)" class="px-3 py-1.5 text-xs font-medium text-white rounded-lg transition-colors" style="background-color: var(--accent-brand)">
                       Reintentar
                     </button>
                   </div>

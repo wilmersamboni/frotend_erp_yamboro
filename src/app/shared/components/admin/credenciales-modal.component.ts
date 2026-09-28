@@ -10,7 +10,7 @@ import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
 
           <div class="px-5 pt-5 pb-3 flex items-center justify-between border-b border-gray-100">
             <div class="flex items-center gap-2">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#39A900" stroke-width="2">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="stroke: var(--accent-brand)" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round"
                   d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
               </svg>
@@ -83,7 +83,7 @@ import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
           <div class="px-5 pb-5 pt-1 flex justify-end">
             <button type="button" (click)="onCerrar()"
               class="text-sm font-semibold px-5 py-2.5 rounded-xl text-white transition-opacity hover:opacity-90"
-              style="background:#39A900;">
+              style="background:var(--accent-brand);">
               Entendido, ya guardé las credenciales
             </button>
           </div>

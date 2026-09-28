@@ -43,7 +43,7 @@ import { AdminConfirmDialogComponent } from '../../../../shared/components/admin
           </button>
           <button type="button" (click)="editar()"
             class="text-sm font-semibold px-4 py-2.5 rounded-xl text-white transition-opacity hover:opacity-90"
-            style="background:#39A900;">
+            style="background:var(--accent-brand);">
             Editar
           </button>
         </div>

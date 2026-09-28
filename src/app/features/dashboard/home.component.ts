@@ -237,6 +237,7 @@ export class HomeComponent implements OnInit {
     let accCert   = 0;
     const activasAcum      = activasPorMes.map(v => (accActiva += v));
     const certificadasAcum = certificadasPorMes.map(v => (accCert += v));
+    const acento = this.tokenColor('--accent-brand', '#39A900');
 
     this.chartDataEvolucion = {
       labels: meses,
@@ -244,12 +245,12 @@ export class HomeComponent implements OnInit {
         {
           label: 'Etapas Activas',
           data: activasAcum,
-          borderColor: '#39A900',
-          backgroundColor: 'rgba(57,169,0,0.08)',
+          borderColor: acento,
+          backgroundColor: acento + '14',
           fill: true,
           tension: 0.35,
           pointRadius: 3,
-          pointBackgroundColor: '#39A900',
+          pointBackgroundColor: acento,
         },
         {
           label: 'Etapas Certificadas',
@@ -265,14 +266,21 @@ export class HomeComponent implements OnInit {
     };
   }
 
+  /** Chart.js pinta en canvas y no entiende var(): se lee el token ya
+   *  resuelto (ThemeService lo emite como hex) para que siga al color de acento. */
+  private tokenColor(nombre: string, respaldo: string): string {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(nombre).trim();
+    return /^#[0-9a-f]{6}$/i.test(v) ? v : respaldo;
+  }
+
   private buildChartPersonal(): void {
     const avance = this.miPractica?.avance ?? 0;
     this.chartDataPersonal = {
       labels: ['Completado', 'Pendiente'],
       datasets: [{
         data: [avance, 100 - avance],
-        backgroundColor: ['#39A900', '#e2e8f0'],
-        hoverBackgroundColor: ['#2d8600', '#d1d5db'],
+        backgroundColor: [this.tokenColor('--accent-brand', '#39A900'), '#e2e8f0'],
+        hoverBackgroundColor: [this.tokenColor('--accent-brand-dark', '#2d8600'), '#d1d5db'],
         borderWidth: 0
       }]
     };

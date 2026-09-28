@@ -25,7 +25,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
             </button>
             <button type="button" (click)="onConfirmar()"
               class="text-sm font-semibold px-4 py-2 rounded-xl text-white transition-opacity hover:opacity-90"
-              [style.background]="variante === 'danger' ? '#dc2626' : '#39A900'">
+              [style.background]="variante === 'danger' ? '#dc2626' : 'var(--accent-brand)'">
               {{ textoConfirmar }}
             </button>
           </div>

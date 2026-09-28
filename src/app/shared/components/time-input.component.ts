@@ -95,7 +95,7 @@ const OPTIONS: string[] = (() => {
     .ti-root:hover .ti-input:not(:disabled) { border-color: var(--tui-primary); }
     .ti-open .ti-input {
       border-color: var(--tui-primary);
-      box-shadow: 0 0 0 3px rgba(57, 169, 0, .15);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-brand) 15%, transparent);
     }
     .ti-input:disabled { opacity: .55; cursor: not-allowed; }
     .ti-icon-btn {
@@ -144,7 +144,7 @@ const OPTIONS: string[] = (() => {
       cursor: pointer;
       color: var(--text);
     }
-    .ti-option:hover { background: rgba(57,169,0,.1); color: var(--accent-text); }
+    .ti-option:hover { background: color-mix(in srgb, var(--accent-brand) 10%, transparent); color: var(--accent-text); }
     .ti-option.ti-selected { background: var(--tui-primary); color: #fff; font-weight: 600; }
   `],
 })

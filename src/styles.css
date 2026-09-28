@@ -25,10 +25,10 @@ body { background-color: var(--bg-app); }
 :root {
   /* Colores SENA */
   --tui-primary:                    #39A900;
-  --tui-primary-hover:              #5cd600;
-  --tui-primary-active:             #2d8200;
+  --tui-primary-hover:              var(--accent-brand-light);
+  --tui-primary-active:             var(--accent-brand-dark);
   --tui-background-accent-1:        #39A900;
-  --tui-background-accent-1-hover:  #5cd600;
+  --tui-background-accent-1-hover:  var(--accent-brand-light);
   --tui-border-focus:               #39A900;
 
   /* Tokens que TuiCalendar necesita */
@@ -53,7 +53,7 @@ body { background-color: var(--bg-app); }
   --tui-background-neutral-2:         #f3f4f6;
   --tui-background-neutral-2-hover:   #e5e7eb;
   --tui-text-action:                  #39A900;
-  --tui-text-action-hover:            #2d8200;
+  --tui-text-action-hover:            var(--accent-brand-dark);
   --tui-border-normal:                #d1d5db;
   --tui-border-hover:                 #9ca3af;
 
@@ -90,6 +90,12 @@ body { background-color: var(--bg-app); }
   --accent:        #39A900;   /* verde SENA: botones y barras */
   --accent-text:   #2d8500;   /* verde como TEXTO (en oscuro se aclara) */
   --accent-soft:   rgba(57, 169, 0, .08);
+  /* Verde "vivo" de las pantallas (#39A900) y sus variantes. En el tema verde
+     son exactamente los hex que había escritos a mano; en otro tema, el color
+     elegido. Los genera ThemeService; estos son solo el valor antes de que cargue. */
+  --accent-brand:       #39A900;
+  --accent-brand-dark:  #2d8500;
+  --accent-brand-light: #5cd600;
 
   --ok-bg:   #dcfce7; --ok-text:   #166534; --ok-border:   #bbf7d0;
   --warn-bg: #fef3c7; --warn-text: #92400e; --warn-border: #fcd34d;
@@ -102,8 +108,12 @@ body { background-color: var(--bg-app); }
 }
 
 @layer components {
+  /* Con tokens, no hex: al estar en @layer con !important, le gana a
+     cualquier override de ThemeService (un !important dentro de una capa
+     vence a uno fuera de capa), así que el hex fijo dejaba estos botones
+     siempre verdes. En el tema verde los tokens valen los mismos hex. */
   .bg-sena-gradient {
-    background: linear-gradient(to right, #39A900, #5cd600) !important;
+    background: linear-gradient(to right, var(--accent-brand), var(--accent-brand-light)) !important;
   }
 }
 

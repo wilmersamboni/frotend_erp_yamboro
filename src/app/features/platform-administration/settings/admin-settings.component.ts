@@ -20,12 +20,12 @@ import { AdminToastService } from '../../../core/admin-auth/admin-toast.service'
         <div class="p-5">
           <div class="flex items-center gap-4 mb-5 pb-5 border-b border-gray-100">
             <div class="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold text-white flex-shrink-0"
-              style="background:#39A900;">
+              style="background:var(--accent-brand);">
               {{ iniciales() }}
             </div>
             <div>
               <p class="font-semibold text-gray-900">{{ authService.currentUser()?.correo ?? '—' }}</p>
-              <span class="inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full mt-1 text-white" style="background:#39A900;">
+              <span class="inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full mt-1 text-white" style="background:var(--accent-brand);">
                 Administrador Root
               </span>
             </div>
@@ -59,7 +59,7 @@ import { AdminToastService } from '../../../core/admin-auth/admin-toast.service'
             <div class="mt-4 flex justify-end">
               <button type="submit" [disabled]="guardando()"
                 class="text-sm font-semibold px-4 py-2.5 rounded-xl text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                style="background:#39A900;">
+                style="background:var(--accent-brand);">
                 {{ guardando() ? 'Guardando...' : 'Actualizar contraseña' }}
               </button>
             </div>

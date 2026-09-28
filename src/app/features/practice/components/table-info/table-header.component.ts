@@ -29,8 +29,8 @@ import { Column, StatusOption, STATUS_OPTIONS, statusDotColor } from './table-in
                   [class.text-green-700]="selectedAreas().length > 0"
                   [class.text-gray-500]="selectedAreas().length === 0">
                   <svg width="12" height="12" viewBox="0 0 24 24"
-                    [attr.fill]="selectedAreas().length > 0 ? '#39A900' : 'none'"
-                    [attr.stroke]="selectedAreas().length > 0 ? '#39A900' : 'currentColor'" stroke-width="2">
+                    [style.fill]="selectedAreas().length > 0 ? 'var(--accent-brand)' : 'none'"
+                    [style.stroke]="selectedAreas().length > 0 ? 'var(--accent-brand)' : 'currentColor'" stroke-width="2">
                     <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
                   </svg>
                   Área
@@ -84,8 +84,8 @@ import { Column, StatusOption, STATUS_OPTIONS, statusDotColor } from './table-in
                   [class.text-green-700]="selectedStatuses().length > 0"
                   [class.text-gray-500]="selectedStatuses().length === 0">
                   <svg width="12" height="12" viewBox="0 0 24 24"
-                    [attr.fill]="selectedStatuses().length > 0 ? '#39A900' : 'none'"
-                    [attr.stroke]="selectedStatuses().length > 0 ? '#39A900' : 'currentColor'" stroke-width="2">
+                    [style.fill]="selectedStatuses().length > 0 ? 'var(--accent-brand)' : 'none'"
+                    [style.stroke]="selectedStatuses().length > 0 ? 'var(--accent-brand)' : 'currentColor'" stroke-width="2">
                     <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
                   </svg>
                   Estado

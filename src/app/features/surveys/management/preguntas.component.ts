@@ -60,7 +60,7 @@ import { ConfirmService } from '../../../core/services/confirm.service';
               class="group flex items-center justify-center gap-2 px-5 py-2.5 text-white text-sm font-bold rounded-xl
                      shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]
                      disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap"
-              style="background: linear-gradient(135deg, #39A900 0%, #2d8500 100%)">
+              style="background: linear-gradient(135deg, var(--accent-brand) 0%, var(--accent-brand-dark) 100%)">
               <svg class="w-4 h-4 group-hover:rotate-90 transition-transform duration-300"
                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>

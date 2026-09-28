@@ -65,7 +65,7 @@ interface LineaParaElegir extends LineaDevolutivaConOpciones {
             </p>
             <div class="flex justify-end gap-2 mt-6">
               <button (click)="cancelar()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
-              <button (click)="confirmar()" class="px-5 py-2 text-white text-sm font-medium rounded-lg transition-colors" style="background-color: #39A900">
+              <button (click)="confirmar()" class="px-5 py-2 text-white text-sm font-medium rounded-lg transition-colors" style="background-color: var(--accent-brand)">
                 Confirmar entrega
               </button>
             </div>
@@ -139,7 +139,7 @@ interface LineaParaElegir extends LineaDevolutivaConOpciones {
               <button (click)="cancelar()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
               <button (click)="confirmar()" [disabled]="modo === 'manual' && !manualCompleto"
                 class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
-                style="background-color: #39A900">
+                style="background-color: var(--accent-brand)">
                 Confirmar entrega
               </button>
             </div>

@@ -221,12 +221,12 @@ import {
     .hist-instructor-header {
       display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
       padding: 10px 16px; background: var(--surface2);
-      border-left: 4px solid #39A900; border-radius: 0 8px 0 0;
+      border-left: 4px solid var(--accent-brand); border-radius: 0 8px 0 0;
       margin-top: 8px; margin-bottom: 0;
     }
     .hist-instr-avatar {
       width: 34px; height: 34px; border-radius: 50%;
-      background: #39A900; color: #fff;
+      background: var(--accent-brand); color: #fff;
       display: flex; align-items: center; justify-content: center;
       font-size: 14px; font-weight: 800; flex-shrink: 0;
     }
@@ -236,7 +236,7 @@ import {
       background: var(--surface); color: var(--ok-text); cursor: pointer;
       outline: none; max-width: 130px;
     }
-    .hist-ficha-sel:focus { border-color: #39A900; box-shadow: 0 0 0 2px rgba(57,169,0,.15); }
+    .hist-ficha-sel:focus { border-color: var(--accent-brand); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-brand) 15%, transparent); }
     .hist-ficha-clear {
       display: flex; align-items: center; justify-content: center;
       width: 20px; height: 20px; border-radius: 50%;
@@ -253,7 +253,7 @@ import {
     .hist-dia-badge { display:inline-block; background:var(--ok-bg); color:var(--ok-text); border-radius:4px; padding:2px 7px; font-size:11px; font-weight:700; text-transform:capitalize; margin-right:4px; }
     .hist-jorn-badge { display:inline-block; background:var(--surface2); color:var(--text-muted); border-radius:4px; padding:2px 7px; font-size:10px; font-weight:600; text-transform:uppercase; }
     .hist-horas-btn { display:inline-flex; align-items:center; gap:4px; padding:4px 8px; border:1px solid var(--ok-border); border-radius:6px; background:var(--ok-bg); color:var(--ok-text); cursor:default; font-size:11px; font-weight:700; transition:all .15s; }
-    .hist-horas-btn:hover { background:#39A900; color:#fff; border-color:#39A900; }
+    .hist-horas-btn:hover { background:var(--accent-brand); color:#fff; border-color:var(--accent-brand); }
     .hist-dias-popover { position:fixed; z-index:10000; min-width:250px; max-width:min(340px, calc(100vw - 16px)); border:1px solid var(--border); border-radius:7px; box-shadow:0 8px 24px rgba(0,0,0,.15); overflow:hidden; background:var(--surface); pointer-events:none; }
 
     /* ── Compartidas con el tooltip de competencia del grid (duplicadas — CSS de componente no se hereda) ── */

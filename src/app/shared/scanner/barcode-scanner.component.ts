@@ -70,7 +70,7 @@ import { FORMATOS_ESCANEO_DEFECTO } from './barcode-scanner.types';
             class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30" />
           <button type="button" (click)="emitirManual()" [disabled]="!manual.trim()"
             class="px-4 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
-            style="background-color: #39A900">
+            style="background-color: var(--accent-brand)">
             Agregar
           </button>
         </div>

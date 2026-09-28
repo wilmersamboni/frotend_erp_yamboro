@@ -122,10 +122,14 @@
   cursor: pointer;
   transition: background .15s, color .15s;
 }
+/* Hover: tinte muy suave del acento sobre la superficie — antes era un gris
+   casi blanco fijo (#f4f3f3ca) que en modo oscuro se veía como una mancha
+   clara. Con color-mix sigue al color elegido y funciona en los dos modos. */
 .nav-link:hover {
-  background: #f4f3f3ca;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface3));
   color: var(--text);
 }
+.nav-link:hover > span:first-child { color: var(--accent-text); }
 /* Estado activo — pastilla lisa e insertada (variante "C" ya aprobada),
    con el tinte suave del acento en vez de fondo sólido. ThemeService
    sobreescribe background/color vía !important si el usuario cambió de

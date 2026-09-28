@@ -38,7 +38,7 @@ import { AlertComponent } from '../../../shared/ui/alert.component';
         <h1 class="text-xl font-bold text-gray-800">Traslados</h1>
         <button (click)="abrirCrear()"
           class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-          style="background-color: #39A900">
+          style="background-color: var(--accent-brand)">
           + Nuevo traslado
         </button>
       </div>
@@ -254,7 +254,7 @@ import { AlertComponent } from '../../../shared/ui/alert.component';
             <button (click)="guardarTraslado()"
               [disabled]="saving || itemsSeleccionados.length === 0 || !idSitioDestino || justificacion.trim().length < 10"
               class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
-              style="background-color: #39A900">
+              style="background-color: var(--accent-brand)">
               {{ saving ? 'Guardando...' : (itemsSeleccionados.length > 1 ? 'Solicitar ' + itemsSeleccionados.length + ' traslados' : 'Solicitar traslado') }}
             </button>
           </div>

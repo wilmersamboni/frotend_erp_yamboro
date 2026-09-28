@@ -197,7 +197,7 @@ const RESULTADO_ESTADO_INFO: Record<string, { label: string; bg: string; text: s
     .hist-month-header {
       display: flex; align-items: center; gap: 8px;
       padding: 10px 16px; background: var(--surface2);
-      border-left: 4px solid #39A900;
+      border-left: 4px solid var(--accent-brand);
       margin-top: 8px; border-radius: 0 6px 0 0;
       color: var(--text); font-size: 13px;
     }
@@ -207,7 +207,7 @@ const RESULTADO_ESTADO_INFO: Record<string, { label: string; bg: string; text: s
     .hist-table th { padding: 10px 14px; color: var(--text-2); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; text-align: left; white-space: nowrap; }
     .hist-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
     .hist-table tbody tr:hover td { background: var(--surface2); }
-    .hist-dia-badge { display:inline-block; background:rgba(57,169,0,.15); color:var(--accent-text); border-radius:4px; padding:2px 7px; font-size:11px; font-weight:700; text-transform:capitalize; margin-right:4px; }
+    .hist-dia-badge { display:inline-block; background:color-mix(in srgb, var(--accent-brand) 15%, transparent); color:var(--accent-text); border-radius:4px; padding:2px 7px; font-size:11px; font-weight:700; text-transform:capitalize; margin-right:4px; }
     .hist-jorn-badge { display:inline-block; background:var(--surface2); color:var(--text-muted); border-radius:4px; padding:2px 7px; font-size:10px; font-weight:600; }
 
     .hist-ficha-sel {
@@ -215,7 +215,7 @@ const RESULTADO_ESTADO_INFO: Record<string, { label: string; bg: string; text: s
       border: 1px solid var(--ok-border); border-radius: 6px;
       background: var(--surface); color: var(--ok-text); cursor: pointer; outline: none; max-width: 140px;
     }
-    .hist-ficha-sel:focus { border-color: #39A900; box-shadow: 0 0 0 2px rgba(57,169,0,.15); }
+    .hist-ficha-sel:focus { border-color: var(--accent-brand); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-brand) 15%, transparent); }
     .hist-ficha-clear {
       display: flex; align-items: center; justify-content: center;
       width: 20px; height: 20px; border-radius: 50%;
@@ -229,7 +229,7 @@ const RESULTADO_ESTADO_INFO: Record<string, { label: string; bg: string; text: s
       background: var(--ok-bg); color: var(--ok-text); cursor: default;
       font-size: 11px; font-weight: 700; transition: all .15s;
     }
-    .hist-horas-btn:hover { background: #39A900; color: #fff; border-color: #39A900; }
+    .hist-horas-btn:hover { background: var(--accent-brand); color: #fff; border-color: var(--accent-brand); }
 
     .hist-dias-popover {
       position: fixed; z-index: 10000;

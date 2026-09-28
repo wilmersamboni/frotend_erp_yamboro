@@ -66,9 +66,9 @@ import { LucideAngularModule } from 'lucide-angular';
       border-bottom: 1px solid var(--border); cursor: pointer;
       transition: background .15s; position: relative;
     }
-    .cal-cell:hover { background: rgba(57,169,0,.06); }
+    .cal-cell:hover { background: color-mix(in srgb, var(--accent-brand) 6%, transparent); }
     .cal-cell.other-month { opacity: .4; }
-    .cal-cell.today { background: rgba(57,169,0,.08); }
+    .cal-cell.today { background: color-mix(in srgb, var(--accent-brand) 8%, transparent); }
     /* Días pasados: siguen mostrando sus eventos, pero no se puede crear uno
        nuevo desde acá (ver onDiaClick) — el cursor y la opacidad lo comunican
        antes de hacer clic, en vez de dejar llenar todo el formulario para

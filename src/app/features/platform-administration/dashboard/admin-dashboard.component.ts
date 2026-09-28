@@ -28,7 +28,7 @@ import { LoadingSkeletonComponent } from '../../../shared/components/loading-ske
         </div>
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
           <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Activos</p>
-          <p class="text-2xl font-bold mt-2" style="color:#007832;">{{ totalActivos() }}</p>
+          <p class="text-2xl font-bold mt-2" style="color:var(--accent-text);">{{ totalActivos() }}</p>
         </div>
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
           <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Inactivos</p>

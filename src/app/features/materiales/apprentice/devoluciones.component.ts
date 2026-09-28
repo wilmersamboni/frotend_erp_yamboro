@@ -61,7 +61,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
         @if (puedeRegistrar()) {
           <button (click)="abrirCrear()"
             class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-            style="background-color: #39A900">
+            style="background-color: var(--accent-brand)">
             + Registrar devolución
           </button>
         }
@@ -361,7 +361,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
             <button (click)="cerrarCrear()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
             <button (click)="guardarDevolucion()" [disabled]="saving || !idSolicitud || (marcadas.length === 0 && sobrantesAEnviar.length === 0)"
               class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
-              style="background-color: #39A900">
+              style="background-color: var(--accent-brand)">
               {{ saving ? 'Guardando...' : 'Registrar devolución' }}
             </button>
           </div>

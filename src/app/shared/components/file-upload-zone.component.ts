@@ -29,7 +29,7 @@ import {
   selector: 'app-file-upload-zone',
   standalone: true,
   styles: [`
-    .zone-drag { border-color: #39A900 !important; background: rgb(57 169 0 / 0.06) !important; }
+    .zone-drag { border-color: var(--accent-brand) !important; background: color-mix(in srgb, var(--accent-brand) 6%, transparent) !important; }
   `],
   template: `
     <!-- Zona visual: clic delega al padre via (clickZone) -->

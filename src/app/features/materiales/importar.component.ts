@@ -43,21 +43,21 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
     :host { display:block; }
     .card { background:var(--surface); border:1px solid var(--border); border-radius:1rem; }
     .field { border:1px solid var(--border); border-radius:.5rem; font-size:.8125rem; padding:.45rem .6rem; background:var(--surface); transition:border-color .15s, box-shadow .15s; }
-    .field:focus { outline:none; border-color:#39A900; box-shadow:0 0 0 3px rgb(57 169 0 / .12); }
+    .field:focus { outline:none; border-color:var(--accent-brand); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent-brand) 12%, transparent); }
     .field--warn { border-color:#fbbf24; background:var(--warn-bg); }
     .ss-warn ::ng-deep .ss-trigger { border-color:#fbbf24; background:var(--warn-bg); }
     select.field { padding-right:1.6rem; -webkit-appearance:none; appearance:none;
       background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
       background-repeat:no-repeat; background-position:right .35rem center; }
-    .btn-primary { display:inline-flex; align-items:center; justify-content:center; background:#39A900; color:#fff; border-radius:.625rem; font-weight:600; text-decoration:none; transition:background .15s, opacity .15s; }
-    .btn-primary:hover:not(:disabled) { background:#2d8000; }
+    .btn-primary { display:inline-flex; align-items:center; justify-content:center; background:var(--accent-brand); color:#fff; border-radius:.625rem; font-weight:600; text-decoration:none; transition:background .15s, opacity .15s; }
+    .btn-primary:hover:not(:disabled) { background:var(--accent-brand-dark); }
     .btn-primary:disabled { opacity:.5; cursor:not-allowed; }
     .btn-ghost { display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:.625rem; color:var(--text-2); font-weight:500; background:var(--surface); text-decoration:none; transition:border-color .15s, color .15s; }
-    .btn-ghost:hover:not(:disabled) { border-color:#39A900; color:var(--accent-text); }
+    .btn-ghost:hover:not(:disabled) { border-color:var(--accent-brand); color:var(--accent-text); }
     .dropzone { border-color:var(--border); will-change:transform; }
 
-    .dropzone--drag { border-color:#39A900; background:rgb(57 169 0 / .06); }
-    .dropzone--file { border-color:rgb(57 169 0 / .4); background:rgb(57 169 0 / .035); }
+    .dropzone--drag { border-color:var(--accent-brand); background:color-mix(in srgb, var(--accent-brand) 6%, transparent); }
+    .dropzone--file { border-color:color-mix(in srgb, var(--accent-brand) 40%, transparent); background:color-mix(in srgb, var(--accent-brand) 3.5%, transparent); }
     .label { font-size:.75rem; font-weight:600; color:var(--text-muted); }
     /* Tabla del resumen: encabezado fijo al hacer scroll dentro de la tarjeta. */
     .tabla-scroll { max-height:calc(100dvh - 26rem); min-height:360px; overflow:auto; scrollbar-width:none; }

@@ -131,7 +131,7 @@ import { TuiDayCache } from '../../../shared/utils/tui-day.util';
             <button (click)="saved.emit(form)" [disabled]="saving"
               class="px-5 py-2 text-white text-sm font-medium rounded-lg
                      disabled:opacity-60 transition-colors"
-              style="background-color: #39A900">
+              style="background-color: var(--accent-brand)">
               {{ saving ? 'Guardando...' : 'Guardar' }}
             </button>
           </div>

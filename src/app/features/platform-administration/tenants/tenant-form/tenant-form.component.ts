@@ -29,7 +29,7 @@ import { LoadingSkeletonComponent } from '../../../../shared/components/loading-
         <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="space-y-5 max-w-3xl mx-auto">
           <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div class="px-5 py-3.5 border-b border-gray-100 flex items-center gap-2 font-semibold text-sm text-gray-800">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#39A900" stroke-width="2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="stroke: var(--accent-brand)" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1m4 0h1m-6 4h1m4 0h1m-6 4h1m4 0h1" />
               </svg>
               Datos generales
@@ -89,7 +89,7 @@ import { LoadingSkeletonComponent } from '../../../../shared/components/loading-
             </button>
             <button type="submit" [disabled]="guardando()"
               class="flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-              style="background:#39A900;">
+              style="background:var(--accent-brand);">
               @if (guardando()) {
                 <svg class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                   <circle cx="12" cy="12" r="10" stroke-opacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10" />

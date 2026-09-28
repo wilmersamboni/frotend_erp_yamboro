@@ -196,7 +196,7 @@ import { SearchableSelectComponent, SSOption } from '../../../shared/components/
               [disabled]="loading() || !seguimientoSeleccionadoId || !texto.trim()"
               class="px-5 py-2 text-sm text-white font-medium rounded-lg transition-all
                      disabled:opacity-60 shadow-md hover:shadow-lg"
-              style="background: linear-gradient(to right, #39A900, #007832)">
+              style="background: linear-gradient(to right, var(--accent-brand), var(--accent))">
               @if (loading()) {
                 <span class="flex items-center gap-2">
                   <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">

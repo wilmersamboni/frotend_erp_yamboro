@@ -34,9 +34,9 @@
   --blue:          #3b82f6;
   --gray-300:      #3b403d;
 
-  --accent:        #39A900;
+  /* --accent/--accent-soft NO se fijan aquí: los pone ThemeService según el
+     color elegido. Fijarlos acá pisaba la elección (en oscuro todo quedaba verde). */
   --accent-text:   #6fd13a;
-  --accent-soft:   rgba(111, 209, 58, .10);
 
   --ok-bg:   #1f2c18; --ok-text:   #8fe05f; --ok-border:   #2f4424;
   --warn-bg: #2e2413; --warn-text: #f5b04a; --warn-border: #4a3a1a;

@@ -94,7 +94,7 @@ function passwordsCoincidenValidator(): ValidatorFn {
             </button>
             <button type="submit" [disabled]="guardando()"
               class="flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-              style="background:#39A900;">
+              style="background:var(--accent-brand);">
               @if (guardando()) {
                 <svg class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                   <circle cx="12" cy="12" r="10" stroke-opacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10" />

@@ -124,7 +124,7 @@ export interface TableRowLink {
           @if (addLabel) {
             <button (click)="add.emit()"
               class="sm:ml-auto shrink-0 flex items-center justify-center gap-1.5 px-4 py-2 text-white text-sm font-semibold rounded-xl transition-colors"
-              style="background-color: #39A900">
+              style="background-color: var(--accent-brand)">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
               </svg>
