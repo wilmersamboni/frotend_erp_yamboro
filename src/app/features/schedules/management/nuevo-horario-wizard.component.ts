@@ -58,12 +58,12 @@ interface DiaConfig {
           <div class="wiz-top-field" style="min-width:130px;">
             <label class="block text-xs font-semibold text-gray-600 mb-1">Hora inicio</label>
             <app-time-input [(ngModel)]="wizardForm.horaInicio"
-                   (ngModelChange)="onHoraInicioChange($event)"></app-time-input>
+                   (ngModelChange)="onHoraInicioChange($event)" minTime="06:00"></app-time-input>
           </div>
           <div class="wiz-top-field" style="min-width:130px;">
             <label class="block text-xs font-semibold text-gray-600 mb-1">Hora fin</label>
             <app-time-input [(ngModel)]="wizardForm.horaFin"
-                   (ngModelChange)="onHoraFinChange()"></app-time-input>
+                   (ngModelChange)="onHoraFinChange()" minTime="06:00"></app-time-input>
           </div>
           <!-- Indicador de jornada detectada por horas -->
           @if (wizardForm.horaInicio) {
