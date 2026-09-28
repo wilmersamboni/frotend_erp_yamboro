@@ -378,7 +378,8 @@ type Filtro = 'TODAS' | EstadoEncuesta;
                     <div class="mt-1 grid grid-cols-2 gap-2">
                       <app-date-input [ngModel]="fechaLimiteFecha()" (ngModelChange)="fechaLimiteFecha.set($event)"
                         [min]="fechaMinima"></app-date-input>
-                      <app-time-input [ngModel]="fechaLimiteHora()" (ngModelChange)="fechaLimiteHora.set($event)"></app-time-input>
+                      <app-time-input [ngModel]="fechaLimiteHora()" (ngModelChange)="fechaLimiteHora.set($event)"
+                        minTime="06:00"></app-time-input>
                     </div>
                     <p class="text-xs text-gray-400 mt-1">
                       Si la defines, las encuestas se cierran solas al llegar esa hora. También se cierran solas
