@@ -833,13 +833,26 @@ seleccionarEstado(valor: EstadoSolicitud | ''): void {
         .map((i) => i.id_producto),
     );
     return this.productos.filter(
-      (p) => p.tipo_material === 'DEVOLUTIVO' && idsConStockAqui.has(p.id_producto),
+      (p) => p.tipo_material === 'DEVOLUTIVO' && !!p.id_sitio && idsConStockAqui.has(p.id_producto),
+    );
+  }
+
+  /** Un lote puede heredar la bodega del producto; si ninguno la tiene, el
+   * backend también lo rechaza y no debe llegar al selector. */
+  private loteTieneBodega(lote: Lote): boolean {
+    return !!(
+      lote.id_sitio ??
+      this.productos.find((producto) => producto.id_producto === lote.id_producto)?.id_sitio
     );
   }
 
   private lotesDeBodega(): Lote[] {
     return this.lotes.filter(
-      (l) => l.estado === 'ACTIVO' && l.cantidad_disponible > 0 && l.id_sitio === this.idSitioSeleccionado,
+      (l) =>
+        l.estado === 'ACTIVO' &&
+        l.cantidad_disponible > 0 &&
+        this.loteTieneBodega(l) &&
+        l.id_sitio === this.idSitioSeleccionado,
     );
   }
 
