@@ -15,7 +15,7 @@ import { LoadingSkeletonComponent } from '../../../../shared/components/loading-
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
       <div>
         <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Usuarios Root</h1>
-        <p class="text-sm text-gray-500 mt-1">Administra los usuarios con acceso al panel administrativo.</p>
+        <p class="text-sm text-gray-500 mt-1">Personas que pueden entrar a este panel y administrar todos los centros. Dales acceso solo a quien lo necesite.</p>
       </div>
       <button type="button" (click)="nuevoUsuario()"
         class="flex items-center gap-2 text-sm font-semibold text-white px-4 py-2.5 rounded-xl transition-opacity hover:opacity-90 flex-shrink-0"
@@ -41,7 +41,7 @@ import { LoadingSkeletonComponent } from '../../../../shared/components/loading-
               <tr class="text-left text-gray-500 border-b border-gray-100" style="background:var(--surface2);">
                 <th class="px-5 py-3 font-semibold">Nombre</th>
                 <th class="px-5 py-3 font-semibold">Correo</th>
-                <th class="px-5 py-3 font-semibold">Creado en</th>
+                <th class="px-5 py-3 font-semibold hidden md:table-cell">Creado en</th>
                 <th class="px-5 py-3 font-semibold text-right">Acciones</th>
               </tr>
             </thead>
@@ -50,7 +50,7 @@ import { LoadingSkeletonComponent } from '../../../../shared/components/loading-
                 <tr class="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
                   <td class="px-5 py-3 font-semibold text-gray-800">{{ usuario.nombre }}</td>
                   <td class="px-5 py-3 text-gray-500">{{ usuario.correo }}</td>
-                  <td class="px-5 py-3 text-gray-500">{{ usuario.creadoEn | date: 'medium' }}</td>
+                  <td class="px-5 py-3 text-gray-500 hidden md:table-cell">{{ usuario.creadoEn | date: 'medium' }}</td>
                   <td class="px-5 py-3 text-right">
                     <div class="flex items-center justify-end gap-1.5">
                       <button aria-label="Editar" type="button" (click)="editarUsuario(usuario)" title="Editar"

@@ -8,21 +8,17 @@ import { AdminSidebarComponent } from './admin-sidebar.component';
   standalone: true,
   imports: [RouterOutlet, AdminNavbarComponent, AdminSidebarComponent],
   template: `
-    <div class="flex h-screen">
+    <div class="flex h-screen bg-[#F0F2F5]">
       @if (mobileMenuOpen()) {
         <div class="fixed inset-0 bg-black/40 z-[60] lg:hidden" (click)="mobileMenuOpen.set(false)"></div>
       }
 
-      <div
-        (mouseenter)="sidebarOpen.set(true)"
-        (mouseleave)="sidebarOpen.set(false)"
-        (click)="onSidebarAreaClick($event)"
-        class="h-screen"
-      >
-        <app-admin-sidebar [open]="sidebarOpen() || mobileMenuOpen()" [mobileOpen]="mobileMenuOpen()" />
+      <div (click)="onSidebarAreaClick($event)" class="h-screen">
+        <app-admin-sidebar [open]="sidebarOpen() || mobileMenuOpen()" [mobileOpen]="mobileMenuOpen()"
+          (toggle)="sidebarOpen.update(v => !v)" />
       </div>
 
-      <div class="flex flex-col flex-1 min-h-screen overflow-hidden" style="background:var(--bg-app);">
+      <div class="flex flex-col flex-1 min-h-screen overflow-hidden bg-[#F0F2F5]">
         <app-admin-navbar (menuClick)="mobileMenuOpen.update(v => !v)" [menuOpen]="mobileMenuOpen()" />
         <!-- Mismo tratamiento que MainLayoutComponent (ver su comentario):
              tarjeta blanca directo en main, gutter por margen + padding

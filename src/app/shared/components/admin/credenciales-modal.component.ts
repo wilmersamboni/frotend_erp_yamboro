@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
 import { DialogDirective } from '../../directives/dialog.directive';
+import { copiarTexto } from '../../utils/copiar-texto';
 
 @Component({
   selector: 'app-admin-credenciales-modal',
@@ -38,7 +39,7 @@ import { DialogDirective } from '../../directives/dialog.directive';
 
           <div class="px-5 py-4 space-y-4">
             <div>
-              <label class="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Usuario / Login</label>
+              <label class="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Usuario (login)</label>
               <div class="flex items-center gap-2">
                 <code class="flex-1 text-sm px-3 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-mono truncate">{{ login }}</code>
                 <button type="button" (click)="copiar(login, 'login')"
@@ -97,7 +98,7 @@ import { DialogDirective } from '../../directives/dialog.directive';
 })
 export class AdminCredencialesModalComponent {
   @Input() visible = false;
-  @Input() titulo  = 'Credenciales del Tenant';
+  @Input() titulo  = 'Credenciales del centro';
   @Input() login   = '';
   @Input() password = '';
 
@@ -113,7 +114,8 @@ export class AdminCredencialesModalComponent {
   }
 
   copiar(texto: string, campo: 'login' | 'password'): void {
-    navigator.clipboard.writeText(texto).then(() => {
+    void copiarTexto(texto).then((ok) => {
+      if (!ok) return;
       if (campo === 'login') {
         this.copiadoLogin.set(true);
         setTimeout(() => this.copiadoLogin.set(false), 2000);

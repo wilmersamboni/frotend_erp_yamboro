@@ -28,6 +28,7 @@ function passwordsCoincidenValidator(): ValidatorFn {
           <span class="text-gray-600 font-medium">{{ modoEdicion() ? 'Editar' : 'Nuevo' }}</span>
         </nav>
         <h1 class="text-2xl font-bold text-gray-900 tracking-tight">{{ modoEdicion() ? 'Editar Usuario' : 'Nuevo Usuario Root' }}</h1>
+        <p class="text-sm text-gray-500 mt-1">Un usuario root puede entrar a este panel y administrar todos los centros. Dale acceso solo a quien lo necesite.</p>
       </div>
 
       @if (cargando()) {
@@ -67,7 +68,7 @@ function passwordsCoincidenValidator(): ValidatorFn {
                   Contraseña @if (!modoEdicion()) { <span class="text-red-500">*</span> }
                 </label>
                 <input type="password" formControlName="password"
-                  [placeholder]="modoEdicion() ? 'Dejar vacío para no cambiar' : '••••••••'"
+                  [placeholder]="modoEdicion() ? 'Dejar vacío para no cambiar' : 'Mínimo 6 caracteres'"
                   class="w-full text-sm rounded-xl border outline-none px-3.5 py-2.5 transition-colors focus:border-[#39A900]"
                   [class.border-red-400]="form.controls.password.invalid && form.controls.password.touched"
                   [class.border-gray-200]="!(form.controls.password.invalid && form.controls.password.touched)" />

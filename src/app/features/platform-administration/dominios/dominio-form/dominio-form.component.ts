@@ -23,7 +23,7 @@ import { avisarCambiosSinGuardar } from '../../../../core/services/unsaved-chang
     <div class="max-w-xl">
       <h1 class="text-2xl font-bold text-gray-900 tracking-tight mb-1">{{ modoEdicion() ? 'Editar Dominio' : 'Nuevo Dominio' }}</h1>
       <p class="text-sm text-gray-400 mb-6">
-        {{ modoEdicion() ? 'Modifica la configuración del subdominio' : 'Registra un nuevo subdominio para un tenant' }}
+        {{ modoEdicion() ? 'Cambia la dirección o el certificado SSL de este dominio.' : 'Registra la dirección web con la que un centro entrará al sistema.' }}
       </p>
 
       @if (cargando()) {
@@ -33,18 +33,18 @@ import { avisarCambiosSinGuardar } from '../../../../core/services/unsaved-chang
           class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
 
           <div>
-            <label class="form-label">Tenant <span class="text-red-500">*</span></label>
-            <app-ss [options]="tenantOptions()" placeholder="Selecciona un tenant"
+            <label class="form-label">Centro <span class="text-red-500">*</span></label>
+            <app-ss [options]="tenantOptions()" placeholder="Selecciona el centro"
                     formControlName="tenantId"></app-ss>
             @if (form.controls['tenantId'].invalid && form.controls['tenantId'].touched) {
-              <p class="form-error">Debes seleccionar un tenant</p>
+              <p class="form-error">Debes seleccionar el centro al que pertenece</p>
             }
           </div>
 
           <div>
             <label class="form-label">Subdominio <span class="text-red-500">*</span></label>
             <input formControlName="subdominio" type="text" class="form-input" placeholder="ej. huila.epsas.sena.edu.co" />
-            <p class="text-xs text-gray-400 mt-1">Ingresa el subdominio completo asignado al tenant.</p>
+            <p class="text-xs text-gray-400 mt-1">Escribe la dirección completa, en minúsculas y sin https://. Es la que usarán las personas de ese centro para entrar.</p>
             @if (form.controls['subdominio'].invalid && form.controls['subdominio'].touched) {
               <p class="form-error">El subdominio es obligatorio</p>
             }
@@ -53,7 +53,7 @@ import { avisarCambiosSinGuardar } from '../../../../core/services/unsaved-chang
           <div class="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-gray-50">
             <div>
               <p class="text-sm font-semibold text-gray-800">Certificado SSL</p>
-              <p class="text-xs text-gray-500 mt-0.5">Habilitar HTTPS para este subdominio</p>
+              <p class="text-xs text-gray-500 mt-0.5">Activa el candado de seguridad (HTTPS). Márcalo solo si el certificado ya está instalado en el servidor.</p>
             </div>
             <button type="button" (click)="toggleSSL()"
               class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none"

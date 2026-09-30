@@ -22,6 +22,9 @@ import { avisarCambiosSinGuardar } from '../../../../core/services/unsaved-chang
           <span class="text-gray-600 font-medium">{{ modoEdicion() ? 'Editar' : 'Nuevo' }}</span>
         </nav>
         <h1 class="text-2xl font-bold text-gray-900 tracking-tight">{{ modoEdicion() ? 'Editar Centro' : 'Nuevo Centro' }}</h1>
+        <p class="text-sm text-gray-500 mt-1">
+          {{ modoEdicion() ? 'Cambia los datos del centro. Desactivarlo cierra el acceso de todos sus usuarios.' : 'Al crearlo se prepara su base de datos y se genera su usuario administrador.' }}
+        </p>
       </div>
 
       @if (cargando()) {
@@ -51,7 +54,7 @@ import { avisarCambiosSinGuardar } from '../../../../core/services/unsaved-chang
               </div>
               <div>
                 <label class="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5">
-                  Slug <span class="text-red-500">*</span>
+                  Identificador (slug) <span class="text-red-500">*</span>
                 </label>
                 <input type="text" formControlName="slug" placeholder="huila"
                   class="w-full text-sm rounded-xl border outline-none px-3.5 py-2.5 transition-colors focus:border-[#39A900]"
@@ -59,6 +62,8 @@ import { avisarCambiosSinGuardar } from '../../../../core/services/unsaved-chang
                   [class.border-gray-200]="!(form.controls.slug.invalid && form.controls.slug.touched)" />
                 @if (form.controls.slug.invalid && form.controls.slug.touched) {
                   <p class="mt-1 text-xs text-red-500">Solo minúsculas, números y guiones.</p>
+                } @else {
+                  <p class="mt-1 text-xs text-gray-400">Nombre corto del centro para el sistema. Cambiarlo puede afectar el acceso de sus usuarios.</p>
                 }
               </div>
               @if (modoEdicion()) {
@@ -69,7 +74,7 @@ import { avisarCambiosSinGuardar } from '../../../../core/services/unsaved-chang
               }
               <div class="md:col-span-2">
                 <label class="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5">
-                  Dominio <span class="text-red-500">*</span>
+                  Dirección de acceso (dominio) <span class="text-red-500">*</span>
                 </label>
                 <input type="text" formControlName="dominio" placeholder="huila.sistema.com"
                   (blur)="onDominioBlur()"
@@ -78,6 +83,8 @@ import { avisarCambiosSinGuardar } from '../../../../core/services/unsaved-chang
                   [class.border-gray-200]="!(form.controls.dominio.invalid && form.controls.dominio.touched)" />
                 @if (form.controls.dominio.invalid && form.controls.dominio.touched) {
                   <p class="mt-1 text-xs text-red-500">Debe ser un dominio válido, en minúsculas (ej. huila.sistema.com).</p>
+                } @else {
+                  <p class="mt-1 text-xs text-gray-400">La dirección con la que los usuarios del centro entran, en minúsculas y con al menos un punto.</p>
                 }
               </div>
             </div>
@@ -96,7 +103,7 @@ import { avisarCambiosSinGuardar } from '../../../../core/services/unsaved-chang
                   <circle cx="12" cy="12" r="10" stroke-opacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10" />
                 </svg>
               }
-              {{ guardando() ? 'Guardando...' : (modoEdicion() ? 'Guardar cambios' : 'Crear Tenant') }}
+              {{ guardando() ? 'Guardando...' : (modoEdicion() ? 'Guardar cambios' : 'Crear centro') }}
             </button>
           </div>
         </form>
@@ -105,7 +112,7 @@ import { avisarCambiosSinGuardar } from '../../../../core/services/unsaved-chang
 
     <app-admin-credenciales-modal
       [visible]="mostrarCredenciales()"
-      titulo="Tenant creado — guarda las credenciales"
+      titulo="Centro creado — guarda las credenciales"
       [login]="credencialesNuevas()?.login ?? ''"
       [password]="credencialesNuevas()?.password ?? ''"
       (cerrar)="onCerrarCredenciales()" />
