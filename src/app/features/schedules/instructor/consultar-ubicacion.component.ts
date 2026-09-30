@@ -234,7 +234,7 @@ import { to12h, jornadaLabel } from '../../../core/utils/horarios.util';
 
     .amb-group-header {
       display: flex; align-items: center; gap: 6px;
-      font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
+      font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
       margin-bottom: 10px;
     }
     .amb-group-libre    { color: var(--ok-text); }
@@ -254,29 +254,29 @@ import { to12h, jornadaLabel } from '../../../core/utils/horarios.util';
 
     .amb-card-libre { background: var(--ok-bg); border-color: var(--ok-border); color: var(--ok-text); }
     .amb-card-libre:hover { background: var(--ok-bg); border-color: #4ade80; }
-    .amb-card-libre-hint { font-size: 10px; opacity: .75; display:flex; align-items:center; gap:3px; }
+    .amb-card-libre-hint { font-size: 12px; opacity: .75; display:flex; align-items:center; gap:3px; }
 
     .amb-card-conflicto { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
     .amb-card-ocupado { background: var(--err-bg); border-color: var(--err-border); color: var(--err-text); opacity: .85; cursor: not-allowed; }
     .amb-area-tag-red { background: var(--err-bg); color: var(--err-text); }
 
     .amb-cc-details { display: flex; flex-direction: column; gap: 4px; }
-    .amb-cc-row { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 500; }
+    .amb-cc-row { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; }
     .amb-retraso-tag {
       background: var(--err-bg); color: var(--err-text); border-radius: 6px;
-      padding: 1px 5px; font-size: 10px; font-weight: 700; margin-left: 4px;
+      padding: 1px 5px; font-size: 12px; font-weight: 700; margin-left: 4px;
     }
     .amb-cc-select-btn {
       margin-top: 4px; display: flex; align-items: center; gap: 5px; justify-content: center;
       background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: 7px;
-      padding: 5px 10px; font-size: 11px; font-weight: 700; color: var(--warn-text);
+      padding: 5px 10px; font-size: 12px; font-weight: 700; color: var(--warn-text);
       cursor: pointer; transition: background .15s;
     }
     .amb-cc-select-btn:hover { background: #f59e0b; color: #fff; border-color: #f59e0b; }
 
     .amb-area-tag {
       background: var(--info-bg); color: var(--info-text); border-radius: 6px;
-      padding: 2px 6px; font-size: 10px; font-weight: 700; white-space: nowrap;
+      padding: 2px 6px; font-size: 12px; font-weight: 700; white-space: nowrap;
     }
     .amb-area-tag-amber { background: var(--warn-bg); color: var(--warn-text); }
 

@@ -209,7 +209,7 @@ function labelPasoGenerico(posicion: number, acciones: string[]): string {
                   [class.collapsed]="isColapsado(grupo.modulo)"
                   (click)="toggleGrupo(grupo.modulo)">
                   <span>{{ grupo.icono }}</span> {{ grupo.modulo }}
-                  <span class="ml-auto text-[10px] font-bold text-gray-400 bg-white border border-gray-200 px-2 py-0.5 rounded-full">
+                  <span class="ml-auto text-xs font-bold text-gray-400 bg-white border border-gray-200 px-2 py-0.5 rounded-full">
                     {{ grupo.servicios.length }} permisos
                   </span>
                   <button type="button" class="perm-activar-modulo-btn"
@@ -293,7 +293,7 @@ function labelPasoGenerico(posicion: number, acciones: string[]): string {
     }
     .perm-recurso-nombre span { font-size: 13px; font-weight: 600; color: var(--text); }
     .perm-exc-badge {
-      align-self: flex-start; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+      align-self: flex-start; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
       color: var(--warn-text); background: var(--warn-bg); border: none; padding: 1px 6px; border-radius: 5px; cursor: pointer;
     }
     .perm-exc-badge:hover { background: var(--warn-bg); }
@@ -302,13 +302,13 @@ function labelPasoGenerico(posicion: number, acciones: string[]): string {
       display: flex; align-items: center; gap: 9px; margin-top: 7px; padding-left: 170px; flex-wrap: wrap;
     }
     .perm-extras-etiqueta {
-      font-size: 10px; font-weight: 700; color: var(--text-faint); text-transform: uppercase; letter-spacing: .04em; flex-shrink: 0;
+      font-size: 12px; font-weight: 700; color: var(--text-faint); text-transform: uppercase; letter-spacing: .04em; flex-shrink: 0;
     }
     @media (max-width: 640px) { .perm-extras-linea { padding-left: 0; } }
 
     .perm-escalera { display: inline-flex; border: 1.5px solid var(--border); border-radius: 9px; overflow: hidden; flex-shrink: 0; }
     .perm-escalon {
-      font-family: inherit; font-size: 11.5px; font-weight: 600; color: var(--text-faint); background: var(--surface);
+      font-family: inherit; font-size: 12px; font-weight: 600; color: var(--text-faint); background: var(--surface);
       border: none; border-right: 1.5px solid var(--border); padding: 6px 12px; cursor: pointer; white-space: nowrap;
       transition: background .12s ease, color .12s ease;
     }
@@ -318,7 +318,7 @@ function labelPasoGenerico(posicion: number, acciones: string[]): string {
 
     .perm-extras { display: flex; gap: 6px; flex-wrap: wrap; }
     .perm-extra-chip {
-      font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; border: 1.4px solid var(--border);
+      font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 999px; border: 1.4px solid var(--border);
       background: var(--surface); color: var(--text-faint); cursor: pointer; white-space: nowrap; transition: all .12s ease;
     }
     .perm-extra-chip.on { border-color: var(--accent-brand); color: var(--accent-text); background: color-mix(in srgb, var(--accent-brand) 8%, transparent); }
@@ -339,7 +339,7 @@ function labelPasoGenerico(posicion: number, acciones: string[]): string {
     .perm-group-header:hover .perm-group-chevron { color: var(--accent-text); }
 
     .perm-activar-modulo-btn {
-      font-size: 10.5px; font-weight: 700; text-transform: none; letter-spacing: normal;
+      font-size: 12px; font-weight: 700; text-transform: none; letter-spacing: normal;
       color: var(--accent-text); background: var(--surface); border: 1.4px solid var(--accent-brand);
       border-radius: 999px; padding: 3px 10px; cursor: pointer; white-space: nowrap;
       transition: background .15s ease;
@@ -348,7 +348,7 @@ function labelPasoGenerico(posicion: number, acciones: string[]): string {
     .perm-activar-modulo-btn:disabled { opacity: .5; cursor: not-allowed; }
 
     .panel-action-btn {
-      font-size: 11.5px; font-weight: 700; color: var(--text-2); background: var(--surface);
+      font-size: 12px; font-weight: 700; color: var(--text-2); background: var(--surface);
       border: 1.4px solid var(--border-strong); border-radius: 8px; padding: 6px 12px;
       cursor: pointer; white-space: nowrap; transition: all .15s ease;
     }

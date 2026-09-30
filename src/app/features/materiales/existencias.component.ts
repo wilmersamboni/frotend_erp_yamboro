@@ -8,6 +8,7 @@ import { LoadingSkeletonComponent } from '../../shared/components/loading-skelet
 import { EmptyStateComponent } from '../../shared/components/empty-state.component';
 import { ExportColumn, TableExportService } from '../../shared/services/table-export.service';
 import { PageSizeSelectComponent } from '../../shared/components/page-size-select.component';
+import { EsperaDirective } from '../../shared/directives/espera.directive';
 
 /**
  * Panel de existencias — SOLO LECTURA (Tier SigMat M6). Reemplaza el CRUD que
@@ -35,7 +36,7 @@ import { PageSizeSelectComponent } from '../../shared/components/page-size-selec
 @Component({
   selector: 'app-materiales-existencias',
   standalone: true,
-  imports: [EmptyStateComponent, FormsModule, StatCardComponent, LoadingSkeletonComponent, PageSizeSelectComponent],
+  imports: [EsperaDirective, EmptyStateComponent, FormsModule, StatCardComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="mb-5">
@@ -69,7 +70,7 @@ import { PageSizeSelectComponent } from '../../shared/components/page-size-selec
         </div>
 
         <div class="flex flex-wrap items-center gap-2 mb-3">
-          <input type="text" [(ngModel)]="q" (ngModelChange)="onBuscar($event)"
+          <input appEspera type="text" [(ngModel)]="q" (ngModelChange)="onBuscar($event)"
             placeholder="Buscar por producto, SKU o bodega…"
             class="w-full md:w-96 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] bg-white" />
           <button type="button" (click)="exportarExcel()" class="px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:border-[#39A900] hover:text-[#267700]" aria-label="Exportar existencias a Excel">Excel</button>
@@ -78,12 +79,12 @@ import { PageSizeSelectComponent } from '../../shared/components/page-size-selec
           @if (idProductoFiltro()) {
             <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#39A900]/10 text-[#2d8000] border border-[#39A900]/20">
               Filtrando por producto
-              <button (click)="quitarFiltroProducto()" class="hover:text-red-600" title="Quitar filtro">×</button>
+              <button aria-label="Quitar filtro" (click)="quitarFiltroProducto()" class="hover:text-red-600" title="Quitar filtro">×</button>
             </span>
           }
         </div>
 
-        <p class="text-[11px] text-gray-400 mb-2">
+        <p class="text-xs text-gray-400 mb-2">
           <span class="font-semibold">Disponible</span> y <span class="font-semibold">Total</span> son efectivos:
           los <span class="font-semibold">devolutivos</span> se cuentan por unidad; los <span class="font-semibold">consumibles / perecederos</span>, por el saldo de sus lotes.
         </p>
@@ -94,7 +95,7 @@ import { PageSizeSelectComponent } from '../../shared/components/page-size-selec
           <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
             <table class="w-full text-sm">
-              <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
+              <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
                 <tr>
                   <th class="px-4 py-3 text-left font-semibold">Producto</th>
                   <th class="px-4 py-3 text-left font-semibold">Bodega</th>
@@ -111,7 +112,7 @@ import { PageSizeSelectComponent } from '../../shared/components/page-size-selec
                   <tr class="hover:bg-gray-50/80 transition-colors">
                     <td class="px-4 py-3">
                       <div class="text-gray-800 font-medium">{{ r.nombre }}</div>
-                      <div class="text-[11px] text-gray-400">
+                      <div class="text-xs text-gray-400">
                         {{ r.sku || '—' }}
                         @if (r.marca || r.modelo) { · {{ marcaModelo(r) }} }
                         · {{ r.tipo_material }}

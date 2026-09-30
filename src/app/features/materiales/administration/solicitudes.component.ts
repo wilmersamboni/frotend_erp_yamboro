@@ -4,8 +4,9 @@ import { DatePipe } from '@angular/common';
 import { MaterialesLiveService } from '../data-access/materiales-live.service';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
-import { ToastService } from '../../../core/services/toast.service';
+import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
+import { FormularioVigilado, UnsavedChangesService, avisarCambiosSinGuardar } from '../../../core/services/unsaved-changes.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { DateInputComponent } from '../../../shared/components/date-input.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
@@ -27,6 +28,8 @@ import {
 import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 import { AlertComponent } from '../../../shared/ui/alert.component';
 import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
+import { EsperaDirective } from '../../../shared/directives/espera.directive';
 
 /** Línea del modal "Nueva solicitud" — `p:<id>` producto devolutivo, `l:<id>` lote consumible. */
 interface LineaForm {
@@ -64,7 +67,7 @@ interface LineaForm {
 @Component({
   selector: 'app-materiales-solicitudes',
   standalone: true,
-  imports: [AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent],
+  imports: [EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
@@ -117,11 +120,11 @@ interface LineaForm {
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                 </svg>
               </div>
-              <input type="text" [(ngModel)]="filtroTexto" (ngModelChange)="page = 0"
+              <input appEspera type="text" [(ngModel)]="filtroTexto" (ngModelChange)="page = 0"
                 placeholder="Buscar por producto o solicitante..."
                 class="w-full pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:border-[#39A900] focus:bg-white transition-all text-gray-900 placeholder:text-gray-400" />
               @if (filtroTexto) {
-                <button (click)="filtroTexto = ''; page = 0" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                <button aria-label="Limpiar búsqueda" (click)="filtroTexto = ''; page = 0" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                   </svg>
@@ -225,7 +228,7 @@ interface LineaForm {
           } @else {
             <div class="overflow-x-auto">
               <table class="w-full text-sm">
-                <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
+                <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
                   <tr>
                     <th class="px-4 py-3 text-left font-semibold">Producto</th>
                     <th class="px-4 py-3 text-left font-semibold">Solicitó</th>
@@ -251,7 +254,7 @@ interface LineaForm {
                             {{ st.disponibles }} / {{ st.total }}
                           </span>
                           @if (st.disponibles < s.cantidad) {
-                            <span class="block text-[11px] text-red-500">faltan {{ s.cantidad - st.disponibles }}</span>
+                            <span class="block text-xs text-red-500">faltan {{ s.cantidad - st.disponibles }}</span>
                           }
                         } @else {
                           <span class="text-xs text-gray-300">—</span>
@@ -262,7 +265,7 @@ interface LineaForm {
                       <td class="px-4 py-3 text-gray-500 text-xs">{{ s.fecha | date: 'short' }}</td>
                       <td class="px-4 py-3">
                         @if (bodegaInactiva(s) && (s.estado === 'PENDIENTE' || s.estado === 'APROBADA')) {
-                          <div class="mb-1.5 flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
+                          <div class="mb-1.5 flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
                             ⚠️ Bodega inactiva — {{ s.estado === 'PENDIENTE' ? 'no se puede aprobar' : 'no se puede entregar' }}
                           </div>
                         }
@@ -273,7 +276,7 @@ interface LineaForm {
                               <button (click)="aprobar(s)" [disabled]="bodegaInactiva(s)"
                                 [title]="bodegaInactiva(s) ? 'Bodega inactiva — no se puede aprobar. Rechazá o cancelá en su lugar.' : ''"
                                 [style.opacity]="bodegaInactiva(s) ? 0.45 : 1" [style.cursor]="bodegaInactiva(s) ? 'not-allowed' : 'pointer'"
-                                [style.backgroundColor]="bodegaInactiva(s) ? 'var(--surface3)' : 'var(--surface)'" [style.color]="bodegaInactiva(s) ? 'var(--text-faint)' : '#16a34a'" [style.borderColor]="bodegaInactiva(s) ? 'var(--border)' : '#bbf7d0'"
+                                [style.backgroundColor]="bodegaInactiva(s) ? 'var(--surface3)' : 'var(--surface)'" [style.color]="bodegaInactiva(s) ? 'var(--text-faint)' : 'var(--ok-text)'" [style.borderColor]="bodegaInactiva(s) ? 'var(--border)' : 'var(--ok-border)'"
                                 class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors">Aprobar</button>
                             }
                             @if (puedeRechazar) {
@@ -287,7 +290,7 @@ interface LineaForm {
                             <button (click)="abrirEntregar(s)" [disabled]="bodegaInactiva(s)"
                               [title]="bodegaInactiva(s) ? 'Bodega inactiva — no se puede entregar. Cancelá la solicitud en su lugar.' : ''"
                               [style.opacity]="bodegaInactiva(s) ? 0.45 : 1" [style.cursor]="bodegaInactiva(s) ? 'not-allowed' : 'pointer'"
-                              [style.backgroundColor]="bodegaInactiva(s) ? 'var(--surface3)' : 'var(--surface)'" [style.color]="bodegaInactiva(s) ? 'var(--text-faint)' : '#2563eb'" [style.borderColor]="bodegaInactiva(s) ? 'var(--border)' : '#bfdbfe'"
+                              [style.backgroundColor]="bodegaInactiva(s) ? 'var(--surface3)' : 'var(--surface)'" [style.color]="bodegaInactiva(s) ? 'var(--text-faint)' : 'var(--info-text)'" [style.borderColor]="bodegaInactiva(s) ? 'var(--border)' : 'var(--info-border)'"
                               class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors">Marcar en entrega</button>
                             @if (red.alcanzable()) {
                               <button (click)="prepararEntregaOffline(s)" title="Descarga las placas disponibles de esta solicitud para poder entregarla sin conexión"
@@ -316,7 +319,7 @@ interface LineaForm {
                 </span>
 
                 <div class="flex items-center gap-2">
-                  <button
+                  <button aria-label="Página anterior"
                     (click)="page = page - 1"
                     [disabled]="page === 0"
                     class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
@@ -329,7 +332,7 @@ interface LineaForm {
                     {{ page + 1 }} / {{ totalPaginas }}
                   </span>
 
-                  <button
+                  <button aria-label="Página siguiente"
                     (click)="page = page + 1"
                     [disabled]="page + 1 >= totalPaginas"
                     class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
@@ -344,11 +347,11 @@ interface LineaForm {
         </div>
       }
     @if (modalOpen) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarModal()">
+      <div appDialog [dialogGuard]="false" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarModal()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-5">
             <h2 class="text-lg font-bold text-gray-800">Nueva solicitud</h2>
-            <button (click)="cerrarModal()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="cerrarModal()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 
           <div class="space-y-4">
@@ -356,7 +359,7 @@ interface LineaForm {
               <label class="block text-xs font-medium text-gray-600 mb-1">Bodega</label>
               <app-ss [options]="opcionesSitio" placeholder="— Selecciona una bodega —"
                 [(ngModel)]="idSitioSeleccionado" (ngModelChange)="onSitioChange($event)"></app-ss>
-              <p class="text-[11px] text-gray-400 mt-1">Todas las líneas de una solicitud tienen que ser de la misma bodega.</p>
+              <p class="text-xs text-gray-400 mt-1">Todas las líneas de una solicitud tienen que ser de la misma bodega.</p>
             </div>
 
             @if (idSitioSeleccionado) {
@@ -385,7 +388,7 @@ interface LineaForm {
                         <app-ss [options]="opcionesLinea(linea)" placeholder="— Selecciona producto o lote —"
                           [(ngModel)]="linea.ref" (ngModelChange)="onRefChange(linea)"></app-ss>
                         @if (linea.ref) {
-                          <p class="text-[11px] mt-0.5"
+                          <p class="text-xs mt-0.5"
                             [class.text-red-500]="disponibleDe(linea) < linea.cantidad"
                             [class.text-gray-400]="disponibleDe(linea) >= linea.cantidad">
                             {{ disponibleDe(linea) }} disponible(s){{ disponibleDe(linea) < linea.cantidad ? ' — cantidad excede el stock' : '' }}
@@ -394,7 +397,7 @@ interface LineaForm {
                       </div>
                       <input type="number" [(ngModel)]="linea.cantidad" min="1"
                         class="w-20 px-2 py-2 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
-                      <button type="button" (click)="quitarLinea($index)"
+                      <button aria-label="Quitar" type="button" (click)="quitarLinea($index)"
                         class="p-2 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 text-lg leading-none">×</button>
                     </div>
                   }
@@ -407,7 +410,7 @@ interface LineaForm {
                   <app-date-input placeholder="DD/MM/AAAA" [min]="hoyTuiDay"
                     [ngModel]="cacheFechaDevolucion.get(fechaDevolucion)"
                     (ngModelChange)="fechaDevolucion = tuiDayToIso($event)"></app-date-input>
-                  <p class="text-[11px] text-gray-400 mt-1">Alguna línea es de un material devolutivo.</p>
+                  <p class="text-xs text-gray-400 mt-1">Alguna línea es de un material devolutivo.</p>
                 </div>
               }
 
@@ -417,7 +420,7 @@ interface LineaForm {
                   placeholder="¿Para qué y en qué ambiente se usará el material? (mín. 10 caracteres)"
                   class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]"></textarea>
                 @if (observacion.trim().length > 0 && observacion.trim().length < 10) {
-                  <p class="text-[11px] text-amber-600 mt-0.5">Faltan {{ 10 - observacion.trim().length }} caracteres.</p>
+                  <p class="text-xs text-amber-600 mt-0.5">Faltan {{ 10 - observacion.trim().length }} caracteres.</p>
                 }
               </div>
             }
@@ -440,11 +443,11 @@ interface LineaForm {
     }
 
     @if (detalleAbierto && detalle) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="detalleAbierto = false">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="detalleAbierto = false">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-5">
             <h2 class="text-lg font-bold text-gray-800">Detalle de la solicitud</h2>
-            <button (click)="detalleAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="detalleAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
           <dl class="space-y-2.5 text-sm">
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Estado</dt><dd class="text-gray-800 text-right">{{ detalle.estado }}</dd></div>
@@ -461,7 +464,7 @@ interface LineaForm {
                       <li class="px-3 py-2 flex justify-between gap-3">
                         <span class="text-gray-700">
                           {{ l.producto_nombre ?? l.lote_codigo ?? '—' }}
-                          @if (l.id_lote) { <span class="text-[11px] text-gray-400">(lote)</span> }
+                          @if (l.id_lote) { <span class="text-xs text-gray-400">(lote)</span> }
                         </span>
                         <span class="text-gray-500 text-xs">{{ l.cantidad_entregada }}/{{ l.cantidad }}</span>
                       </li>
@@ -478,10 +481,10 @@ interface LineaForm {
               <div class="flex justify-between gap-4"><dt class="text-gray-500">Fecha de devolución</dt><dd class="text-gray-800 text-right">{{ detalle.fecha_devolucion | date: 'mediumDate' }}</dd></div>
             }
             @if (detalle.id_usuario_aprueba || detalle.fecha_aprobacion) {
-              <div class="flex justify-between gap-4"><dt class="text-gray-500">Aprobó</dt><dd class="text-gray-800 text-right">{{ detalle.usuario_aprueba_nombre || '—' }}<span class="block text-[11px] text-gray-400">{{ detalle.fecha_aprobacion | date: 'short' }}</span></dd></div>
+              <div class="flex justify-between gap-4"><dt class="text-gray-500">Aprobó</dt><dd class="text-gray-800 text-right">{{ detalle.usuario_aprueba_nombre || '—' }}<span class="block text-xs text-gray-400">{{ detalle.fecha_aprobacion | date: 'short' }}</span></dd></div>
             }
             @if (detalle.id_usuario_entrega || detalle.fecha_entrega) {
-              <div class="flex justify-between gap-4"><dt class="text-gray-500">Entregó</dt><dd class="text-gray-800 text-right">{{ detalle.usuario_entrega_nombre || '—' }}<span class="block text-[11px] text-gray-400">{{ detalle.fecha_entrega | date: 'short' }}</span></dd></div>
+              <div class="flex justify-between gap-4"><dt class="text-gray-500">Entregó</dt><dd class="text-gray-800 text-right">{{ detalle.usuario_entrega_nombre || '—' }}<span class="block text-xs text-gray-400">{{ detalle.fecha_entrega | date: 'short' }}</span></dd></div>
             }
             @if (detalle.estado === 'RECHAZADA' && detalle.motivo_rechazo) {
               <div class="rounded-lg bg-red-50 border border-red-100 p-3">
@@ -498,11 +501,11 @@ interface LineaForm {
     }
 
     @if (rechazoAbierto && rechazoSolicitud) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarRechazo()">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarRechazo()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-bold text-gray-800">Rechazar solicitud</h2>
-            <button (click)="cerrarRechazo()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="cerrarRechazo()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
           <p class="text-sm text-gray-500 mb-3">
             Se le informará al solicitante de
@@ -512,7 +515,7 @@ interface LineaForm {
           <textarea [(ngModel)]="motivoRechazo" rows="3" maxlength="500"
             placeholder="Ej: No hay stock disponible para la fecha solicitada."
             class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400/30 focus:border-red-400 resize-none"></textarea>
-          <div class="text-right text-[11px] text-gray-400 mt-1">{{ motivoRechazo.length }}/500</div>
+          <div class="text-right text-xs text-gray-400 mt-1">{{ motivoRechazo.length }}/500</div>
           <div class="flex justify-end gap-2 mt-4">
             <button (click)="cerrarRechazo()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
             <button (click)="confirmarRechazo()" [disabled]="!motivoRechazo.trim() || rechazando"
@@ -525,11 +528,11 @@ interface LineaForm {
     }
 
     @if (aprobarAbierto && aprobarRef) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarAprobar()">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarAprobar()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-bold text-gray-800">Aprobar solicitud</h2>
-            <button (click)="cerrarAprobar()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="cerrarAprobar()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
           <p class="text-sm text-gray-500 mb-3">
             "<span class="font-medium text-gray-700">{{ aprobarRef.producto?.nombre ?? 'este material' }}</span>"
@@ -540,7 +543,7 @@ interface LineaForm {
             <app-date-input placeholder="DD/MM/AAAA" [min]="hoyTuiDay"
               [ngModel]="cacheFechaDevAprobar.get(fechaDevAprobar)"
               (ngModelChange)="fechaDevAprobar = tuiDayToIso($event)"></app-date-input>
-            <p class="text-[11px] text-gray-400 mt-1">Podés ajustar la fecha que puso el solicitante. Se le avisa si cambia.</p>
+            <p class="text-xs text-gray-400 mt-1">Podés ajustar la fecha que puso el solicitante. Se le avisa si cambia.</p>
           }
           <div class="flex justify-end gap-2 mt-4">
             <button (click)="cerrarAprobar()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
@@ -562,6 +565,10 @@ interface LineaForm {
 })
 export class MaterialesSolicitudesComponent implements OnInit {
   private readonly confirm = inject(ConfirmService);
+  private readonly avisos = inject(UnsavedChangesService);
+  /** Compara con el estado al abrir el modal: cerrar por error (fondo, ×) ya no tira lo escrito sin preguntar. */
+  private readonly cambios = new FormularioVigilado(() => JSON.stringify([this.idSitioSeleccionado, this.lineas, this.observacion, this.fechaDevolucion]));
+  private readonly _avisoCambios = avisarCambiosSinGuardar(() => this.modalOpen && this.cambios.sucio);
 
   solicitudes: Solicitud[] = [];
   productos: Producto[] = [];
@@ -1082,9 +1089,12 @@ seleccionarEstado(valor: EstadoSolicitud | ''): void {
     this.stockProd = {};
     this.error = null;
     this.modalOpen = true;
+    this.cambios.iniciar();
   }
 
-  cerrarModal(): void {
+  async cerrarModal(): Promise<void> {
+    if (this.cambios.sucio && !(await this.avisos.confirmarDescartar())) return;
+    this.cambios.terminar();
     this.modalOpen = false;
   }
 
@@ -1129,10 +1139,11 @@ seleccionarEstado(valor: EstadoSolicitud | ''): void {
         fecha_devolucion: this.fechaDevolucion || undefined,
       });
       this.toast.ok('Solicitud creada');
+      this.cambios.terminar();
       this.modalOpen = false;
       await this.cargar();
     } catch (e: any) {
-      this.error = e?.error?.message ?? 'No se pudo crear la solicitud.';
+      this.error = mensajeDeError(e, 'No se pudo crear la solicitud.');
     } finally {
       this.saving = false;
     }

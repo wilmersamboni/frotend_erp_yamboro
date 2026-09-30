@@ -9,11 +9,12 @@ import { AdminLoadingSpinnerComponent } from '../../../../shared/components/admi
 import { AdminEmptyStateComponent } from '../../../../shared/components/admin/empty-state.component';
 import { SearchableSelectComponent, SSOption } from '../../../../shared/components/searchable-select.component';
 import { ConfirmService } from '../../../../core/services/confirm.service';
+import { EsperaDirective } from '../../../../shared/directives/espera.directive';
 
 @Component({
   selector: 'app-dominio-list',
   standalone: true,
-  imports: [RouterLink, TitleCasePipe, FormsModule, AdminLoadingSpinnerComponent, AdminEmptyStateComponent, SearchableSelectComponent],
+  imports: [EsperaDirective, RouterLink, TitleCasePipe, FormsModule, AdminLoadingSpinnerComponent, AdminEmptyStateComponent, SearchableSelectComponent],
   template: `
     <div class="flex items-center justify-between mb-6">
       <div>
@@ -48,7 +49,7 @@ import { ConfirmService } from '../../../../core/services/confirm.service';
 
     <!-- Filtros -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4 flex gap-3">
-      <input type="text" placeholder="Buscar subdominio o tenant..."
+      <input appEspera type="text" placeholder="Buscar subdominio o tenant..."
         class="flex-1 text-sm px-3 py-2 border border-gray-200 rounded-xl outline-none focus:border-[#39A900] transition-colors"
         [value]="filtroTexto()" (input)="filtroTexto.set($any($event.target).value)" />
       <div class="w-56">
@@ -161,7 +162,7 @@ export class DominioListComponent {
   constructor() {
     this.dominioService.obtenerTodos().subscribe({
       next: (data) => { this.dominios.set(data); this.cargando.set(false); },
-      error: () => { this.cargando.set(false); this.toast.error('No se pudieron cargar los dominios.'); },
+      error: (err) => { this.cargando.set(false); this.toast.httpError(err, 'No se pudieron cargar los dominios.'); },
     });
   }
 
@@ -169,7 +170,7 @@ export class DominioListComponent {
     if (!(await this.confirmDlg.ask(`¿Eliminar el dominio "${dominio.subdominio}"?`, { header: 'Eliminar dominio', acceptLabel: 'Eliminar' }))) return;
     this.dominioService.eliminar(dominio.id).subscribe({
       next: () => { this.dominios.update(lista => lista.filter(d => d.id !== dominio.id)); this.toast.success('Dominio eliminado.'); },
-      error: () => this.toast.error('No se pudo eliminar el dominio.'),
+      error: (err) => this.toast.httpError(err, 'No se pudo eliminar el dominio.'),
     });
   }
 }

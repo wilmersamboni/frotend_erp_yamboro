@@ -398,7 +398,7 @@ function rutaAccion(n: Notificacion, cargo: string): AccionDestino | null {
     @if (unread() > 0) {
       <span
         class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1
-               rounded-full bg-red-500 text-white text-[10px] font-bold
+               rounded-full bg-red-500 text-white text-xs font-bold
                flex items-center justify-center leading-none animate-pulse"
       >
         {{ unread() > 99 ? '99+' : unread() }}
@@ -469,13 +469,13 @@ function rutaAccion(n: Notificacion, cargo: string): AccionDestino | null {
             <div class="flex-1 min-w-0 flex items-center gap-2">
               <span class="font-bold text-gray-800 text-base">Centro de Notificaciones</span>
               @if (unread() > 0) {
-                <span class="text-[11px] font-bold min-w-[20px] h-5 px-1.5 rounded-full
+                <span class="text-xs font-bold min-w-[20px] h-5 px-1.5 rounded-full
                              bg-[#007832] text-white flex items-center justify-center flex-shrink-0">
                   {{ unread() > 99 ? '99+' : unread() }}
                 </span>
               }
             </div>
-            <button (click)="open.set(false)"
+            <button aria-label="Cerrar" (click)="open.set(false)"
               class="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" [attr.d]="iconoPath('equis')" />
@@ -579,7 +579,7 @@ function rutaAccion(n: Notificacion, cargo: string): AccionDestino | null {
                   <!-- Micro-acciones al hover: marcar leída / descartar -->
                   <div class="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     @if (!n.leida) {
-                      <button (click)="marcarLeidaRapido(n); $event.stopPropagation()"
+                      <button aria-label="Marcar como leída" (click)="marcarLeidaRapido(n); $event.stopPropagation()"
                         title="Marcar como leída"
                         class="w-6 h-6 rounded-full flex items-center justify-center bg-white border border-gray-200
                                text-gray-400 hover:text-[#007832] hover:border-[#007832]/40 shadow-sm transition-colors">
@@ -588,7 +588,7 @@ function rutaAccion(n: Notificacion, cargo: string): AccionDestino | null {
                         </svg>
                       </button>
                     }
-                    <button (click)="descartar(n); $event.stopPropagation()"
+                    <button aria-label="Descartar" (click)="descartar(n); $event.stopPropagation()"
                       title="Descartar"
                       class="w-6 h-6 rounded-full flex items-center justify-center bg-white border border-gray-200
                              text-gray-400 hover:text-red-600 hover:border-red-200 shadow-sm transition-colors">
@@ -613,12 +613,12 @@ function rutaAccion(n: Notificacion, cargo: string): AccionDestino | null {
                     <div class="flex-1 min-w-0 cursor-pointer" (click)="leer(n)">
                       <!-- Eyebrow: módulo + fecha -->
                       <div class="flex items-center gap-1.5 flex-wrap">
-                        <span class="text-[10px] font-bold uppercase tracking-wide"
+                        <span class="text-xs font-bold uppercase tracking-wide"
                           [style.color]="moduloColor(n.tipo)">
                           {{ moduloLabel(n.tipo) }}
                         </span>
                         <span class="text-gray-300">·</span>
-                        <span class="text-[11px] text-gray-400">{{ formatDate(n.createdAt) }}</span>
+                        <span class="text-xs text-gray-400">{{ formatDate(n.createdAt) }}</span>
                       </div>
 
                       <!-- Título + dot no leído -->
@@ -639,7 +639,7 @@ function rutaAccion(n: Notificacion, cargo: string): AccionDestino | null {
                       </p>
 
                       <!-- Chip con el tipo exacto — mismo lenguaje de color que el ícono -->
-                      <span class="inline-block mt-2 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                      <span class="inline-block mt-2 text-xs font-semibold px-2 py-0.5 rounded-full"
                         [ngClass]="[getMeta(n.tipo).badgeBg, getMeta(n.tipo).badgeText]">
                         {{ getMeta(n.tipo).label }}
                       </span>

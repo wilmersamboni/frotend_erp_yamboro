@@ -50,7 +50,7 @@ import { ToastService } from '../../../../core/services/toast.service';
       <!-- Instructores asignados -->
       @if (practica.asignaciones.length) {
         <div class="mb-3">
-          <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
             Instructores asignados
           </p>
           <div class="flex flex-wrap gap-2">
@@ -83,7 +83,7 @@ import { ToastService } from '../../../../core/services/toast.service';
         </div>
       } @else if (docs.length) {
         <div class="mb-3">
-          <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
             Documentos ({{ docs.length }})
           </p>
           <div class="flex flex-wrap gap-2">
@@ -98,12 +98,12 @@ import { ToastService } from '../../../../core/services/toast.service';
                   <div class="w-3 h-3 border-2 border-blue-300 border-t-blue-700
                               rounded-full animate-spin flex-shrink-0"></div>
                 } @else {
-                  <span class="font-bold text-[10px] bg-blue-200 text-blue-800 px-1 py-0.5 rounded">
+                  <span class="font-bold text-xs bg-blue-200 text-blue-800 px-1 py-0.5 rounded">
                     {{ iconoDoc(doc.tipo_mime) }}
                   </span>
                 }
                 <span class="max-w-[140px] truncate">{{ doc.nombre_original }}</span>
-                <span class="text-blue-400 text-[10px]">{{ formatBytes(doc.tamanio) }}</span>
+                <span class="text-blue-400 text-xs">{{ formatBytes(doc.tamanio) }}</span>
                 <svg class="w-3 h-3 text-blue-400 flex-shrink-0" fill="none"
                      viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                   <path stroke-linecap="round" stroke-linejoin="round"
@@ -114,7 +114,7 @@ import { ToastService } from '../../../../core/services/toast.service';
           </div>
         </div>
       } @else {
-        <p class="text-[11px] text-gray-400 italic mb-3">Sin documentos adjuntos.</p>
+        <p class="text-xs text-gray-400 italic mb-3">Sin documentos adjuntos.</p>
       }
 
       <!-- Seguimientos -->
@@ -127,31 +127,31 @@ import { ToastService } from '../../../../core/services/toast.service';
                 <span class="text-xs font-semibold text-gray-700">
                   Seguimiento #{{ i + 1 }}
                 </span>
-                <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">
+                <span class="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">
                   {{ s.estado }}
                 </span>
                 @if (s.actasPdf) {
-                  <span class="text-[10px] px-2 py-0.5 rounded-full bg-green-50 text-green-600">
+                  <span class="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-600">
                     Acta
                   </span>
                 }
-                <span class="ml-auto text-[11px] text-gray-400">
+                <span class="ml-auto text-xs text-gray-400">
                   {{ s.fechaInicio | date:'shortDate' }} →
                   {{ s.fechaFin   | date:'shortDate' }}
                 </span>
               </div>
 
               @if (s.observacion) {
-                <p class="text-[11px] text-gray-500 mb-2 italic">{{ s.observacion }}</p>
+                <p class="text-xs text-gray-500 mb-2 italic">{{ s.observacion }}</p>
               }
 
               <!-- Bitacoras -->
               @if (s.bitacoras.length) {
                 <div class="mb-2">
-                  <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
+                  <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">
                     Bitácoras ({{ s.bitacoras.length }})
                   </p>
-                  <ul class="text-[11px] text-gray-600 list-disc pl-4 space-y-0.5">
+                  <ul class="text-xs text-gray-600 list-disc pl-4 space-y-0.5">
                     @for (b of s.bitacoras; track b.id) {
                       <li>
                         {{ b.fecha | date:'shortDate' }} —
@@ -167,22 +167,22 @@ import { ToastService } from '../../../../core/services/toast.service';
                   </ul>
                 </div>
               } @else {
-                <p class="text-[11px] text-gray-400 italic mb-2">Sin bitácoras.</p>
+                <p class="text-xs text-gray-400 italic mb-2">Sin bitácoras.</p>
               }
 
               <!-- Observaciones del seguimiento -->
               @if (s.observaciones.length) {
                 <div class="border-t border-gray-50 pt-2 mt-1">
-                  <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
+                  <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">
                     Observaciones ({{ s.observaciones.length }})
                   </p>
                   <div class="space-y-1.5">
                     @for (obs of s.observaciones; track obs.id) {
                       <div class="bg-gray-50 rounded-lg px-3 py-2">
-                        <p class="text-[10px] text-gray-400 mb-0.5">
+                        <p class="text-xs text-gray-400 mb-0.5">
                           {{ obs.fecha | date:'mediumDate' }}
                         </p>
-                        <p class="text-[11px] text-gray-700 leading-snug">
+                        <p class="text-xs text-gray-700 leading-snug">
                           {{ obs.descripcion }}
                         </p>
                       </div>

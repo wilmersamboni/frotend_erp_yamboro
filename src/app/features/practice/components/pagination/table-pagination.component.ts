@@ -7,7 +7,7 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
 
   <div class="flex gap-2 p-4 justify-center">
 
-    <button (click)="prev()">‹</button>
+    <button aria-label="Página anterior" (click)="prev()">‹</button>
 
     @for(p of pagesArray(); track p){
       <button (click)="change(p)">
@@ -15,7 +15,7 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
       </button>
     }
 
-    <button (click)="next()">›</button>
+    <button aria-label="Página siguiente" (click)="next()">›</button>
 
   </div>
 

@@ -25,7 +25,7 @@ import { AdminAuthService } from '../../core/admin-auth/admin-auth.service';
           @if (open) {
             <div class="overflow-hidden">
               <p class="text-[#007832] text-xs font-semibold truncate leading-tight">{{ userNombre() }}</p>
-              <p class="text-gray-400 text-[10px] truncate leading-tight mt-0.5">Administrador Root</p>
+              <p class="text-gray-400 text-xs truncate leading-tight mt-0.5">Administrador Root</p>
             </div>
           }
         </div>
@@ -142,7 +142,7 @@ import { AdminAuthService } from '../../core/admin-auth/admin-auth.service';
     .nav-link:hover { background: var(--surface2); color: var(--text); }
     .nav-link-active { background: rgba(0,120,50,.08); color: var(--accent-text); border-left-color: var(--accent); font-weight: 600; }
     .nav-section-label {
-      font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+      font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
       color: var(--text-muted); padding: 0 13px; margin: 14px 0 3px;
     }
     .nav-section-label.mt-0 { margin-top: 4px; }

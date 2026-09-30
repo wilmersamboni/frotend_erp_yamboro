@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import gsap from 'gsap';
 import { ToastService } from '../../core/services/toast.service';
 import { AuthService } from '../../core/services/auth.service';
+import { UnsavedChangesService, avisarCambiosSinGuardar } from '../../core/services/unsaved-changes.service';
 import {
   MaterialesApiService,
   ResultadoImportacion,
@@ -94,7 +95,7 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
                   [class]="estadoPaso(p.n) === 'actual' ? 'border-[#39A900]/40 bg-[#39A900]/[0.07] text-[#2d8000]'
                          : estadoPaso(p.n) === 'hecho' ? 'border-gray-200 bg-white text-gray-600'
                          : 'border-gray-200 bg-white text-gray-400'">
-                  <span class="grid place-items-center w-6 h-6 rounded-full text-[11px] font-bold"
+                  <span class="grid place-items-center w-6 h-6 rounded-full text-xs font-bold"
                     [class]="estadoPaso(p.n) === 'pendiente' ? 'bg-gray-100 text-gray-400' : 'bg-[#39A900] text-white'">
                     @if (estadoPaso(p.n) === 'hecho') {
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
@@ -183,7 +184,7 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
             <ol class="space-y-3">
               @for (p of ayudaPasos; track p.t; let i = $index) {
                 <li class="flex gap-3">
-                  <span class="flex-none grid place-items-center w-6 h-6 rounded-full bg-green-50 text-green-700 text-[11px] font-bold">{{ i + 1 }}</span>
+                  <span class="flex-none grid place-items-center w-6 h-6 rounded-full bg-green-50 text-green-700 text-xs font-bold">{{ i + 1 }}</span>
                   <div>
                     <p class="text-sm font-medium text-gray-700 leading-tight">{{ p.t }}</p>
                     <p class="text-xs text-gray-400 mt-0.5 leading-snug">{{ p.d }}</p>
@@ -250,7 +251,7 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
                     [style.width.%]="filas.length ? (listas / filas.length) * 100 : 0"></div>
                 </div>
               </div>
-              <button (click)="volver()" class="btn-ghost px-3 py-1.5 text-xs">← Otro archivo</button>
+              <button (click)="descartarRevision()" class="btn-ghost px-3 py-1.5 text-xs">← Otro archivo</button>
             </div>
           </div>
 
@@ -296,7 +297,7 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
           <div data-anim="seccion" class="card overflow-hidden shadow-sm">
             <div class="tabla-scroll">
               <table class="w-full text-sm min-w-[1280px] border-collapse">
-                <thead class="text-[11px] uppercase tracking-wide text-gray-500 text-left">
+                <thead class="text-xs uppercase tracking-wide text-gray-500 text-left">
                   <tr>
                     <th class="px-3 py-3 font-semibold w-12">#</th>
                     <th class="px-3 py-3 font-semibold min-w-[280px]">Producto</th>
@@ -409,19 +410,19 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
             <div data-anim="res-card" class="card p-4">
               <div class="text-2xl font-bold text-gray-700 tabular-nums">{{ resTotal() }}</div>
-              <div class="text-[11px] text-gray-400 font-medium mt-0.5">Filas</div>
+              <div class="text-xs text-gray-400 font-medium mt-0.5">Filas</div>
             </div>
             <div data-anim="res-card" class="card p-4 border-green-200 bg-green-50">
               <div class="text-2xl font-bold text-green-700 tabular-nums">{{ resProductos() }}</div>
-              <div class="text-[11px] text-green-700/80 font-medium mt-0.5">Productos</div>
+              <div class="text-xs text-green-700/80 font-medium mt-0.5">Productos</div>
             </div>
             <div data-anim="res-card" class="card p-4 border-blue-100 bg-blue-50/60">
               <div class="text-2xl font-bold text-blue-600 tabular-nums">{{ resStock() }}</div>
-              <div class="text-[11px] text-blue-600/80 font-medium mt-0.5">Stock</div>
+              <div class="text-xs text-blue-600/80 font-medium mt-0.5">Stock</div>
             </div>
             <div data-anim="res-card" class="card p-4" [class]="resultado.errores.length ? 'border-red-100 bg-red-50/60' : ''">
               <div class="text-2xl font-bold tabular-nums" [class]="resultado.errores.length ? 'text-red-600' : 'text-gray-300'">{{ resErrores() }}</div>
-              <div class="text-[11px] font-medium mt-0.5" [class]="resultado.errores.length ? 'text-red-600/80' : 'text-gray-400'">Errores</div>
+              <div class="text-xs font-medium mt-0.5" [class]="resultado.errores.length ? 'text-red-600/80' : 'text-gray-400'">Errores</div>
             </div>
           </div>
 
@@ -432,7 +433,7 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
             </div>
             <div class="card overflow-hidden">
               <table class="w-full text-sm">
-                <thead class="bg-gray-50 text-gray-400 text-left text-[11px] uppercase tracking-wide">
+                <thead class="bg-gray-50 text-gray-400 text-left text-xs uppercase tracking-wide">
                   <tr><th class="px-3 py-2 font-semibold w-16">Fila</th><th class="px-3 py-2 font-semibold">Error</th></tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -532,6 +533,7 @@ export class MaterialesImportarComponent implements OnInit {
 
   private readonly host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
   private readonly injector = inject(Injector);
+  private readonly avisos = inject(UnsavedChangesService);
   private pulsoDropzone: gsap.core.Tween | null = null;
   private barraIndet: gsap.core.Tween | null = null;
   private mensajesTimer: ReturnType<typeof setInterval> | null = null;
@@ -542,6 +544,9 @@ export class MaterialesImportarComponent implements OnInit {
     private toast: ToastService,
     private auth: AuthService,
   ) {
+    // Con el archivo ya analizado y sin importar, salir de la pantalla (o cerrar
+    // la pestaña) pierde la revisión de tipo/bodega/categoría de cada fila.
+    avisarCambiosSinGuardar(() => this.fase === 'revisar' && !this.confirmando);
     inject(DestroyRef).onDestroy(() => {
       this.detenerProgreso();
       this.pulsoDropzone?.kill();
@@ -942,6 +947,12 @@ export class MaterialesImportarComponent implements OnInit {
     const proxy = { total: 0, productos: 0, stock: 0, errores: 0 };
     fijar(proxy);
     gsap.to(proxy, { ...finales, duration: 1, delay: 0.25, ease: 'power2.out', onUpdate: () => fijar(proxy) });
+  }
+
+  /** "← Otro archivo" desde la revisión: pregunta antes de tirar lo ya ajustado. */
+  async descartarRevision(): Promise<void> {
+    if (this.fase === 'revisar' && !(await this.avisos.confirmarDescartar())) return;
+    this.volver();
   }
 
   volver(): void {

@@ -6,6 +6,7 @@ import { ToastService } from '../../../core/services/toast.service';
 import { durHorarioMin, Resultado } from '../../../core/utils/horarios.util';
 import { TuiDay } from '@taiga-ui/cdk';
 import { DateInputComponent } from '../../../shared/components/date-input.component';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 /**
  * Modal "Añadir Competencia / Resultado" — extraído de instructor-mis-horarios.component.ts.
@@ -19,14 +20,14 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
 @Component({
   selector: 'app-nueva-competencia-modal',
   standalone: true,
-  imports: [FormsModule, LucideAngularModule, DateInputComponent],
+  imports: [DialogDirective, FormsModule, LucideAngularModule, DateInputComponent],
   template: `
     @if (compModal()) {
-    <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+    <div appDialog class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl shadow-xl comp-modal-wide" (click)="$event.stopPropagation()">
         <div class="px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-3 flex-shrink-0">
           <h3>Añadir Competencia / Resultado</h3>
-          <button class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" (click)="cerrar()"><lucide-icon name="x" [size]="18"></lucide-icon></button>
+          <button aria-label="Cerrar" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" (click)="cerrar()"><lucide-icon name="x" [size]="18"></lucide-icon></button>
         </div>
         <div class="modal-body">
         <div class="form-group">
@@ -73,7 +74,7 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
                      [class.comp-cal-boundary]="cell.isIni || cell.isFin"
                      [class.comp-cal-sel]="cell.inRange && compDiasClase().includes(cell.iso)"
                      [class.comp-cal-other]="cell.otherMonth"
-                     (click)="cell.inRange && toggleDiaClase(cell.iso)">
+                     data-dirty (click)="cell.inRange && toggleDiaClase(cell.iso)">
                   {{ cell.day }}
                 </div>
               }
@@ -96,31 +97,31 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
                 <input class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:border-[#39A900]" style="flex:1;"
                        [ngModel]="r.texto" (ngModelChange)="setCompResultado(i, $event)"
                        placeholder="Resultado {{ i + 1 }}">
-                <button type="button" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" (click)="removeCompResultado(i)" title="Quitar">
+                <button aria-label="Quitar" type="button" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" data-dirty (click)="removeCompResultado(i)" title="Quitar">
                   <lucide-icon name="x" [size]="14"></lucide-icon>
                 </button>
               </div>
               <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
-                <button type="button" class="border border-gray-300 hover:bg-gray-50 hover:border-[#39A900]/50 hover:text-[#39A900] text-gray-700 rounded-lg transition-all" style="font-size:11px;padding:3px 8px;"
+                <button type="button" class="border border-gray-300 hover:bg-gray-50 hover:border-[#39A900]/50 hover:text-[#39A900] text-gray-700 rounded-lg transition-all inline-flex items-center gap-1" style="font-size:12px;padding:3px 8px;"
                         [disabled]="compDiasClase().length === 0"
                         (click)="seleccionarResultado(i)">
-                  <lucide-icon name="calendar" [size]="11" style="vertical-align:-2px;margin-right:4px;"></lucide-icon>
+                  <lucide-icon name="calendar" [size]="11"></lucide-icon>
                   {{ resultadoActivo() === i ? 'Editando fechas ↓' : (r.fechaInicio ? 'Cambiar fechas' : 'Elegir fechas') }}
                 </button>
                 @if (r.fechaInicio) {
-                  <span style="font-size:11px;color:var(--text-muted);">
+                  <span style="font-size:12px;color:var(--text-muted);">
                     {{ formatDiaClaseFull(r.fechaInicio) }} @if (r.fechaFin && r.fechaFin !== r.fechaInicio) { → {{ formatDiaClaseFull(r.fechaFin) }} }
                   </span>
                 } @else if (compDiasClase().length === 0) {
-                  <span style="font-size:11px;color:var(--text-muted);font-style:italic;">Primero marca los días de clase arriba</span>
+                  <span style="font-size:12px;color:var(--text-muted);font-style:italic;">Primero marca los días de clase arriba</span>
                 } @else {
-                  <span style="font-size:11px;color:var(--text-muted);font-style:italic;">Sin fechas asignadas</span>
+                  <span style="font-size:12px;color:var(--text-muted);font-style:italic;">Sin fechas asignadas</span>
                 }
               </div>
             </div>
           }
-          <button type="button" class="border border-gray-300 hover:bg-gray-50 hover:border-[#39A900]/50 hover:text-[#39A900] text-gray-700 rounded-lg transition-all" style="font-size:12px;padding:5px 10px;" (click)="addCompResultado()">
-            <lucide-icon name="plus" [size]="12" style="vertical-align:-2px;margin-right:4px;"></lucide-icon>Agregar resultado
+          <button type="button" class="border border-gray-300 hover:bg-gray-50 hover:border-[#39A900]/50 hover:text-[#39A900] text-gray-700 rounded-lg transition-all inline-flex items-center gap-1" style="font-size:12px;padding:5px 10px;" data-dirty (click)="addCompResultado()">
+            <lucide-icon name="plus" [size]="12"></lucide-icon>Agregar resultado
           </button>
 
           <!-- Calendario único, reutilizado para el resultado seleccionado arriba
@@ -150,7 +151,7 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
                          [class.r-cal-boundary]="cell.allowed && (cell.isIni || cell.isFin)"
                          [class.comp-cal-other]="(cell.otherMonth || !cell.allowed) && !cell.ocupado"
                          [title]="cell.ocupado ? 'Ya asignado a otro resultado' : ''"
-                         (click)="cell.allowed && pickRCalDay(cell.iso)">
+                         data-dirty (click)="cell.allowed && pickRCalDay(cell.iso)">
                       {{ cell.day }}
                     </div>
                   }
@@ -227,12 +228,12 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
     .comp-cal-nav:hover { background: var(--tui-primary); color: white; border-color: var(--tui-primary); }
     .comp-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
     .comp-cal-dayhdr {
-      text-align: center; font-size: 9px; font-weight: 700;
+      text-align: center; font-size: 12px; font-weight: 700;
       color: var(--text-muted); padding: 3px 0 4px;
       text-transform: uppercase; letter-spacing: .03em;
     }
     .comp-cal-cell {
-      text-align: center; font-size: 11px; padding: 5px 2px;
+      text-align: center; font-size: 12px; padding: 5px 2px;
       border-radius: 8px; cursor: default; color: var(--text);
       transition: background .1s, color .1s; user-select: none;
     }
@@ -269,14 +270,14 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
     }
     .comp-cal-total {
       display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
-      font-size: 11px; color: var(--text-muted);
+      font-size: 12px; color: var(--text-muted);
       border-top: 1px solid var(--border); padding-top: 7px; margin-top: 7px;
     }
     .comp-cal-total strong { color: var(--text); }
 
     .comp-cal-hint {
       display: flex; align-items: center; gap: 6px;
-      font-size: 11px; color: var(--text-muted); font-style: italic;
+      font-size: 12px; color: var(--text-muted); font-style: italic;
       margin-bottom: 8px; padding: 5px 8px;
       border-radius: 6px; background: var(--surface2);
     }
@@ -484,7 +485,7 @@ export class NuevaCompetenciaModalComponent {
       this.guardado.emit();
       this.toast.ok('Competencia registrada', 'La competencia fue añadida al horario correctamente.');
     } catch (e: any) {
-      this.toast.error('Error al guardar competencia', e?.error?.message ?? 'No se pudo registrar la competencia.');
+      this.toast.httpError(e, 'No se pudo registrar la competencia.', 'Error al guardar competencia');
     }
   }
 

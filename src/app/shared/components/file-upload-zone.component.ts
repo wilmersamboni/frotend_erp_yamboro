@@ -84,7 +84,7 @@ import {
             <span class="text-base leading-none">{{ iconoArchivo(f.name) }}</span>
             <span class="flex-1 truncate text-gray-700">{{ f.name }}</span>
             <span class="text-gray-400 flex-shrink-0">{{ formatBytes(f.size) }}</span>
-            <button
+            <button aria-label="Quitar"
               type="button"
               (click)="quitarArchivo(f); $event.stopPropagation()"
               class="text-red-400 hover:text-red-600 transition-colors flex-shrink-0 leading-none"

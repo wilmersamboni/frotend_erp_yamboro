@@ -5,6 +5,7 @@ import { SERVICIOS_ADMIN_PANEL } from './features/tenant-administration/config/a
 import { SCHEDULE_ROUTES } from './features/schedules/schedules.routes';
 import { SURVEY_ROUTES } from './features/surveys/surveys.routes';
 import { MATERIALS_ROUTES } from './features/materiales/materiales.routes';
+import { conAvisoDeCambios } from './core/services/unsaved-changes.service';
 
 function tieneSubdominio(): boolean {
   const hostname = window.location.hostname;
@@ -15,7 +16,7 @@ function tieneSubdominio(): boolean {
   return hostname.split('.').length >= 3;
 }
 
-export const routes: Routes = [
+const RUTAS: Routes = [
   // ─────────────────────────────────────────────
   // SIN SUBDOMINIO → Panel de administración de tenants
   // ─────────────────────────────────────────────
@@ -180,3 +181,5 @@ export const routes: Routes = [
   // Comodín global (por si ningún canMatch pasa)
   { path: '**', redirectTo: '' },
 ];
+
+export const routes: Routes = conAvisoDeCambios(RUTAS);

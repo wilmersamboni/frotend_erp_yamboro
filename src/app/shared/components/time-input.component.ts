@@ -53,7 +53,7 @@ const OPTIONS: string[] = (() => {
         (focus)="openPanel()"
         (blur)="onBlur()"
       />
-      <button type="button" class="ti-icon-btn" tabindex="-1" [disabled]="disabled" (mousedown)="$event.preventDefault()" (click)="toggle()">
+      <button aria-label="Elegir hora" type="button" class="ti-icon-btn" tabindex="-1" [disabled]="disabled" (mousedown)="$event.preventDefault()" (click)="toggle()">
         <lucide-icon name="clock" [size]="15" class="ti-icon"></lucide-icon>
       </button>
 
@@ -307,7 +307,12 @@ export class TimeInputComponent implements ControlValueAccessor, OnDestroy {
     if (!this._open()) this._display.set(val);
     this.cdr.markForCheck();
   }
-  registerOnChange(fn: any)    { this.onChange   = fn; }
+  /** Además de avisar al formulario, dispara un `change` nativo que sube por el DOM: así un contenedor
+   *  (DialogDirective) sabe que el usuario tocó un campo, igual que con un <input> normal. writeValue()
+   *  no pasa por acá, así que precargar valores no cuenta como cambio. */
+  registerOnChange(fn: any) {
+    this.onChange = (v) => { fn(v); this.el.nativeElement.dispatchEvent(new Event('change', { bubbles: true })); };
+  }
   registerOnTouched(fn: any)   { this.onTouched  = fn; }
   setDisabledState(d: boolean) { this.disabled   = d;  }
 }

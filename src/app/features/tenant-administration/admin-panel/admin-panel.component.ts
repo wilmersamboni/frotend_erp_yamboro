@@ -16,11 +16,12 @@ import { CrearPracticaModalComponent } from '../../practice/components/crear-pra
 import { PermisosPanelComponent } from '../permisos/permisos-panel.component';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { EsperaDirective } from '../../../shared/directives/espera.directive';
 
 @Component({
   selector: 'app-admin-panel',
   standalone: true,
-  imports: [FormsModule, LucideAngularModule, AdminTableComponent, AdminModalComponent, RegistroRapidoModalComponent, AdminInicioComponent, CrearPracticaModalComponent, PermisosPanelComponent, PageSizeSelectComponent],
+  imports: [EsperaDirective, FormsModule, LucideAngularModule, AdminTableComponent, AdminModalComponent, RegistroRapidoModalComponent, AdminInicioComponent, CrearPracticaModalComponent, PermisosPanelComponent, PageSizeSelectComponent],
   providers: [AdminService],
   template: `
 
@@ -109,7 +110,7 @@ import { ToastService } from '../../../core/services/toast.service';
             @if (sidebarColapsado()) {
               <div class="flex lg:flex-col items-center gap-2 border-b lg:border-b-0 lg:border-r
                           border-gray-300/80 bg-gray-100/75 p-2 lg:w-16 lg:flex-shrink-0">
-                <button (click)="toggleSidebar()" title="Expandir panel de módulos"
+                <button aria-label="Expandir panel de módulos" (click)="toggleSidebar()" title="Expandir panel de módulos"
                   class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-600 hover:text-gray-700 hover:bg-gray-200 transition-colors">
                   <lucide-icon name="panel-right-close" [size]="20"></lucide-icon>
                 </button>
@@ -117,8 +118,8 @@ import { ToastService } from '../../../core/services/toast.service';
             } @else {
             <div class="lg:w-64 lg:flex-shrink-0 border-b lg:border-b-0 lg:border-r border-gray-300/80 bg-gray-100/75 p-3">
               <div class="flex items-center justify-between mb-2 px-1">
-                <span class="text-[11px] font-bold uppercase tracking-wide text-gray-600">Módulos</span>
-                <button (click)="toggleSidebar()" title="Contraer panel de módulos"
+                <span class="text-xs font-bold uppercase tracking-wide text-gray-600">Módulos</span>
+                <button aria-label="Contraer panel de módulos" (click)="toggleSidebar()" title="Contraer panel de módulos"
                   class="w-6 h-6 flex items-center justify-center rounded-lg text-gray-600 hover:text-gray-700 hover:bg-gray-200 transition-colors">
                   <lucide-icon name="panel-right-open" [size]="20"></lucide-icon>
                 </button>
@@ -171,12 +172,12 @@ import { ToastService } from '../../../core/services/toast.service';
                         d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                     </svg>
                   </div>
-                  <input type="text" [(ngModel)]="admin.filtro"
+                  <input appEspera type="text" [(ngModel)]="admin.filtro"
                     (ngModelChange)="admin.setFiltro($event)"
                     [placeholder]="admin.activeTab() === 'usuarios' ? 'Buscar por nombre o cédula...' : 'Buscar registros...'"
                     class="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:border-[#39A900] focus:bg-white transition-all text-gray-900 placeholder:text-gray-400" />
                   @if (admin.filtro()) {
-                    <button (click)="admin.setFiltro('')"
+                    <button aria-label="Limpiar búsqueda" (click)="admin.setFiltro('')"
                       class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -246,7 +247,7 @@ import { ToastService } from '../../../core/services/toast.service';
                 </span>
 
                 <div class="flex items-center gap-2">
-                  <button (click)="admin.paginaActual.update(p => p - 1)"
+                  <button aria-label="Página anterior" (click)="admin.paginaActual.update(p => p - 1)"
                     [disabled]="admin.paginaActual() === 1"
                     class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -259,7 +260,7 @@ import { ToastService } from '../../../core/services/toast.service';
                     {{ admin.paginaActual() }} / {{ admin.totalPaginas() }}
                   </span>
 
-                  <button (click)="admin.paginaActual.update(p => p + 1)"
+                  <button aria-label="Página siguiente" (click)="admin.paginaActual.update(p => p + 1)"
                     [disabled]="admin.paginaActual() >= admin.totalPaginas()"
                     class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

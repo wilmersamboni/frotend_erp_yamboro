@@ -99,7 +99,7 @@ import { ConfirmService } from '../../../core/services/confirm.service';
                         (p.activo ? 'bg-[#39A900]/10 text-[#2d8500]' : 'bg-gray-100 text-gray-500')">
                       {{ p.activo ? 'Activa' : 'Inactiva' }}
                     </button>
-                    <button
+                    <button aria-label="Eliminar"
                       (click)="eliminar(p)"
                       class="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all"
                       title="Eliminar">

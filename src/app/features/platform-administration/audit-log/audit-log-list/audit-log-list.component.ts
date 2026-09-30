@@ -168,7 +168,7 @@ export class AuditLogListComponent {
       accion:   this.filtroAccion() || undefined,
     }).subscribe({
       next: (logs) => { this.logs.set(logs); this.cargando.set(false); },
-      error: () => { this.cargando.set(false); this.toast.error('No se pudieron cargar los registros de auditoría.'); },
+      error: (err) => { this.cargando.set(false); this.toast.httpError(err, 'No se pudieron cargar los registros de auditoría.'); },
     });
   }
 }

@@ -7,6 +7,7 @@ import { ToastService } from '../../../core/services/toast.service';
 import { Kardex, MaterialesApiService } from '../data-access/materiales-api.service';
 import { TableFilterComponent, TableFilterOption } from '../../../shared/components/table-filter.component';
 import { ExportColumn, TableExportService } from '../../../shared/services/table-export.service';
+import { EsperaDirective } from '../../../shared/directives/espera.directive';
 
 /**
  * Log de movimientos de stock — solo lectura. Se llena solo como efecto
@@ -30,7 +31,7 @@ import { ExportColumn, TableExportService } from '../../../shared/services/table
 @Component({
   selector: 'app-materiales-kardex',
   standalone: true,
-  imports: [FormsModule, AdminTableComponent, StatCardComponent, TableFilterComponent],
+  imports: [EsperaDirective, FormsModule, AdminTableComponent, StatCardComponent, TableFilterComponent],
   template: `
     <div class="p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
@@ -41,14 +42,14 @@ import { ExportColumn, TableExportService } from '../../../shared/services/table
         <div class="flex gap-2 border-gray-200 ">
           <app-table-filter label="Tipo" [options]="opcionesTipoFiltro" [value]="filtroTipo"
           (valueChange)="filtroTipo = $event" />
-          <input [(ngModel)]="filtroTexto" placeholder="Buscar por producto, SKU o placa..."
+          <input appEspera [(ngModel)]="filtroTexto" placeholder="Buscar por producto, SKU o placa..."
             class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] bg-white w-xs " />
           <button type="button" (click)="exportarExcel()" class="px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:border-[#39A900] hover:text-[#267700]" aria-label="Exportar kardex a Excel">Excel</button>
           <button type="button" (click)="exportarPdf()" class="px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:border-[#39A900] hover:text-[#267700]" aria-label="Exportar kardex a PDF">PDF</button>
           @if (idProductoFiltro || idItemFiltro) {
             <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#39A900]/10 text-[#2d8000] border border-[#39A900]/20">
               {{ idProductoFiltro ? 'Filtrando por producto' : 'Filtrando por ítem' }}
-              <button (click)="quitarFiltroCruzado()" class="hover:text-red-600" title="Quitar filtro">×</button>
+              <button aria-label="Quitar filtro" (click)="quitarFiltroCruzado()" class="hover:text-red-600" title="Quitar filtro">×</button>
             </span>
           }
         </div>

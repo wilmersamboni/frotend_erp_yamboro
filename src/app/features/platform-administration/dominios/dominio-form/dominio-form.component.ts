@@ -7,6 +7,7 @@ import { AdminToastService } from '../../../../core/admin-auth/admin-toast.servi
 import { Tenant } from '../../../../shared/models/admin/tenant.model';
 import { AdminLoadingSpinnerComponent } from '../../../../shared/components/admin/loading-spinner.component';
 import { SearchableSelectComponent, SSOption } from '../../../../shared/components/searchable-select.component';
+import { avisarCambiosSinGuardar } from '../../../../core/services/unsaved-changes.service';
 
 @Component({
   selector: 'app-dominio-form',
@@ -87,10 +88,10 @@ import { SearchableSelectComponent, SSOption } from '../../../../shared/componen
     </div>
   `,
   styles: [`
-    .form-label { display:block; font-size:11px; font-weight:700; color:var(--text-2); margin-bottom:6px; text-transform:uppercase; letter-spacing:.4px; }
+    .form-label { display:block; font-size:12px; font-weight:700; color:var(--text-2); margin-bottom:6px; text-transform:uppercase; letter-spacing:.4px; }
     .form-input { width:100%; padding:9px 12px; border:1.5px solid var(--border); border-radius:10px; font-size:13px; color:var(--text); outline:none; transition:border-color .15s; }
     .form-input:focus { border-color:var(--accent-brand); }
-    .form-error { font-size:11px; color:var(--err-text); margin-top:4px; }
+    .form-error { font-size:12px; color:var(--err-text); margin-top:4px; }
   `],
 })
 export class DominioFormComponent {
@@ -100,6 +101,7 @@ export class DominioFormComponent {
   private readonly route          = inject(ActivatedRoute);
   private readonly router         = inject(Router);
   private readonly fb             = inject(FormBuilder);
+  private readonly _avisoCambios = avisarCambiosSinGuardar(() => this.form.dirty);
 
   readonly cargando    = signal(false);
   readonly guardando   = signal(false);
@@ -135,7 +137,7 @@ export class DominioFormComponent {
           this.form.patchValue({ tenantId: d.tenantId, subdominio: d.subdominio, ssl: d.ssl, estado: d.estado });
           this.cargando.set(false);
         },
-        error: () => { this.cargando.set(false); this.toast.error('No se pudo cargar el dominio.'); this.router.navigate(['/dominios']); },
+        error: (err) => { this.cargando.set(false); this.toast.httpError(err, 'No se pudo cargar el dominio.'); this.router.navigate(['/dominios']); },
       });
     }
   }
@@ -143,6 +145,7 @@ export class DominioFormComponent {
   toggleSSL(): void {
     const ctrl = this.form.controls['ssl'];
     ctrl.setValue(!ctrl.value);
+    ctrl.markAsDirty(); // setValue por código no marca el formulario como modificado
   }
 
   guardar(): void {
@@ -161,10 +164,11 @@ export class DominioFormComponent {
     op$.subscribe({
       next: () => {
         this.guardando.set(false);
+        this.form.markAsPristine();
         this.toast.success(this.modoEdicion() ? 'Dominio actualizado.' : 'Dominio registrado correctamente.');
         this.router.navigate(['/dominios']);
       },
-      error: () => { this.guardando.set(false); this.toast.error('Error al guardar el dominio.'); },
+      error: (err) => { this.guardando.set(false); this.toast.httpError(err, 'Error al guardar el dominio.'); },
     });
   }
 }

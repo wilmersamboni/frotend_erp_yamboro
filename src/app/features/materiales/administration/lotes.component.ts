@@ -5,7 +5,7 @@ import { AdminTableComponent } from '../../../shared/components/admin-table.comp
 import { AdminModalComponent } from '../../tenant-administration/ui/admin-modal.component';
 import { OpcionSelect } from '../../tenant-administration/services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { ToastService } from '../../../core/services/toast.service';
+import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { CreateLoteDto, Lote, MaterialesApiService, Producto, Sitio } from '../data-access/materiales-api.service';
 import { ExportColumn, TableExportService } from '../../../shared/services/table-export.service';
@@ -44,7 +44,7 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
         @if (idProductoFiltro) {
           <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#39A900]/10 text-[#2d8000] border border-[#39A900]/20">
             Filtrando por producto
-            <button (click)="quitarFiltroProducto()" class="hover:text-red-600" title="Quitar filtro">×</button>
+            <button aria-label="Quitar filtro" (click)="quitarFiltroProducto()" class="hover:text-red-600" title="Quitar filtro">×</button>
           </span>
         }
         </div>
@@ -350,7 +350,7 @@ export class MaterialesLotesComponent implements OnInit {
       this.modalOpen = false;
       await this.cargar();
     } catch (e: any) {
-      this.error = e?.error?.message ?? 'No se pudo guardar el lote.';
+      this.error = mensajeDeError(e, 'No se pudo guardar el lote.');
     } finally {
       this.saving = false;
     }

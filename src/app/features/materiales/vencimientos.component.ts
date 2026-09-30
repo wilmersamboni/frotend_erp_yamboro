@@ -8,6 +8,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { TableFilterComponent, TableFilterOption } from '../../shared/components/table-filter.component';
 import { LoadingSkeletonComponent } from '../../shared/components/loading-skeleton.component';
 import { FilaVencimiento, Lote, MaterialesApiService, Sitio } from './data-access/materiales-api.service';
+import { EsperaDirective } from '../../shared/directives/espera.directive';
 
 const VENTANAS = [7, 15, 30] as const;
 
@@ -57,7 +58,7 @@ const VENTANAS = [7, 15, 30] as const;
 @Component({
   selector: 'app-materiales-vencimientos',
   standalone: true,
-  imports: [DatePipe, FormsModule, RouterLink, TableFilterComponent, LoadingSkeletonComponent],
+  imports: [EsperaDirective, DatePipe, FormsModule, RouterLink, TableFilterComponent, LoadingSkeletonComponent],
   styles: [
     `
       .urg-fill { transform-origin: left center; }
@@ -70,7 +71,7 @@ const VENTANAS = [7, 15, 30] as const;
     <div class="p-6">
       <div class="flex flex-wrap items-end justify-between gap-4 mb-5">
         <div>
-          <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2d8000]">Control de inventario</p>
+          <p class="text-xs font-bold uppercase tracking-[0.14em] text-[#2d8000]">Control de inventario</p>
           <h1 class="text-2xl font-bold text-gray-900 mt-0.5">Vencimientos</h1>
           <p class="text-sm text-gray-400 mt-0.5">
             {{ vista() === 'perecederos' ? 'Lotes perecederos con fecha de vencimiento próxima o pasada.' : 'Préstamos entregados que deben devolverse.' }}
@@ -105,7 +106,7 @@ const VENTANAS = [7, 15, 30] as const;
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M8 5l8 4"/></svg>
             Perecederos
             @if (totalPerecederos > 0) {
-              <span class="inline-flex min-w-5 h-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold"
+              <span class="inline-flex min-w-5 h-5 items-center justify-center rounded-full px-1.5 text-xs font-bold"
                 [class.bg-red-100]="lotesVencidos.length > 0" [class.text-red-700]="lotesVencidos.length > 0"
                 [class.bg-amber-100]="lotesVencidos.length === 0" [class.text-amber-700]="lotesVencidos.length === 0">{{ totalPerecederos }}</span>
             }
@@ -116,7 +117,7 @@ const VENTANAS = [7, 15, 30] as const;
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             Préstamos
             @if (totalPrestamos > 0) {
-              <span class="inline-flex min-w-5 h-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold"
+              <span class="inline-flex min-w-5 h-5 items-center justify-center rounded-full px-1.5 text-xs font-bold"
                 [class.bg-red-100]="vencidas.length > 0" [class.text-red-700]="vencidas.length > 0"
                 [class.bg-amber-100]="vencidas.length === 0" [class.text-amber-700]="vencidas.length === 0">{{ totalPrestamos }}</span>
             }
@@ -182,7 +183,7 @@ const VENTANAS = [7, 15, 30] as const;
               <div class="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-red-400 to-red-600"></div>
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
-                  <p class="text-[11px] font-bold uppercase tracking-wide text-gray-400">Productos vencidos</p>
+                  <p class="text-xs font-bold uppercase tracking-wide text-gray-400">Productos vencidos</p>
                   <p class="mt-1.5 text-3xl font-bold text-gray-900 tabular-nums">{{ cVencidosLotes() }}</p>
                   <p class="mt-1 text-xs text-gray-400">Lotes que requieren revisión</p>
                 </div>
@@ -195,7 +196,7 @@ const VENTANAS = [7, 15, 30] as const;
               <div class="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-amber-300 to-amber-500"></div>
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
-                  <p class="text-[11px] font-bold uppercase tracking-wide text-gray-400">Próximos a vencer</p>
+                  <p class="text-xs font-bold uppercase tracking-wide text-gray-400">Próximos a vencer</p>
                   <p class="mt-1.5 text-3xl font-bold text-gray-900 tabular-nums">{{ cPorVencerLotes() }}</p>
                   <p class="mt-1 text-xs text-gray-400">En los próximos {{ ventana() }} días</p>
                 </div>
@@ -208,7 +209,7 @@ const VENTANAS = [7, 15, 30] as const;
               <div class="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-sky-300 to-sky-500"></div>
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
-                  <p class="text-[11px] font-bold uppercase tracking-wide text-gray-400">Productos afectados</p>
+                  <p class="text-xs font-bold uppercase tracking-wide text-gray-400">Productos afectados</p>
                   <p class="mt-1.5 text-3xl font-bold text-gray-900 tabular-nums">{{ cProductosRiesgo() }}</p>
                   <p class="mt-1 text-xs text-gray-400">Catálogos con al menos un lote</p>
                 </div>
@@ -221,7 +222,7 @@ const VENTANAS = [7, 15, 30] as const;
               <div class="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-gray-300 to-gray-400"></div>
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
-                  <p class="text-[11px] font-bold uppercase tracking-wide text-gray-400">Unidades en riesgo</p>
+                  <p class="text-xs font-bold uppercase tracking-wide text-gray-400">Unidades en riesgo</p>
                   <p class="mt-1.5 text-3xl font-bold text-gray-900 tabular-nums">{{ cUnidadesRiesgo() }}</p>
                   <p class="mt-1 text-xs text-gray-400">Cantidad disponible por revisar</p>
                 </div>
@@ -236,7 +237,7 @@ const VENTANAS = [7, 15, 30] as const;
             <label class="relative flex-1 min-w-[220px]">
               <span class="sr-only">Buscar lote o producto</span>
               <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-              <input [ngModel]="filtro" (ngModelChange)="onFiltro($event)" type="search" placeholder="Buscar por producto, SKU o código de lote"
+              <input appEspera [ngModel]="filtro" (ngModelChange)="onFiltro($event)" type="search" placeholder="Buscar por producto, SKU o código de lote"
                 class="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
             </label>
             <app-table-filter label="Bodega" [options]="opcionesSitioFiltro" [value]="sitioFiltro" (valueChange)="onSitio($event)" />
@@ -252,7 +253,7 @@ const VENTANAS = [7, 15, 30] as const;
               <div class="rounded-2xl border border-red-100 bg-red-50/30 overflow-hidden">
                 <div class="flex items-center justify-between px-4 py-3 border-b border-red-100">
                   <span class="text-sm font-bold text-red-800">Vencidos</span>
-                  <span class="inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-red-100 px-1.5 text-[11px] font-bold text-red-700">{{ lotesVencidos.length }}</span>
+                  <span class="inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-red-100 px-1.5 text-xs font-bold text-red-700">{{ lotesVencidos.length }}</span>
                 </div>
                 @if (lotesVencidos.length === 0) {
                   <p class="px-4 py-5 text-sm text-gray-400">No hay lotes vencidos.</p>
@@ -275,7 +276,7 @@ const VENTANAS = [7, 15, 30] as const;
               <div class="rounded-2xl border border-amber-100 bg-amber-50/30 overflow-hidden">
                 <div class="flex items-center justify-between px-4 py-3 border-b border-amber-100">
                   <span class="text-sm font-bold text-amber-800">Próximos a vencer</span>
-                  <span class="inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-[11px] font-bold text-amber-700">{{ lotesPorVencer.length }}</span>
+                  <span class="inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-xs font-bold text-amber-700">{{ lotesPorVencer.length }}</span>
                 </div>
                 @if (lotesPorVencer.length === 0) {
                   <p class="px-4 py-5 text-sm text-gray-400">No hay lotes próximos a vencer.</p>
@@ -309,7 +310,7 @@ const VENTANAS = [7, 15, 30] as const;
             <div class="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-red-400 to-red-600"></div>
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <p class="text-[11px] font-bold uppercase tracking-wide text-gray-400">Vencidas</p>
+                <p class="text-xs font-bold uppercase tracking-wide text-gray-400">Vencidas</p>
                 <p class="mt-1.5 text-3xl font-bold text-gray-900 tabular-nums">{{ cVencidasPrestamo() }}</p>
                 <p class="mt-1 text-xs text-gray-400">Ya pasó la fecha de devolución</p>
               </div>
@@ -322,7 +323,7 @@ const VENTANAS = [7, 15, 30] as const;
             <div class="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-amber-300 to-amber-500"></div>
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <p class="text-[11px] font-bold uppercase tracking-wide text-gray-400">Por vencer</p>
+                <p class="text-xs font-bold uppercase tracking-wide text-gray-400">Por vencer</p>
                 <p class="mt-1.5 text-3xl font-bold text-gray-900 tabular-nums">{{ cPorVencerPrestamo() }}</p>
                 <p class="mt-1 text-xs text-gray-400">En los próximos {{ ventana() }} días</p>
               </div>
@@ -337,7 +338,7 @@ const VENTANAS = [7, 15, 30] as const;
         <div class="flex items-center gap-2 mb-3">
           <h2 class="text-sm font-bold text-gray-700">Vencidas</h2>
           @if (vencidas.length > 0) {
-            <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold bg-red-100 text-red-700">{{ vencidas.length }}</span>
+            <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold bg-red-100 text-red-700">{{ vencidas.length }}</span>
           }
         </div>
 
@@ -350,7 +351,7 @@ const VENTANAS = [7, 15, 30] as const;
           <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden mb-8">
             <div class="overflow-x-auto">
             <table class="w-full text-sm">
-              <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
+              <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
                 <tr>
                   <th class="px-4 py-3 text-left font-semibold">Producto</th>
                   <th class="px-4 py-3 text-left font-semibold">Solicitante</th>
@@ -366,7 +367,7 @@ const VENTANAS = [7, 15, 30] as const;
                   <tr #filaVencida class="hover:bg-gray-50/80 transition-colors">
                     <td class="px-4 py-3">
                       <div class="text-gray-800 font-medium">{{ f.producto_nombre }}</div>
-                      <div class="text-[11px] text-gray-400">× {{ f.cantidad }}</div>
+                      <div class="text-xs text-gray-400">× {{ f.cantidad }}</div>
                     </td>
                     <td class="px-4 py-3 text-gray-600">{{ f.solicitante_nombre || '—' }}</td>
                     <td class="px-4 py-3 text-gray-600">{{ f.bodega_nombre || '—' }}</td>
@@ -385,7 +386,7 @@ const VENTANAS = [7, 15, 30] as const;
                           Registrar devolución
                         </a>
                       } @else {
-                        <span class="text-[11px] text-gray-400" [title]="'Solo ' + (f.responsable_nombre || 'el encargado de esa bodega') + ' puede registrar esta devolución'">
+                        <span class="text-xs text-gray-400" [title]="'Solo ' + (f.responsable_nombre || 'el encargado de esa bodega') + ' puede registrar esta devolución'">
                           Fuera de tu bodega
                         </span>
                       }
@@ -402,7 +403,7 @@ const VENTANAS = [7, 15, 30] as const;
         <div class="flex items-center gap-2 mb-3">
           <h2 class="text-sm font-bold text-gray-700">Por vencer</h2>
           @if (porVencer.length > 0) {
-            <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-700">{{ porVencer.length }}</span>
+            <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">{{ porVencer.length }}</span>
           }
         </div>
 
@@ -415,7 +416,7 @@ const VENTANAS = [7, 15, 30] as const;
           <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
             <table class="w-full text-sm">
-              <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
+              <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
                 <tr>
                   <th class="px-4 py-3 text-left font-semibold">Producto</th>
                   <th class="px-4 py-3 text-left font-semibold">Solicitante</th>
@@ -430,7 +431,7 @@ const VENTANAS = [7, 15, 30] as const;
                   <tr #filaPorVencer class="hover:bg-gray-50/80 transition-colors">
                     <td class="px-4 py-3">
                       <div class="text-gray-800 font-medium">{{ f.producto_nombre }}</div>
-                      <div class="text-[11px] text-gray-400">× {{ f.cantidad }}</div>
+                      <div class="text-xs text-gray-400">× {{ f.cantidad }}</div>
                     </td>
                     <td class="px-4 py-3 text-gray-600">{{ f.solicitante_nombre || '—' }}</td>
                     <td class="px-4 py-3 text-gray-600">{{ f.bodega_nombre || '—' }}</td>

@@ -7,11 +7,12 @@ import {
 import { FormsModule } from '@angular/forms';
 import { COLUMNS, Column } from './table-info.types';
 import { PageSizeSelectComponent } from '../../../../shared/components/page-size-select.component';
+import { EsperaDirective } from '../../../../shared/directives/espera.directive';
 
 @Component({
   selector: 'app-table-toolbar',
   standalone: true,
-  imports: [FormsModule, PageSizeSelectComponent],
+  imports: [EsperaDirective, FormsModule, PageSizeSelectComponent],
   template: `
     <div class="px-6 pb-4 flex flex-col gap-4">
 
@@ -20,14 +21,14 @@ import { PageSizeSelectComponent } from '../../../../shared/components/page-size
 
         <!-- Búsqueda -->
         <div class="relative w-full sm:max-w-md">
-          <input
+          <input appEspera
             type="text"
             [ngModel]="filter()"
             (ngModelChange)="filterChange.emit($event)"
             placeholder="🔍︎ Buscar por nombre o identificación..."
             class="w-full pl-3 pr-8 py-2 border-2 border-gray-200 rounded-xl text-sm hover:border-[#39A900]/50 focus:outline-none focus:border-[#39A900] transition-colors"/>
           @if (filter()) {
-            <button (click)="filterChange.emit('')"
+            <button aria-label="Limpiar búsqueda" (click)="filterChange.emit('')"
               class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg leading-none">
               ×
             </button>
@@ -48,7 +49,7 @@ import { PageSizeSelectComponent } from '../../../../shared/components/page-size
           @if (showColMenu) {
             <div class="absolute right-0 top-10 z-20 bg-white border border-gray-200 rounded-xl shadow-lg p-3 min-w-[200px]"
               (click)="$event.stopPropagation()">
-              <p class="text-[10px] text-gray-400 font-medium uppercase tracking-wide mb-2">
+              <p class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-2">
                 Columnas visibles
               </p>
               @for (col of allColumns; track col.uid) {

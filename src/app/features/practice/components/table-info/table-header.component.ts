@@ -36,7 +36,7 @@ import { Column, StatusOption, STATUS_OPTIONS, statusDotColor } from './table-in
                   Área
                   @if (selectedAreas().length > 0) {
                     <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1
-                                  bg-[#39A900] text-white text-[10px] font-bold rounded-full">
+                                  bg-[#39A900] text-white text-xs font-bold rounded-full">
                       {{ selectedAreas().length }}
                     </span>
                   }
@@ -49,7 +49,7 @@ import { Column, StatusOption, STATUS_OPTIONS, statusDotColor } from './table-in
                 @if (showAreaMenu) {
                   <div class="absolute left-0 top-8 z-[9999] min-w-[180px] bg-white border border-gray-200 rounded-xl shadow-lg p-3"
                     (click)="$event.stopPropagation()">
-                    <p class="text-[10px] text-gray-400 font-medium uppercase tracking-wide mb-2">
+                    <p class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-2">
                       Filtrar por área
                     </p>
                     <div class="flex flex-col gap-1">
@@ -91,7 +91,7 @@ import { Column, StatusOption, STATUS_OPTIONS, statusDotColor } from './table-in
                   Estado
                   @if (selectedStatuses().length > 0) {
                     <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1
-                                  bg-[#39A900] text-white text-[10px] font-bold rounded-full">
+                                  bg-[#39A900] text-white text-xs font-bold rounded-full">
                       {{ selectedStatuses().length }}
                     </span>
                   }
@@ -104,7 +104,7 @@ import { Column, StatusOption, STATUS_OPTIONS, statusDotColor } from './table-in
                 @if (showStatusMenu) {
                   <div class="absolute left-0 top-8 z-[9999] min-w-[180px] bg-white border border-gray-200 rounded-xl shadow-lg p-3"
                     (click)="$event.stopPropagation()">
-                    <p class="text-[10px] text-gray-400 font-medium uppercase tracking-wide mb-2">
+                    <p class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-2">
                       Filtrar por estado
                     </p>
                     <div class="flex flex-col gap-1">

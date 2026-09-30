@@ -4,7 +4,7 @@ import { AdminTableComponent, TableRowLink } from '../../shared/components/admin
 import { AdminModalComponent } from '../tenant-administration/ui/admin-modal.component';
 import { OpcionSelect } from '../tenant-administration/services/admin.service';
 import { AuthService } from '../../core/services/auth.service';
-import { ToastService } from '../../core/services/toast.service';
+import { ToastService, mensajeDeError } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 import { Item, MaterialesApiService, Producto, Sitio } from './data-access/materiales-api.service';
 import { BarcodeScannerComponent } from '../../shared/scanner/barcode-scanner.component';
@@ -12,6 +12,8 @@ import { SyncQueueService } from '../../core/offline/sync-queue.service';
 import { OfflineSnapshotService } from '../../core/offline/offline-snapshot.service';
 import { NetworkStatusService } from '../../core/offline/network-status.service';
 import { AlertComponent } from '../../shared/ui/alert.component';
+import { SearchableSelectComponent, SSOption } from '../../shared/components/searchable-select.component';
+import { DialogDirective } from '../../shared/directives/dialog.directive';
 
 const OPCIONES_ESTADO: OpcionSelect[] = [
   { label: 'Disponible', value: 'DISPONIBLE' },
@@ -54,7 +56,7 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
 @Component({
   selector: 'app-materiales-items',
   standalone: true,
-  imports: [AlertComponent, FormsModule, AdminTableComponent, AdminModalComponent, BarcodeScannerComponent],
+  imports: [DialogDirective, AlertComponent, SearchableSelectComponent, FormsModule, AdminTableComponent, AdminModalComponent, BarcodeScannerComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-4">
@@ -137,24 +139,19 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
       (saved)="guardarNuevoItem($event)" />
 
     @if (asignarPlacasOpen) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarAsignarPlacas()">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarAsignarPlacas()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-bold text-gray-800">Asignar placas SENA</h2>
-            <button (click)="cerrarAsignarPlacas()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="cerrarAsignarPlacas()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 
           <div class="space-y-4">
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Producto</label>
-              <select [(ngModel)]="placasProductoId" (ngModelChange)="onProductoPlacasChange()"
-                class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
-                @for (p of opcionesProductoPlacas; track p.id_producto) {
-                  <option [value]="p.id_producto">{{ p.nombre }} — {{ p.count }} sin placa</option>
-                }
-              </select>
+              <app-ss [options]="opcionesProductoPlacasSS" [(ngModel)]="placasProductoId" (ngModelChange)="onProductoPlacasChange()"></app-ss>
               @if (!red.alcanzable()) {
-                <p class="text-[11px] text-amber-600 mt-1">Sin conexión — mostrando lo preparado la última vez con señal.</p>
+                <p class="text-xs text-amber-600 mt-1">Sin conexión — mostrando lo preparado la última vez con señal.</p>
               }
             </div>
 
@@ -166,14 +163,14 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
                 <textarea [(ngModel)]="pegado" (ngModelChange)="aplicarPegado()" rows="3"
                   placeholder="SENA-00123&#10;SENA-00124&#10;…"
                   class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]"></textarea>
-                <p class="text-[11px] text-gray-400 mt-1">Se reparten de arriba hacia abajo. También podés escribir cada una en la grilla.</p>
+                <p class="text-xs text-gray-400 mt-1">Se reparten de arriba hacia abajo. También podés escribir cada una en la grilla.</p>
               </div>
 
               <div class="border border-gray-100 rounded-lg divide-y divide-gray-100 max-h-64 overflow-y-auto">
                 @for (fila of filasPlacas; track fila.id_item; let i = $index) {
                   <div class="flex items-center gap-3 px-3 py-2">
                     <span class="text-xs text-gray-400 w-6 shrink-0">#{{ i + 1 }}</span>
-                    <span class="text-[11px] text-gray-400 w-24 shrink-0 truncate">{{ fila.estado }}</span>
+                    <span class="text-xs text-gray-400 w-24 shrink-0 truncate">{{ fila.estado }}</span>
                     <input type="text" [(ngModel)]="fila.placa" placeholder="Placa SENA"
                       class="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
                   </div>
@@ -450,7 +447,7 @@ export class MaterialesItemsComponent implements OnInit {
       this.modalOpen = false;
       await this.cargar();
     } catch (e: any) {
-      this.error = e?.error?.message ?? 'No se pudo actualizar el ítem.';
+      this.error = mensajeDeError(e, 'No se pudo actualizar el ítem.');
     } finally {
       this.saving = false;
     }
@@ -486,7 +483,7 @@ export class MaterialesItemsComponent implements OnInit {
       this.agregarOpen = false;
       await this.cargar();
     } catch (e: any) {
-      this.agregarError = e?.error?.message ?? 'No se pudo agregar el ítem.';
+      this.agregarError = mensajeDeError(e, 'No se pudo agregar el ítem.');
     } finally {
       this.agregarSaving = false;
     }
@@ -503,6 +500,20 @@ export class MaterialesItemsComponent implements OnInit {
         count: this.items.filter((i) => i.id_producto === p.id_producto && !i.placa_sena?.trim()).length,
       }))
       .filter((p) => p.count > 0);
+  }
+
+  /** Misma lista para <app-ss>. La referencia se mantiene mientras el contenido no cambie:
+   *  un getter que devuelve un array nuevo en cada ciclo dispara NG0100 en un input. */
+  private ssPlacasClave = '';
+  private ssPlacas: SSOption[] = [];
+  get opcionesProductoPlacasSS(): SSOption[] {
+    const ops = this.opcionesProductoPlacas;
+    const clave = ops.map((p) => `${p.id_producto}:${p.count}:${p.nombre}`).join('|');
+    if (clave !== this.ssPlacasClave) {
+      this.ssPlacasClave = clave;
+      this.ssPlacas = ops.map((p) => ({ value: p.id_producto, label: `${p.nombre} — ${p.count} sin placa` }));
+    }
+    return this.ssPlacas;
   }
 
   get placasLlenas(): number {
@@ -621,7 +632,7 @@ export class MaterialesItemsComponent implements OnInit {
       if (e?.status === 0) {
         await this.encolarPlacasOffline(asignaciones);
       } else {
-        this.asignarPlacasError = e?.error?.message ?? 'No se pudieron asignar las placas.';
+        this.asignarPlacasError = mensajeDeError(e, 'No se pudieron asignar las placas.');
       }
     } finally {
       this.asignarPlacasSaving = false;

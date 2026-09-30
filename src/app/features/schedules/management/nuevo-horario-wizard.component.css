@@ -64,7 +64,7 @@
   border-bottom: 2px solid var(--border);
 }
 .wiz-table th {
-  padding: 11px 14px; font-size: 11px; font-weight: 800; color: var(--text-2);
+  padding: 11px 14px; font-size: 12px; font-weight: 800; color: var(--text-2);
   text-transform: uppercase; letter-spacing: .06em; text-align: left;
   white-space: nowrap;
 }
@@ -81,7 +81,7 @@
 .wt-apply-all {
   display: flex; align-items: center; gap: 5px;
   margin-top: 6px; cursor: pointer;
-  font-size: 10px; font-weight: 500;
+  font-size: 12px; font-weight: 500;
   text-transform: none; letter-spacing: 0;
   opacity: .8; color: var(--text-faint);
   transition: opacity .15s, color .15s;
@@ -133,7 +133,7 @@
 /* Badge transversal */
 .wt-transversal-pill {
   display: inline-flex; align-items: center; gap: 5px;
-  font-size: 11px; color: var(--warn-text);
+  font-size: 12px; color: var(--warn-text);
   background: var(--warn-bg); border: 1px solid var(--warn-border);
   border-radius: 6px; padding: 5px 10px; font-weight: 600; white-space: nowrap;
 }
@@ -148,5 +148,5 @@
 /* Aviso de choque (ficha ocupada / cruce de instructor) bajo el select del día */
 .wt-cruce {
   display: flex; align-items: center; gap: 4px; margin-top: 4px;
-  font-size: 11px; font-weight: 600; color: var(--err-text);
+  font-size: 12px; font-weight: 600; color: var(--err-text);
 }

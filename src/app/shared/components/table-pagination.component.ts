@@ -12,7 +12,7 @@ import { Component, input, output, computed } from '@angular/core';
     @if (pages() > 0) {
       <div class="py-3 px-6 flex justify-center gap-1 border-t border-gray-50">
 
-        <button (click)="page() > 1 && pageChange.emit(page() - 1)"
+        <button aria-label="Página anterior" (click)="page() > 1 && pageChange.emit(page() - 1)"
           [disabled]="page() === 1"
           class="px-2.5 py-1.5 text-xs rounded-lg border border-gray-200 text-gray-500 hover:border-[#39A900] disabled:opacity-40 transition-colors">
           ‹
@@ -30,7 +30,7 @@ import { Component, input, output, computed } from '@angular/core';
           </button>
         }
 
-        <button (click)="page() < pages() && pageChange.emit(page() + 1)"
+        <button aria-label="Página siguiente" (click)="page() < pages() && pageChange.emit(page() + 1)"
           [disabled]="page() === pages()"
           class="px-2.5 py-1.5 text-xs rounded-lg border border-gray-200 text-gray-500 hover:border-[#39A900] disabled:opacity-40 transition-colors">
           ›

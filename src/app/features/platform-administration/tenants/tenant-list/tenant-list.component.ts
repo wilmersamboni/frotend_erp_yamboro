@@ -9,11 +9,12 @@ import { AdminCredencialesModalComponent } from '../../../../shared/components/a
 import { AdminBadgeEstadoComponent } from '../../../../shared/components/admin/badge-estado.component';
 import { AdminEmptyStateComponent } from '../../../../shared/components/admin/empty-state.component';
 import { AdminLoadingSpinnerComponent } from '../../../../shared/components/admin/loading-spinner.component';
+import { EsperaDirective } from '../../../../shared/directives/espera.directive';
 
 @Component({
   selector: 'app-tenant-list',
   standalone: true,
-  imports: [FormsModule, AdminConfirmDialogComponent, AdminBadgeEstadoComponent, AdminEmptyStateComponent, AdminLoadingSpinnerComponent, AdminCredencialesModalComponent],
+  imports: [EsperaDirective, FormsModule, AdminConfirmDialogComponent, AdminBadgeEstadoComponent, AdminEmptyStateComponent, AdminLoadingSpinnerComponent, AdminCredencialesModalComponent],
   template: `
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
       <div>
@@ -38,7 +39,7 @@ import { AdminLoadingSpinnerComponent } from '../../../../shared/components/admi
               <circle cx="11" cy="11" r="8" /><path stroke-linecap="round" d="M21 21l-4.35-4.35" />
             </svg>
           </span>
-          <input type="text" placeholder="Buscar por nombre, slug o dominio..."
+          <input appEspera type="text" placeholder="Buscar por nombre, slug o dominio..."
             [ngModel]="busqueda()" (ngModelChange)="busqueda.set($event)"
             class="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-gray-200 outline-none transition-colors focus:border-[#39A900]"
             style="background:var(--surface2);" />
@@ -73,20 +74,20 @@ import { AdminLoadingSpinnerComponent } from '../../../../shared/components/admi
                   <td class="px-5 py-3"><app-admin-badge-estado [estado]="tenant.estado" /></td>
                   <td class="px-5 py-3 text-right">
                     <div class="flex items-center justify-end gap-1.5">
-                      <button type="button" (click)="solicitarReinicializar(tenant)" [disabled]="reinicializandoId() === tenant.id"
+                      <button aria-label="Reinicializar" type="button" (click)="solicitarReinicializar(tenant)" [disabled]="reinicializandoId() === tenant.id"
                         title="Reinicializar" class="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors disabled:opacity-40">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
                       </button>
-                      <button type="button" (click)="editarTenant(tenant)" title="Editar"
+                      <button aria-label="Editar" type="button" (click)="editarTenant(tenant)" title="Editar"
                         class="p-1.5 rounded-lg text-gray-400 hover:text-[#007832] hover:bg-[#007832]/10 transition-colors">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
                           <path stroke-linecap="round" stroke-linejoin="round" d="M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
                         </svg>
                       </button>
-                      <button type="button" (click)="solicitarEliminar(tenant)" [disabled]="tenant.estado === 'inactivo'"
+                      <button aria-label="Desactivar" type="button" (click)="solicitarEliminar(tenant)" [disabled]="tenant.estado === 'inactivo'"
                         title="Desactivar" class="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16" />
@@ -156,7 +157,7 @@ export class TenantListComponent {
     this.cargando.set(true);
     this.tenantService.obtenerTodos().subscribe({
       next: (data) => { this.tenants.set(data); this.cargando.set(false); },
-      error: () => { this.cargando.set(false); this.toast.error('No se pudieron cargar los centros.'); },
+      error: (err) => { this.cargando.set(false); this.toast.httpError(err, 'No se pudieron cargar los centros.'); },
     });
   }
 
@@ -180,7 +181,7 @@ export class TenantListComponent {
           this.toast.error(`"${tenant.nombre}" reinicializado, pero no se obtuvieron credenciales.`);
         }
       },
-      error: () => { this.reinicializandoId.set(null); this.toast.error('No se pudo reinicializar el tenant.'); },
+      error: (err) => { this.reinicializandoId.set(null); this.toast.httpError(err, 'No se pudo reinicializar el tenant.'); },
     });
   }
 
@@ -193,7 +194,7 @@ export class TenantListComponent {
     if (!tenant) return;
     this.tenantService.eliminar(tenant.id).subscribe({
       next: () => { this.toast.success(`"${tenant.nombre}" fue desactivado.`); this.tenantAEliminar.set(null); this.cargarTenants(); },
-      error: () => { this.toast.error('No se pudo desactivar el centro.'); this.tenantAEliminar.set(null); },
+      error: (err) => { this.toast.httpError(err, 'No se pudo desactivar el centro.'); this.tenantAEliminar.set(null); },
     });
   }
 }

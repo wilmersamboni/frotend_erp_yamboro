@@ -4,6 +4,7 @@ import gsap from 'gsap';
 
 import { EncuestasApiService, EncuestaDeGrupoPublico } from '../data-access/encuestas-api.service';
 import { encuestaYaRespondida } from '../../../core/utils/encuestas-respondidas.util';
+import { mensajeDeError } from '../../../core/services/toast.service';
 
 type Vista = 'cargando' | 'listado' | 'error';
 
@@ -130,7 +131,7 @@ export class ResponderGrupoComponent implements OnInit {
         afterNextRender(() => this.entrarListado(), { injector: this.injector });
       }
     } catch (e: any) {
-      this.mostrarError(e?.error?.message ?? 'No se pudo cargar el grupo de encuestas.');
+      this.mostrarError(mensajeDeError(e, 'No se pudo cargar el grupo de encuestas.'));
     }
   }
 

@@ -90,7 +90,7 @@ interface EstadoMigracion {
             Errores: {{ estado().resumen?.errores ?? 0 }}
           </p>
         </div>
-        <button (click)="cerrarNotificacion()"
+        <button aria-label="Cerrar" (click)="cerrarNotificacion()"
           class="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
       </div>
     }

@@ -42,7 +42,7 @@ const TIPOS: { value: string; label: string }[] = [
               {{ formato.nombre }}
             </p>
             <div class="flex items-center gap-1.5 mt-1.5">
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full
+              <span class="text-xs font-bold px-2 py-0.5 rounded-full
                            bg-[#39A900]/10 text-[#2d8400] uppercase tracking-wide">
                 {{ tipoLabel(formato.tipo) }}
               </span>
@@ -58,12 +58,12 @@ const TIPOS: { value: string; label: string }[] = [
       <div class="p-3 flex gap-1.5">
         <a [href]="fileUrl(formato.ruta_archivo)"
            target="_blank"
-           class="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] font-semibold rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">
+           class="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-semibold rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">
           <span>👁</span> Ver
         </a>
         <a [href]="fileUrl(formato.ruta_archivo)"
            [download]="formato.nombre_original"
-           class="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] font-semibold
+           class="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-semibold
                   rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors">
           <span>↓</span> Descargar
         </a>
@@ -71,7 +71,7 @@ const TIPOS: { value: string; label: string }[] = [
           <button
             (click)="eliminar.emit(formato.id)"
             title="Eliminar"
-            class="w-8 flex items-center justify-center py-1.5 text-[11px] rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors">
+            class="w-8 flex items-center justify-center py-1.5 text-xs rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors">
             🗑
           </button>
         }

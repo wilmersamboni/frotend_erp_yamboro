@@ -6,6 +6,7 @@ import { SearchableSelectComponent } from '../../../shared/components/searchable
 import { DateInputComponent } from '../../../shared/components/date-input.component';
 import { TuiDay } from '@taiga-ui/cdk';
 import { TuiDayCache } from '../../../shared/utils/tui-day.util';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 /**
  * Modal genérico para crear/editar registros.
@@ -16,10 +17,10 @@ import { TuiDayCache } from '../../../shared/utils/tui-day.util';
 @Component({
   selector: 'app-admin-modal',
   standalone: true,
-  imports: [FormsModule, CoordenadasMapComponent, SearchableSelectComponent, DateInputComponent],
+  imports: [DialogDirective, FormsModule, CoordenadasMapComponent, SearchableSelectComponent, DateInputComponent],
   template: `
     @if (open) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
            (click)="onBackdropClick($event)">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto"
              (click)="$event.stopPropagation()">
@@ -29,7 +30,7 @@ import { TuiDayCache } from '../../../shared/utils/tui-day.util';
             <h2 class="text-lg font-bold text-gray-800">
               {{ editando ? 'Editar ' + labelSingular : 'Nuevo ' + labelSingular }}
             </h2>
-            <button (click)="closed.emit()"
+            <button aria-label="Cerrar" (click)="closed.emit()"
               class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 

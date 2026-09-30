@@ -52,7 +52,7 @@ import { FORMATOS_ESCANEO_DEFECTO } from './barcode-scanner.types';
         <div class="relative rounded-lg overflow-hidden bg-black" style="aspect-ratio: 4/3;">
           <video #video class="w-full h-full object-cover" [style.transform]="espejo() ? 'scaleX(-1)' : null" muted playsinline></video>
           @if (linternaDisponible()) {
-            <button type="button" (click)="toggleLinterna()"
+            <button aria-label="Linterna" type="button" (click)="toggleLinterna()"
               class="absolute bottom-2 right-2 p-2 rounded-full bg-black/50 text-white">
               <lucide-icon [name]="linternaActiva() ? 'flashlight-off' : 'flashlight'" [size]="18"></lucide-icon>
             </button>
@@ -114,6 +114,7 @@ export class BarcodeScannerComponent implements OnChanges, OnDestroy {
   manual = '';
 
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private reader: BrowserMultiFormatReader | null = null;
   private controls: IScannerControls | null = null;
   private ultimoCodigo: string | null = null;
@@ -251,12 +252,19 @@ export class BarcodeScannerComponent implements OnChanges, OnDestroy {
     this.ultimoCodigo = texto;
     this.ultimoTimestamp = ahora;
     this.scanned.emit(texto);
+    this.avisarCambio();
   }
 
   emitirManual(): void {
     const texto = this.manual.trim();
     if (!texto) return;
     this.scanned.emit(texto);
+    this.avisarCambio();
     this.manual = '';
+  }
+
+  /** Una lectura es un dato que ingresó el usuario: un `change` nativo lo avisa al modal contenedor (DialogDirective). */
+  private avisarCambio(): void {
+    this.host.nativeElement.dispatchEvent(new Event('change', { bubbles: true }));
   }
 }

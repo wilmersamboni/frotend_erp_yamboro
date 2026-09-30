@@ -4,7 +4,7 @@ import { Router } from '@angular/router';
 import { catchError, retry, throwError, timer } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 import { AdminAuthService } from '../admin-auth/admin-auth.service';
-import { ToastService } from '../services/toast.service';
+import { ToastService, erroresYaAvisados, mensajeDeError } from '../services/toast.service';
 
 /**
  * Marca una request para que sus errores (403/429/0/503) no disparen el
@@ -94,6 +94,7 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
       switch (err.status) {
         case 401: {
           if (esRequestDeLogin(req.url)) break;
+          erroresYaAvisados.add(err);
           // La presencia de sesión actúa de flag anti-repetición: el primer
           // 401 la limpia (síncrono, signals), así que los 401 de las demás
           // requests en vuelo ya no entran aquí.
@@ -109,15 +110,20 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
           }
           break;
         }
+        // En estos casos el aviso lo da este interceptor (con el mensaje propio del backend si lo hay)
+        // y el error se marca para que `toast.httpError` de la pantalla no muestre un segundo aviso.
         case 403:
-          if (!toastRepetido(403)) toast.warn('Sin permiso', 'No tienes permiso para realizar esta acción.');
+          erroresYaAvisados.add(err);
+          if (!toastRepetido(403)) toast.warn('Sin permiso', mensajeDeError(err, 'No tienes permiso para realizar esta acción.'));
           break;
         case 429:
-          if (!toastRepetido(429)) toast.warn('Demasiadas solicitudes', 'Espera unos segundos e intenta de nuevo.');
+          erroresYaAvisados.add(err);
+          if (!toastRepetido(429)) toast.warn('Demasiadas solicitudes', mensajeDeError(err, 'Espera unos segundos e intenta de nuevo.'));
           break;
         case 0:
         case 503:
-          if (!toastRepetido(503)) toast.error('Servicio no disponible', 'Revisa tu conexión o reintenta en unos momentos.');
+          erroresYaAvisados.add(err);
+          if (!toastRepetido(503)) toast.error('Servicio no disponible', mensajeDeError(err, 'Revisa tu conexión o reintenta en unos momentos.'));
           break;
       }
 

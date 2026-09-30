@@ -97,7 +97,7 @@ export class AdminLoginComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.cargando.set(false);
-        this.toast.error(err?.error?.message ?? 'Credenciales inválidas. Inténtalo de nuevo.');
+        this.toast.httpError(err, 'Credenciales inválidas. Inténtalo de nuevo.');
       },
     });
   }

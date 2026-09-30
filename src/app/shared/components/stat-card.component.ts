@@ -18,7 +18,7 @@ export type StatCardTono = 'neutral' | 'success' | 'info' | 'warning' | 'danger'
       <div class="absolute inset-x-0 top-0 h-1" [style.background-color]="paleta().acento"></div>
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
-          <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{{ label }}</p>
+          <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">{{ label }}</p>
           <p class="mt-1 text-2xl font-bold text-gray-800 tabular-nums">{{ value }}</p>
           @if (hint) {
             <p class="mt-0.5 text-xs text-gray-400">{{ hint }}</p>

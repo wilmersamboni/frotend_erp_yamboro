@@ -25,8 +25,8 @@ import { DIAS_LABELS } from '../../../core/utils/horarios.util';
       <div style="min-width:130px; flex:1; max-width:175px;">
         <app-ss [options]="dispAreaOpts()" placeholder="Todas las áreas" [(ngModel)]="dispArea"></app-ss>
       </div>
-      <button class="bg-sena-gradient hover:opacity-90 text-white font-semibold rounded-lg transition-all" style="height:34px; padding:0 14px; font-size:12px; white-space:nowrap;" (click)="checkDisp()">
-        <lucide-icon name="search" [size]="13" style="vertical-align:-2px;margin-right:4px;"></lucide-icon>Verificar
+      <button class="bg-sena-gradient hover:opacity-90 text-white font-semibold rounded-lg transition-all inline-flex items-center gap-1" style="height:34px; padding:0 14px; font-size:12px; white-space:nowrap;" (click)="checkDisp()">
+        <lucide-icon name="search" [size]="13"></lucide-icon>Verificar
       </button>
       @if (dispResult().length > 0 || dispDia || dispJornada || dispArea) {
         <button class="border border-gray-300 hover:bg-gray-50 hover:border-[#39A900]/50 hover:text-[#39A900] text-gray-700 rounded-lg transition-all" style="height:34px; padding:0 12px; font-size:12px; white-space:nowrap; display:flex; align-items:center; gap:5px;" (click)="clearDisp()">
@@ -36,7 +36,7 @@ import { DIAS_LABELS } from '../../../core/utils/horarios.util';
     </div>
 
     @if (dispResult().length > 0) {
-      <div style="padding:6px 16px; background:var(--surface2); border-bottom:1px solid var(--border); font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <div style="padding:6px 16px; background:var(--surface2); border-bottom:1px solid var(--border); font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
         <lucide-icon name="filter" [size]="11" style="opacity:.6;"></lucide-icon>
         <span><strong>{{ dispResultFiltered().length }}</strong> ambiente{{ dispResultFiltered().length !== 1 ? 's' : '' }}
           @if (dispResultFiltered().length !== dispResult().length) { <span style="opacity:.7;">(de {{ dispResult().length }})</span> }
@@ -75,14 +75,14 @@ import { DIAS_LABELS } from '../../../core/utils/horarios.util';
     }
     .disp-card.ocupado { background:var(--err-bg);border-color:var(--err-border); }
     .disp-name { font-weight:600;color:var(--text);text-align:center; }
-    .disp-area { font-size:10px;color:var(--text-muted);text-align:center;background:var(--surface);border-radius:4px;padding:1px 6px; }
-    .disp-status { font-size:11px;color:var(--text-muted);text-align:center; }
-    .disp-tag { display:inline-flex;align-items:center;background:var(--ok-bg);color:var(--ok-text);border-radius:10px;padding:1px 8px;font-size:10px;font-weight:700; }
+    .disp-area { font-size:12px;color:var(--text-muted);text-align:center;background:var(--surface);border-radius:4px;padding:1px 6px; }
+    .disp-status { font-size:12px;color:var(--text-muted);text-align:center; }
+    .disp-tag { display:inline-flex;align-items:center;background:var(--ok-bg);color:var(--ok-text);border-radius:10px;padding:1px 8px;font-size:12px;font-weight:700; }
     .disp-card.disponible-click { cursor: pointer; transition: border-color .15s, background .15s, box-shadow .15s; }
     .disp-card.disponible-click:hover {
       background: rgba(22,163,74,.12); border-color: #16a34a; box-shadow: 0 0 0 2px rgba(22,163,74,.15);
     }
-    .disp-card.disponible-click .disp-status { color: var(--ok-text); font-weight: 600; font-size: 11px; }
+    .disp-card.disponible-click .disp-status { color: var(--ok-text); font-weight: 600; font-size: 12px; }
 
   `],
 })

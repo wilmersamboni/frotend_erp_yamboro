@@ -1,11 +1,13 @@
-import { Component, EventEmitter, Input, Output, computed, signal } from '@angular/core';
+import { Component, EventEmitter, Input, Output, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { HorariosApiService } from '../data-access/horarios-api.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { FormularioVigilado, UnsavedChangesService, avisarCambiosSinGuardar } from '../../../core/services/unsaved-changes.service';
 import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
 import { TimeInputComponent } from '../../../shared/components/time-input.component';
 import { DIAS_SEMANA, DIAS_LABELS } from '../../../core/utils/horarios.util';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 const JORNADAS = [
   { key: 'manana', label: 'Mañana (07:00–12:00)', inicio: '07:00', fin: '12:00' },
@@ -30,10 +32,10 @@ interface DiaConfig {
 @Component({
   selector: 'app-nuevo-horario-wizard',
   standalone: true,
-  imports: [FormsModule, LucideAngularModule, SearchableSelectComponent, TimeInputComponent],
+  imports: [DialogDirective, FormsModule, LucideAngularModule, SearchableSelectComponent, TimeInputComponent],
   template: `
     @if (showModal()) {
-    <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+    <div appDialog [dialogGuard]="false" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div class="wizard-modal" (click)="$event.stopPropagation()">
 
         <!-- Cabecera -->
@@ -42,7 +44,7 @@ interface DiaConfig {
             <h3 class="wiz-title">Nuevo Horario</h3>
             <p class="wiz-subtitle">Selecciona los días y configura ficha, instructor y ambiente para cada uno</p>
           </div>
-          <button class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" (click)="showModal.set(false)">
+          <button aria-label="Cerrar" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" (click)="cerrar()">
             <lucide-icon name="x" [size]="20"></lucide-icon>
           </button>
         </div>
@@ -72,7 +74,7 @@ interface DiaConfig {
               <div>
                 <div>Jornada: <strong>{{ jornadaDetectadaLabel() }}</strong></div>
                 @if (abarcaDosJornadas()) {
-                  <div style="font-size:10px;opacity:.85;">El horario abarca dos jornadas</div>
+                  <div style="font-size:12px;opacity:.85;">El horario abarca dos jornadas</div>
                 }
               </div>
             </div>
@@ -193,7 +195,7 @@ interface DiaConfig {
         <!-- Error + botones -->
         @if (formError()) { <div class="error-msg" style="margin:12px 24px 0;">{{ formError() }}</div> }
         <div class="wiz-footer">
-          <button class="border border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold rounded-xl px-5 py-2 transition-all" (click)="showModal.set(false)">Cancelar</button>
+          <button class="border border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold rounded-xl px-5 py-2 transition-all" (click)="cerrar()">Cancelar</button>
           <button class="bg-sena-gradient hover:opacity-90 text-white font-semibold rounded-xl px-5 py-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2" (click)="saveWizardHorarios()" [disabled]="saving() || !esWizardValido()">
             @if (saving()) { <lucide-icon name="loader" [size]="14" class="spin"></lucide-icon> Guardando... }
             @else { <lucide-icon name="save" [size]="14"></lucide-icon> Guardar Horarios }
@@ -230,11 +232,23 @@ export class NuevoHorarioWizardComponent {
     diasConfig: Record<string, DiaConfig>;
   } = { jornada: '', horaInicio: '', horaFin: '', dias: [], diasConfig: {} };
 
+  private readonly avisos = inject(UnsavedChangesService);
+  /** Compara con el estado al abrir: un wizard precargado desde Disponibilidad no cuenta como "modificado". */
+  private readonly cambios = new FormularioVigilado(() => JSON.stringify([this.wizardForm, this.applyAll]));
+
   constructor(
     private horariosApi: HorariosApiService,
     private toast: ToastService,
   ) {
     this.resetForm();
+    avisarCambiosSinGuardar(() => this.showModal() && this.cambios.sucio);
+  }
+
+  /** X / Cancelar: si ya se configuró algo, pregunta antes de descartarlo. */
+  async cerrar(): Promise<void> {
+    if (this.cambios.sucio && !(await this.avisos.confirmarDescartar())) return;
+    this.cambios.terminar();
+    this.showModal.set(false);
   }
 
   /** Jornadas disponibles */
@@ -570,6 +584,7 @@ export class NuevoHorarioWizardComponent {
       }
     }
     this.showModal.set(true);
+    this.cambios.iniciar();
   }
 
   resetForm() {
@@ -619,6 +634,7 @@ export class NuevoHorarioWizardComponent {
     try {
       await this.horariosApi.createHorariosBatch(diasPayload);
       this.saving.set(false);
+      this.cambios.terminar();
       this.showModal.set(false);
       this.guardado.emit();
       this.toast.ok(
@@ -627,8 +643,7 @@ export class NuevoHorarioWizardComponent {
       );
     } catch (e: any) {
       this.saving.set(false);
-      const msg: string = e?.error?.message ?? 'No se pudo guardar el horario. Verifica los datos e intenta de nuevo.';
-      this.toast.error('Error al crear horarios', msg);
+      this.toast.httpError(e, 'No se pudo guardar el horario. Verifica los datos e intenta de nuevo.', 'Error al crear horarios');
     }
   }
 }
