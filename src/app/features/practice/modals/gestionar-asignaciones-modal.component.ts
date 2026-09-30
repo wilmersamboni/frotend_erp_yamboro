@@ -221,8 +221,8 @@ interface AsignacionVM {
                           </button>
                           <button (click)="guardarEdicion(a)"
                             [disabled]="guardando()"
-                            class="px-3 py-1.5 text-xs rounded-lg bg-indigo-600 text-white
-                                   hover:bg-indigo-700 transition-all disabled:opacity-50">
+                            class="px-3 py-1.5 text-xs rounded-lg bg-[var(--accent-brand)] text-white
+                                   hover:bg-[var(--accent-brand-dark)] transition-all disabled:opacity-50">
                             {{ guardando() ? 'Guardando…' : 'Guardar' }}
                           </button>
                         </div>
