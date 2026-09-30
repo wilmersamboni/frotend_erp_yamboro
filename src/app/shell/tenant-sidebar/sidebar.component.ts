@@ -51,6 +51,7 @@ interface NavGroup {
    * (sidebar minimizado). Si falta, se usa el del primer link. */
   iconoRepresentativo?: string;
 }
+interface NavSection { label: string; links: NavLink[]; }
 
 @Component({
   selector: 'app-sidebar',
@@ -146,6 +147,17 @@ interface NavGroup {
             >
               <span class="flex-shrink-0 w-[18px] h-[18px]" [innerHTML]="linkRepresentativo(group).safeIcon"></span>
             </a>
+          } @else if (open && group.id === 'materiales' && !isGroupCollapsed(group)) {
+            @for (section of seccionesMateriales(group); track section.label) {
+              <p class="mt-3 px-2 text-[11px] font-bold uppercase tracking-wider text-gray-400 first:mt-1">{{ section.label }}</p>
+              @for (link of section.links; track link.href) {
+                <a [routerLink]="link.href" routerLinkActive="nav-link-active"
+                  [routerLinkActiveOptions]="{ exact: link.href === '/' }" class="nav-link">
+                  <span class="flex-shrink-0 w-[18px] h-[18px]" [innerHTML]="link.safeIcon"></span>
+                  <span>{{ link.label }}</span>
+                </a>
+              }
+            }
           } @else if (!open || !isCollapsible(group) || !isGroupCollapsed(group)) {
             @for (link of group.links; track link.href) {
               <a
@@ -805,6 +817,24 @@ export class SidebarComponent implements OnChanges, OnInit {
   /** Un grupo con más de 4 submódulos pasa a ser desplegable. */
   isCollapsible(group: NavGroup): boolean {
     return group.links.length > SidebarComponent.UMBRAL_DESPLEGABLE;
+  }
+
+  /** Orden visual del menú de Materiales; no modifica rutas ni gates de permisos. */
+  seccionesMateriales(group: NavGroup): NavSection[] {
+    const destinos: Record<string, string> = {
+      '/materiales/solicitudes': 'Operación', '/materiales/devoluciones': 'Operación',
+      '/materiales/traslados': 'Operación', '/materiales/asignaciones': 'Operación',
+      '/materiales/novedades': 'Operación',
+      '/materiales/existencias': 'Inventario', '/materiales/items': 'Inventario',
+      '/materiales/lotes': 'Inventario', '/materiales/kardex': 'Inventario',
+      '/materiales/vencimientos': 'Inventario', '/mi-bodega': 'Inventario',
+      '/materiales/productos': 'Catálogo', '/materiales/categorias': 'Catálogo',
+      '/materiales/bodegas': 'Catálogo', '/materiales/sitios': 'Catálogo',
+      '/materiales/actas': 'Actas',
+    };
+    return ['Operación', 'Inventario', 'Catálogo', 'Actas']
+      .map((label) => ({ label, links: group.links.filter((link) => destinos[link.href] === label) }))
+      .filter((section) => section.links.length > 0);
   }
 
   /**
