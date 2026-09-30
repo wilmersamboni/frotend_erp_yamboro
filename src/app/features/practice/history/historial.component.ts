@@ -26,7 +26,7 @@ type Estado = 'idle' | 'loading' | 'success' | 'error';
     <div class="p-6 max-w-4xl mx-auto">
 
       <div class="text-center mb-7">
-        <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2d8000] mb-1">Consulta académica</p>
+        <p class="text-xs font-bold uppercase tracking-[0.14em] text-[#2d8000] mb-1">Consulta académica</p>
         <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Historial del aprendiz</h1>
         <p class="text-sm text-gray-400 mt-1 max-w-md mx-auto">
           Buscá por cédula para ver en un solo lugar sus matrículas, etapa práctica, bitácoras y observaciones.
@@ -352,7 +352,7 @@ export class HistorialComponent implements OnInit {
         // (personasCargadas sigue en false y el servicio no cachea el fallo).
         console.error('[historial] carga de personas falló', err?.status ?? err);
         this.cargandoPersonas.set(false);
-        this.toast.error('Error', 'No se pudo cargar la lista de aprendices. Intenta de nuevo.');
+        this.toast.httpError(err, 'No se pudo cargar la lista de aprendices. Intenta de nuevo.');
       },
     });
   }
@@ -417,7 +417,7 @@ export class HistorialComponent implements OnInit {
       // quedaba vacío en silencio, sin avisar — mismo patrón que
       // cargarPersonasLazy() en este mismo componente.
       console.error('[historial] carga de documentos falló', err?.status ?? err);
-      this.toast.error('Error', 'No se pudieron cargar los documentos de las prácticas.');
+      this.toast.httpError(err, 'No se pudieron cargar los documentos de las prácticas.');
     } finally {
       this.cargandoDocs.set(false);
     }

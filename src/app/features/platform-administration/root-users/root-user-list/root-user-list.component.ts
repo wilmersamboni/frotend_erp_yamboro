@@ -53,14 +53,14 @@ import { LoadingSkeletonComponent } from '../../../../shared/components/loading-
                   <td class="px-5 py-3 text-gray-500">{{ usuario.creadoEn | date: 'medium' }}</td>
                   <td class="px-5 py-3 text-right">
                     <div class="flex items-center justify-end gap-1.5">
-                      <button type="button" (click)="editarUsuario(usuario)" title="Editar"
+                      <button aria-label="Editar" type="button" (click)="editarUsuario(usuario)" title="Editar"
                         class="p-1.5 rounded-lg text-gray-400 hover:text-[#007832] hover:bg-[#007832]/10 transition-colors">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
                           <path stroke-linecap="round" stroke-linejoin="round" d="M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
                         </svg>
                       </button>
-                      <button type="button" (click)="solicitarEliminar(usuario)" title="Eliminar"
+                      <button aria-label="Eliminar" type="button" (click)="solicitarEliminar(usuario)" title="Eliminar"
                         class="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16" />
@@ -101,7 +101,7 @@ export class RootUserListComponent {
     this.cargando.set(true);
     this.rootUserService.obtenerTodos().subscribe({
       next: (data) => { this.usuarios.set(data); this.cargando.set(false); },
-      error: () => { this.cargando.set(false); this.toast.error('No se pudieron cargar los usuarios root.'); },
+      error: (err) => { this.cargando.set(false); this.toast.httpError(err, 'No se pudieron cargar los usuarios root.'); },
     });
   }
 
@@ -115,7 +115,7 @@ export class RootUserListComponent {
     if (!usuario) return;
     this.rootUserService.eliminar(usuario.id).subscribe({
       next: () => { this.toast.success(`"${usuario.nombre}" fue eliminado.`); this.usuarioAEliminar.set(null); this.cargarUsuarios(); },
-      error: () => { this.toast.error('No se pudo eliminar el usuario.'); this.usuarioAEliminar.set(null); },
+      error: (err) => { this.toast.httpError(err, 'No se pudo eliminar el usuario.'); this.usuarioAEliminar.set(null); },
     });
   }
 }

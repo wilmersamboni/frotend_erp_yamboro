@@ -110,12 +110,12 @@ export class HomeComponent implements OnInit {
       x: {
         grid: { display: false },
         border: { display: false },
-        ticks: { font: { size: 11, family: 'Inter' }, color: '#94a3b8' }
+        ticks: { font: { size: 12, family: 'Inter' }, color: '#94a3b8' }
       },
       y: {
         grid: { color: 'rgba(148, 163, 184, .18)' },  // tenue en claro y en oscuro
         border: { display: false },
-        ticks: { stepSize: 1, font: { size: 11, family: 'Inter' }, color: '#94a3b8' },
+        ticks: { stepSize: 1, font: { size: 12, family: 'Inter' }, color: '#94a3b8' },
         beginAtZero: true
       }
     }
@@ -376,7 +376,7 @@ export class HomeComponent implements OnInit {
         // visible — simplemente se le muestra el home de Horarios.
         this.aprendizTieneEtapa.set(false);
       } else {
-        this.toast.error('Error', 'No se pudieron cargar los datos del panel.');
+        this.toast.httpError(err, 'No se pudieron cargar los datos del panel.');
       }
     });
   }

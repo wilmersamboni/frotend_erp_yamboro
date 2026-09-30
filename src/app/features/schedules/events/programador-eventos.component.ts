@@ -90,7 +90,7 @@ const TIPO_COLORS: Record<string, { bg: string; text: string }> = {
                   <strong [title]="ev.nombre">{{ ev.nombre }}</strong>
                 </div>
               </td>
-              <td><span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold" [class]="'tipo-badge-' + ev.tipo">{{ tipoLabel(ev.tipo) }}</span></td>
+              <td><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold" [class]="'tipo-badge-' + ev.tipo">{{ tipoLabel(ev.tipo) }}</span></td>
               <td style="white-space:nowrap">
                 {{ formatFecha(ev.fechaInicio) }}
                 @if (ev.fechaFin && ev.fechaFin !== ev.fechaInicio) {
@@ -120,12 +120,12 @@ const TIPO_COLORS: Record<string, { bg: string; text: string }> = {
               <td class="col-desc"><span class="ev-desc-cell text-sm text-muted" [title]="ev.descripcion ?? ''">{{ ev.descripcion ?? '—' }}</span></td>
               <td class="col-acciones">
                 <div class="flex gap-1.5 justify-end">
-                  <button class="btn btn-icon" [disabled]="evento.esEventoPasado(ev)"
+                  <button [attr.aria-label]="evento.esEventoPasado(ev) ? 'Este evento ya pasó y no se puede editar' : 'Editar'" class="btn btn-icon" [disabled]="evento.esEventoPasado(ev)"
                           (click)="evento.abrirEditar(ev)"
                           [title]="evento.esEventoPasado(ev) ? 'Este evento ya pasó y no se puede editar' : 'Editar'">
                     <lucide-icon name="pencil" [size]="14"></lucide-icon>
                   </button>
-                  <button class="btn btn-icon btn-icon-danger" (click)="remove(ev.id)" title="Eliminar">
+                  <button aria-label="Eliminar" class="btn btn-icon btn-icon-danger" (click)="remove(ev.id)" title="Eliminar">
                     <lucide-icon name="trash-2" [size]="14"></lucide-icon>
                   </button>
                 </div>
@@ -250,7 +250,7 @@ export class ProgramadorEventosComponent implements OnInit {
           await this.load();
           this.toast.ok('Evento eliminado', 'El evento fue eliminado del sistema.');
         } catch (e: any) {
-          this.toast.error('Error al eliminar', e?.error?.message ?? 'No se pudo eliminar el evento.');
+          this.toast.httpError(e, 'No se pudo eliminar el evento.', 'Error al eliminar');
         }
       },
     });

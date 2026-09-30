@@ -168,7 +168,7 @@ export class TenantDetailComponent {
           next: (logs) => this.logs.set(logs.slice(0, 10)),
         });
       },
-      error: () => { this.cargando.set(false); this.toast.error('No se pudo cargar el centro.'); this.router.navigate(['/tenants']); },
+      error: (err) => { this.cargando.set(false); this.toast.httpError(err, 'No se pudo cargar el centro.'); this.router.navigate(['/tenants']); },
     });
   }
 
@@ -201,7 +201,7 @@ export class TenantDetailComponent {
         this.actualizandoEstado.set(false);
         this.toast.success(`Tenant ${nuevoEstado === 'activo' ? 'activado' : 'desactivado'} correctamente.`);
       },
-      error: () => { this.actualizandoEstado.set(false); this.toast.error('No se pudo cambiar el estado del tenant.'); },
+      error: (err) => { this.actualizandoEstado.set(false); this.toast.httpError(err, 'No se pudo cambiar el estado del tenant.'); },
     });
   }
 
@@ -225,7 +225,7 @@ export class TenantDetailComponent {
           this.toast.error('Tenant reinicializado, pero no se pudieron obtener las credenciales.');
         }
       },
-      error: () => { this.reinicializando.set(false); this.toast.error('No se pudo reinicializar el tenant.'); },
+      error: (err) => { this.reinicializando.set(false); this.toast.httpError(err, 'No se pudo reinicializar el tenant.'); },
     });
   }
 
