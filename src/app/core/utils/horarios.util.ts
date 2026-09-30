@@ -146,6 +146,19 @@ export type EstadoCompetencias = 'sin' | 'proxima' | 'vigente' | 'por-terminar' 
 /** Una competencia vigente que termina en este número de días o menos, sin otra cargada después, se marca "por terminar". */
 export const DIAS_AVISO_FIN_COMPETENCIA = 7;
 
+/** Texto al pasar el mouse sobre el libro de competencia — explica el color. */
+export function tituloCompetencia(e: ReturnType<typeof estadoCompetencias>): string {
+  const nombre = e.comp?.nombre ?? '';
+  const fecha = (iso?: string | null) => (iso ? formatFechaCorta(iso.slice(0, 10)) : '');
+  switch (e.estado) {
+    case 'sin': return 'Sin competencia asignada';
+    case 'vigente': return 'Competencia vigente: ' + nombre + (e.comp?.fechaFin ? ' · termina el ' + fecha(e.comp.fechaFin) : '');
+    case 'por-terminar': return nombre + (e.dias === 0 ? ' termina HOY' : ' termina en ' + e.dias + ' día' + (e.dias === 1 ? '' : 's')) + ' y no hay otra asignada';
+    case 'proxima': return 'Sin competencia en curso · la próxima (' + nombre + ') inicia el ' + fecha(e.comp?.fechaInicio);
+    case 'vencida': return nombre + ' terminó el ' + fecha(e.comp?.fechaFin) + ' y no hay una nueva asignada';
+  }
+}
+
 /**
  * Resume en qué punto está el horario respecto a sus competencias:
  * - sin: nunca se le asignó ninguna.

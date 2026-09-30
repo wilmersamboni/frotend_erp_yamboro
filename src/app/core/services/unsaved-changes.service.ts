@@ -1,5 +1,5 @@
 import { DestroyRef, Injectable, inject } from '@angular/core';
-import type { CanDeactivateFn } from '@angular/router';
+import type { CanDeactivateFn, Routes } from '@angular/router';
 import { ConfirmService } from './confirm.service';
 
 /**
@@ -99,3 +99,19 @@ export class FormularioVigilado {
 
 export const sinCambiosPendientesGuard: CanDeactivateFn<unknown> = () =>
   inject(UnsavedChangesService).confirmarSalida();
+
+/**
+ * Agrega a cada ruta con componente el guard de "cambios sin guardar". Es
+ * global a propósito: una pantalla nueva solo llama a `avisarCambiosSinGuardar()`,
+ * sin tocar las rutas. Se aplica en app.routes.ts y en los archivos de rutas que
+ * se cargan aparte (`loadChildren`), porque este recorrido no entra a esos.
+ */
+export function conAvisoDeCambios(rutas: Routes): Routes {
+  return rutas.map((r) => ({
+    ...r,
+    ...(r.redirectTo === undefined && (r.component || r.loadComponent)
+      ? { canDeactivate: [...(r.canDeactivate ?? []), sinCambiosPendientesGuard] }
+      : {}),
+    ...(r.children ? { children: conAvisoDeCambios(r.children) } : {}),
+  }));
+}

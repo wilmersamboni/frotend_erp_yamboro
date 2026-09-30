@@ -142,4 +142,55 @@ describe('errorInterceptor', () => {
     expect(auth.isAuthenticated()).toBe(true);
     vi.useRealTimers();
   });
+
+  describe('sin avisos duplicados con toast.httpError', () => {
+    // El interceptor deduplica los avisos del mismo status dentro de 5 s (estado de módulo compartido con
+    // los demás tests): se adelanta el reloj para que cada test parta sin aviso reciente.
+    let adelanto = 60_000;
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(Date.now() + (adelanto += 60_000));
+    });
+    afterEach(() => vi.useRealTimers());
+
+    it('403: el interceptor avisa una vez y la pantalla no repite el aviso', () => {
+      const warnSpy = vi.spyOn(toast, 'warn');
+      const errorSpy = vi.spyOn(toast, 'error');
+
+      http.get('/api2/prohibido-2').subscribe({ error: (e) => toast.httpError(e, 'No se pudo cargar.') });
+      httpMock.expectOne('/api2/prohibido-2').flush({ message: 'Forbidden resource' }, { status: 403, statusText: 'Forbidden' });
+
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(errorSpy).not.toHaveBeenCalled();
+    });
+
+    it('403 con mensaje propio del backend: ese mensaje es el que muestra el interceptor', () => {
+      const warnSpy = vi.spyOn(toast, 'warn');
+      const antes = warnSpy.mock.calls.length;
+
+      http.get('/api2/prohibido-3').subscribe({ error: () => {} });
+      httpMock.expectOne('/api2/prohibido-3').flush(
+        { message: 'No puedes aprobar tu propia solicitud.' }, { status: 403, statusText: 'Forbidden' });
+
+      expect(warnSpy.mock.calls.slice(antes)[0]).toEqual(['Sin permiso', 'No puedes aprobar tu propia solicitud.']);
+    });
+
+    it('un error que el interceptor no anuncia (400) sí lo avisa la pantalla', () => {
+      const errorSpy = vi.spyOn(toast, 'error');
+
+      http.post('/api2/validar', {}).subscribe({ error: (e) => toast.httpError(e, 'No se pudo guardar.') });
+      httpMock.expectOne('/api2/validar').flush({ message: 'La cantidad debe ser mayor a 0.' }, { status: 400, statusText: 'Bad Request' });
+
+      expect(errorSpy).toHaveBeenCalledWith('Error', 'La cantidad debe ser mayor a 0.');
+    });
+
+    it('401 del login: el interceptor no lo anuncia, así que la pantalla sí muestra "credenciales inválidas"', () => {
+      const errorSpy = vi.spyOn(toast, 'error');
+
+      http.post('/api/auth/login', {}).subscribe({ error: (e) => toast.httpError(e, 'No se pudo iniciar sesión.') });
+      httpMock.expectOne('/api/auth/login').flush({ message: 'Credenciales inválidas' }, { status: 401, statusText: 'Unauthorized' });
+
+      expect(errorSpy).toHaveBeenCalledWith('Error', 'Credenciales inválidas');
+    });
+  });
 });

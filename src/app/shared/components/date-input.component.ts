@@ -240,7 +240,12 @@ export class DateInputComponent implements ControlValueAccessor, OnDestroy {
     this._value.set(v ?? null);
     this.cdr.markForCheck();
   }
-  registerOnChange(fn: any)    { this.onChange   = fn; }
+  /** Además de avisar al formulario, dispara un `change` nativo que sube por el DOM: así un contenedor
+   *  (DialogDirective) sabe que el usuario tocó un campo, igual que con un <input> normal. writeValue()
+   *  no pasa por acá, así que precargar valores no cuenta como cambio. */
+  registerOnChange(fn: any) {
+    this.onChange = (v) => { fn(v); this.el.nativeElement.dispatchEvent(new Event('change', { bubbles: true })); };
+  }
   registerOnTouched(fn: any)   { this.onTouched  = fn; }
   setDisabledState(d: boolean) { this.disabled   = d;  }
 }

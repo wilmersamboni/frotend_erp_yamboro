@@ -12,6 +12,7 @@ export type ToastSeverity = 'success' | 'info' | 'warn' | 'error';
 const GENERICOS: Record<string, string> = {
   'conflict': 'No se puede completar la acción: el registro está en uso o tiene información asociada.',
   'forbidden': 'No tienes permiso para realizar esta acción.',
+  'forbidden resource': 'No tienes permiso para realizar esta acción.',
   'unauthorized': 'Tu sesión expiró. Vuelve a iniciar sesión.',
   'not found': 'No se encontró el registro solicitado.',
   'bad request': 'Los datos enviados no son válidos. Revísalos e inténtalo de nuevo.',
@@ -24,7 +25,31 @@ const GENERICOS: Record<string, string> = {
 export function traducirErrorHttp(texto: string): string {
   const t = texto.trim();
   if (/violates foreign key constraint|update or delete on table/i.test(t)) return GENERICOS['conflict'];
+  if (/^ThrottlerException/i.test(t)) return GENERICOS['too many requests'];
   return GENERICOS[t.toLowerCase()] ?? t;
+}
+
+/**
+ * Errores HTTP cuyo aviso ya mostró el interceptor global (sin permiso, demasiadas solicitudes,
+ * sin conexión, sesión expirada). `httpError` no los repite: antes el usuario veía dos avisos
+ * seguidos, el del interceptor y el de la pantalla.
+ */
+export const erroresYaAvisados = new WeakSet<object>();
+
+/**
+ * Texto para mostrar de un error cualquiera: el mensaje propio del backend si lo hay (la lista de
+ * class-validator se une con " · "), ya traducido; si no, `fallback`. Un error HTTP sin mensaje
+ * propio trae en `e.message` algo como "Http failure response for http://…: 500", que no le
+ * sirve al usuario: en ese caso se usa `fallback`. Un `throw new Error('…')` deliberado sí conserva
+ * su `message`; un fallo del propio código (TypeError…) no.
+ */
+export function mensajeDeError(e: any, fallback = 'Ha ocurrido un error inesperado.'): string {
+  const backend = e?.error?.message ?? e?.error?.error;
+  const esHttp = typeof e?.status === 'number';
+  // Un fallo del propio código (TypeError, ReferenceError…) trae texto técnico: tampoco se muestra.
+  const errorDeCodigo = e instanceof TypeError || e instanceof ReferenceError || e instanceof RangeError || e instanceof SyntaxError;
+  const raw = backend ?? (esHttp || errorDeCodigo ? undefined : e?.message) ?? fallback;
+  return traducirErrorHttp(Array.isArray(raw) ? raw.join(' · ') : String(raw));
 }
 
 /**
@@ -92,9 +117,8 @@ export class ToastService {
    * Extrae el mensaje de un error HTTP de NestJS y muestra un aviso rojo.
    * Acepta objetos del tipo { error: { message: string | string[] } }.
    */
-  httpError(e: any, fallback = 'Ha ocurrido un error inesperado.'): void {
-    const raw = e?.error?.message ?? e?.error?.error ?? e?.message ?? fallback;
-    const detail = traducirErrorHttp(Array.isArray(raw) ? raw.join(' · ') : String(raw));
-    this.error('Error', detail);
+  httpError(e: any, fallback = 'Ha ocurrido un error inesperado.', titulo = 'Error'): void {
+    if (e && typeof e === 'object' && erroresYaAvisados.has(e)) return;
+    this.error(titulo, mensajeDeError(e, fallback));
   }
 }

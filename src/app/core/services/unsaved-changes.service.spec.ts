@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { ConfirmService } from './confirm.service';
-import { FormularioVigilado, UnsavedChangesService } from './unsaved-changes.service';
+import { FormularioVigilado, UnsavedChangesService, conAvisoDeCambios, sinCambiosPendientesGuard } from './unsaved-changes.service';
 
 describe('FormularioVigilado', () => {
   it('no cuenta como modificado un formulario recién abierto, aunque traiga valores precargados', () => {
@@ -74,5 +74,27 @@ describe('UnsavedChangesService', () => {
     quitar();
     expect(servicio.hayCambios()).toBe(false);
     expect(await servicio.confirmarSalida()).toBe(true);
+  });
+});
+
+describe('conAvisoDeCambios', () => {
+  const C = class {} as any;
+
+  it('agrega el guard a las rutas con componente, entra en los hijos y respeta guards ya existentes', () => {
+    const otro = () => true;
+    const rutas = conAvisoDeCambios([
+      { path: 'a', component: C },
+      { path: 'b', loadComponent: async () => C, canDeactivate: [otro] },
+      { path: '', children: [{ path: 'c', component: C }] },
+    ]);
+    expect(rutas[0].canDeactivate).toEqual([sinCambiosPendientesGuard]);
+    expect(rutas[1].canDeactivate).toEqual([otro, sinCambiosPendientesGuard]);
+    expect(rutas[2].canDeactivate).toBeUndefined();          // sin componente propio
+    expect(rutas[2].children![0].canDeactivate).toEqual([sinCambiosPendientesGuard]);
+  });
+
+  it('no toca las redirecciones (Angular no admite guards en ellas)', () => {
+    const rutas = conAvisoDeCambios([{ path: '', redirectTo: 'home', pathMatch: 'full' }]);
+    expect(rutas[0].canDeactivate).toBeUndefined();
   });
 });
