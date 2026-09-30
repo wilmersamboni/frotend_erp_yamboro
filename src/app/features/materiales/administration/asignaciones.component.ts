@@ -92,11 +92,12 @@ interface Ficha {
                 </button>
               }
             </div>
-            <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
-              <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</span>
+            <div class="relative flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
+              <button type="button" (click)="estadoDropdownOpen.update(v => !v)" class="absolute inset-0 z-0 rounded-xl cursor-pointer" aria-label="Estado de asignación"></button>
+              <span class="pointer-events-none relative z-10 text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</span>
 
               <!-- Dropdown personalizado para estado -->
-              <div class="relative">
+              <div class="relative z-20 pointer-events-none">
                 <button
                   type="button"
                   (click)="estadoDropdownOpen.update(v => !v)"
@@ -112,7 +113,7 @@ interface Ficha {
                   <div class="fixed inset-0 z-10" (click)="estadoDropdownOpen.set(false)"></div>
 
                   <!-- Menú flotante -->
-                  <div class="absolute left-0 top-full mt-2 z-20 w-40 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <div class="absolute left-0 top-full mt-2 z-20 w-40 pointer-events-auto rounded-xl border shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100" style="background-color: var(--surface); border-color: var(--border);">
                     <div class="p-1 space-y-0.5 max-h-64 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                       <button
                         type="button"

@@ -32,6 +32,7 @@ import { AlertComponent } from '../../../shared/ui/alert.component';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
 import { EsperaDirective } from '../../../shared/directives/espera.directive';
 import { PageSizeSelectComponent } from '../../../shared/components/page-size-select.component';
+import { TableFilterComponent } from '../../../shared/components/table-filter.component';
 
 /** Línea del modal "Nueva solicitud" — `p:<id>` producto devolutivo, `l:<id>` lote consumible. */
 interface LineaForm {
@@ -58,13 +59,13 @@ interface LineaForm {
 @Component({
   selector: 'app-materiales-solicitudes-usuario',
   standalone: true,
-  imports: [EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent],
+  imports: [EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent, TableFilterComponent],
   template: `
-    <div class="p-6">
+    <div class="p-4 sm:p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
         <span>Materiales</span><span aria-hidden="true">/</span><span>Operación</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Solicitudes</span>
       </nav>
-      <div class="flex items-center justify-between mb-5">
+      <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
         <h1 class="text-xl font-bold text-gray-800">{{ esInstructor || esAdmin ? 'Solicitudes' : 'Mis solicitudes' }}</h1>
         <button (click)="nuevo()"
           class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
@@ -122,55 +123,7 @@ interface LineaForm {
                 </button>
               }
             </div>
-            <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
-              <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</span>
-
-              <!-- Dropdown personalizado para estado -->
-              <div class="relative">
-                <button
-                  type="button"
-                  (click)="estadoDropdownOpen.update(v => !v)"
-                  class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer">
-                  <span>{{ filtroEstado || 'Todos' }}</span>
-                  <svg class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" [class.rotate-180]="estadoDropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                @if (estadoDropdownOpen()) {
-                  <!-- Backdrop para cerrar al hacer clic afuera -->
-                  <div class="fixed inset-0 z-10" (click)="estadoDropdownOpen.set(false)"></div>
-
-                  <!-- Menú flotante -->
-                  <div class="absolute left-0 top-full mt-2 z-20 w-40 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                    <div class="p-1 space-y-0.5 max-h-64 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                      <button
-                        type="button"
-                        (click)="seleccionarEstado('')"
-                        class="w-full px-3 py-1.5 text-sm text-left rounded-lg transition-colors font-medium"
-                        [class.bg-green-50]="filtroEstado === ''"
-                        [class.text-green-700]="filtroEstado === ''"
-                        [class.text-gray-600]="filtroEstado !== ''"
-                        [class.hover:bg-gray-50]="filtroEstado !== ''">
-                        Todos
-                      </button>
-                      @for (e of estadosSolicitud; track e) {
-                        <button
-                          type="button"
-                          (click)="seleccionarEstado(e)"
-                          class="w-full px-3 py-1.5 text-sm text-left rounded-lg transition-colors font-medium"
-                          [class.bg-green-50]="filtroEstado === e"
-                          [class.text-green-700]="filtroEstado === e"
-                          [class.text-gray-600]="filtroEstado !== e"
-                          [class.hover:bg-gray-50]="filtroEstado !== e">
-                          {{ e }}
-                        </button>
-                      }
-                    </div>
-                  </div>
-                }
-              </div>
-            </div>
+            <app-table-filter label="Estado" [options]="opcionesEstadoFiltro" [value]="filtroEstado" (valueChange)="seleccionarEstado($event)" />
             <!-- Filas por página -->
             <app-page-size-select [value]="pageSize()" (valueChange)="seleccionarPageSize($event)" />
           </div>
@@ -562,20 +515,19 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
   filtroTexto = '';
   filtroEstado: EstadoSolicitud | '' = '';
   pageSize = signal(20);
-  estadoDropdownOpen = signal(false);
   page = 0;
   readonly estadosSolicitud: EstadoSolicitud[] =
     ['PENDIENTE', 'APROBADA', 'EN_ENTREGA', 'ENTREGADA', 'DEVUELTA', 'CONSUMIDA', 'RECHAZADA', 'CANCELADA'];
+  readonly opcionesEstadoFiltro = [{ value: '', label: 'Todos' }, ...this.estadosSolicitud.map((value) => ({ value, label: value }))];
 
   seleccionarPageSize(size: number): void {
     this.pageSize.set(size);
     this.page = 0;
   }
 
-  seleccionarEstado(valor: EstadoSolicitud | ''): void {
-    this.filtroEstado = valor;
+  seleccionarEstado(valor: string): void {
+    this.filtroEstado = valor as EstadoSolicitud | '';
     this.page = 0;
-    this.estadoDropdownOpen.set(false);
   }
 
   /**
