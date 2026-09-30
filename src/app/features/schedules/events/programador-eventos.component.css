@@ -58,7 +58,7 @@
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 780px; }
 .data-table thead tr { background: var(--surface2); border-bottom: 1px solid var(--border); }
 .data-table th {
-  padding: 11px 14px; color: var(--text-2); font-size: 11px; font-weight: 800;
+  padding: 11px 14px; color: var(--text-2); font-size: 12px; font-weight: 800;
   text-transform: uppercase; letter-spacing: .05em; text-align: left; white-space: nowrap;
 }
 .data-table th.col-acciones, .data-table td.col-acciones { text-align: right; }
@@ -93,7 +93,7 @@
 
 .fichas-count-chip {
   display: inline-flex; align-items: center; gap: 4px;
-  font-size: 11px; font-weight: 700;
+  font-size: 12px; font-weight: 700;
   background: var(--ok-bg); color: var(--ok-text);
   border-radius: 20px; padding: 3px 9px;
 }

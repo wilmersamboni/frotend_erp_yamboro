@@ -45,7 +45,7 @@ import { environment } from '../../../environments/environment';
           <!-- Nombre y cargo (ocultos en móvil) -->
           <div class="text-right hidden sm:block">
             <p class="text-sm font-semibold text-gray-800 leading-tight">{{ userName() }}</p>
-            <p class="text-[11px] text-gray-400 capitalize leading-tight mt-0.5">{{ userCargo() }}</p>
+            <p class="text-xs text-gray-400 capitalize leading-tight mt-0.5">{{ userCargo() }}</p>
           </div>
 
           <!-- Campana de notificaciones para TODOS los roles autenticados -->

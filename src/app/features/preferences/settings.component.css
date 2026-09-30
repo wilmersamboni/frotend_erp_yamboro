@@ -79,7 +79,7 @@
 }
 .settings-name { font-size: 20px; font-weight: 700; color: var(--text); margin: 0 0 6px; }
 .settings-badge {
-  display: inline-block; font-size: 11px; font-weight: 600;
+  display: inline-block; font-size: 12px; font-weight: 600;
   padding: 3px 10px; border-radius: 20px; text-transform: capitalize;
 }
 .badge-administrador { background: var(--ok-bg); color: var(--ok-text); }
@@ -228,7 +228,7 @@
   box-shadow: 0 1px 4px rgba(0,0,0,.2);
 }
 .avance-labels { display: flex; justify-content: space-between;
-                 font-size: 10px; color: var(--text-faint); margin-top: 4px; }
+                 font-size: 12px; color: var(--text-faint); margin-top: 4px; }
 .avance-value-wrap { display: flex; align-items: center; gap: 4px; }
 .avance-number {
   width: 60px; padding: 8px 10px; border: 1.5px solid var(--border);
@@ -248,7 +248,7 @@
   border: 1px solid var(--border-soft);
 }
 .sys-icon { font-size: 22px; }
-.sys-label { font-size: 11px; color: var(--text-faint); margin: 0 0 2px; }
+.sys-label { font-size: 12px; color: var(--text-faint); margin: 0 0 2px; }
 .sys-value { font-size: 14px; font-weight: 600; color: var(--text); margin: 0; }
 
 /* ── Notificaciones: lista + switch ── */
@@ -293,7 +293,7 @@
 .accesos-tbl-wrap { overflow-x: auto; border: 1px solid var(--border-soft); border-radius: 12px; }
 .accesos-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
 .accesos-tbl th {
-  text-align: left; font-size: 11px; font-weight: 700; color: var(--text-faint);
+  text-align: left; font-size: 12px; font-weight: 700; color: var(--text-faint);
   text-transform: uppercase; letter-spacing: .04em;
   padding: 10px 14px; background: var(--surface2); border-bottom: 1px solid var(--border-soft);
 }
@@ -304,7 +304,7 @@
 .accesos-tbl tbody tr:last-child td { border-bottom: none; }
 .acceso-pill {
   display: inline-flex; align-items: center; gap: 6px;
-  font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px;
   background: var(--surface3); color: var(--text-muted); text-transform: none;
 }
 .acceso-pill.activo { background: var(--ok-bg); color: var(--ok-text); }
