@@ -35,7 +35,7 @@ import { AprendizContextService } from '../../core/services/aprendiz-context.ser
       </div>
 
       <!-- CONTENIDO DERECHO -->
-      <div class="flex flex-col flex-1 min-h-screen overflow-hidden bg-[#F0F2F5]">
+      <div class="flex flex-col flex-1 min-w-0 min-h-screen overflow-hidden bg-[#F0F2F5]">
 
         <!-- NAVBAR -->
         <app-navbar (menuClick)="mobileMenuOpen.update(v => !v)" [menuOpen]="mobileMenuOpen()" />
@@ -58,7 +58,7 @@ import { AprendizContextService } from '../../core/services/aprendiz-context.ser
              contra la esquina redondeada nueva. Para las páginas que SÍ
              traen su propio p-6 (Vencimientos, Novedades...) esto solo
              suma un poco más de aire, no rompe nada. -->
-        <main class="pretty-scroll m-4 lg:m-6 p-4 lg:p-6 flex-1 overflow-y-auto bg-white rounded-2xl border border-gray-200/60 shadow-sm">
+        <main class="pretty-scroll m-4 lg:m-6 p-4 lg:p-6 flex-1 min-w-0 overflow-x-hidden overflow-y-auto bg-white rounded-2xl border border-gray-200/60 shadow-sm">
           <router-outlet />
         </main>
 

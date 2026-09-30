@@ -33,17 +33,17 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
   standalone: true,
   imports: [EsperaDirective, FormsModule, AdminTableComponent, StatCardComponent, TableFilterComponent],
   template: `
-    <div class="p-6">
+    <div class="p-4 sm:p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
         <span>Materiales</span><span aria-hidden="true">/</span><span>Inventario</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Kardex</span>
       </nav>
-      <div class="flex items-center justify-between mb-5">
+      <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
         <h1 class="text-xl font-bold text-gray-800">Kardex</h1>
-        <div class="flex gap-2 border-gray-200 ">
+        <div class="flex flex-wrap gap-2 border-gray-200">
           <app-table-filter label="Tipo" [options]="opcionesTipoFiltro" [value]="filtroTipo"
           (valueChange)="filtroTipo = $event" />
           <input appEspera [(ngModel)]="filtroTexto" placeholder="Buscar por producto, SKU o placa..."
-            class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] bg-white w-xs " />
+            class="min-w-0 flex-1 basis-48 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] bg-white sm:w-xs sm:flex-none" />
           <button type="button" (click)="exportarExcel()" class="px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:border-[#39A900] hover:text-[#267700]" aria-label="Exportar kardex a Excel">Excel</button>
           <button type="button" (click)="exportarPdf()" class="px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:border-[#39A900] hover:text-[#267700]" aria-label="Exportar kardex a PDF">PDF</button>
           @if (idProductoFiltro || idItemFiltro) {
@@ -55,7 +55,7 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
         </div>
       </div>
 
-      <div class="grid grid-cols-3 gap-3 mb-5 max-w-xl">
+      <div class="grid grid-cols-1 min-[380px]:grid-cols-3 gap-3 mb-5 max-w-xl">
         <app-stat-card label="Total" [value]="filas.length" tono="neutral">
           <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
         </app-stat-card>
