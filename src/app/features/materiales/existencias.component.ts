@@ -36,7 +36,7 @@ import { EsperaDirective } from '../../shared/directives/espera.directive';
 @Component({
   selector: 'app-materiales-existencias',
   standalone: true,
-  imports: [EsperaDirective, EmptyStateComponent, FormsModule, StatCardComponent, LoadingSkeletonComponent],
+  imports: [EsperaDirective, EmptyStateComponent, FormsModule, StatCardComponent, LoadingSkeletonComponent, PageSizeSelectComponent],
   template: `
     <div class="p-6">
       <div class="mb-5">
