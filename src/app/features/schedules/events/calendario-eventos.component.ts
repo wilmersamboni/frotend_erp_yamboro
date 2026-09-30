@@ -12,11 +12,11 @@ import { LucideAngularModule } from 'lucide-angular';
   template: `
     <div class="calendar-section mt-4">
       <div class="calendar-header">
-        <button class="w-8 h-8 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors" (click)="prevMes()">
+        <button aria-label="Mes anterior" class="w-8 h-8 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors" (click)="prevMes()">
           <lucide-icon name="chevron-left" [size]="18"></lucide-icon>
         </button>
         <h3 class="calendar-title">{{ mesActualLabel() }}</h3>
-        <button class="w-8 h-8 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors" (click)="nextMes()">
+        <button aria-label="Mes siguiente" class="w-8 h-8 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors" (click)="nextMes()">
           <lucide-icon name="chevron-right" [size]="18"></lucide-icon>
         </button>
         <button class="border border-gray-300 hover:bg-gray-50 hover:border-[#39A900]/50 hover:text-[#39A900] text-gray-700 rounded-lg px-3 py-1.5 text-sm transition-all ml-auto" (click)="irHoy()">Hoy</button>
@@ -82,7 +82,7 @@ import { LucideAngularModule } from 'lucide-angular';
     }
     .cal-day-num { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
     .cal-event {
-      font-size: 10px; font-weight: 600; padding: 2px 5px;
+      font-size: 12px; font-weight: 600; padding: 2px 5px;
       border-radius: 4px; margin-bottom: 2px; cursor: pointer;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       transition: opacity .15s;

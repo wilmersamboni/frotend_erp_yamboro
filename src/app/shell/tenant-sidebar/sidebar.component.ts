@@ -67,7 +67,7 @@ interface NavGroup {
 
       <!-- ── Hamburguesa: expande/colapsa 100% manual ──────────── -->
       <div class="sb-top" [class.justify-center]="!open" [class.justify-start]="open">
-        <button
+        <button aria-label="Abrir o cerrar el menú"
           type="button"
           class="sb-toggle"
           (click)="toggle.emit()"

@@ -108,7 +108,7 @@ import { AuthService } from '../../../../core/services/auth.service';
                   <div class="flex items-center gap-1">
 
                     <!-- Ver seguimientos: todos los roles -->
-                    <button (click)="verSeguimientos.emit(item)" title="Ver seguimientos"
+                    <button aria-label="Ver seguimientos" (click)="verSeguimientos.emit(item)" title="Ver seguimientos"
                       class="p-1.5 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-all duration-150">
                       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -122,7 +122,7 @@ import { AuthService } from '../../../../core/services/auth.service';
                     <!-- Realizar observación: solo admin e instructor -->
                     @if (canObservar()) {
                       @if (item.id_practica) {
-                        <button (click)="verObservacion.emit(item)" title="Realizar observación"
+                        <button aria-label="Realizar observación" (click)="verObservacion.emit(item)" title="Realizar observación"
                           class="p-1.5 rounded-lg text-gray-400 hover:text-[#39A900] hover:bg-[#39A900]/10 transition-all duration-150">
                           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -130,7 +130,7 @@ import { AuthService } from '../../../../core/services/auth.service';
                           </svg>
                         </button>
                       } @else {
-                        <button disabled title="Sin etapa práctica"
+                        <button aria-label="Sin etapa práctica" disabled title="Sin etapa práctica"
                           class="p-1.5 rounded-lg text-gray-200 cursor-not-allowed">
                           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -142,7 +142,7 @@ import { AuthService } from '../../../../core/services/auth.service';
 
                     <!-- Editar práctica: solo admin -->
                     @if (canCrearPractica() && item.id_practica) {
-                      <button (click)="editarPractica.emit(item)"
+                      <button aria-label="Editar etapa práctica" (click)="editarPractica.emit(item)"
                         title="Editar etapa práctica"
                         class="p-1.5 rounded-lg text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 transition-all duration-150">
                         <!-- Pencil square icon -->
@@ -156,7 +156,7 @@ import { AuthService } from '../../../../core/services/auth.service';
                     <!-- Cambiar estado: solo admin, solo si tiene etapa -->
                     @if (canCrearPractica() && item.id_practica) {
                       <div class="relative" (click)="$event.stopPropagation()">
-                        <button
+                        <button aria-label="Cambiar estado"
                           (click)="toggleEstadoMenu(String(item.id_practica))"
                           title="Cambiar estado"
                           class="p-1.5 rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-all duration-150">
@@ -195,7 +195,7 @@ import { AuthService } from '../../../../core/services/auth.service';
 
                     <!-- Gestionar instructores: solo admin, solo si tiene etapa -->
                     @if (canCrearPractica() && item.id_practica) {
-                      <button (click)="gestionarAsignaciones.emit(item)"
+                      <button aria-label="Gestionar instructores asignados" (click)="gestionarAsignaciones.emit(item)"
                         title="Gestionar instructores asignados"
                         class="p-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-all duration-150">
                         <!-- Users icon -->
@@ -212,7 +212,7 @@ import { AuthService } from '../../../../core/services/auth.service';
                     @if (canCrearPractica() && !item.id_practica) {
                       @if (!item.id_matricula) {
                         <!-- Sin matrícula → bloqueado, es el requisito previo -->
-                        <button disabled
+                        <button aria-label="El aprendiz no tiene una matrícula registrada. Crea la matrícula antes de asignar la etapa práctica." disabled
                           title="El aprendiz no tiene una matrícula registrada. Crea la matrícula antes de asignar la etapa práctica."
                           class="p-1.5 rounded-lg text-gray-300 cursor-not-allowed bg-gray-50 transition-all duration-150">
                           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -222,7 +222,7 @@ import { AuthService } from '../../../../core/services/auth.service';
                         </button>
                       } @else if (item.resultados_aprobados) {
                         <!-- Resultados aprobados → botón activo -->
-                        <button (click)="crearPractica.emit(item)" title="Crear etapa práctica"
+                        <button aria-label="Crear etapa práctica" (click)="crearPractica.emit(item)" title="Crear etapa práctica"
                           class="p-1.5 rounded-lg text-gray-400 hover:text-[#39A900] hover:bg-[#39A900]/10 transition-all duration-150">
                           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <circle cx="12" cy="12" r="10"/>
@@ -232,7 +232,7 @@ import { AuthService } from '../../../../core/services/auth.service';
                         </button>
                       } @else {
                         <!-- Resultados no aprobados aún → bloqueado con tooltip -->
-                        <button disabled
+                        <button aria-label="El aprendiz no tiene todos los resultados de aprendizaje aprobados (excepto etapa práctica)" disabled
                           title="El aprendiz no tiene todos los resultados de aprendizaje aprobados (excepto etapa práctica)"
                           class="p-1.5 rounded-lg text-orange-300 cursor-not-allowed bg-orange-50 transition-all duration-150">
                           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">

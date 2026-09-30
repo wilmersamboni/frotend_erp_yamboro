@@ -33,7 +33,7 @@ import { AdminAuthService } from '../../core/admin-auth/admin-auth.service';
             />
             <div class="leading-none">
               <span class="font-bold text-[#007832] text-base tracking-wide block">EPSAS</span>
-              <span class="text-[10px] text-gray-400 font-medium tracking-wide">Panel Administrativo</span>
+              <span class="text-xs text-gray-400 font-medium tracking-wide">Panel Administrativo</span>
             </div>
           </a>
         </div>
@@ -43,7 +43,7 @@ import { AdminAuthService } from '../../core/admin-auth/admin-auth.service';
 
           <!-- Campana (admin — sin tenant, sin polling) -->
           <div class="relative">
-            <button type="button" (click)="toggleNotif($event)"
+            <button aria-label="Notificaciones del sistema" type="button" (click)="toggleNotif($event)"
               class="relative w-9 h-9 rounded-full flex items-center justify-center
                      hover:bg-gray-100 transition-colors focus:outline-none"
               title="Notificaciones del sistema">
@@ -75,7 +75,7 @@ import { AdminAuthService } from '../../core/admin-auth/admin-auth.service';
           <!-- Nombre + cargo + avatar -->
           <div class="text-right hidden sm:block">
             <p class="text-sm font-semibold text-gray-800 leading-tight">{{ userNombre() }}</p>
-            <p class="text-[11px] text-gray-400 leading-tight mt-0.5 capitalize">Administrador Root</p>
+            <p class="text-xs text-gray-400 leading-tight mt-0.5 capitalize">Administrador Root</p>
           </div>
 
           <div class="w-9 h-9 rounded-full flex items-center justify-center

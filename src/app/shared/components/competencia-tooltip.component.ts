@@ -38,8 +38,8 @@ export interface CompetenciaTooltipState {
         @if (!state()!.comp) {
           <!-- Sin competencia registrada: mismo cuadro, contenido mínimo -->
           <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;">
-            <p class="ctt-label" style="margin:0;font-size:11px;flex:1;">COMPETENCIA</p>
-            <button class="ctt-close-btn" (click)="hide()" title="Cerrar">
+            <p class="ctt-label" style="margin:0;font-size:12px;flex:1;">COMPETENCIA</p>
+            <button aria-label="Cerrar" class="ctt-close-btn" (click)="hide()" title="Cerrar">
               <lucide-icon name="x" [size]="12"></lucide-icon>
             </button>
           </div>
@@ -50,11 +50,11 @@ export interface CompetenciaTooltipState {
         <!-- Cabecera: navegación + label + copiar + cerrar -->
         <div style="display:flex;align-items:center;gap:4px;margin-bottom:6px;">
           @if ((state()!.h.competencias ?? []).length > 1) {
-            <button class="ctt-close-btn" (click)="prevComp()" title="Anterior">
+            <button aria-label="Anterior" class="ctt-close-btn" (click)="prevComp()" title="Anterior">
               <lucide-icon name="chevron-left" [size]="11"></lucide-icon>
             </button>
           }
-          <p class="ctt-label" style="margin:0;font-size:11px;flex:1;">
+          <p class="ctt-label" style="margin:0;font-size:12px;flex:1;">
             COMPETENCIA
             @if ((state()!.h.competencias ?? []).length > 1) {
               <span style="font-weight:400;color:var(--text-muted);">
@@ -63,16 +63,16 @@ export interface CompetenciaTooltipState {
             }
           </p>
           @if ((state()!.h.competencias ?? []).length > 1) {
-            <button class="ctt-close-btn" (click)="nextComp()" title="Siguiente">
+            <button aria-label="Siguiente" class="ctt-close-btn" (click)="nextComp()" title="Siguiente">
               <lucide-icon name="chevron-right" [size]="11"></lucide-icon>
             </button>
           }
-          <button class="ctt-copy-btn" [class.ctt-copy-ok]="copiado()"
+          <button [attr.aria-label]="copiado() ? '¡Copiado!' : 'Copiar información'" class="ctt-copy-btn" [class.ctt-copy-ok]="copiado()"
                   (click)="copiar()"
                   [title]="copiado() ? '¡Copiado!' : 'Copiar información'">
             <lucide-icon [name]="copiado() ? 'check' : 'copy'" [size]="12"></lucide-icon>
           </button>
-          <button class="ctt-close-btn" (click)="hide()" title="Cerrar">
+          <button aria-label="Cerrar" class="ctt-close-btn" (click)="hide()" title="Cerrar">
             <lucide-icon name="x" [size]="12"></lucide-icon>
           </button>
         </div>
@@ -135,7 +135,7 @@ export interface CompetenciaTooltipState {
           <div class="progress-bar">
             <div class="progress-fill" [style.width.%]="getProgresoCompetencia(state()!.comp)"></div>
           </div>
-          <p style="font-size:11px;color:var(--text-muted);text-align:right;margin:4px 0 0;">{{ getProgresoCompetencia(state()!.comp) }}%</p>
+          <p style="font-size:12px;color:var(--text-muted);text-align:right;margin:4px 0 0;">{{ getProgresoCompetencia(state()!.comp) }}%</p>
         }
 
         @if (res.dias.length > 0) {
@@ -181,7 +181,7 @@ export interface CompetenciaTooltipState {
       box-shadow: 0 10px 30px rgba(0,0,0,.18);
       max-height: calc(100vh - 16px); overflow-y: auto;
     }
-    .ctt-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin: 0; }
+    .ctt-label { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin: 0; }
     .ctt-meta-row { display: flex; gap: 12px; margin: 0 0 8px; }
     .ctt-meta-row > div { flex: 1; min-width: 0; }
     .ctt-meta-val { color: var(--text); font-size: 12px; font-weight: 600; margin: 2px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -209,21 +209,21 @@ export interface CompetenciaTooltipState {
     .ctt-horario-row { display:flex; align-items:center; gap:6px; }
     .ctt-horario-row lucide-icon { color:var(--text-muted); flex-shrink:0; }
     .ctt-clases-chips { display:flex; flex-wrap:wrap; gap:5px; margin:4px 0 0; }
-    .ctt-clase-chip { font-size:10px; font-weight:600; color:var(--info-text); background:var(--info-bg); border:1px solid var(--info-border); border-radius:5px; padding:2px 6px; }
+    .ctt-clase-chip { font-size:12px; font-weight:600; color:var(--info-text); background:var(--info-bg); border:1px solid var(--info-border); border-radius:5px; padding:2px 6px; }
     .ctt-clase-chip.ctt-clase-pasada { color:var(--text-muted); background:var(--surface2); border-color:var(--border); text-decoration:line-through; opacity:.7; }
     .ctt-clase-chip.ctt-clase-hoy { color:#fff; background:var(--accent-brand); border-color:var(--accent-brand); }
     .ctt-clase-chip.ctt-clase-proxima { border-width:2px; border-color:var(--info-text); }
 
     /* Estado de la competencia (junto al nombre) */
-    .ctt-estado { display:inline-block; font-size:10px; font-weight:700; padding:2px 8px; border-radius:999px; margin-bottom:8px; }
+    .ctt-estado { display:inline-block; font-size:12px; font-weight:700; padding:2px 8px; border-radius:999px; margin-bottom:8px; }
     .ctt-estado-verde { background:var(--ok-bg); color:var(--ok-text); }
     .ctt-estado-ambar { background:var(--warn-bg); color:var(--warn-text); }
     .ctt-estado-rojo  { background:var(--err-bg); color:var(--err-text); }
     .ctt-estado-azul  { background:var(--info-bg); color:var(--info-text); }
 
     .ctt-horas-txt { font-size:12px; color:var(--text); margin:4px 0 0; }
-    .ctt-horas-sub { font-size:11px; color:var(--text-muted); margin:2px 0 0; }
-    .ctt-aviso { display:flex; align-items:center; gap:4px; font-size:11px; font-weight:600; color:var(--warn-text); background:var(--warn-bg); border:1px solid var(--warn-border); border-radius:6px; padding:4px 7px; margin:4px 0 0; }
+    .ctt-horas-sub { font-size:12px; color:var(--text-muted); margin:2px 0 0; }
+    .ctt-aviso { display:flex; align-items:center; gap:4px; font-size:12px; font-weight:600; color:var(--warn-text); background:var(--warn-bg); border:1px solid var(--warn-border); border-radius:6px; padding:4px 7px; margin:4px 0 0; }
     .ctt-proxima { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:var(--text); margin:3px 0 0; text-transform:capitalize; }
     .ctt-proxima lucide-icon { color:var(--accent-text); }
 
