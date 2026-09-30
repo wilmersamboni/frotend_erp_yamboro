@@ -1,15 +1,17 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { DialogDirective } from '../../directives/dialog.directive';
 
 @Component({
   selector: 'app-admin-confirm-dialog',
   standalone: true,
+  imports: [DialogDirective],
   template: `
     @if (visible) {
-      <div class="fixed inset-0 z-[1090] flex items-center justify-center p-4" style="background: rgba(0,0,0,0.5);">
+      <div appDialog class="fixed inset-0 z-[1090] flex items-center justify-center p-4" style="background: rgba(0,0,0,0.5);">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
           <div class="px-5 pt-5 pb-2 flex items-start justify-between">
             <h5 class="text-base font-bold text-gray-900">{{ titulo }}</h5>
-            <button type="button" (click)="onCancelar()" class="text-gray-400 hover:text-gray-600">
+            <button aria-label="Cerrar" type="button" (click)="onCancelar()" class="text-gray-400 hover:text-gray-600">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" d="M6 18L18 6M6 6l12 12" />
               </svg>

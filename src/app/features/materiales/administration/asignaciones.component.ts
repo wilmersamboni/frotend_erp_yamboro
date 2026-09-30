@@ -2,7 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
-import { ToastService } from '../../../core/services/toast.service';
+import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { ErpCatalogoService } from '../../schedules/data-access/erp-catalogo.service';
 import { HorariosApiService } from '../../schedules/data-access/horarios-api.service';
@@ -16,6 +16,8 @@ import { ElegirPlacasAsignacionModalComponent } from '../ui/elegir-placas-asigna
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 import { AlertComponent } from '../../../shared/ui/alert.component';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
+import { EsperaDirective } from '../../../shared/directives/espera.directive';
 
 interface LineaAsignacionForm{
   id_producto:string;
@@ -42,7 +44,7 @@ interface Ficha {
 @Component({
   selector: 'app-materiales-asignaciones',
   standalone: true,
-  imports: [AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, ElegirPlacasAsignacionModalComponent, LoadingSkeletonComponent],
+  imports: [EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, ElegirPlacasAsignacionModalComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -75,11 +77,11 @@ interface Ficha {
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                 </svg>
               </div>
-              <input type="text" [(ngModel)]="filtroTexto" (ngModelChange)="page = 0"
+              <input appEspera type="text" [(ngModel)]="filtroTexto" (ngModelChange)="page = 0"
                 placeholder="Buscar por ficha o producto..."
                 class="w-full pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:border-[#39A900] focus:bg-white transition-all text-gray-900 placeholder:text-gray-400" />
               @if (filtroTexto) {
-                <button (click)="filtroTexto = ''; page = 0" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                <button aria-label="Limpiar búsqueda" (click)="filtroTexto = ''; page = 0" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                   </svg>
@@ -178,7 +180,7 @@ interface Ficha {
           } @else {
           <div class="overflow-x-auto">
           <table class="w-full text-sm">
-            <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
+            <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
               <tr>
                 <th class="px-4 py-3 text-left font-semibold">Ficha</th>
                 <th class="px-4 py-3 text-left font-semibold">Producto</th>
@@ -198,7 +200,7 @@ interface Ficha {
                   <td class="px-4 py-3"><app-status-badge [value]="a.estado" /></td>
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ a.fecha_asignacion | date: 'short' }}</td>
                   <td class="px-4 py-3 text-center">
-                    <button (click)="toggleUbicacion(a)" title="Ver ambiente de la ficha"
+                    <button aria-label="Ver ambiente de la ficha" (click)="toggleUbicacion(a)" title="Ver ambiente de la ficha"
                       class="inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors"
                       [class.bg-green-50]="filaAbierta === a.id_asignacion"
                       [class.text-green-700]="filaAbierta === a.id_asignacion"
@@ -255,12 +257,12 @@ interface Ficha {
                 de <strong class="text-gray-800">{{ asignacionesFiltradas.length }}</strong> registros
               </span>
               <div class="flex items-center gap-2">
-                <button (click)="page = page - 1" [disabled]="page === 0"
+                <button aria-label="Página anterior" (click)="page = page - 1" [disabled]="page === 0"
                   class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                 </button>
                 <span class="px-4 py-1.5 text-sm font-semibold text-[#39A900] bg-[#39A900]/10 rounded-lg border border-[#39A900]/20">{{ page + 1 }} / {{ totalPaginas }}</span>
-                <button (click)="page = page + 1" [disabled]="page + 1 >= totalPaginas"
+                <button aria-label="Página siguiente" (click)="page = page + 1" [disabled]="page + 1 >= totalPaginas"
                   class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </button>
@@ -273,11 +275,11 @@ interface Ficha {
     </div>
 
     @if (modalOpen) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarModal()">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarModal()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-5">
             <h2 class="text-lg font-bold text-gray-800">Nueva asignación</h2>
-            <button (click)="cerrarModal()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="cerrarModal()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 
           <div class="space-y-3">
@@ -289,7 +291,7 @@ interface Ficha {
             <div>
   <div class="flex items-center justify-between mb-1.5">
     <label class="block text-xs font-medium text-gray-600">Productos a asignar</label>
-    <button type="button" (click)="agregarLineas()"
+    <button type="button" data-dirty (click)="agregarLineas()"
       class="text-xs font-medium text-[#39A900] hover:underline">
       + Agregar línea
     </button>
@@ -302,7 +304,7 @@ interface Ficha {
           <app-ss [options]="opcionesProductoLinea(linea)" placeholder="— Selecciona un producto —"
             [(ngModel)]="linea.id_producto" (ngModelChange)="onProductoLineaChange(linea)"></app-ss>
           @if (linea.id_producto) {
-            <p class="text-[11px] mt-0.5"
+            <p class="text-xs mt-0.5"
               [class.text-red-500]="disponibleDe(linea) < linea.cantidad"
               [class.text-gray-400]="disponibleDe(linea) >= linea.cantidad">
               {{ disponibleDe(linea) }} disponible(s){{ disponibleDe(linea) < linea.cantidad ? ' — cantidad excede el stock' : '' }}
@@ -311,7 +313,7 @@ interface Ficha {
         </div>
         <input type="number" [(ngModel)]="linea.cantidad" min="1"
           class="w-20 px-2 py-2 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
-        <button type="button" (click)="quitarLineas($index)"
+        <button aria-label="Quitar" type="button" data-dirty (click)="quitarLineas($index)"
           class="p-2 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 text-lg leading-none">×</button>
       </div>
     }
@@ -685,7 +687,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
     this.modalOpen = false;
     await this.cargar();
   } catch (e: any) {
-    this.error = e?.error?.message ?? 'No se pudo crear la asignación.';
+    this.error = mensajeDeError(e, 'No se pudo crear la asignación.');
   } finally {
     this.saving = false;
   }

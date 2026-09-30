@@ -9,6 +9,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { PracticaService, SeguimientoService } from '../../../core/services';
 import { NotificacionService } from '../../../core/services/notificacion.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 /**
  * Equivalente a ModalBitacoras.tsx + BitacorasCard.tsx de React.
@@ -17,14 +18,14 @@ import { ToastService } from '../../../core/services/toast.service';
 @Component({
   selector: 'app-bitacoras-modal',
   standalone: true,
-  imports: [FormsModule, PdfViewerModule, DecimalPipe],
+  imports: [DialogDirective, FormsModule, PdfViewerModule, DecimalPipe],
   template: `
     <!-- Input oculto FUERA de cualquier bloque @if — accesible via ViewChild -->
     <input #pdfInput type="file" accept="application/pdf" style="display:none"
       (change)="onPdfFileChange($event)" />
 
     @if (isOpen && alumno) {
-      <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      <div appDialog class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
         (click)="$event.target === $event.currentTarget && closed.emit()">
 
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col">
@@ -44,7 +45,7 @@ import { ToastService } from '../../../core/services/toast.service';
                 <p class="text-xs text-gray-500">{{ bitacoras().length }} registros</p>
               </div>
             </div>
-            <button (click)="closed.emit()"
+            <button aria-label="Cerrar" (click)="closed.emit()"
               class="p-2 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -223,7 +224,7 @@ import { ToastService } from '../../../core/services/toast.service';
 
       <!-- Visor PDF -->
       @if (detalleOpen() && bitacoraSeleccionada()) {
-        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+        <div appDialog class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
           <div class="bg-white rounded-2xl shadow-2xl w-full max-w-7xl h-[92vh] flex flex-col overflow-hidden">
 
             <div class="flex items-center justify-between px-6 py-3 border-b border-gray-100 flex-shrink-0"
@@ -250,16 +251,16 @@ import { ToastService } from '../../../core/services/toast.service';
               </div>
               <div class="flex items-center gap-2">
                 <div class="flex items-center gap-1 bg-white/10 rounded-lg px-2 py-1">
-                  <button (click)="prevPage()" [disabled]="pdfPage <= 1"
+                  <button aria-label="Página anterior" (click)="prevPage()" [disabled]="pdfPage <= 1"
                     class="text-white/70 hover:text-white disabled:opacity-30 px-1">‹</button>
                   <span class="text-white text-xs min-w-[60px] text-center">{{ pdfPage }} / {{ pdfTotalPages }}</span>
-                  <button (click)="nextPage()" [disabled]="pdfPage >= pdfTotalPages"
+                  <button aria-label="Página siguiente" (click)="nextPage()" [disabled]="pdfPage >= pdfTotalPages"
                     class="text-white/70 hover:text-white disabled:opacity-30 px-1">›</button>
                 </div>
                 <div class="flex items-center gap-1 bg-white/10 rounded-lg px-2 py-1">
-                  <button (click)="zoomOut()" class="text-white/70 hover:text-white w-6 h-6 flex items-center justify-center">−</button>
+                  <button aria-label="Alejar" (click)="zoomOut()" class="text-white/70 hover:text-white w-6 h-6 flex items-center justify-center">−</button>
                   <span class="text-white text-xs min-w-[45px] text-center">{{ (pdfZoom * 100) | number:'1.0-0' }}%</span>
-                  <button (click)="zoomIn()" class="text-white/70 hover:text-white w-6 h-6 flex items-center justify-center">+</button>
+                  <button aria-label="Acercar" (click)="zoomIn()" class="text-white/70 hover:text-white w-6 h-6 flex items-center justify-center">+</button>
                 </div>
                 <button type="button" (click)="descargarBitacora()" [disabled]="!pdfBlob()"
                   class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white
@@ -271,7 +272,7 @@ import { ToastService } from '../../../core/services/toast.service';
                   </svg>
                   Descargar
                 </button>
-                <button (click)="detalleOpen.set(false); resetPdf()"
+                <button aria-label="Cerrar" (click)="detalleOpen.set(false); resetPdf()"
                   class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white
                          flex items-center justify-center transition-colors text-lg leading-none">×</button>
               </div>

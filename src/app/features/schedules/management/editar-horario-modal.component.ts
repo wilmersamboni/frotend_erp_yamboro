@@ -6,6 +6,7 @@ import { ToastService } from '../../../core/services/toast.service';
 import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
 import { TimeInputComponent } from '../../../shared/components/time-input.component';
 import { DIAS_SEMANA, DIAS_LABELS, to12h, nombreCompleto } from '../../../core/utils/horarios.util';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 const JORNADA_LABELS: Record<string, string> = { manana: 'Mañana', tarde: 'Tarde', noche: 'Noche' };
 
@@ -48,10 +49,10 @@ interface EditForm {
 @Component({
   selector: 'app-editar-horario-modal',
   standalone: true,
-  imports: [FormsModule, LucideAngularModule, SearchableSelectComponent, TimeInputComponent],
+  imports: [DialogDirective, FormsModule, LucideAngularModule, SearchableSelectComponent, TimeInputComponent],
   template: `
     @if (horario(); as h) {
-    <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+    <div appDialog class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div class="edit-modal" (click)="$event.stopPropagation()">
 
         <div class="px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-3">
@@ -61,7 +62,7 @@ interface EditForm {
               {{ diaLabel(h.diaSemana) }} · {{ fmt(h.horaInicio) }} – {{ fmt(h.horaFin) }} · Ficha {{ h.ficha?.codigo ?? '—' }}
             </p>
           </div>
-          <button class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" (click)="cerrar()">
+          <button aria-label="Cerrar" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" (click)="cerrar()">
             <lucide-icon name="x" [size]="18"></lucide-icon>
           </button>
         </div>
@@ -300,7 +301,7 @@ export class EditarHorarioModalComponent {
       this.guardado.emit();
     } catch (e: any) {
       this.guardando.set(false);
-      this.toast.error('No se pudo guardar', e?.error?.message ?? 'Verifica los datos e intenta de nuevo.');
+      this.toast.httpError(e, 'Verifica los datos e intenta de nuevo.', 'No se pudo guardar');
     }
   }
 

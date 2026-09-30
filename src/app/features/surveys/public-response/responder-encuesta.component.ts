@@ -4,6 +4,8 @@ import gsap from 'gsap';
 
 import { EncuestasApiService, FormularioEncuesta } from '../data-access/encuestas-api.service';
 import { encuestaYaRespondida, marcarEncuestaRespondida } from '../../../core/utils/encuestas-respondidas.util';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
+import { mensajeDeError } from '../../../core/services/toast.service';
 
 type Vista = 'cargando' | 'formulario' | 'error' | 'ya-respondida';
 
@@ -17,7 +19,7 @@ type Vista = 'cargando' | 'formulario' | 'error' | 'ya-respondida';
 @Component({
   selector: 'app-responder-encuesta',
   standalone: true,
-  imports: [RouterLink],
+  imports: [DialogDirective, RouterLink],
   template: `
     <div class="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-10">
       <div class="w-full max-w-lg bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -114,7 +116,7 @@ type Vista = 'cargando' | 'formulario' | 'error' | 'ya-respondida';
 
     <!-- ═══════════ Modal: encuesta enviada ═══════════ -->
     @if (mostrarModalGracias()) {
-      <div data-anim="gracias-overlay" class="anim-gsap fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div appDialog data-anim="gracias-overlay" class="anim-gsap fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
         <div data-anim="gracias-card" class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center">
           <div data-anim="gracias-icono" class="w-16 h-16 mx-auto rounded-full bg-[#39A900]/10 text-[#2d8400] grid place-items-center mb-4">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
@@ -180,7 +182,7 @@ export class ResponderEncuestaComponent implements OnInit {
         afterNextRender(() => this.entrarFormulario(), { injector: this.injector });
       }
     } catch (e: any) {
-      this.mostrarError(e?.error?.message ?? 'No se pudo cargar la encuesta.');
+      this.mostrarError(mensajeDeError(e, 'No se pudo cargar la encuesta.'));
     }
   }
 
@@ -232,7 +234,7 @@ export class ResponderEncuestaComponent implements OnInit {
         afterNextRender(() => this.entrarGracias(), { injector: this.injector });
       }
     } catch (e: any) {
-      this.enviarError.set(e?.error?.message ?? 'No se pudo enviar tu respuesta. Intenta de nuevo.');
+      this.enviarError.set(mensajeDeError(e, 'No se pudo enviar tu respuesta. Intenta de nuevo.'));
     } finally {
       this.enviando.set(false);
     }

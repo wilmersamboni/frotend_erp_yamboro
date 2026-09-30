@@ -4,6 +4,8 @@ import { AdminTableComponent } from '../../shared/components/admin-table.compone
 import { StatCardComponent } from '../../shared/components/stat-card.component';
 import { ToastService } from '../../core/services/toast.service';
 import { Acta, MaterialesApiService } from './data-access/materiales-api.service';
+import { DialogDirective } from '../../shared/directives/dialog.directive';
+import { EsperaDirective } from '../../shared/directives/espera.directive';
 
 /**
  * Actas de entrega/devolución — solo lectura. El backend las genera solo
@@ -21,7 +23,7 @@ import { Acta, MaterialesApiService } from './data-access/materiales-api.service
 @Component({
   selector: 'app-materiales-actas',
   standalone: true,
-  imports: [FormsModule, AdminTableComponent, StatCardComponent],
+  imports: [EsperaDirective, DialogDirective, FormsModule, AdminTableComponent, StatCardComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -29,7 +31,7 @@ import { Acta, MaterialesApiService } from './data-access/materiales-api.service
           <h1 class="text-xl font-bold text-gray-800">Actas</h1>
           <p class="text-sm text-gray-500 mt-0.5">Generadas automáticamente al entregar o devolver un préstamo.</p>
         </div>
-        <input [(ngModel)]="filtroTexto" placeholder="Buscar por producto o solicitante…"
+        <input appEspera [(ngModel)]="filtroTexto" placeholder="Buscar por producto o solicitante…"
           class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] bg-white" />
       </div>
 
@@ -62,7 +64,7 @@ import { Acta, MaterialesApiService } from './data-access/materiales-api.service
         (rowSelected)="verPdf($event)" />
 
       @if (descargando) {
-        <div class="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
+        <div appDialog class="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
           <div class="bg-white rounded-2xl px-6 py-5 flex items-center gap-3 shadow-lg">
             <div class="w-5 h-5 border-2 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
             <span class="text-sm text-gray-600">Abriendo PDF…</span>

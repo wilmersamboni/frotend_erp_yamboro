@@ -1,11 +1,13 @@
 import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
+import { DialogDirective } from '../../directives/dialog.directive';
 
 @Component({
   selector: 'app-admin-credenciales-modal',
   standalone: true,
+  imports: [DialogDirective],
   template: `
     @if (visible) {
-      <div class="fixed inset-0 z-[1090] flex items-center justify-center p-4" style="background: rgba(0,0,0,0.55);">
+      <div appDialog class="fixed inset-0 z-[1090] flex items-center justify-center p-4" style="background: rgba(0,0,0,0.55);">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
 
           <div class="px-5 pt-5 pb-3 flex items-center justify-between border-b border-gray-100">
@@ -16,7 +18,7 @@ import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
               </svg>
               <h5 class="text-base font-bold text-gray-900">{{ titulo }}</h5>
             </div>
-            <button type="button" (click)="onCerrar()" class="text-gray-400 hover:text-gray-600 transition-colors">
+            <button aria-label="Cerrar" type="button" (click)="onCerrar()" class="text-gray-400 hover:text-gray-600 transition-colors">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" d="M6 18L18 6M6 6l12 12" />
               </svg>

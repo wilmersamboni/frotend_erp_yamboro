@@ -7,6 +7,7 @@ import { FormularioVigilado, UnsavedChangesService, avisarCambiosSinGuardar } fr
 import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
 import { TimeInputComponent } from '../../../shared/components/time-input.component';
 import { DIAS_SEMANA, DIAS_LABELS } from '../../../core/utils/horarios.util';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 const JORNADAS = [
   { key: 'manana', label: 'Mañana (07:00–12:00)', inicio: '07:00', fin: '12:00' },
@@ -31,10 +32,10 @@ interface DiaConfig {
 @Component({
   selector: 'app-nuevo-horario-wizard',
   standalone: true,
-  imports: [FormsModule, LucideAngularModule, SearchableSelectComponent, TimeInputComponent],
+  imports: [DialogDirective, FormsModule, LucideAngularModule, SearchableSelectComponent, TimeInputComponent],
   template: `
     @if (showModal()) {
-    <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+    <div appDialog [dialogGuard]="false" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div class="wizard-modal" (click)="$event.stopPropagation()">
 
         <!-- Cabecera -->
@@ -43,7 +44,7 @@ interface DiaConfig {
             <h3 class="wiz-title">Nuevo Horario</h3>
             <p class="wiz-subtitle">Selecciona los días y configura ficha, instructor y ambiente para cada uno</p>
           </div>
-          <button class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" (click)="cerrar()">
+          <button aria-label="Cerrar" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" (click)="cerrar()">
             <lucide-icon name="x" [size]="20"></lucide-icon>
           </button>
         </div>
@@ -73,7 +74,7 @@ interface DiaConfig {
               <div>
                 <div>Jornada: <strong>{{ jornadaDetectadaLabel() }}</strong></div>
                 @if (abarcaDosJornadas()) {
-                  <div style="font-size:10px;opacity:.85;">El horario abarca dos jornadas</div>
+                  <div style="font-size:12px;opacity:.85;">El horario abarca dos jornadas</div>
                 }
               </div>
             </div>
@@ -642,8 +643,7 @@ export class NuevoHorarioWizardComponent {
       );
     } catch (e: any) {
       this.saving.set(false);
-      const msg: string = e?.error?.message ?? 'No se pudo guardar el horario. Verifica los datos e intenta de nuevo.';
-      this.toast.error('Error al crear horarios', msg);
+      this.toast.httpError(e, 'No se pudo guardar el horario. Verifica los datos e intenta de nuevo.', 'Error al crear horarios');
     }
   }
 }

@@ -4,10 +4,11 @@ import { AdminTableComponent } from '../../shared/components/admin-table.compone
 import { AdminModalComponent } from '../tenant-administration/ui/admin-modal.component';
 import { OpcionSelect } from '../tenant-administration/services/admin.service';
 import { AuthService } from '../../core/services/auth.service';
-import { ToastService } from '../../core/services/toast.service';
+import { ToastService, mensajeDeError } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 import { Item, MaterialesApiService, Sitio } from './data-access/materiales-api.service';
 import { PersonaService } from '../../core/services/persona.service';
+import { DialogDirective } from '../../shared/directives/dialog.directive';
 
 const OPCIONES_FILTRO_TIPO = [
   { label: 'Todos los tipos', value: '' },
@@ -52,7 +53,7 @@ const OPCIONES_TIPO: OpcionSelect[] = [
 @Component({
   selector: 'app-materiales-sitios',
   standalone: true,
-  imports: [FormsModule, AdminTableComponent, AdminModalComponent],
+  imports: [DialogDirective, FormsModule, AdminTableComponent, AdminModalComponent],
   template: `
     <div class="p-6">
       <h1 class="text-xl font-bold text-gray-800 mb-5">Sitios de almacenamiento</h1>
@@ -83,11 +84,11 @@ const OPCIONES_TIPO: OpcionSelect[] = [
     </div>
 
     @if (verItemsAbierto) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="verItemsAbierto = false">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="verItemsAbierto = false">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-5">
             <h2 class="text-lg font-bold text-gray-800">Ítems en "{{ sitioSeleccionado?.nombre }}"</h2>
-            <button (click)="verItemsAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="verItemsAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
           @if (itemsDelSitioSeleccionado().length === 0) {
             <p class="text-sm text-gray-400 py-6 text-center">Este sitio no tiene ítems.</p>
@@ -389,7 +390,7 @@ export class MaterialesSitiosComponent implements OnInit {
       this.modalOpen = false;
       await this.cargar();
     } catch (e: any) {
-      this.error = e?.error?.message ?? 'No se pudo guardar el sitio.';
+      this.error = mensajeDeError(e, 'No se pudo guardar el sitio.');
     } finally {
       this.saving = false;
     }

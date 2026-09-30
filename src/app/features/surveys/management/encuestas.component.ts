@@ -21,13 +21,15 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
 import { TimeInputComponent } from '../../../shared/components/time-input.component';
 import { TuiDay } from '@taiga-ui/cdk';
 import { ConfirmService } from '../../../core/services/confirm.service';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
+import { EsperaDirective } from '../../../shared/directives/espera.directive';
 
 type Filtro = 'TODAS' | EstadoEncuesta;
 
 @Component({
   selector: 'app-encuestas',
   standalone: true,
-  imports: [FormsModule, RouterLink, DatePipe, TablePaginationComponent, SearchableSelectComponent, DateInputComponent, TimeInputComponent],
+  imports: [EsperaDirective, DialogDirective, FormsModule, RouterLink, DatePipe, TablePaginationComponent, SearchableSelectComponent, DateInputComponent, TimeInputComponent],
   template: `
 
     <div class="bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-50 p-3 sm:p-4 lg:p-8">
@@ -94,14 +96,14 @@ type Filtro = 'TODAS' | EstadoEncuesta;
           <!-- Buscador + filtros por ficha/instructor -->
           <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
             <div class="relative flex-1">
-              <input
+              <input appEspera
                 type="text"
                 [ngModel]="busqueda()"
                 (ngModelChange)="busqueda.set($event); resetPage()"
                 placeholder="🔍︎ Buscar por ficha o instructor..."
                 class="w-full pl-3 pr-8 py-2 border-2 border-gray-200 rounded-xl text-sm hover:border-[#39A900]/50 focus:outline-none focus:border-[#39A900] transition-colors"/>
               @if (busqueda()) {
-                <button (click)="busqueda.set(''); resetPage()"
+                <button aria-label="Limpiar búsqueda" (click)="busqueda.set(''); resetPage()"
                   class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg leading-none">
                   ×
                 </button>
@@ -255,7 +257,7 @@ type Filtro = 'TODAS' | EstadoEncuesta;
 
     <!-- ═══════════ Modal: nueva encuesta (2 pasos, como el registro rápido de personas) ═══════════ -->
     @if (wizardAbierto()) {
-      <div data-anim="wiz-overlay" class="anim-gsap fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarWizard()">
+      <div appDialog data-anim="wiz-overlay" class="anim-gsap fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarWizard()">
         <div data-anim="wiz-panel" class="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]" (click)="$event.stopPropagation()">
 
           @if (encuestasCreadas().length > 0) {
@@ -307,7 +309,7 @@ type Filtro = 'TODAS' | EstadoEncuesta;
                     Paso {{ wizardPaso() }} de 2 — {{ wizardPaso() === 1 ? 'Ficha e instructores' : 'Preguntas' }}
                   </p>
                 </div>
-                <button (click)="cerrarWizard()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+                <button aria-label="Cerrar" (click)="cerrarWizard()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path d="M6 18L18 6M6 6l12 12"/>
                   </svg>
@@ -343,7 +345,7 @@ type Filtro = 'TODAS' | EstadoEncuesta;
                         @for (id of instructorIds; track id) {
                           <span class="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full bg-[#39A900]/10 text-[#2d8500] text-xs font-semibold">
                             {{ nombreInstructor(id) }}
-                            <button type="button" (click)="toggleInstructor(id)"
+                            <button aria-label="Quitar instructor" type="button" data-dirty (click)="toggleInstructor(id)"
                               class="w-4 h-4 rounded-full hover:bg-[#39A900]/20 flex items-center justify-center leading-none">
                               ×
                             </button>
@@ -408,7 +410,7 @@ type Filtro = 'TODAS' | EstadoEncuesta;
                         <span class="normal-case font-normal text-gray-400">— {{ preguntaIds.size }} de {{ preguntasDisponibles().length }}</span>
                       </label>
                       @if (preguntasDisponibles().length > 0) {
-                        <button type="button" (click)="toggleTodasPreguntas()"
+                        <button type="button" data-dirty (click)="toggleTodasPreguntas()"
                           class="text-xs font-semibold text-[#2d8500] hover:text-[#39A900] px-2 py-1 rounded-lg hover:bg-[#39A900]/5 transition-colors">
                           {{ todasPreguntasSeleccionadas() ? 'Quitar todas' : 'Seleccionar todas' }}
                         </button>

@@ -4,7 +4,7 @@ import { DatePipe } from '@angular/common';
 import { MaterialesLiveService } from '../data-access/materiales-live.service';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
-import { ToastService } from '../../../core/services/toast.service';
+import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { TableFilterComponent } from '../../../shared/components/table-filter.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
@@ -12,6 +12,8 @@ import { LoadingSkeletonComponent } from '../../../shared/components/loading-ske
 import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from '../data-access/materiales-api.service';
 import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 import { AlertComponent } from '../../../shared/ui/alert.component';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
+import { EsperaDirective } from '../../../shared/directives/espera.directive';
 
 /**
  * Traslados de ítems entre sitios — PENDIENTE → APROBADO/RECHAZADO, terminal
@@ -43,7 +45,7 @@ import { AlertComponent } from '../../../shared/ui/alert.component';
 @Component({
   selector: 'app-materiales-traslados',
   standalone: true,
-  imports: [AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, TableFilterComponent, LoadingSkeletonComponent],
+  imports: [EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, TableFilterComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -66,7 +68,7 @@ import { AlertComponent } from '../../../shared/ui/alert.component';
         <app-table-filter label="Estado" [options]="opcionesEstadoFiltro" [value]="estadoFiltro" (valueChange)="estadoFiltro = $event" />
         <app-table-filter label="Origen" [options]="opcionesOrigenFiltro" [value]="origenFiltro" (valueChange)="origenFiltro = $event" />
         <app-table-filter label="Destino" [options]="opcionesDestinoFiltro" [value]="destinoFiltro" (valueChange)="destinoFiltro = $event" />
-        <input [(ngModel)]="busquedaFiltro" type="search" placeholder="Buscar ítem o justificación?" class="min-w-56 flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+        <input appEspera [(ngModel)]="busquedaFiltro" type="search" placeholder="Buscar ítem o justificación?" class="min-w-56 flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
       </div>
 
       @if (loading) {
@@ -77,7 +79,7 @@ import { AlertComponent } from '../../../shared/ui/alert.component';
         <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
           <div class="overflow-x-auto">
           <table class="w-full text-sm">
-            <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
+            <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
               <tr>
                 <th class="px-4 py-3 text-left font-semibold">Ítem</th>
                 <th class="px-4 py-3 text-left font-semibold">Origen</th>
@@ -99,7 +101,7 @@ import { AlertComponent } from '../../../shared/ui/alert.component';
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ t.fecha_solicitud | date: 'short' }}</td>
                   <td class="px-4 py-3">
                     @if (bodegaInactiva(t) && t.estado === 'PENDIENTE') {
-                      <div class="mb-1.5 flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
+                      <div class="mb-1.5 flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
                         ⚠️ Origen o destino inactivo — no se puede aprobar
                       </div>
                     }
@@ -137,11 +139,11 @@ import { AlertComponent } from '../../../shared/ui/alert.component';
     </div>
 
     @if (detalleAbierto && detalle) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="detalleAbierto = false">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="detalleAbierto = false">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-5">
             <h2 class="text-lg font-bold text-gray-800">Detalle del traslado</h2>
-            <button (click)="detalleAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="detalleAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
           <dl class="space-y-2.5 text-sm">
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Ítem</dt><dd class="text-gray-800 font-medium text-right">{{ detalle.item?.producto?.nombre ?? detalle.item?.codigo_sku ?? '—' }}</dd></div>
@@ -167,11 +169,11 @@ import { AlertComponent } from '../../../shared/ui/alert.component';
     }
 
     @if (rechazarOpen && trasladoARechazar) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="rechazarOpen = false">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="rechazarOpen = false">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-bold text-gray-800">Rechazar traslado</h2>
-            <button (click)="rechazarOpen = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="rechazarOpen = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
           <p class="text-sm text-gray-500 mb-3">
             {{ trasladoARechazar.item?.producto?.nombre ?? trasladoARechazar.item?.codigo_sku ?? 'Ítem' }} →
@@ -192,11 +194,11 @@ import { AlertComponent } from '../../../shared/ui/alert.component';
     }
 
     @if (crearOpen) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarCrear()">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarCrear()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-5">
             <h2 class="text-lg font-bold text-gray-800">Nuevo traslado</h2>
-            <button (click)="cerrarCrear()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="cerrarCrear()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 
           <div class="space-y-3">
@@ -205,7 +207,7 @@ import { AlertComponent } from '../../../shared/ui/alert.component';
               @if (opcionesItems().length) {
                 <app-ss [options]="opcionesItems()" placeholder="Buscá por placa SENA, SKU o producto..."
                   [(ngModel)]="itemSeleccionadoId" (ngModelChange)="onItemSeleccionado($event)"></app-ss>
-                <p class="text-[11px] text-gray-400 mt-1">Elegí uno o varios ítems devolutivos con placa SENA. Todos van a la misma bodega de destino.</p>
+                <p class="text-xs text-gray-400 mt-1">Elegí uno o varios ítems devolutivos con placa SENA. Todos van a la misma bodega de destino.</p>
               } @else {
                 <p class="text-xs text-gray-400">No hay ítems devolutivos con placa SENA. Asigná las placas desde el módulo de Ítems.</p>
               }
@@ -233,7 +235,7 @@ import { AlertComponent } from '../../../shared/ui/alert.component';
                           <span class="block text-red-600 font-medium">⚠ {{ fallidos[it.item.id_item] }}</span>
                         }
                       </div>
-                      <button type="button" (click)="quitarItem(it.item.id_item)"
+                      <button aria-label="Quitar" type="button" data-dirty (click)="quitarItem(it.item.id_item)"
                         class="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 text-base leading-none">×</button>
                     </div>
                   </li>
@@ -251,7 +253,7 @@ import { AlertComponent } from '../../../shared/ui/alert.component';
                   placeholder="¿Por qué y para qué se traslada? (mín. 10 caracteres)"
                   class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]"></textarea>
                 @if (justificacion.trim().length > 0 && justificacion.trim().length < 10) {
-                  <p class="text-[11px] text-amber-600 mt-0.5">Faltan {{ 10 - justificacion.trim().length }} caracteres.</p>
+                  <p class="text-xs text-amber-600 mt-0.5">Faltan {{ 10 - justificacion.trim().length }} caracteres.</p>
                 }
               </div>
             }
@@ -529,7 +531,7 @@ export class MaterialesTrasladosComponent implements OnInit {
       this.itemsSeleccionados = [...this.itemsSeleccionados, detalle];
       this.itemSeleccionadoId = null;
     } catch (e: any) {
-      this.errorBusqueda = e?.error?.message ?? `No se encontró ningún ítem con la placa "${placa}".`;
+      this.errorBusqueda = mensajeDeError(e, `No se encontró ningún ítem con la placa "${placa}".`);
     } finally {
       this.buscando = false;
     }
@@ -557,9 +559,9 @@ export class MaterialesTrasladosComponent implements OnInit {
       const fallidos = e?.error?.data?.fallidos as { id_item: string; motivo: string }[] | undefined;
       if (fallidos?.length) {
         this.fallidos = Object.fromEntries(fallidos.map((f) => [f.id_item, f.motivo]));
-        this.error = e?.error?.message ?? 'Algunos ítems no se pueden trasladar. Revisá los marcados en rojo y quitalos.';
+        this.error = mensajeDeError(e, 'Algunos ítems no se pueden trasladar. Revisá los marcados en rojo y quitalos.');
       } else {
-        this.error = e?.error?.message ?? 'No se pudo crear el traslado.';
+        this.error = mensajeDeError(e, 'No se pudo crear el traslado.');
       }
     } finally {
       this.saving = false;

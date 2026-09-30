@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { Item, MaterialesApiService } from "../data-access/materiales-api.service";
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 
 interface LineaParaElegir{
@@ -14,14 +15,14 @@ interface LineaParaElegir{
 @Component({
     selector:'app-elegir-placas-asignacion-modal',
     standalone:true,
-    imports: [FormsModule],
+    imports: [DialogDirective, FormsModule],
     template: `
         @if(abierto) {
-            <div class= "fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)= "cancelar()">
+            <div appDialog class= "fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)= "cancelar()">
                 <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
                     <div class="flex items-center justify-between mb-5">
                         <h2 class="text-lg font-bold text-gray-800"> Elegir placas a asignar</h2>
-                        <button (click)="cancelar()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">x</button>
+                        <button aria-label="Cerrar" (click)="cancelar()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">x</button>
                     </div>
 
                     @if(loading){

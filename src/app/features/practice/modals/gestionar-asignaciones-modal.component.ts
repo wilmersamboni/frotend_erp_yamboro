@@ -12,6 +12,7 @@ import { TuiDay } from '@taiga-ui/cdk';
 import { DateInputComponent } from '../../../shared/components/date-input.component';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 interface AsignacionVM {
   id: string;
@@ -31,12 +32,12 @@ interface AsignacionVM {
 @Component({
   selector: 'app-gestionar-asignaciones-modal',
   standalone: true,
-  imports: [LoadingSkeletonComponent, FormsModule, TuiButton, DateInputComponent],
+  imports: [DialogDirective, LoadingSkeletonComponent, FormsModule, TuiButton, DateInputComponent],
   styles: [`tui-textfield { display: block; }`],
   template: `
     @if (isOpen) {
       <!-- Backdrop -->
-      <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+      <div appDialog class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
            (click)="$event.target === $event.currentTarget && closed.emit()">
 
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
@@ -49,7 +50,7 @@ interface AsignacionVM {
                 <p class="text-xs text-gray-400 mt-0.5">{{ alumno.name }} · {{ alumno.programa }}</p>
               }
             </div>
-            <button (click)="closed.emit()"
+            <button aria-label="Cerrar" (click)="closed.emit()"
               class="text-gray-400 hover:text-gray-600 transition-colors p-1">
               <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -101,7 +102,7 @@ interface AsignacionVM {
                             <span class="font-semibold text-sm text-gray-800 truncate">
                               {{ a.instructorNombre || 'Instructor' }}
                             </span>
-                            <span class="text-[10px] px-2 py-0.5 rounded-full font-medium capitalize"
+                            <span class="text-xs px-2 py-0.5 rounded-full font-medium capitalize"
                               [class.bg-green-100]="a.estado === 'activo'"
                               [class.text-green-700]="a.estado === 'activo'"
                               [class.bg-gray-200]="a.estado !== 'activo'"
@@ -118,7 +119,7 @@ interface AsignacionVM {
                         <!-- Acciones de la tarjeta -->
                         <div class="flex items-center gap-1 flex-shrink-0">
                           <!-- Editar -->
-                          <button (click)="iniciarEdicion(a)"
+                          <button aria-label="Editar asignación" (click)="iniciarEdicion(a)"
                             title="Editar asignación"
                             class="p-1.5 rounded-lg text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 transition-all">
                             <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -129,7 +130,7 @@ interface AsignacionVM {
 
                           <!-- Activar / Inactivar -->
                           @if (a.estado === 'activo') {
-                            <button (click)="cambiarEstado(a, 'inactivo')"
+                            <button aria-label="Inactivar asignación" (click)="cambiarEstado(a, 'inactivo')"
                               title="Inactivar asignación"
                               class="p-1.5 rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-all">
                               <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -138,7 +139,7 @@ interface AsignacionVM {
                               </svg>
                             </button>
                           } @else {
-                            <button (click)="cambiarEstado(a, 'activo')"
+                            <button aria-label="Activar asignación" (click)="cambiarEstado(a, 'activo')"
                               title="Activar asignación"
                               class="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-all">
                               <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -149,7 +150,7 @@ interface AsignacionVM {
                           }
 
                           <!-- Eliminar -->
-                          <button (click)="eliminar(a)"
+                          <button aria-label="Eliminar asignación" (click)="eliminar(a)"
                             title="Eliminar asignación"
                             class="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all">
                             <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -183,7 +184,7 @@ interface AsignacionVM {
                                   <button type="button" (mousedown)="seleccionarInstructorEdit(a, inst)"
                                     class="w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 flex justify-between items-center">
                                     <span>{{ inst.nombre }}</span>
-                                    <span class="text-[10px] text-gray-400 capitalize">{{ inst.cargo }}</span>
+                                    <span class="text-xs text-gray-400 capitalize">{{ inst.cargo }}</span>
                                   </button>
                                 }
                               </div>
@@ -269,7 +270,7 @@ interface AsignacionVM {
                               <button type="button" (mousedown)="seleccionarInstructorNuevo(inst)"
                                 class="w-full text-left px-3 py-2 text-sm hover:bg-[#39A900]/10 flex justify-between items-center">
                                 <span>{{ inst.nombre }}</span>
-                                <span class="text-[10px] text-gray-400 capitalize">{{ inst.cargo }}</span>
+                                <span class="text-xs text-gray-400 capitalize">{{ inst.cargo }}</span>
                               </button>
                             }
                           </div>

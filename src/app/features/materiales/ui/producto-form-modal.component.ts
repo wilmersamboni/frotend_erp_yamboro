@@ -2,8 +2,9 @@ import { Component, DoCheck, EventEmitter, Input, OnChanges, Output, SimpleChang
 import { FormsModule } from '@angular/forms';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
 import { OpcionSelect } from '../../tenant-administration/services/admin.service';
-import { ToastService } from '../../../core/services/toast.service';
+import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
 import { Categoria, MaterialesApiService, Producto, Sitio } from '../data-access/materiales-api.service';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 const OPCIONES_TIPO_MATERIAL = [
   { value: 'CONSUMO', label: 'Consumo', clases: 'border-green-300 bg-green-50 text-green-700' },
@@ -111,14 +112,14 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
 @Component({
   selector: 'app-producto-form-modal',
   standalone: true,
-  imports: [FormsModule, SearchableSelectComponent],
+  imports: [DialogDirective, FormsModule, SearchableSelectComponent],
   template: `
     @if (open) {
-      <div class="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 overflow-y-auto p-2 sm:p-4" (click)="closed.emit()">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 overflow-y-auto p-2 sm:p-4" (click)="closed.emit()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg my-auto max-h-[calc(100dvh-1rem)] sm:max-h-[90vh] flex flex-col overflow-hidden" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between shrink-0 px-4 pt-4 pb-3 sm:px-6 sm:pt-6">
             <h2 class="text-lg font-bold text-gray-800">{{ editando ? 'Editar producto' : 'Nuevo producto' }}</h2>
-            <button (click)="closed.emit()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="closed.emit()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 
           <div class="producto-form-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-2 sm:px-6">
@@ -129,7 +130,7 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
               <label class="block text-xs font-medium text-gray-600 mb-1.5">Tipo de material <span class="text-red-500">*</span></label>
               <div class="grid grid-cols-3 gap-2">
                 @for (t of opcionesTipoMaterial; track t.value) {
-                  <button type="button" (click)="!editando && (form['tipo_material'] = t.value)"
+                  <button type="button" data-dirty (click)="!editando && (form['tipo_material'] = t.value)"
                     [disabled]="!!editando"
                     class="px-2 py-2 rounded-lg border text-sm font-medium text-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     [class]="form['tipo_material'] === t.value ? t.clases : 'border-gray-200 text-gray-500 hover:bg-gray-50'">
@@ -138,7 +139,7 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
                 }
               </div>
               @if (editando) {
-                <p class="text-[11px] text-gray-400 mt-1">El tipo no se puede cambiar. Si está mal, desactivá el producto y creá otro.</p>
+                <p class="text-xs text-gray-400 mt-1">El tipo no se puede cambiar. Si está mal, desactivá el producto y creá otro.</p>
               }
             </div>
 
@@ -209,7 +210,7 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
                 <div>
                   <label class="block text-xs font-medium text-gray-600 mb-1">Bodega por defecto</label>
                   <app-ss [options]="opcionesSitio" placeholder="— Sin bodega —" [(ngModel)]="form['id_sitio']"></app-ss>
-                  <p class="text-[11px] text-gray-400 mt-1">Opcional. Prellena el form de lotes; el stock se ubica por lote o por ítem.</p>
+                  <p class="text-xs text-gray-400 mt-1">Opcional. Prellena el form de lotes; el stock se ubica por lote o por ítem.</p>
                 </div>
               }
               <div>
@@ -572,7 +573,7 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
       }
       this.guardado.emit();
     } catch (e: any) {
-      this.error = e?.error?.message ?? 'No se pudo guardar el producto.';
+      this.error = mensajeDeError(e, 'No se pudo guardar el producto.');
     } finally {
       this.saving = false;
     }

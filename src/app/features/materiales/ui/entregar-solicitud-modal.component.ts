@@ -13,6 +13,7 @@ import {
   lineasDevolutivasDeSolicitud,
   leerSnapshotEntregaOffline,
 } from './solicitud-entrega-offline.util';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 interface LineaParaElegir extends LineaDevolutivaConOpciones {
   elegidos: string[];
@@ -39,14 +40,14 @@ interface LineaParaElegir extends LineaDevolutivaConOpciones {
 @Component({
   selector: 'app-entregar-solicitud-modal',
   standalone: true,
-  imports: [FormsModule, BarcodeScannerComponent],
+  imports: [DialogDirective, FormsModule, BarcodeScannerComponent],
   template: `
     @if (abierto) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cancelar()">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cancelar()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-5">
             <h2 class="text-lg font-bold text-gray-800">Marcar en entrega</h2>
-            <button (click)="cancelar()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="cancelar()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 
           @if (loading) {
@@ -103,7 +104,7 @@ interface LineaParaElegir extends LineaDevolutivaConOpciones {
                   <div class="rounded-xl border border-gray-100 p-3">
                     <div class="flex items-center justify-between mb-2">
                       <p class="text-sm font-semibold text-gray-800">{{ linea.nombre }}</p>
-                      <span class="text-[11px] font-semibold rounded-full px-2 py-0.5"
+                      <span class="text-xs font-semibold rounded-full px-2 py-0.5"
                         [class.bg-green-50]="linea.elegidos.length === linea.cantidad"
                         [class.text-green-700]="linea.elegidos.length === linea.cantidad"
                         [class.bg-amber-50]="linea.elegidos.length !== linea.cantidad"

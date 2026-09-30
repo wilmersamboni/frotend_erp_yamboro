@@ -9,6 +9,7 @@ import { HorariosApiService } from '../data-access/horarios-api.service';
 import { ErpCatalogoService } from '../data-access/erp-catalogo.service';
 import { to12h as to12hUtil } from '../../../core/utils/horarios.util';
 import { TuiDay } from '@taiga-ui/cdk';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 /**
  * <app-evento-modal> — modal crear/editar evento, extraído de
@@ -17,16 +18,16 @@ import { TuiDay } from '@taiga-ui/cdk';
  */
 @Component({
   selector: 'app-evento-modal',
-  imports: [FormsModule, LucideAngularModule, SearchableSelectComponent, DateInputComponent, TimeInputComponent],
+  imports: [DialogDirective, FormsModule, LucideAngularModule, SearchableSelectComponent, DateInputComponent, TimeInputComponent],
   template: `
     @if (showModal()) {
-    <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" (click)="showModal.set(false)">
+    <div appDialog class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" (click)="showModal.set(false)">
     <div class="bg-white rounded-2xl shadow-xl flex flex-col modal-evento" (click)="$event.stopPropagation()">
       <div class="px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-3 flex-shrink-0">
         <div style="display:flex;align-items:center;gap:10px;">
           <h3>{{ editId() ? 'Editar' : 'Nuevo' }} Evento</h3>
         </div>
-        <button class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" (click)="showModal.set(false)">
+        <button aria-label="Cerrar" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" (click)="showModal.set(false)">
           <lucide-icon name="x" [size]="18"></lucide-icon>
         </button>
       </div>
@@ -45,7 +46,7 @@ import { TuiDay } from '@taiga-ui/cdk';
           @for (t of tipoOptsRequired; track t.value) {
             <button type="button"
                     [class]="'tipo-chip ev-tipo-' + t.value + (formTipo() === t.value ? ' tipo-chip-active' : '')"
-                    (click)="formTipo.set(t.value)">
+                    data-dirty (click)="formTipo.set(t.value)">
               <lucide-icon [name]="tipoIcon(t.value)" [size]="14"></lucide-icon>
               {{ t.label }}
             </button>
@@ -168,10 +169,10 @@ import { TuiDay } from '@taiga-ui/cdk';
               <app-ss [options]="areasOpts()" placeholder="Todas las áreas"
                       [ngModel]="filtroArea()" (ngModelChange)="filtroArea.set($event)"></app-ss>
             </div>
-            <button class="border border-gray-300 hover:bg-gray-50 hover:border-[#39A900]/50 hover:text-[#39A900] text-gray-700 rounded-lg btn-filter-sm transition-all" (click)="seleccionarTodas()">
+            <button class="border border-gray-300 hover:bg-gray-50 hover:border-[#39A900]/50 hover:text-[#39A900] text-gray-700 rounded-lg btn-filter-sm transition-all" data-dirty (click)="seleccionarTodas()">
               Todas
             </button>
-            <button class="border border-gray-300 hover:bg-gray-50 hover:border-[#39A900]/50 hover:text-[#39A900] text-gray-700 rounded-lg btn-filter-sm transition-all" (click)="deseleccionarTodas()">
+            <button class="border border-gray-300 hover:bg-gray-50 hover:border-[#39A900]/50 hover:text-[#39A900] text-gray-700 rounded-lg btn-filter-sm transition-all" data-dirty (click)="deseleccionarTodas()">
               Ninguna
             </button>
           </div>
@@ -277,7 +278,7 @@ import { TuiDay } from '@taiga-ui/cdk';
        solo-ícono — con texto ("Todas"/"Ninguna") lo desbordaba y las dos
        etiquetas se superponían. Este botón compacto propio se ajusta al
        contenido en vez de recortarlo. */
-    .btn-filter-sm { padding: 5px 10px; font-size: 11px; }
+    .btn-filter-sm { padding: 5px 10px; font-size: 12px; }
     .ficha-check-list {
       display: flex; flex-direction: column; gap: 0;
       max-height: 220px; overflow-y: auto;
@@ -304,12 +305,12 @@ import { TuiDay } from '@taiga-ui/cdk';
       overflow: hidden; text-overflow: ellipsis; max-width: 200px;
     }
     .ficha-area-tag {
-      font-size: 10px; font-weight: 700;
+      font-size: 12px; font-weight: 700;
       background: var(--violet-bg); color: #6d28d9;
       border-radius: 4px; padding: 1px 6px; white-space: nowrap;
     }
     .fichas-count-chip {
-      font-size: 11px; font-weight: 700;
+      font-size: 12px; font-weight: 700;
       background: var(--ok-bg); color: var(--ok-text);
       border-radius: 20px; padding: 2px 8px;
     }
@@ -722,8 +723,7 @@ export class EventoModalComponent {
       );
     } catch (e: any) {
       this.saving.set(false);
-      const msg: string = e?.error?.message ?? 'No se pudo guardar el evento. Verifica los datos e intenta de nuevo.';
-      this.toast.error('Error al guardar evento', msg);
+      this.toast.httpError(e, 'No se pudo guardar el evento. Verifica los datos e intenta de nuevo.', 'Error al guardar evento');
     }
   }
 }

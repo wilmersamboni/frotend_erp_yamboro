@@ -5,13 +5,14 @@ import {
 } from '@angular/core';
 import { FormsModule, FormControl, ReactiveFormsModule } from '@angular/forms';
 import { PracticaService, MatriculaService, PersonaService } from '../../../core/services';
-import { ToastService } from '../../../core/services/toast.service';
+import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
 import { FileUploadZoneComponent } from '../../../shared/components/file-upload-zone.component';
 import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
 import { DateInputComponent } from '../../../shared/components/date-input.component';
 
 import { TuiDay } from '@taiga-ui/cdk';
 import { OnInit } from '@angular/core';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 /**
  * Componente unificado para crear O editar una etapa práctica.
@@ -26,7 +27,7 @@ import { OnInit } from '@angular/core';
 @Component({
   selector: 'app-crear-practica-modal',
   standalone: true,
-  imports: [
+  imports: [DialogDirective, 
     FormsModule,
     ReactiveFormsModule,
     FileUploadZoneComponent,
@@ -40,7 +41,7 @@ import { OnInit } from '@angular/core';
            (change)="onArchivosSeleccionados($event)" />
 
     @if (isOpen) {
-      <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+      <div appDialog class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
         (click)="$event.target === $event.currentTarget && closed.emit()">
 
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[95vh] flex flex-col">
@@ -148,7 +149,7 @@ import { OnInit } from '@angular/core';
                             class="w-full text-left px-4 py-2 text-sm hover:bg-[#39A900]/10
                                    hover:text-[#39A900] transition-colors flex items-center gap-2">
                             <span class="flex-1">{{ inst.nombre }}</span>
-                            <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 capitalize">
+                            <span class="text-xs px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 capitalize">
                               {{ inst.cargo }}
                             </span>
                           </button>
@@ -522,13 +523,8 @@ export class CrearPracticaModalComponent implements OnChanges, OnInit {
       // (p.ej. "sin matrícula") antes de lanzar el error, ese tiene prioridad
       // sobre el mensaje genérico de la respuesta HTTP.
       const especifico = this.error();
-      const msg = e?.error?.message;
-      const detail = especifico || (
-        Array.isArray(msg)      ? msg.join(' · ') :
-        typeof msg === 'string' ? msg :
-        this.modoEditar         ? 'Error al guardar los cambios.' :
-                                  'Error al crear la etapa práctica.'
-      );
+      const detail = especifico || mensajeDeError(
+        e, this.modoEditar ? 'Error al guardar los cambios.' : 'Error al crear la etapa práctica.');
       this.error.set(detail);
       this.toast.error('Error', detail);
     } finally {

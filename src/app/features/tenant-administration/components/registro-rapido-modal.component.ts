@@ -10,6 +10,7 @@ import { environment } from '../../../../environments/environment';
 import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
 import { AuthService } from '../../../core/services/auth.service';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 const BASE  = environment.apiUrl;
 
@@ -62,11 +63,11 @@ const ESQUEMAS: Record<Cargo, Esquema> = {
 @Component({
   selector: 'app-registro-rapido-modal',
   standalone: true,
-  imports: [LoadingSkeletonComponent, FormsModule, SearchableSelectComponent],
+  imports: [DialogDirective, LoadingSkeletonComponent, FormsModule, SearchableSelectComponent],
   template: `
     @if (isOpen) {
       <!-- Backdrop -->
-      <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+      <div appDialog class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
            (click)="$event.target === $event.currentTarget && cerrar()">
 
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[92vh]">
@@ -101,7 +102,7 @@ const ESQUEMAS: Record<Cargo, Esquema> = {
                   </p>
                 </div>
               </div>
-              <button (click)="cerrar()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+              <button aria-label="Cerrar" (click)="cerrar()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path d="M6 18L18 6M6 6l12 12"/>
                 </svg>

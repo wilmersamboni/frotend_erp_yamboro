@@ -11,7 +11,7 @@ import { StatCardComponent } from '../../../shared/components/stat-card.componen
 import { TableFilterComponent } from '../../../shared/components/table-filter.component';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 import { OpcionSelect } from '../../tenant-administration/services/admin.service';
-import { ToastService } from '../../../core/services/toast.service';
+import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { PermisosService } from '../../../core/services/permisos.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -19,6 +19,7 @@ import { PersonaService } from '../../../core/services/persona.service';
 import { EstadoItem, Item, MaterialesApiService, Novedad, Sitio, TipoNovedad } from '../data-access/materiales-api.service';
 import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 /** Estados en los que puede quedar el ítem al mover una novedad (Tier SigMat M7). */
 const OPCIONES_ESTADO_ITEM: { label: string; value: EstadoItem | '' }[] = [
@@ -55,7 +56,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
 @Component({
   selector: 'app-instructor-materiales-novedades',
   standalone: true,
-  imports: [EmptyStateComponent, SearchableSelectComponent, FormsModule, DatePipe, AdminModalComponent, BarcodeScannerComponent, StatusBadgeComponent, StatCardComponent, TableFilterComponent, LoadingSkeletonComponent],
+  imports: [DialogDirective, EmptyStateComponent, SearchableSelectComponent, FormsModule, DatePipe, AdminModalComponent, BarcodeScannerComponent, StatusBadgeComponent, StatCardComponent, TableFilterComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -64,7 +65,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
           @if (idItemFiltro) {
             <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#39A900]/10 text-[#2d8000] border border-[#39A900]/20">
               Filtrando por ítem
-              <button (click)="quitarFiltroItem()" class="hover:text-red-600" title="Quitar filtro">×</button>
+              <button aria-label="Quitar filtro" (click)="quitarFiltroItem()" class="hover:text-red-600" title="Quitar filtro">×</button>
             </span>
           }
         </div>
@@ -104,7 +105,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
         <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
           <div class="overflow-x-auto">
           <table class="w-full text-sm">
-            <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
+            <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
               <tr>
                 <th class="px-4 py-3 text-left font-semibold">Tipo</th>
                 <th class="px-4 py-3 text-left font-semibold">Descripción</th>
@@ -181,11 +182,11 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
     </app-admin-modal>
 
     @if (resolverAbierto && resolverNovedad) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="resolverAbierto = false">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="resolverAbierto = false">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-bold text-gray-800">Resolver novedad</h2>
-            <button (click)="resolverAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="resolverAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
           <p class="text-sm text-gray-500 mb-3">
             {{ resolverNovedad.tipo }} sobre
@@ -205,11 +206,11 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
     }
 
     @if (detalleAbierto && detalle) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="detalleAbierto = false">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="detalleAbierto = false">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-5">
             <h2 class="text-lg font-bold text-gray-800">Detalle de la novedad</h2>
-            <button (click)="detalleAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="detalleAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
           <dl class="space-y-2.5 text-sm">
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Tipo</dt><dd class="text-gray-800 font-medium text-right">{{ detalle.tipo }}</dd></div>
@@ -467,7 +468,7 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
       this.modalOpen = false;
       await this.cargar();
     } catch (e: any) {
-      this.error = e?.error?.message ?? 'No se pudo registrar la novedad.';
+      this.error = mensajeDeError(e, 'No se pudo registrar la novedad.');
     } finally {
       this.saving = false;
     }
