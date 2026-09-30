@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import gsap from 'gsap';
 import { ToastService } from '../../core/services/toast.service';
 import { AuthService } from '../../core/services/auth.service';
+import { UnsavedChangesService, avisarCambiosSinGuardar } from '../../core/services/unsaved-changes.service';
 import {
   MaterialesApiService,
   ResultadoImportacion,
@@ -250,7 +251,7 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
                     [style.width.%]="filas.length ? (listas / filas.length) * 100 : 0"></div>
                 </div>
               </div>
-              <button (click)="volver()" class="btn-ghost px-3 py-1.5 text-xs">← Otro archivo</button>
+              <button (click)="descartarRevision()" class="btn-ghost px-3 py-1.5 text-xs">← Otro archivo</button>
             </div>
           </div>
 
@@ -532,6 +533,7 @@ export class MaterialesImportarComponent implements OnInit {
 
   private readonly host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
   private readonly injector = inject(Injector);
+  private readonly avisos = inject(UnsavedChangesService);
   private pulsoDropzone: gsap.core.Tween | null = null;
   private barraIndet: gsap.core.Tween | null = null;
   private mensajesTimer: ReturnType<typeof setInterval> | null = null;
@@ -542,6 +544,9 @@ export class MaterialesImportarComponent implements OnInit {
     private toast: ToastService,
     private auth: AuthService,
   ) {
+    // Con el archivo ya analizado y sin importar, salir de la pantalla (o cerrar
+    // la pestaña) pierde la revisión de tipo/bodega/categoría de cada fila.
+    avisarCambiosSinGuardar(() => this.fase === 'revisar' && !this.confirmando);
     inject(DestroyRef).onDestroy(() => {
       this.detenerProgreso();
       this.pulsoDropzone?.kill();
@@ -942,6 +947,12 @@ export class MaterialesImportarComponent implements OnInit {
     const proxy = { total: 0, productos: 0, stock: 0, errores: 0 };
     fijar(proxy);
     gsap.to(proxy, { ...finales, duration: 1, delay: 0.25, ease: 'power2.out', onUpdate: () => fijar(proxy) });
+  }
+
+  /** "← Otro archivo" desde la revisión: pregunta antes de tirar lo ya ajustado. */
+  async descartarRevision(): Promise<void> {
+    if (this.fase === 'revisar' && !(await this.avisos.confirmarDescartar())) return;
+    this.volver();
   }
 
   volver(): void {

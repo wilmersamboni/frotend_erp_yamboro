@@ -1,8 +1,9 @@
-import { Component, EventEmitter, Input, Output, computed, signal } from '@angular/core';
+import { Component, EventEmitter, Input, Output, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { HorariosApiService } from '../data-access/horarios-api.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { FormularioVigilado, UnsavedChangesService, avisarCambiosSinGuardar } from '../../../core/services/unsaved-changes.service';
 import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
 import { TimeInputComponent } from '../../../shared/components/time-input.component';
 import { DIAS_SEMANA, DIAS_LABELS } from '../../../core/utils/horarios.util';
@@ -42,7 +43,7 @@ interface DiaConfig {
             <h3 class="wiz-title">Nuevo Horario</h3>
             <p class="wiz-subtitle">Selecciona los días y configura ficha, instructor y ambiente para cada uno</p>
           </div>
-          <button class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" (click)="showModal.set(false)">
+          <button class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" (click)="cerrar()">
             <lucide-icon name="x" [size]="20"></lucide-icon>
           </button>
         </div>
@@ -193,7 +194,7 @@ interface DiaConfig {
         <!-- Error + botones -->
         @if (formError()) { <div class="error-msg" style="margin:12px 24px 0;">{{ formError() }}</div> }
         <div class="wiz-footer">
-          <button class="border border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold rounded-xl px-5 py-2 transition-all" (click)="showModal.set(false)">Cancelar</button>
+          <button class="border border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold rounded-xl px-5 py-2 transition-all" (click)="cerrar()">Cancelar</button>
           <button class="bg-sena-gradient hover:opacity-90 text-white font-semibold rounded-xl px-5 py-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2" (click)="saveWizardHorarios()" [disabled]="saving() || !esWizardValido()">
             @if (saving()) { <lucide-icon name="loader" [size]="14" class="spin"></lucide-icon> Guardando... }
             @else { <lucide-icon name="save" [size]="14"></lucide-icon> Guardar Horarios }
@@ -230,11 +231,23 @@ export class NuevoHorarioWizardComponent {
     diasConfig: Record<string, DiaConfig>;
   } = { jornada: '', horaInicio: '', horaFin: '', dias: [], diasConfig: {} };
 
+  private readonly avisos = inject(UnsavedChangesService);
+  /** Compara con el estado al abrir: un wizard precargado desde Disponibilidad no cuenta como "modificado". */
+  private readonly cambios = new FormularioVigilado(() => JSON.stringify([this.wizardForm, this.applyAll]));
+
   constructor(
     private horariosApi: HorariosApiService,
     private toast: ToastService,
   ) {
     this.resetForm();
+    avisarCambiosSinGuardar(() => this.showModal() && this.cambios.sucio);
+  }
+
+  /** X / Cancelar: si ya se configuró algo, pregunta antes de descartarlo. */
+  async cerrar(): Promise<void> {
+    if (this.cambios.sucio && !(await this.avisos.confirmarDescartar())) return;
+    this.cambios.terminar();
+    this.showModal.set(false);
   }
 
   /** Jornadas disponibles */
@@ -570,6 +583,7 @@ export class NuevoHorarioWizardComponent {
       }
     }
     this.showModal.set(true);
+    this.cambios.iniciar();
   }
 
   resetForm() {
@@ -619,6 +633,7 @@ export class NuevoHorarioWizardComponent {
     try {
       await this.horariosApi.createHorariosBatch(diasPayload);
       this.saving.set(false);
+      this.cambios.terminar();
       this.showModal.set(false);
       this.guardado.emit();
       this.toast.ok(

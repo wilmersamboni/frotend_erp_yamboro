@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
+import { FormularioVigilado, UnsavedChangesService, avisarCambiosSinGuardar } from '../../../core/services/unsaved-changes.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { DateInputComponent } from '../../../shared/components/date-input.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
@@ -558,6 +559,10 @@ interface LineaForm {
 })
 export class MaterialesSolicitudesComponent implements OnInit {
   private readonly confirm = inject(ConfirmService);
+  private readonly avisos = inject(UnsavedChangesService);
+  /** Compara con el estado al abrir el modal: cerrar por error (fondo, ×) ya no tira lo escrito sin preguntar. */
+  private readonly cambios = new FormularioVigilado(() => JSON.stringify([this.idSitioSeleccionado, this.lineas, this.observacion, this.fechaDevolucion]));
+  private readonly _avisoCambios = avisarCambiosSinGuardar(() => this.modalOpen && this.cambios.sucio);
 
   solicitudes: Solicitud[] = [];
   productos: Producto[] = [];
@@ -1077,9 +1082,12 @@ seleccionarEstado(valor: EstadoSolicitud | ''): void {
     this.stockProd = {};
     this.error = null;
     this.modalOpen = true;
+    this.cambios.iniciar();
   }
 
-  cerrarModal(): void {
+  async cerrarModal(): Promise<void> {
+    if (this.cambios.sucio && !(await this.avisos.confirmarDescartar())) return;
+    this.cambios.terminar();
     this.modalOpen = false;
   }
 
@@ -1124,6 +1132,7 @@ seleccionarEstado(valor: EstadoSolicitud | ''): void {
         fecha_devolucion: this.fechaDevolucion || undefined,
       });
       this.toast.ok('Solicitud creada');
+      this.cambios.terminar();
       this.modalOpen = false;
       await this.cargar();
     } catch (e: any) {

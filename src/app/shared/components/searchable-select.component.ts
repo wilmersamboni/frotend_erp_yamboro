@@ -35,7 +35,8 @@ export interface SSOption {
     },
   ],
   template: `
-    <div class="ss-root" [class.ss-open]="_open()" [class.ss-disabled]="disabled">
+    <div class="ss-root" [class.ss-open]="_open()" [class.ss-disabled]="disabled" [class.ss-dense]="dense"
+         [class.ss-tone-danger]="tone === 'danger'" [class.ss-tone-warn]="tone === 'warn'">
 
       <!-- Trigger button -->
       <button type="button" class="ss-trigger" (click)="toggle()" [disabled]="disabled">
@@ -52,7 +53,8 @@ export interface SSOption {
            [style.bottom.px]="_panelPos()!.bottom"
            [style.left.px]="_panelPos()!.left"
            [style.width.px]="_panelPos()!.width">
-        <!-- Search -->
+        <!-- Search (se oculta en listas cortas: ver el input searchable) -->
+        @if (_mostrarBusqueda()) {
         <div class="ss-search-wrap">
           <lucide-icon name="search" [size]="13" class="ss-search-icon"></lucide-icon>
           <input
@@ -63,6 +65,7 @@ export interface SSOption {
             (keydown.escape)="close()"
             autocomplete="off">
         </div>
+        }
 
         <!-- Options list -->
         <ul class="ss-list" role="listbox" [style.max-height.px]="_panelPos()!.maxH">
@@ -122,11 +125,15 @@ export interface SSOption {
       gap: 8px;
     }
     .ss-trigger:hover:not(:disabled) {
-      border-color: var(--blue);
+      border-color: var(--accent);
     }
+    .ss-dense .ss-trigger { padding: 5px 9px; font-size: 12px; border-width: 1px; }
+    .ss-dense .ss-option { padding: 6px 10px; font-size: 12px; }
+    .ss-tone-danger .ss-trigger { border-color: var(--err-text); }
+    .ss-tone-warn .ss-trigger { border-color: var(--warn-text); }
     .ss-open .ss-trigger {
-      border-color: var(--blue);
-      box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
     }
     .ss-disabled .ss-trigger {
       opacity: .55;
@@ -155,7 +162,7 @@ export interface SSOption {
       position: fixed;
       z-index: 99999;
       background: var(--surface);
-      border: 1.5px solid var(--blue);
+      border: 1.5px solid var(--accent);
       border-radius: 10px;
       box-shadow: 0 8px 28px rgba(0,0,0,.18);
       overflow: hidden;
@@ -192,7 +199,7 @@ export interface SSOption {
       transition: border-color .15s;
     }
     .ss-search-input:focus {
-      border-color: var(--blue);
+      border-color: var(--accent);
     }
 
     /* List */
@@ -217,16 +224,16 @@ export interface SSOption {
       transition: background .1s;
     }
     .ss-option:hover:not(.ss-opt-disabled) {
-      background: var(--info-bg);
-      color: var(--blue);
+      background: var(--accent-soft);
+      color: var(--accent-text);
     }
     .ss-option.ss-selected {
-      background: var(--info-bg);
-      color: var(--blue);
+      background: var(--accent-soft);
+      color: var(--accent-text);
       font-weight: 600;
     }
     .ss-check-icon {
-      color: var(--blue);
+      color: var(--accent-text);
       flex-shrink: 0;
     }
     .ss-opt-disabled {
@@ -256,6 +263,16 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnChange
   // ── Inputs ────────────────────────────────────────────────────────
   @Input() set options(v: SSOption[]) { this._options.set(v ?? []); }
   @Input() placeholder = 'Seleccionar...';
+
+  /** Caja de búsqueda del panel. `null` (por defecto) = automático: solo aparece
+   *  con más de 7 opciones o en modo remoto; en una lista corta (estados, tipos)
+   *  es ruido y ocupa lugar. Sirve como reemplazo del <select> nativo, cuyo
+   *  desplegable lo pinta el navegador y en modo oscuro no respeta el tema. */
+  @Input() searchable: boolean | null = null;
+  /** Versión compacta, para usar dentro de filas de tabla o listas. */
+  @Input() dense = false;
+  /** Borde de énfasis (ej. 'danger' para un ítem dañado). */
+  @Input() tone: '' | 'warn' | 'danger' = '';
 
   // Modo remoto: si se pasa `loadOptions`, el panel deja de filtrar
   // `[options]` en memoria y en su lugar llama esta función (debounced) con
@@ -288,6 +305,11 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnChange
     const opts = this._options();
     if (!q) return opts;
     return opts.filter(o => o.label.toLowerCase().includes(q));
+  });
+
+  _mostrarBusqueda = computed(() => {
+    if (this.searchable !== null) return this.searchable;
+    return !!this.loadOptions || this._options().length > 7;
   });
 
   _selectedLabel = computed(() => {
@@ -327,7 +349,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnChange
     if (!btn) return;
     const r = btn.getBoundingClientRect();
     const margin       = 8;
-    const searchWrapH  = 52; // alto aprox de la barra de búsqueda
+    const searchWrapH  = this._mostrarBusqueda() ? 52 : 0; // alto aprox de la barra de búsqueda
     const spaceBelow   = window.innerHeight - r.bottom - margin;
     const spaceAbove   = r.top - margin;
     const openUp       = spaceBelow < 160 && spaceAbove > spaceBelow;

@@ -18,6 +18,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { PersonaService } from '../../../core/services/persona.service';
 import { EstadoItem, Item, MaterialesApiService, Novedad, Sitio, TipoNovedad } from '../data-access/materiales-api.service';
 import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
 
 /** Estados en los que puede quedar el ítem al mover una novedad (Tier SigMat M7). */
 const OPCIONES_ESTADO_ITEM: { label: string; value: EstadoItem | '' }[] = [
@@ -54,7 +55,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
 @Component({
   selector: 'app-instructor-materiales-novedades',
   standalone: true,
-  imports: [EmptyStateComponent, FormsModule, DatePipe, AdminModalComponent, BarcodeScannerComponent, StatusBadgeComponent, StatCardComponent, TableFilterComponent, LoadingSkeletonComponent],
+  imports: [EmptyStateComponent, SearchableSelectComponent, FormsModule, DatePipe, AdminModalComponent, BarcodeScannerComponent, StatusBadgeComponent, StatCardComponent, TableFilterComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -191,12 +192,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
             <span class="font-medium text-gray-700">{{ resolverNovedad.item?.producto?.nombre ?? resolverNovedad.item?.codigo_sku ?? 'el ítem' }}</span>.
             Elegí en qué estado queda el ítem.
           </p>
-          <select [(ngModel)]="resolverEstadoItem"
-            class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
-            @for (o of opcionesEstadoItem; track o.value) {
-              <option [value]="o.value">{{ o.label }}</option>
-            }
-          </select>
+          <app-ss [options]="opcionesEstadoItem" [(ngModel)]="resolverEstadoItem"></app-ss>
           <div class="flex justify-end gap-2 mt-6">
             <button (click)="resolverAbierto = false" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
             <button (click)="confirmarResolver()" [disabled]="resolviendo"

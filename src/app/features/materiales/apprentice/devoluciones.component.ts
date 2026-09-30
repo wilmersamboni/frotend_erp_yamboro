@@ -7,7 +7,7 @@ import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
-import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
+import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 import {
@@ -265,12 +265,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                 @if (filas.length > 0) {
                   <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">Estado de las unidades que volvieron</label>
-                    <select [(ngModel)]="estadoGeneral" (ngModelChange)="aplicarATodas()"
-                      class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
-                      @for (op of estadosDevolucion; track op.value) {
-                        <option [ngValue]="op.value">{{ op.label }} — {{ op.desc }}</option>
-                      }
-                    </select>
+                    <app-ss [options]="opcionesEstadoDevLargo" [(ngModel)]="estadoGeneral" (ngModelChange)="aplicarATodas()"></app-ss>
                     <p class="text-[11px] text-gray-400 mt-1">
                       Destildá las unidades que <b>todavía no volvieron</b>: el préstamo queda abierto hasta registrarlas.
                       Cambiá el estado fila por fila solo si alguna vuelve distinto.
@@ -288,14 +283,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                             {{ f.placa_sena || f.codigo_sku || '' }}{{ f.placa_sena && f.codigo_sku ? ' · ' + f.codigo_sku : '' }}
                           </p>
                         </div>
-                        <select [(ngModel)]="f.estadoDev" [disabled]="!f.volvio"
-                          class="px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] disabled:opacity-50"
-                          [class.border-red-300]="f.estadoDev === 'DAÑADO' || f.estadoDev === 'PERDIDO'"
-                          [class.border-amber-300]="f.estadoDev === 'REGULAR'">
-                          @for (op of estadosDevolucion; track op.value) {
-                            <option [ngValue]="op.value">{{ op.label }}</option>
-                          }
-                        </select>
+                        <div class="w-36 shrink-0"><app-ss [options]="opcionesEstadoDevCorto" [dense]="true" [tone]="(f.estadoDev === 'DAÑADO' || f.estadoDev === 'PERDIDO') ? 'danger' : (f.estadoDev === 'REGULAR') ? 'warn' : ''" [(ngModel)]="f.estadoDev" [disabled]="!f.volvio"></app-ss></div>
                       </div>
                     }
                   </div>
@@ -380,6 +368,9 @@ export class AprendizMaterialesDevolucionesComponent implements OnInit {
   error: string | null = null;
 
   readonly estadosDevolucion = ESTADOS_DEVOLUCION;
+  /** Opciones para <app-ss> (reemplaza al <select> nativo: su desplegable no respeta el modo oscuro). */
+  readonly opcionesEstadoDevLargo: SSOption[] = ESTADOS_DEVOLUCION.map((o) => ({ value: o.value, label: `${o.label} — ${o.desc}` }));
+  readonly opcionesEstadoDevCorto: SSOption[] = ESTADOS_DEVOLUCION.map((o) => ({ value: o.value, label: o.label }));
 
   // ── Filtros y paginación de la tabla (client-side) ──────────────────
   filtroTexto = '';

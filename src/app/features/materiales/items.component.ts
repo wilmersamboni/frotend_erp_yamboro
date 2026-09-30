@@ -12,6 +12,7 @@ import { SyncQueueService } from '../../core/offline/sync-queue.service';
 import { OfflineSnapshotService } from '../../core/offline/offline-snapshot.service';
 import { NetworkStatusService } from '../../core/offline/network-status.service';
 import { AlertComponent } from '../../shared/ui/alert.component';
+import { SearchableSelectComponent, SSOption } from '../../shared/components/searchable-select.component';
 
 const OPCIONES_ESTADO: OpcionSelect[] = [
   { label: 'Disponible', value: 'DISPONIBLE' },
@@ -54,7 +55,7 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
 @Component({
   selector: 'app-materiales-items',
   standalone: true,
-  imports: [AlertComponent, FormsModule, AdminTableComponent, AdminModalComponent, BarcodeScannerComponent],
+  imports: [AlertComponent, SearchableSelectComponent, FormsModule, AdminTableComponent, AdminModalComponent, BarcodeScannerComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-4">
@@ -147,12 +148,7 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
           <div class="space-y-4">
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Producto</label>
-              <select [(ngModel)]="placasProductoId" (ngModelChange)="onProductoPlacasChange()"
-                class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
-                @for (p of opcionesProductoPlacas; track p.id_producto) {
-                  <option [value]="p.id_producto">{{ p.nombre }} — {{ p.count }} sin placa</option>
-                }
-              </select>
+              <app-ss [options]="opcionesProductoPlacasSS" [(ngModel)]="placasProductoId" (ngModelChange)="onProductoPlacasChange()"></app-ss>
               @if (!red.alcanzable()) {
                 <p class="text-[11px] text-amber-600 mt-1">Sin conexión — mostrando lo preparado la última vez con señal.</p>
               }
@@ -503,6 +499,20 @@ export class MaterialesItemsComponent implements OnInit {
         count: this.items.filter((i) => i.id_producto === p.id_producto && !i.placa_sena?.trim()).length,
       }))
       .filter((p) => p.count > 0);
+  }
+
+  /** Misma lista para <app-ss>. La referencia se mantiene mientras el contenido no cambie:
+   *  un getter que devuelve un array nuevo en cada ciclo dispara NG0100 en un input. */
+  private ssPlacasClave = '';
+  private ssPlacas: SSOption[] = [];
+  get opcionesProductoPlacasSS(): SSOption[] {
+    const ops = this.opcionesProductoPlacas;
+    const clave = ops.map((p) => `${p.id_producto}:${p.count}:${p.nombre}`).join('|');
+    if (clave !== this.ssPlacasClave) {
+      this.ssPlacasClave = clave;
+      this.ssPlacas = ops.map((p) => ({ value: p.id_producto, label: `${p.nombre} — ${p.count} sin placa` }));
+    }
+    return this.ssPlacas;
   }
 
   get placasLlenas(): number {

@@ -27,6 +27,7 @@ import {
 } from '../ui/solicitud-entrega-offline.util';
 import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 import { ConfirmService } from '../../../core/services/confirm.service';
+import { FormularioVigilado, UnsavedChangesService, avisarCambiosSinGuardar } from '../../../core/services/unsaved-changes.service';
 import { AlertComponent } from '../../../shared/ui/alert.component';
 
 /** Línea del modal "Nueva solicitud" — `p:<id>` producto devolutivo, `l:<id>` lote consumible. */
@@ -567,6 +568,10 @@ interface LineaForm {
 })
 export class InstructorMaterialesSolicitudesComponent implements OnInit {
   private readonly confirmDlg = inject(ConfirmService);
+  private readonly avisos = inject(UnsavedChangesService);
+  /** Compara con el estado al abrir el modal: cerrar por error (fondo, ×) ya no tira lo escrito sin preguntar. */
+  private readonly cambios = new FormularioVigilado(() => JSON.stringify([this.idSitioSeleccionado, this.lineas, this.observacion, this.fechaDevolucion, this.tipoDestino, this.idCursoSeleccionado]));
+  private readonly _avisoCambios = avisarCambiosSinGuardar(() => this.modalOpen && this.cambios.sucio);
   solicitudes: Solicitud[] = [];
   productos: Producto[] = [];
   lotes: Lote[] = [];
@@ -1133,9 +1138,12 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
     this.idCursoSeleccionado = null;
     this.error = null;
     this.modalOpen = true;
+    this.cambios.iniciar();
   }
 
-  cerrarModal(): void {
+  async cerrarModal(): Promise<void> {
+    if (this.cambios.sucio && !(await this.avisos.confirmarDescartar())) return;
+    this.cambios.terminar();
     this.modalOpen = false;
   }
 
@@ -1183,6 +1191,7 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
         id_curso: this.tipoDestino === 'ficha' ? this.idCursoSeleccionado! : undefined,
       });
       this.toast.ok('Solicitud creada');
+      this.cambios.terminar();
       this.modalOpen = false;
       await this.cargar();
     } catch (e: any) {
