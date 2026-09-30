@@ -4,7 +4,6 @@ import { DatePipe } from '@angular/common';
 import { MaterialesLiveService } from '../data-access/materiales-live.service';
 import { FormsModule } from '@angular/forms';
 import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
-import { PermisosService } from '../../../core/services/permisos.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { DateInputComponent } from '../../../shared/components/date-input.component';
@@ -32,6 +31,7 @@ import { FormularioVigilado, UnsavedChangesService, avisarCambiosSinGuardar } fr
 import { AlertComponent } from '../../../shared/ui/alert.component';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
 import { EsperaDirective } from '../../../shared/directives/espera.directive';
+import { PageSizeSelectComponent } from '../../../shared/components/page-size-select.component';
 
 /** Línea del modal "Nueva solicitud" — `p:<id>` producto devolutivo, `l:<id>` lote consumible. */
 interface LineaForm {
@@ -56,13 +56,16 @@ interface LineaForm {
  * devolución solo si aplica — ver docblock de la versión admin.
  */
 @Component({
-  selector: 'app-instructor-materiales-solicitudes',
+  selector: 'app-materiales-solicitudes-usuario',
   standalone: true,
-  imports: [EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent],
+  imports: [EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent],
   template: `
     <div class="p-6">
+      <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
+        <span>Materiales</span><span aria-hidden="true">/</span><span>Operación</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Solicitudes</span>
+      </nav>
       <div class="flex items-center justify-between mb-5">
-        <h1 class="text-xl font-bold text-gray-800">Solicitudes</h1>
+        <h1 class="text-xl font-bold text-gray-800">{{ esInstructor || esAdmin ? 'Solicitudes' : 'Mis solicitudes' }}</h1>
         <button (click)="nuevo()"
           class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
           style="background-color: var(--accent-brand)">
@@ -169,41 +172,7 @@ interface LineaForm {
               </div>
             </div>
             <!-- Filas por página -->
-            <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
-              <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filas</span>
-              <div class="relative">
-                <button
-                  type="button"
-                  (click)="pageSizeDropdownOpen.update(v => !v)"
-                  class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer">
-                  <span>{{ pageSize() }}</span>
-                  <svg class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" [class.rotate-180]="pageSizeDropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                @if (pageSizeDropdownOpen()) {
-                  <div class="fixed inset-0 z-10" (click)="pageSizeDropdownOpen.set(false)"></div>
-
-                  <div class="absolute left-0 top-full mt-2 z-20 w-20 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                    <div class="p-1 space-y-0.5">
-                      @for (size of [10, 20, 50, 100]; track size) {
-                        <button
-                          type="button"
-                          (click)="seleccionarPageSize(size)"
-                          class="w-full px-3 py-1.5 text-sm text-center rounded-lg transition-colors font-medium"
-                          [class.bg-green-50]="pageSize() === size"
-                          [class.text-green-700]="pageSize() === size"
-                          [class.text-gray-600]="pageSize() !== size"
-                          [class.hover:bg-gray-50]="pageSize() !== size">
-                          {{ size }}
-                        </button>
-                      }
-                    </div>
-                  </div>
-                }
-              </div>
-            </div>
+            <app-page-size-select [value]="pageSize()" (valueChange)="seleccionarPageSize($event)" />
           </div>
 
           @if (solicitudesFiltradas.length === 0) {
@@ -325,7 +294,7 @@ interface LineaForm {
           </div>
 
           <div class="space-y-4">
-            @if (fichasLideradas.length > 0) {
+            @if (esInstructor && fichasLideradas.length > 0) {
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Destino</label>
                 <div class="flex gap-2">
@@ -569,7 +538,7 @@ interface LineaForm {
     }
   `,
 })
-export class InstructorMaterialesSolicitudesComponent implements OnInit {
+export class MaterialesSolicitudesUsuarioComponent implements OnInit {
   private readonly confirmDlg = inject(ConfirmService);
   private readonly avisos = inject(UnsavedChangesService);
   /** Compara con el estado al abrir el modal: cerrar por error (fondo, ×) ya no tira lo escrito sin preguntar. */
@@ -593,7 +562,6 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
   filtroTexto = '';
   filtroEstado: EstadoSolicitud | '' = '';
   pageSize = signal(20);
-  pageSizeDropdownOpen = signal(false);
   estadoDropdownOpen = signal(false);
   page = 0;
   readonly estadosSolicitud: EstadoSolicitud[] =
@@ -602,7 +570,6 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
   seleccionarPageSize(size: number): void {
     this.pageSize.set(size);
     this.page = 0;
-    this.pageSizeDropdownOpen.set(false);
   }
 
   seleccionarEstado(valor: EstadoSolicitud | ''): void {
@@ -703,7 +670,6 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
     private api: MaterialesApiService,
     private erpApi: ApiService,
     private toast: ToastService,
-    private permisos: PermisosService,
     private auth: AuthService,
     private policy: MaterialesScreenPolicy,
     private live: MaterialesLiveService,
@@ -828,8 +794,16 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
     return this.sitios.filter((s) => !s.estado);
   }
 
+  /** El único flujo exclusivo del instructor es pedir material para una ficha liderada. */
+  get esInstructor(): boolean {
+    return this.auth.cargo() === 'instructor';
+  }
+
+  get esAdmin(): boolean {
+    return this.auth.isAdmin();
+  }
+
   ngOnInit(): void {
-    this.permisos.cargar();
     this.cargar();
     this.live.eventos()
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -1023,14 +997,15 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
       // que ni se pide si no aplica ninguno de los dos: el paso "Bodega" del
       // modal se salta solo (ver `pasoBodega`), no bloquea crear la solicitud.
       const verSitios =
+        this.auth.isAdmin() ||
         this.auth.tieneServicio('materiales.sitios.ver') ||
         this.auth.tieneServicio('materiales.traslados.crear');
-      const personaId = this.auth.user()?.personaId;
+      const personaId = this.esInstructor ? this.auth.user()?.personaId : undefined;
       // Mismos servicios que acepta el backend en GET /items y GET /lotes: pedir lo que el
       // rol no puede ver dispara un 403 y el aviso global "Sin permiso" aunque se ignore.
       const tiene = (...servicios: string[]) => servicios.some((x) => this.auth.tieneServicio(x));
-      const verItems = tiene('materiales.items.ver', 'materiales.novedades.crear', 'materiales.traslados.crear');
-      const verLotes = tiene('materiales.lotes.ver', 'materiales.solicitudes.crear');
+      const verItems = this.auth.isAdmin() || tiene('materiales.items.ver', 'materiales.novedades.crear', 'materiales.traslados.crear');
+      const verLotes = this.auth.isAdmin() || tiene('materiales.lotes.ver', 'materiales.solicitudes.crear');
       const [solicitudes, productos, lotes, items, sitios, fichas, sitiosACargo] = await Promise.all([
         this.api.listarSolicitudes(),
         this.api.listarProductos().catch(() => [] as Producto[]),
