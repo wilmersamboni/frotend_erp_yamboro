@@ -8,6 +8,7 @@ import { ThemeService, TEMAS, MODOS, ModoTema } from '../../core/services/theme.
 import { ApiService } from '../../core/services/api.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
+import { avisarCambiosSinGuardar } from '../../core/services/unsaved-changes.service';
 import { environment } from '../../../environments/environment';
 
 type Tab = 'perfil' | 'password' | 'apariencia' | 'notificaciones' | 'sistema';
@@ -468,7 +469,7 @@ interface MiAcceso {
       @if (verFoto() && fotoUrl()) {
         <div class="foto-visor" (click)="verFoto.set(false)" role="dialog" aria-modal="true" aria-label="Foto de perfil">
           <div class="foto-visor-card" (click)="$event.stopPropagation()">
-            <button type="button" class="foto-visor-cerrar" title="Cerrar" (click)="verFoto.set(false)">
+            <button aria-label="Cerrar" type="button" class="foto-visor-cerrar" title="Cerrar" (click)="verFoto.set(false)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
                 <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
@@ -530,6 +531,16 @@ perfil: {
   direccion: '',
   fotoPerfil: null,
 };
+
+  /** Lo que se cargó (o guardó) por última vez de los 4 campos editables: sirve para saber si hay cambios sin guardar. */
+  private perfilGuardado = '';
+  private firmaPerfil(): string {
+    const { nombre, correo, telefono, direccion } = this.perfil;
+    return JSON.stringify([nombre, correo, telefono, direccion]);
+  }
+  private readonly _avisoCambios = avisarCambiosSinGuardar(() =>
+    (this.perfilGuardado !== '' && this.firmaPerfil() !== this.perfilGuardado) ||
+    !!(this.pwd.actual || this.pwd.nueva || this.pwd.confirma));
 
   // Foto de perfil
   subiendoFoto = signal(false);
@@ -613,7 +624,10 @@ perfil: {
         this.auth.actualizarUser({ fotoPerfil: this.perfil.fotoPerfil });
       }
     } catch { this.perfil.nombre = this.user()?.nombre ?? ''; }
-    finally { this.cargandoPerfil.set(false); }
+    finally {
+      this.perfilGuardado = this.firmaPerfil();
+      this.cargandoPerfil.set(false);
+    }
   }
 
   async guardarPerfil(): Promise<void> {
@@ -636,6 +650,7 @@ perfil: {
         })
       );
       this.auth.actualizarUser({ nombre: this.perfil.nombre });
+      this.perfilGuardado = this.firmaPerfil();
       this.toast.ok('Perfil actualizado', 'Los cambios fueron guardados correctamente.');
     } catch (e: any) {
       this.toast.httpError(e, 'Error al guardar el perfil.');
@@ -713,7 +728,7 @@ perfil: {
       this.toast.ok('Contraseña actualizada', 'Tu contraseña fue cambiada correctamente.');
       this.pwd = { actual: '', nueva: '', confirma: '' };
     } catch (e: any) {
-      this.toast.error('Error', e?.error?.message ?? 'La contraseña actual es incorrecta.');
+      this.toast.httpError(e, 'La contraseña actual es incorrecta.');
     } finally { this.saving.set(false); }
   }
 

@@ -1,8 +1,9 @@
 import { Routes } from '@angular/router';
 import { adminAuthGuard } from './core/admin-auth/admin-auth.guard';
+import { conAvisoDeCambios } from './core/services/unsaved-changes.service';
 import { AdminLayoutComponent } from './shell/platform-layout/admin-layout.component';
 
-export const ADMIN_PANEL_ROUTES: Routes = [
+export const ADMIN_PANEL_ROUTES: Routes = conAvisoDeCambios([
   {
     path: 'login',
     loadComponent: () => import('./features/platform-administration/login/admin-login.component').then((m) => m.AdminLoginComponent),
@@ -43,4 +44,4 @@ export const ADMIN_PANEL_ROUTES: Routes = [
       },
     ],
   },
-];
+]);

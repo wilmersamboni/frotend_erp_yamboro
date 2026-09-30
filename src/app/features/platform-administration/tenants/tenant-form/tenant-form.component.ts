@@ -7,6 +7,7 @@ import { AdminCredencialesModalComponent } from '../../../../shared/components/a
 import { TenantCredenciales } from '../../../../shared/models/admin/tenant.model';
 import { SearchableSelectComponent, SSOption } from '../../../../shared/components/searchable-select.component';
 import { LoadingSkeletonComponent } from '../../../../shared/components/loading-skeleton.component';
+import { avisarCambiosSinGuardar } from '../../../../core/services/unsaved-changes.service';
 
 @Component({
   selector: 'app-tenant-form',
@@ -112,6 +113,7 @@ import { LoadingSkeletonComponent } from '../../../../shared/components/loading-
 })
 export class TenantFormComponent {
   private readonly fb            = inject(FormBuilder);
+  private readonly _avisoCambios = avisarCambiosSinGuardar(() => this.form.dirty);
   private readonly tenantService = inject(TenantAdminService);
   private readonly toast         = inject(AdminToastService);
   private readonly router        = inject(Router);
@@ -168,7 +170,7 @@ export class TenantFormComponent {
     this.cargando.set(true);
     this.tenantService.obtenerPorId(id).subscribe({
       next: (t) => { this.form.patchValue({ nombre: t.nombre, slug: t.slug, dominio: t.dominio, estado: t.estado }); this.cargando.set(false); },
-      error: () => { this.cargando.set(false); this.toast.error('No se pudo cargar el centro.'); this.router.navigate(['/tenants']); },
+      error: (err) => { this.cargando.set(false); this.toast.httpError(err, 'No se pudo cargar el centro.'); this.router.navigate(['/tenants']); },
     });
   }
 
@@ -182,15 +184,17 @@ export class TenantFormComponent {
       this.tenantService.actualizar(id, payload).subscribe({
         next: () => {
           this.guardando.set(false);
+          this.form.markAsPristine();
           this.toast.success('Centro actualizado correctamente.');
           this.router.navigate(['/tenants']);
         },
-        error: (err) => { this.guardando.set(false); this.toast.error(err?.error?.message ?? 'Ocurrió un error al guardar el centro.'); },
+        error: (err) => { this.guardando.set(false); this.toast.httpError(err, 'Ocurrió un error al guardar el centro.'); },
       });
     } else {
       this.tenantService.crear(payload).subscribe({
         next: (respuesta) => {
           this.guardando.set(false);
+          this.form.markAsPristine();
           if (respuesta.credencialesDefecto) {
             this.credencialesNuevas.set(respuesta.credencialesDefecto);
             this.mostrarCredenciales.set(true);
@@ -199,7 +203,7 @@ export class TenantFormComponent {
             this.router.navigate(['/tenants']);
           }
         },
-        error: (err) => { this.guardando.set(false); this.toast.error(err?.error?.message ?? 'Ocurrió un error al guardar el centro.'); },
+        error: (err) => { this.guardando.set(false); this.toast.httpError(err, 'Ocurrió un error al guardar el centro.'); },
       });
     }
   }

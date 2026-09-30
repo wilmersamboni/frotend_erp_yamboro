@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { AdminAuthService } from '../../../core/admin-auth/admin-auth.service';
 import { AdminToastService } from '../../../core/admin-auth/admin-toast.service';
+import { avisarCambiosSinGuardar } from '../../../core/services/unsaved-changes.service';
 
 @Component({
   selector: 'app-admin-settings',
@@ -105,6 +106,7 @@ export class AdminSettingsComponent {
   readonly authService = inject(AdminAuthService);
   private readonly toast  = inject(AdminToastService);
   private readonly fb     = inject(FormBuilder);
+  private readonly _avisoCambios = avisarCambiosSinGuardar(() => this.formCambioPassword.dirty);
 
   readonly guardando = signal(false);
 
@@ -137,7 +139,7 @@ export class AdminSettingsComponent {
       this.toast.success('Contraseña actualizada correctamente.');
       this.formCambioPassword.reset();
     } catch (e: any) {
-      this.toast.error(e?.error?.message ?? 'No se pudo actualizar la contraseña.');
+      this.toast.httpError(e, 'No se pudo actualizar la contraseña.');
     } finally {
       this.guardando.set(false);
     }

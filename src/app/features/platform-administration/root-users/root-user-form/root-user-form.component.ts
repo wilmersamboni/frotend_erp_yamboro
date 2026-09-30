@@ -4,6 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { RootUserAdminService } from '../../../../core/services/admin/root-user-admin.service';
 import { AdminToastService } from '../../../../core/admin-auth/admin-toast.service';
 import { LoadingSkeletonComponent } from '../../../../shared/components/loading-skeleton.component';
+import { avisarCambiosSinGuardar } from '../../../../core/services/unsaved-changes.service';
 
 function passwordsCoincidenValidator(): ValidatorFn {
   return (group: AbstractControl): ValidationErrors | null => {
@@ -110,6 +111,7 @@ function passwordsCoincidenValidator(): ValidatorFn {
 })
 export class RootUserFormComponent {
   private readonly fb              = inject(FormBuilder);
+  private readonly _avisoCambios = avisarCambiosSinGuardar(() => this.form.dirty);
   private readonly rootUserService = inject(RootUserAdminService);
   private readonly toast           = inject(AdminToastService);
   private readonly router          = inject(Router);
@@ -146,7 +148,7 @@ export class RootUserFormComponent {
     this.cargando.set(true);
     this.rootUserService.obtenerPorId(id).subscribe({
       next: (u) => { this.form.patchValue({ nombre: u.nombre, correo: u.correo }); this.cargando.set(false); },
-      error: () => { this.cargando.set(false); this.toast.error('No se pudo cargar el usuario.'); this.router.navigate(['/root-users']); },
+      error: (err) => { this.cargando.set(false); this.toast.httpError(err, 'No se pudo cargar el usuario.'); this.router.navigate(['/root-users']); },
     });
   }
 
@@ -161,10 +163,11 @@ export class RootUserFormComponent {
     peticion.subscribe({
       next: () => {
         this.guardando.set(false);
+        this.form.markAsPristine();
         this.toast.success(this.modoEdicion() ? 'Usuario actualizado correctamente.' : 'Usuario creado correctamente.');
         this.router.navigate(['/root-users']);
       },
-      error: (err) => { this.guardando.set(false); this.toast.error(err?.error?.message ?? 'Ocurrió un error al guardar el usuario.'); },
+      error: (err) => { this.guardando.set(false); this.toast.httpError(err, 'Ocurrió un error al guardar el usuario.'); },
     });
   }
 

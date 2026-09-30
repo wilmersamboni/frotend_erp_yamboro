@@ -5,7 +5,7 @@ import { SERVICIOS_ADMIN_PANEL } from './features/tenant-administration/config/a
 import { SCHEDULE_ROUTES } from './features/schedules/schedules.routes';
 import { SURVEY_ROUTES } from './features/surveys/surveys.routes';
 import { MATERIALS_ROUTES } from './features/materiales/materiales.routes';
-import { sinCambiosPendientesGuard } from './core/services/unsaved-changes.service';
+import { conAvisoDeCambios } from './core/services/unsaved-changes.service';
 
 function tieneSubdominio(): boolean {
   const hostname = window.location.hostname;
@@ -181,21 +181,5 @@ const RUTAS: Routes = [
   // Comodín global (por si ningún canMatch pasa)
   { path: '**', redirectTo: '' },
 ];
-
-/**
- * Agrega a cada ruta con componente el aviso de "cambios sin guardar"
- * (ver unsaved-changes.service.ts). Es global a propósito: una pantalla nueva
- * solo tiene que llamar a `avisarCambiosSinGuardar()`, sin tocar las rutas.
- * No recorre `loadChildren` (panel de plataforma), que no tiene esos formularios.
- */
-function conAvisoDeCambios(rutas: Routes): Routes {
-  return rutas.map((r) => ({
-    ...r,
-    ...(r.redirectTo === undefined && (r.component || r.loadComponent)
-      ? { canDeactivate: [...(r.canDeactivate ?? []), sinCambiosPendientesGuard] }
-      : {}),
-    ...(r.children ? { children: conAvisoDeCambios(r.children) } : {}),
-  }));
-}
 
 export const routes: Routes = conAvisoDeCambios(RUTAS);

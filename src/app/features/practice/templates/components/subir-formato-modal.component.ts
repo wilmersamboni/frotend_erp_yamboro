@@ -106,6 +106,11 @@ export class SubirFormatoModalComponent {
     private toast: ToastService,
   ) {}
 
+  /** ¿Escribió, eligió o adjuntó algo que se perdería al cerrar el formulario? */
+  get haySinGuardar(): boolean {
+    return !!(this.nombreFormato.trim() || this.tipoSeleccionado || this.archivos.length);
+  }
+
   tipoOptions(): SSOption[] {
     return this.tipos.map(t => ({ value: t.value, label: `${t.icon} ${t.label}` }));
   }
