@@ -6,6 +6,7 @@ import { TableFilterComponent, TableFilterOption } from '../../../shared/compone
 import { StatCardComponent } from '../../../shared/components/stat-card.component';
 import { ToastService } from '../../../core/services/toast.service';
 import { Kardex, MaterialesApiService } from '../data-access/materiales-api.service';
+import { EsperaDirective } from '../../../shared/directives/espera.directive';
 
 /**
  * Log de movimientos de stock para instructor — solo lectura, mismo
@@ -16,7 +17,7 @@ import { Kardex, MaterialesApiService } from '../data-access/materiales-api.serv
 @Component({
   selector: 'app-instructor-materiales-kardex',
   standalone: true,
-  imports: [FormsModule, AdminTableComponent, StatCardComponent, TableFilterComponent],
+  imports: [EsperaDirective, FormsModule, AdminTableComponent, StatCardComponent, TableFilterComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -24,12 +25,12 @@ import { Kardex, MaterialesApiService } from '../data-access/materiales-api.serv
         <div class="flex gap-2">
           <app-table-filter label="Tipo" [options]="opcionesTipoFiltro" [value]="filtroTipo"
           (valueChange)="filtroTipo = $event" />
-          <input [(ngModel)]="filtroTexto" placeholder="Buscar por producto, SKU o placa..."
+          <input appEspera [(ngModel)]="filtroTexto" placeholder="Buscar por producto, SKU o placa..."
             class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
           @if (idProductoFiltro || idItemFiltro) {
             <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#39A900]/10 text-[#2d8000] border border-[#39A900]/20">
               {{ idProductoFiltro ? 'Filtrando por producto' : 'Filtrando por ítem' }}
-              <button (click)="quitarFiltroCruzado()" class="hover:text-red-600" title="Quitar filtro">×</button>
+              <button aria-label="Quitar filtro" (click)="quitarFiltroCruzado()" class="hover:text-red-600" title="Quitar filtro">×</button>
             </span>
           }
         </div>

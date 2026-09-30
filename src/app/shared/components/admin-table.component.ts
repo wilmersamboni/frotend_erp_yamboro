@@ -5,6 +5,7 @@ import { StatusBadgeComponent } from './status-badge.component';
 import { TableFilterComponent } from './table-filter.component';
 import { LoadingSkeletonComponent } from './loading-skeleton.component';
 import { EmptyStateComponent } from './empty-state.component';
+import { EsperaDirective } from '../directives/espera.directive';
 
 
 /** Enlace de navegación cruzada por fila (ej. Producto → Existencias filtradas por ese producto). */
@@ -43,7 +44,7 @@ export interface TableRowLink {
 @Component({
   selector: 'app-admin-table',
   standalone: true,
-  imports: [FormsModule, RouterLink, StatusBadgeComponent, TableFilterComponent, LoadingSkeletonComponent, EmptyStateComponent],
+  imports: [EsperaDirective, FormsModule, RouterLink, StatusBadgeComponent, TableFilterComponent, LoadingSkeletonComponent, EmptyStateComponent],
   template: `
     <div [class]="searchable
         ? 'bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden'
@@ -58,11 +59,11 @@ export interface TableRowLink {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
               </svg>
             </div>
-            <input type="text" [(ngModel)]="busqueda" (ngModelChange)="page = 0"
+            <input appEspera type="text" [(ngModel)]="busqueda" (ngModelChange)="page = 0"
               [placeholder]="searchPlaceholder"
               class="w-full pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:border-[#39A900] focus:bg-white transition-all text-gray-900 placeholder:text-gray-400" />
             @if (busqueda) {
-              <button (click)="busqueda = ''; page = 0"
+              <button aria-label="Limpiar búsqueda" (click)="busqueda = ''; page = 0"
                 class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -144,7 +145,7 @@ export interface TableRowLink {
       } @else {
         <div [class]="searchable ? 'overflow-x-auto' : 'overflow-x-auto rounded-xl border border-gray-100'">
           <table class="w-full text-sm">
-            <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
+            <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
               <tr>
                 @if (checkable) {
                   <th class="w-10 px-4 py-3">
@@ -221,7 +222,7 @@ export interface TableRowLink {
               de <strong class="text-gray-800">{{ filasVisibles.length }}</strong> registros
             </span>
             <div class="flex items-center gap-2">
-              <button (click)="page = page - 1" [disabled]="page === 0"
+              <button aria-label="Página anterior" (click)="page = page - 1" [disabled]="page === 0"
                 class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
@@ -230,7 +231,7 @@ export interface TableRowLink {
               <span class="px-4 py-1.5 text-sm font-semibold text-[#39A900] bg-[#39A900]/10 rounded-lg border border-[#39A900]/20">
                 {{ page + 1 }} / {{ totalPaginas }}
               </span>
-              <button (click)="page = page + 1" [disabled]="page + 1 >= totalPaginas"
+              <button aria-label="Página siguiente" (click)="page = page + 1" [disabled]="page + 1 >= totalPaginas"
                 class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
