@@ -3,7 +3,7 @@
    (text-2xl font-bold text-gray-900 tracking-tight), igual que Admin/
    Seguimiento/Formatos/Historial — mismo motivo que el comentario en
    admin/horarios/horarios.component.css. */
-.today-badge { background: var(--accent-brand); color: #fff; border-radius: 12px; padding: 2px 8px; font-size: 10px; font-weight: 800; display:inline-block; }
+.today-badge { background: var(--accent-brand); color: #fff; border-radius: 12px; padding: 2px 8px; font-size: 12px; font-weight: 800; display:inline-block; }
 
 /* Matricial */
 /* overflow-x:auto (no "hidden"): en pantallas angostas el grid crece más
@@ -78,7 +78,7 @@
 .status-pill {
   display: inline-flex; align-items: center; gap: 4px;
   border-radius: 6px; padding: 3px 8px;
-  font-size: 10px; font-weight: 700; width: fit-content;
+  font-size: 12px; font-weight: 700; width: fit-content;
 }
 .status-finalizado { background: var(--indigo-bg); color: var(--indigo-text); }
 .horario-card.active-session { border-color: var(--accent-brand); box-shadow: 0 4px 12px color-mix(in srgb, var(--accent-brand) 15%, transparent); background: var(--surface2); }
@@ -95,19 +95,19 @@
 }
 .info-label {
   color: var(--text-muted); font-weight: 500;
-  font-size: 11px; font-family: inherit;
+  font-size: 12px; font-family: inherit;
   white-space: nowrap;
 }
 .info-label::after { content: ': '; }
 .info-val {
   color: var(--text); font-weight: 600;
-  font-size: 11px; font-family: inherit;
+  font-size: 12px; font-family: inherit;
 }
 .info-time { font-weight: 700; }
 
 .retraso-badge {
   display: inline-block; background: var(--err-bg); color: var(--err-text);
-  border-radius: 4px; padding: 3px 6px; font-size: 10px; font-weight: 700; border: 1px solid var(--err-border);
+  border-radius: 4px; padding: 3px 6px; font-size: 12px; font-weight: 700; border: 1px solid var(--err-border);
 }
 
 /* Trigger + tooltip de ubicación temporal */
@@ -120,13 +120,13 @@
   left: 0; top: calc(100% + 5px);
   background: var(--tooltip-bg); color: var(--tooltip-text);
   border-radius: 8px; padding: 9px 12px;
-  font-size: 11px; white-space: nowrap;
+  font-size: 12px; white-space: nowrap;
   box-shadow: 0 6px 16px rgba(0,0,0,.3);
   pointer-events: none;
 }
 .amb-temp-wrap:hover .amb-temp-tooltip { display: block; }
 .amb-temp-lbl {
-  color: var(--text-faint); font-size: 9px; font-weight: 700;
+  color: var(--text-faint); font-size: 12px; font-weight: 700;
   text-transform: uppercase; letter-spacing: .06em;
   display: block; margin-bottom: 2px;
 }
@@ -136,7 +136,7 @@
 /* Limpiar ambiente inline */
 .limpiar-amb-btn {
   background: none; border: none; cursor: pointer; color: var(--text-muted);
-  font-size: 10px; padding: 0 2px; line-height: 1; margin-left: 2px;
+  font-size: 12px; padding: 0 2px; line-height: 1; margin-left: 2px;
 }
 .limpiar-amb-btn:hover { color: var(--err-text); }
 
@@ -145,7 +145,7 @@
   display: flex; align-items: flex-start; gap: 6px;
   background: var(--warn-bg); border: 1.5px solid #fb923c;
   border-radius: 7px; padding: 7px 9px;
-  font-size: 11px; color: var(--warn-text);
+  font-size: 12px; color: var(--warn-text);
 }
 
 /* ── Columna derecha — estilos compartidos con card-actions-col ── */
@@ -156,6 +156,13 @@
   transition: color .15s, background .15s;
 }
 .card-help-btn:hover { color: var(--accent-text); background: var(--ok-bg); }
+
+/* Estado de la competencia en el icono de libro */
+.card-help-btn.comp-sin          { color: var(--text-faint); }
+.card-help-btn.comp-proxima      { color: var(--text-faint); }
+.card-help-btn.comp-vigente      { color: var(--accent-text); }
+.card-help-btn.comp-por-terminar { color: var(--warn-text); background: var(--warn-bg); }
+.card-help-btn.comp-vencida      { color: var(--err-text); background: var(--err-bg); }
 .card-help-active { color: var(--accent-text) !important; background: var(--ok-bg) !important; }
 
 .proximos-eventos-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; }
@@ -169,7 +176,7 @@
 .prox-evento-dot { width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .prox-evento-info { display: flex; flex-direction: column; min-width: 0; }
 .prox-evento-nombre { font-size: 12.5px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.prox-evento-meta { font-size: 11px; color: var(--text-muted); }
+.prox-evento-meta { font-size: 12px; color: var(--text-muted); }
 
 /* Botón de notificación de evento */
 .ev-notif-btn {
@@ -207,7 +214,7 @@
 .ev-tooltip-festivo       { background: var(--err-bg); border-color: var(--err-border); color: var(--err-text); }
 .ev-tt-tipo {
   display: flex; align-items: center; gap: 5px;
-  font-size: 10px; font-weight: 800; text-transform: uppercase;
+  font-size: 12px; font-weight: 800; text-transform: uppercase;
   letter-spacing: .5px; opacity: .7; margin-bottom: 4px;
 }
 .ev-tt-nombre { font-weight: 700; font-size: 14px; margin: 0; color: inherit; }

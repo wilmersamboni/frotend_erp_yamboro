@@ -7,7 +7,7 @@ import { ErpCatalogoService } from '../data-access/erp-catalogo.service';
 import {
   DIAS_SEMANA, DIAS_LABELS, fechaInicioDelDia, fechaFinDelDia,
   to12h as to12hUtil, getDiaLabel, nombreCompleto,
-  estadoCompetencias, formatFechaCorta,
+  estadoCompetencias, tituloCompetencia, formatFechaCorta,
 } from '../../../core/utils/horarios.util';
 import { LucideAngularModule } from 'lucide-angular';
 import { ToastService } from '../../../core/services/toast.service';
@@ -204,7 +204,7 @@ import { ConfirmService } from '../../../core/services/confirm.service';
                         }
                       </div>
                       @if (slots.length > 1) {
-                        <button class="slot-arrow-btn" (click)="nextSlot(row.entity.id, d, slots.length)" title="Ver siguiente jornada">
+                        <button aria-label="Ver siguiente jornada" class="slot-arrow-btn" (click)="nextSlot(row.entity.id, d, slots.length)" title="Ver siguiente jornada">
                           <lucide-icon name="chevron-right" [size]="13"></lucide-icon>
                         </button>
                       }
@@ -295,7 +295,7 @@ import { ConfirmService } from '../../../core/services/confirm.service';
                   @if (fichaEvs?.length && isDiaHoy(h.diaSemana)) {
                     @for (ev of fichaEvs; track ev.id) {
                       @if (!isEventoPasado(ev, now())) {
-                        <button [class]="'ev-notif-btn ev-notif-' + ev.tipo"
+                        <button [class]="'ev-notif-btn ev-notif-' + ev.tipo" [attr.aria-label]="'Evento: ' + ev.nombre"
                                 (mouseenter)="showEventoTooltip(ev, $event)"
                                 (mouseleave)="hideEventoTooltip()">
                           <lucide-icon name="bell" [size]="9"></lucide-icon>
@@ -304,10 +304,10 @@ import { ConfirmService } from '../../../core/services/confirm.service';
                     }
                   }
                   <div style="margin-top:auto; display:flex; flex-direction:column; gap:2px;">
-                    <button class="w-[26px] h-[26px] inline-flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-500 hover:text-[#39A900] transition-colors" title="Editar" (click)="editarHorario(h)">
+                    <button aria-label="Editar" class="w-[26px] h-[26px] inline-flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-500 hover:text-[#39A900] transition-colors" title="Editar" (click)="editarHorario(h)">
                       <lucide-icon name="pencil" [size]="14"></lucide-icon>
                     </button>
-                    <button class="w-[26px] h-[26px] inline-flex items-center justify-center rounded-md hover:bg-red-50 text-red-600 transition-colors" title="Eliminar" (click)="deleteHorario(h.id)">
+                    <button aria-label="Eliminar" class="w-[26px] h-[26px] inline-flex items-center justify-center rounded-md hover:bg-red-50 text-red-600 transition-colors" title="Eliminar" (click)="deleteHorario(h.id)">
                       <lucide-icon name="trash-2" [size]="14"></lucide-icon>
                     </button>
                   </div>
@@ -337,15 +337,15 @@ import { ConfirmService } from '../../../core/services/confirm.service';
            [style.left.px]="eventoTooltip()!.x"
            [style.top.px]="eventoTooltip()!.y">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px;">
-          <p style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.8;margin:0;">
+          <p style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.8;margin:0;">
             {{ tipoLabelEvento(eventoTooltip()!.ev.tipo) }}
           </p>
           @if (eventoTooltip()!.pasado) {
-            <span style="background:rgba(0,0,0,.12);border-radius:6px;padding:2px 7px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;opacity:.85;">
+            <span style="background:rgba(0,0,0,.12);border-radius:6px;padding:2px 7px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;opacity:.85;">
               Terminado
             </span>
           } @else if (eventoTooltip()!.noIniciado) {
-            <span style="background:rgba(0,0,0,.10);border-radius:6px;padding:2px 7px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;opacity:.85;">
+            <span style="background:rgba(0,0,0,.10);border-radius:6px;padding:2px 7px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;opacity:.85;">
               No iniciado
             </span>
           }
@@ -623,12 +623,12 @@ export class AdminHorariosComponent implements OnInit, OnDestroy {
     let horariosFallo = false;
     const horariosP = this.horariosApi.getHorarios().catch(() => { horariosFallo = true; return []; });
     const fichasP = this.erpCatalogo.getFichas().catch(() => []);
-    const ambientesP = this.erpCatalogo.getAmbientes().catch(() => {
-      this.toast.error('Sin datos', 'No se pudieron cargar los ambientes. Verifica tu sesión.');
+    const ambientesP = this.erpCatalogo.getAmbientes().catch((e) => {
+      this.toast.httpError(e, 'No se pudieron cargar los ambientes. Verifica tu sesión.', 'Sin datos');
       return [];
     });
-    const instructoresP = this.erpCatalogo.getInstructores().catch(() => {
-      this.toast.error('Sin datos', 'No se pudieron cargar los instructores. Verifica tu sesión.');
+    const instructoresP = this.erpCatalogo.getInstructores().catch((e) => {
+      this.toast.httpError(e, 'No se pudieron cargar los instructores. Verifica tu sesión.', 'Sin datos');
       return [];
     });
     const eventosP = this.horariosApi.getEventos().catch(() => []);
@@ -919,15 +919,7 @@ export class AdminHorariosComponent implements OnInit, OnDestroy {
 
   /** Texto al pasar el mouse sobre el libro — explica el color. */
   compTitulo(e: ReturnType<typeof estadoCompetencias>): string {
-    const nombre = e.comp?.nombre ?? '';
-    const fecha = (iso?: string | null) => (iso ? formatFechaCorta(iso.slice(0, 10)) : '');
-    switch (e.estado) {
-      case 'sin': return 'Sin competencia asignada';
-      case 'vigente': return 'Competencia vigente: ' + nombre + (e.comp?.fechaFin ? ' · termina el ' + fecha(e.comp.fechaFin) : '');
-      case 'por-terminar': return nombre + (e.dias === 0 ? ' termina HOY' : ' termina en ' + e.dias + ' día' + (e.dias === 1 ? '' : 's')) + ' y no hay otra asignada';
-      case 'proxima': return 'Sin competencia en curso · la próxima (' + nombre + ') inicia el ' + fecha(e.comp?.fechaInicio);
-      case 'vencida': return nombre + ' terminó el ' + fecha(e.comp?.fechaFin) + ' y no hay una nueva asignada';
-    }
+    return tituloCompetencia(e);
   }
 
   deleteHorario(id: string): void {
@@ -943,7 +935,7 @@ export class AdminHorariosComponent implements OnInit, OnDestroy {
           this.horarios.update(list => list.filter(h => h.id !== id));
           this.toast.ok('Horario eliminado', 'El horario fue eliminado correctamente.');
         } catch (e: any) {
-          this.toast.error('Error al eliminar', e?.error?.message ?? 'No se pudo eliminar el horario.');
+          this.toast.httpError(e, 'No se pudo eliminar el horario.', 'Error al eliminar');
         }
         this.cdr.markForCheck();
       },

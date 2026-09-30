@@ -5,6 +5,7 @@ import { ErpCatalogoService } from '../data-access/erp-catalogo.service';
 import { AuthService } from '../../../core/services/auth.service';
 import {
   DIAS_SEMANA, DIAS_LABELS, fechaInicioDelDia, fechaFinDelDia,
+  estadoCompetencias, tituloCompetencia,
   estadoResultado, to12h as to12hUtil,
   jornadaLabel as jornadaLabelUtil, formatFechaCorta,
 } from '../../../core/utils/horarios.util';
@@ -14,6 +15,7 @@ import { ConsultarUbicacionComponent } from './consultar-ubicacion.component';
 import { HistorialInstructorModalComponent } from './historial-instructor-modal.component';
 import { NuevaCompetenciaModalComponent } from './nueva-competencia-modal.component';
 import { CompetenciaTooltipComponent } from '../../../shared/components/competencia-tooltip.component';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 /**
  * Portado de ChronoGest; variante de instructor del dominio Horarios.
@@ -41,7 +43,7 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
 @Component({
   selector: 'app-instructor-mis-horarios',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, LucideAngularModule, ConsultarUbicacionComponent, HistorialInstructorModalComponent, NuevaCompetenciaModalComponent, CompetenciaTooltipComponent],
+  imports: [DialogDirective, FormsModule, LucideAngularModule, ConsultarUbicacionComponent, HistorialInstructorModalComponent, NuevaCompetenciaModalComponent, CompetenciaTooltipComponent],
   template: `
     <div class="page-header">
       <div><h2 class="text-2xl font-bold text-gray-900 tracking-tight">Mis Horarios</h2><p class="text-muted text-sm">Tu programación semanal (Pantalla Completa)</p></div>
@@ -123,7 +125,7 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
                         }
                       </div>
                       @if (slots.length > 1) {
-                        <button class="slot-arrow-btn" (click)="nextSlot(d, slots.length)" title="Ver siguiente jornada">
+                        <button aria-label="Ver siguiente jornada" class="slot-arrow-btn" (click)="nextSlot(d, slots.length)" title="Ver siguiente jornada">
                           <lucide-icon name="chevron-right" [size]="13"></lucide-icon>
                         </button>
                       }
@@ -143,7 +145,7 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
                             <!-- Pre-selección antes de iniciar (transversal o conflicto) -->
                             <span style="font-weight:700;color:var(--accent-text)">{{ ambienteSeleccionado()[h.id].nombre }}</span>
                             @if (!isHorarioActivo(d, h)) {
-                              <button class="limpiar-amb-btn" title="Quitar selección" (click)="limpiarAmbiente(h)">✕</button>
+                              <button aria-label="Quitar selección" class="limpiar-amb-btn" title="Quitar selección" (click)="limpiarAmbiente(h)">✕</button>
                             }
                           } @else if (h.ubicacionTransversalNombre && h.ambiente?.nombre) {
                             <!-- Instructor regular con ubicación temporal — tooltip al hover -->
@@ -183,7 +185,7 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
                             <div style="font-weight:700;line-height:1.3;">Ambiente ocupado</div>
                             <div style="opacity:.85;">En uso por <strong>{{ ambienteConflicto()[h.id].instructorNombre }}</strong> en <strong>{{ ambienteConflicto()[h.id].ambienteNombre }}</strong></div>
                             <button class="border border-gray-300 hover:bg-gray-50 hover:border-[#39A900]/50 hover:text-[#39A900] text-gray-700 rounded-lg btn-full"
-                                    style="margin-top:6px;font-size:10px;padding:4px 8px;display:flex;align-items:center;justify-content:center;gap:4px;"
+                                    style="margin-top:6px;font-size:12px;padding:4px 8px;display:flex;align-items:center;justify-content:center;gap:4px;"
                                     (click)="buscarAlternativa(h)">
                               <lucide-icon name="search" [size]="10"></lucide-icon> Buscar otro ambiente
                             </button>
@@ -196,7 +198,7 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
                                 [class]="ubic.consultandoId() === h.id
                                   ? 'bg-sena-gradient text-white'
                                   : 'border border-gray-300 hover:bg-gray-50 hover:border-[#39A900]/50 hover:text-[#39A900] text-gray-700'"
-                                style="font-size:11px; padding:4px 8px; display:flex; align-items:center; justify-content:center; gap:5px;"
+                                style="font-size:12px; padding:4px 8px; display:flex; align-items:center; justify-content:center; gap:5px;"
                                 (click)="ubic.consultarAmbientes(h)">
                           <lucide-icon name="search" [size]="12"></lucide-icon>
                           {{ ubic.consultandoId() === h.id ? 'Consultando...' : 'Consultar Ambientes' }}
@@ -236,7 +238,7 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
                         </div>
                       }
 
-                      <button class="border border-gray-300 hover:bg-gray-50 hover:border-[#39A900]/50 hover:text-[#39A900] text-gray-700 rounded-lg btn-full mt-3" style="font-size: 11px; padding:4px 8px;" (click)="comp.abrir(h)">
+                      <button class="border border-gray-300 hover:bg-gray-50 hover:border-[#39A900]/50 hover:text-[#39A900] text-gray-700 rounded-lg btn-full mt-3" style="font-size: 12px; padding:4px 8px;" (click)="comp.abrir(h)">
                         + Añadir Competencia
                       </button>
                     </div><!-- end card-bottom -->
@@ -245,15 +247,17 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
 
                   <!-- ── Columna derecha: iconos interactivos ── -->
                   <div class="card-actions-col">
-                    <div class="card-help-btn"
+                    @let est = compEstado(h);
+                    <div [class]="'card-help-btn comp-' + est.estado"
                          [class.card-help-active]="compTooltip.state()?.h?.id === h.id"
-                         (click)="compTooltip.abrir(h, getCompetenciaVigente(h), $event)">
+                         [title]="compTitulo(est)" [attr.aria-label]="compTitulo(est)"
+                         (click)="compTooltip.abrir(h, est.comp, $event)">
                       <lucide-icon name="book-open" [size]="15"></lucide-icon>
                     </div>
                     @if (fichaEvs?.length && isToday(d)) {
                       @for (ev of fichaEvs; track ev.id) {
                         @if (!isEventoPasado(ev, now())) {
-                          <button [class]="'ev-notif-btn ev-notif-' + ev.tipo"
+                          <button [class]="'ev-notif-btn ev-notif-' + ev.tipo" [attr.aria-label]="'Evento: ' + ev.nombre"
                                   (mouseenter)="showEventoTooltip(ev, $event)"
                                   (mouseleave)="hideEventoTooltip()">
                             <lucide-icon name="bell" [size]="9"></lucide-icon>
@@ -286,15 +290,15 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
            [style.left.px]="eventoTooltip()!.x"
            [style.top.px]="eventoTooltip()!.y">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px;">
-          <p style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.8;margin:0;">
+          <p style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.8;margin:0;">
             {{ tipoLabelEvento(eventoTooltip()!.ev.tipo) }}
           </p>
           @if (eventoTooltip()!.pasado) {
-            <span style="background:rgba(0,0,0,.12);border-radius:6px;padding:2px 7px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;opacity:.85;">
+            <span style="background:rgba(0,0,0,.12);border-radius:6px;padding:2px 7px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;opacity:.85;">
               Terminado
             </span>
           } @else if (eventoTooltip()!.noIniciado) {
-            <span style="background:rgba(0,0,0,.10);border-radius:6px;padding:2px 7px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;opacity:.85;">
+            <span style="background:rgba(0,0,0,.10);border-radius:6px;padding:2px 7px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;opacity:.85;">
               No iniciado
             </span>
           }
@@ -329,11 +333,11 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
 
     <!-- Finalizar Modal -->
     @if (finModal().visible) {
-    <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+    <div appDialog class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md" (click)="$event.stopPropagation()">
         <div class="flex items-start justify-between gap-3 mb-2">
           <h3 class="text-red-600 font-bold">Cierre Anticipado</h3>
-          <button class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" (click)="closeFin()"><lucide-icon name="x" [size]="18"></lucide-icon></button>
+          <button aria-label="Cerrar" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" (click)="closeFin()"><lucide-icon name="x" [size]="18"></lucide-icon></button>
         </div>
         <p class="text-sm mt-2 text-muted">¿Estás seguro de finalizar la clase antes del tiempo estipulado? Esto notificará a Administración.</p>
         <div class="form-group mt-3">
@@ -754,7 +758,7 @@ export class InstructorMisHorariosComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
         return;
       }
-      this.toast.error('Error al iniciar clase', e?.error?.message ?? 'No se pudo activar la clase.');
+      this.toast.httpError(e, 'No se pudo activar la clase.', 'Error al iniciar clase');
     };
 
     try {
@@ -805,7 +809,7 @@ export class InstructorMisHorariosComponent implements OnInit, OnDestroy {
       this.cargarDatos();
       this.toast.info('Clase finalizada', 'La jornada fue cerrada y el administrador fue notificado.');
     } catch (e: any) {
-      this.toast.error('Error al finalizar', e?.error?.message ?? 'No se pudo finalizar la clase.');
+      this.toast.httpError(e, 'No se pudo finalizar la clase.', 'Error al finalizar');
     }
   }
 
@@ -856,6 +860,15 @@ export class InstructorMisHorariosComponent implements OnInit, OnDestroy {
     if (nowMin < startMin)    return 0;
     if (nowMin > effectiveEnd) return 100;
     return Math.round(((nowMin - startMin) / (effectiveEnd - startMin)) * 100);
+  }
+
+  /** Estado de la competencia para el libro de la card: distingue "sin competencia" de "ya terminó" o "todavía no empieza". */
+  compEstado(h: any): ReturnType<typeof estadoCompetencias> {
+    return estadoCompetencias(h.competencias);
+  }
+
+  compTitulo(e: ReturnType<typeof estadoCompetencias>): string {
+    return tituloCompetencia(e);
   }
 
   getCompetenciaVigente(h: any): any | null {
