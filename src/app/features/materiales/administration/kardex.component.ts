@@ -6,6 +6,7 @@ import { StatCardComponent } from '../../../shared/components/stat-card.componen
 import { ToastService } from '../../../core/services/toast.service';
 import { Kardex, MaterialesApiService } from '../data-access/materiales-api.service';
 import { TableFilterComponent, TableFilterOption } from '../../../shared/components/table-filter.component';
+import { ExportColumn, TableExportService } from '../../../shared/services/table-export.service';
 
 /**
  * Log de movimientos de stock — solo lectura. Se llena solo como efecto
@@ -32,6 +33,9 @@ import { TableFilterComponent, TableFilterOption } from '../../../shared/compone
   imports: [FormsModule, AdminTableComponent, StatCardComponent, TableFilterComponent],
   template: `
     <div class="p-6">
+      <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
+        <span>Materiales</span><span aria-hidden="true">/</span><span>Inventario</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Kardex</span>
+      </nav>
       <div class="flex items-center justify-between mb-5">
         <h1 class="text-xl font-bold text-gray-800">Kardex</h1>
         <div class="flex gap-2 border-gray-200 ">
@@ -39,6 +43,8 @@ import { TableFilterComponent, TableFilterOption } from '../../../shared/compone
           (valueChange)="filtroTipo = $event" />
           <input [(ngModel)]="filtroTexto" placeholder="Buscar por producto, SKU o placa..."
             class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] bg-white w-xs " />
+          <button type="button" (click)="exportarExcel()" class="px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:border-[#39A900] hover:text-[#267700]" aria-label="Exportar kardex a Excel">Excel</button>
+          <button type="button" (click)="exportarPdf()" class="px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:border-[#39A900] hover:text-[#267700]" aria-label="Exportar kardex a PDF">PDF</button>
           @if (idProductoFiltro || idItemFiltro) {
             <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#39A900]/10 text-[#2d8000] border border-[#39A900]/20">
               {{ idProductoFiltro ? 'Filtrando por producto' : 'Filtrando por ítem' }}
@@ -103,6 +109,7 @@ export class MaterialesKardexComponent implements OnInit {
     private toast: ToastService,
     private route: ActivatedRoute,
     private router: Router,
+    private exporter: TableExportService,
   ) {}
 
   ngOnInit(): void {
@@ -138,6 +145,16 @@ export class MaterialesKardexComponent implements OnInit {
   contarTipo(tipo: 'ENTRADA' | 'SALIDA'): number {
     return this.filas.filter((f) => f.tipo === tipo).length;
   }
+
+  private readonly exportColumns: ExportColumn<any>[] = [
+    { label: 'Fecha', value: (f) => f.fecha }, { label: 'Tipo', value: (f) => f.tipo },
+    { label: 'Ítem', value: (f) => f.item_sku }, { label: 'Cantidad', value: (f) => f.cantidad },
+    { label: 'Saldo anterior', value: (f) => f.saldo_anterior }, { label: 'Saldo actual', value: (f) => f.saldo_actual },
+    { label: 'Observación', value: (f) => f.observacion },
+  ];
+
+  exportarExcel(): void { void this.exporter.excel('kardex', 'Kardex', this.exportColumns, this.filas); }
+  exportarPdf(): void { this.exporter.pdf('kardex', 'Kardex', this.exportColumns, this.filas); }
 
   private async cargar(): Promise<void> {
     this.loading = true;

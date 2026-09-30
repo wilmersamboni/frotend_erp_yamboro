@@ -5,6 +5,7 @@ import { DatePipe } from '@angular/common';
 import { MaterialesLiveService } from '../data-access/materiales-live.service';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
+import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
 import { ToastService } from '../../../core/services/toast.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
@@ -437,6 +438,7 @@ export class AprendizMaterialesDevolucionesComponent implements OnInit {
   constructor(
     private api: MaterialesApiService,
     private auth: AuthService,
+    private policy: MaterialesScreenPolicy,
     private toast: ToastService,
     private live: MaterialesLiveService,
     private destroyRef: DestroyRef,
@@ -447,7 +449,7 @@ export class AprendizMaterialesDevolucionesComponent implements OnInit {
    *  aprendiz que la hizo — solo llega acá un encargado de bodega/líder de
    *  área (excepción personal), no el aprendiz común. */
   puedeRegistrar(): boolean {
-    return this.auth.tieneServicio('materiales.devoluciones.crear');
+    return this.policy.puedeRegistrarDevolucion();
   }
 
   /** Ver docblock de la versión admin. */

@@ -8,6 +8,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { CreateLoteDto, Lote, MaterialesApiService, Producto, Sitio } from '../data-access/materiales-api.service';
+import { ExportColumn, TableExportService } from '../../../shared/services/table-export.service';
 
 const OPCIONES_ESTADO: OpcionSelect[] = [
   { label: 'Activo', value: 'ACTIVO' },
@@ -34,14 +35,23 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
   imports: [FormsModule, AdminTableComponent, AdminModalComponent],
   template: `
     <div class="p-6">
-      <div class="flex items-center gap-2 mb-5">
-        <h1 class="text-xl font-bold text-gray-800">Lotes</h1>
+      <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
+        <span>Materiales</span><span aria-hidden="true">/</span><span>Inventario</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Lotes</span>
+      </nav>
+      <div class="flex items-center justify-between gap-2 mb-5">
+        <div class="flex items-center gap-2">
+          <h1 class="text-xl font-bold text-gray-800">Lotes</h1>
         @if (idProductoFiltro) {
           <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#39A900]/10 text-[#2d8000] border border-[#39A900]/20">
             Filtrando por producto
             <button (click)="quitarFiltroProducto()" class="hover:text-red-600" title="Quitar filtro">×</button>
           </span>
         }
+        </div>
+        <div class="flex gap-2">
+          <button type="button" (click)="exportarExcel()" class="px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:border-[#39A900] hover:text-[#267700]" aria-label="Exportar lotes a Excel">Excel</button>
+          <button type="button" (click)="exportarPdf()" class="px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:border-[#39A900] hover:text-[#267700]" aria-label="Exportar lotes a PDF">PDF</button>
+        </div>
       </div>
 
       <app-admin-table
@@ -136,6 +146,7 @@ export class MaterialesLotesComponent implements OnInit {
     private auth: AuthService,
     private route: ActivatedRoute,
     private router: Router,
+    private exporter: TableExportService,
   ) {}
 
   ngOnInit(): void {
@@ -204,6 +215,15 @@ export class MaterialesLotesComponent implements OnInit {
         sitio_nombre: this.sitios.find((s) => s.id_sitio === l.id_sitio)?.nombre ?? '—',
       }));
   }
+
+  private readonly exportColumns: ExportColumn<any>[] = [
+    { label: 'Producto', value: (f) => f.producto_nombre }, { label: 'Código lote', value: (f) => f.codigo_lote },
+    { label: 'Disponible', value: (f) => f.disponible }, { label: 'Unidad', value: (f) => f.unidad_medida },
+    { label: 'Vence', value: (f) => f.vence }, { label: 'Sitio', value: (f) => f.sitio_nombre }, { label: 'Estado', value: (f) => f.estado },
+  ];
+
+  exportarExcel(): void { void this.exporter.excel('lotes', 'Lotes', this.exportColumns, this.filas); }
+  exportarPdf(): void { this.exporter.pdf('lotes', 'Lotes', this.exportColumns, this.filas); }
 
   private async cargar(): Promise<void> {
     this.loading = true;

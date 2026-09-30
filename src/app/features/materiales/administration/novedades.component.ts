@@ -68,6 +68,9 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
   imports: [EmptyStateComponent, FormsModule, DatePipe, AdminModalComponent, BarcodeScannerComponent, StatusBadgeComponent, StatCardComponent, TableFilterComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
+      <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
+        <span>Materiales</span><span aria-hidden="true">/</span><span>Operación</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Novedades</span>
+      </nav>
       <div class="flex items-center justify-between mb-5">
         <div class="flex items-center gap-2">
           <h1 class="text-xl font-bold text-gray-800">Novedades</h1>

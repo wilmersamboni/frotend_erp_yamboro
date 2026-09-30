@@ -5,6 +5,7 @@ import { DatePipe } from '@angular/common';
 import { MaterialesLiveService } from '../data-access/materiales-live.service';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
+import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
 import { ToastService } from '../../../core/services/toast.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
@@ -435,6 +436,7 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
   constructor(
     private api: MaterialesApiService,
     private auth: AuthService,
+    private policy: MaterialesScreenPolicy,
     private toast: ToastService,
     private live: MaterialesLiveService,
     private destroyRef: DestroyRef,
@@ -446,7 +448,7 @@ export class InstructorMaterialesDevolucionesComponent implements OnInit {
    *  área (excepción personal), no el instructor común (2026-09-16, mismo
    *  criterio que la versión aprendiz). */
   puedeRegistrar(): boolean {
-    return this.auth.tieneServicio('materiales.devoluciones.crear');
+    return this.policy.puedeRegistrarDevolucion();
   }
 
   /** Ver docblock de la versión admin. */

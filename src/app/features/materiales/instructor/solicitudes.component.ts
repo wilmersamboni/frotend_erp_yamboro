@@ -18,6 +18,7 @@ import { ApiService, CursoLiderado } from '../../../core/services/api.service';
 import { NetworkStatusService } from '../../../core/offline/network-status.service';
 import { SyncQueueService } from '../../../core/offline/sync-queue.service';
 import { OfflineSnapshotService } from '../../../core/offline/offline-snapshot.service';
+import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
 import {
   guardarListaSolicitudes,
   leerListaSolicitudes,
@@ -697,6 +698,7 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
     private toast: ToastService,
     private permisos: PermisosService,
     private auth: AuthService,
+    private policy: MaterialesScreenPolicy,
     private live: MaterialesLiveService,
     private destroyRef: DestroyRef,
     public red: NetworkStatusService,
@@ -765,13 +767,13 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
   }
 
   get puedeAprobar(): boolean {
-    return this.permisos.tieneServicio('materiales.solicitudes.aprobar');
+    return this.policy.puedeAprobarSolicitud();
   }
   get puedeRechazar(): boolean {
-    return this.permisos.tieneServicio('materiales.solicitudes.rechazar');
+    return this.policy.puedeRechazarSolicitud();
   }
   get puedeEntregar(): boolean {
-    return this.permisos.tieneServicio('materiales.solicitudes.entregar');
+    return this.policy.puedeEntregarSolicitud();
   }
 
   /** Solo el propio solicitante puede confirmar recepción — el backend lo bloquea si no. */

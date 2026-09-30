@@ -26,6 +26,7 @@ import {
 } from '../ui/solicitud-entrega-offline.util';
 import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 import { AlertComponent } from '../../../shared/ui/alert.component';
+import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
 
 /** Línea del modal "Nueva solicitud" — `p:<id>` producto devolutivo, `l:<id>` lote consumible. */
 interface LineaForm {
@@ -66,6 +67,9 @@ interface LineaForm {
   imports: [AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
+      <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
+        <span>Materiales</span><span aria-hidden="true">/</span><span>Operación</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Solicitudes</span>
+      </nav>
       <div class="flex items-center justify-between mb-5">
         <h1 class="text-xl font-bold text-gray-800">Solicitudes</h1>
         <button (click)="nuevo()"
@@ -675,6 +679,7 @@ seleccionarEstado(valor: EstadoSolicitud | ''): void {
     private api: MaterialesApiService,
     private toast: ToastService,
     private auth: AuthService,
+    private policy: MaterialesScreenPolicy,
     private live: MaterialesLiveService,
     private destroyRef: DestroyRef,
     public red: NetworkStatusService,
@@ -749,16 +754,16 @@ seleccionarEstado(valor: EstadoSolicitud | ''): void {
    * juntos sin mirar el permiso. Ver plan "Ronda 3".
    */
   get puedeAprobar(): boolean {
-    return this.auth.tieneServicio('materiales.solicitudes.aprobar');
+    return this.policy.puedeAprobarSolicitud();
   }
   get puedeRechazar(): boolean {
-    return this.auth.tieneServicio('materiales.solicitudes.rechazar');
+    return this.policy.puedeRechazarSolicitud();
   }
   get puedeEntregar(): boolean {
-    return this.auth.tieneServicio('materiales.solicitudes.entregar');
+    return this.policy.puedeEntregarSolicitud();
   }
   get puedeConfirmar(): boolean {
-    return this.auth.tieneServicio('materiales.solicitudes.confirmar');
+    return this.policy.puedeConfirmarSolicitud();
   }
 
   /** Solo el propio solicitante puede confirmar recepción — el backend lo bloquea si no. */

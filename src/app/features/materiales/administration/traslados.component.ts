@@ -46,6 +46,9 @@ import { AlertComponent } from '../../../shared/ui/alert.component';
   imports: [AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, TableFilterComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
+      <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
+        <span>Materiales</span><span aria-hidden="true">/</span><span>Operación</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Traslados</span>
+      </nav>
       <div class="flex items-center justify-between mb-5">
         <h1 class="text-xl font-bold text-gray-800">Traslados</h1>
         <button (click)="abrirCrear()"
@@ -194,8 +197,16 @@ import { AlertComponent } from '../../../shared/ui/alert.component';
     @if (crearOpen) {
       <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarCrear()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
+          <nav aria-label="Migas de pan" class="mb-3 flex items-center gap-1.5 text-xs text-gray-500">
+            <span>Materiales</span><span aria-hidden="true">/</span><span>Operación</span><span aria-hidden="true">/</span><span>Traslados</span><span aria-hidden="true">/</span><span aria-current="page" class="font-medium text-gray-700">Nuevo traslado</span>
+          </nav>
           <div class="flex items-center justify-between mb-5">
-            <h2 class="text-lg font-bold text-gray-800">Nuevo traslado</h2>
+            <div>
+              <h2 class="text-lg font-bold text-gray-800">Nuevo traslado</h2>
+              <button type="button" (click)="cerrarCrear()" class="mt-1 inline-flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-[#267700]">
+                <span aria-hidden="true">←</span> Volver a Traslados
+              </button>
+            </div>
             <button (click)="cerrarCrear()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 
@@ -284,6 +295,9 @@ export class MaterialesTrasladosComponent implements OnInit {
   readonly opcionesEstadoFiltro = [{ label: 'Todos los estados', value: '' }, { label: 'Pendiente', value: 'PENDIENTE' }, { label: 'Aprobado', value: 'APROBADO' }, { label: 'Rechazado', value: 'RECHAZADO' }];
   items: Item[] = [];
   sitios: Sitio[] = [];
+  /** Sitios donde el usuario es responsable o líder de área; permite que la
+   * misma UI sirva a administradores e instructores responsables. */
+  misSitiosACargoIds = new Set<string>();
   loading = false;
   saving = false;
   error: string | null = null;
@@ -349,9 +363,11 @@ export class MaterialesTrasladosComponent implements OnInit {
     const respDestino = t.sitio_destino?.id_responsable ?? null;
     if (respOrigen) {
       const origenEsSolicitante = respOrigen === t.id_usuario_solicita;
-      return respOrigen === uid || (origenEsSolicitante && respDestino === uid);
+      if (respOrigen === uid || (origenEsSolicitante && respDestino === uid)) return true;
+      return this.misSitiosACargoIds.has(t.id_sitio_origen);
     }
-    return !respDestino || respDestino === uid;
+    if (!respDestino || respDestino === uid) return true;
+    return this.misSitiosACargoIds.has(t.id_sitio_destino);
   }
 
   /** Origen o destino ya no acepta aprobar (ver plan 2026-09-18) — deshabilita
@@ -463,7 +479,7 @@ export class MaterialesTrasladosComponent implements OnInit {
   }
 
   destinosDisponibles(): Sitio[] {
-    return this.sitios.filter((s) => !this.idsSitioOrigen.has(s.id_sitio));
+    return this.sitios.filter((s) => !this.idsSitioOrigen.has(s.id_sitio) && s.estado);
   }
 
   opcionesDestino(): { value: string; label: string }[] {
@@ -475,14 +491,16 @@ export class MaterialesTrasladosComponent implements OnInit {
     try {
       // M9 — solo `listarTraslados()` es crítico; una secundaria con 403
       // (excepción personal) no debe tumbar la tabla entera.
-      const [traslados, items, sitios] = await Promise.all([
+      const [traslados, items, sitios, sitiosACargo] = await Promise.all([
         this.api.listarTraslados(),
         this.api.listarItems().catch(() => [] as Item[]),
         this.api.listarSitios().catch(() => [] as Sitio[]),
+        this.api.sitiosACargo().catch(() => [] as Sitio[]),
       ]);
       this.traslados = traslados;
       this.items = items;
       this.sitios = sitios;
+      this.misSitiosACargoIds = new Set(sitiosACargo.map((s) => s.id_sitio));
     } catch (e) {
       this.toast.httpError(e, 'No se pudieron cargar los traslados.');
     } finally {
