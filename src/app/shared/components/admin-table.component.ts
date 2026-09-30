@@ -6,6 +6,7 @@ import { TableFilterComponent } from './table-filter.component';
 import { LoadingSkeletonComponent } from './loading-skeleton.component';
 import { EmptyStateComponent } from './empty-state.component';
 import { EsperaDirective } from '../directives/espera.directive';
+import { PageSizeSelectComponent } from './page-size-select.component';
 
 
 /** Enlace de navegación cruzada por fila (ej. Producto → Existencias filtradas por ese producto). */
@@ -44,7 +45,7 @@ export interface TableRowLink {
 @Component({
   selector: 'app-admin-table',
   standalone: true,
-  imports: [EsperaDirective, FormsModule, RouterLink, StatusBadgeComponent, TableFilterComponent, LoadingSkeletonComponent, EmptyStateComponent],
+  imports: [EsperaDirective, FormsModule, RouterLink, StatusBadgeComponent, TableFilterComponent, LoadingSkeletonComponent, EmptyStateComponent, PageSizeSelectComponent],
   template: `
     <div [class]="searchable
         ? 'bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden'
@@ -72,47 +73,7 @@ export interface TableRowLink {
             }
           </div>
 
-          <!-- Filas por página -->
-          <!-- Filas por página -->
-          <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
-            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filas</span>
-            
-            <!-- Dropdown personalizado para filas -->
-            <div class="relative">
-              <button 
-                type="button"
-                (click)="pageSizeDropdownOpen.update(v => !v)"
-                class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer">
-                <span>{{ pageSize() }}</span>
-                <svg class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" [class.rotate-180]="pageSizeDropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              @if (pageSizeDropdownOpen()) {
-                <!-- Backdrop para cerrar al hacer clic afuera -->
-                <div class="fixed inset-0 z-10" (click)="pageSizeDropdownOpen.set(false)"></div>
-
-                <!-- Menú flotante compacto -->
-                <div class="absolute left-0 top-full mt-2 z-20 w-20 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                  <div class="p-1 space-y-0.5">
-                    @for (size of [10, 20, 50, 100]; track size) {
-                      <button
-                        type="button"
-                        (click)="seleccionarPageSize(size)"
-                        class="w-full px-3 py-1.5 text-sm text-center rounded-lg transition-colors font-medium"
-                        [class.bg-green-50]="pageSize() === size"
-                        [class.text-green-700]="pageSize() === size"
-                        [class.text-gray-600]="pageSize() !== size"
-                        [class.hover:bg-gray-50]="pageSize() !== size">
-                        {{ size }}
-                      </button>
-                    }
-                  </div>
-                </div>
-              }
-            </div>
-          </div>
+          <app-page-size-select [value]="pageSize()" (valueChange)="seleccionarPageSize($event)" />
 
           <!-- Filtro opcional (ej. estado activo/desactivado) — lo controla el padre -->
           @if (filterOptions && filterOptions.length) {
@@ -310,13 +271,11 @@ export class AdminTableComponent implements DoCheck {
   /** Estado interno del buscador/paginador (solo activo con `searchable`). */
   busqueda = '';
   page = 0;
-  pageSize = signal(20)
-  pageSizeDropdownOpen= signal(false)
+  pageSize = signal(20);
 
-  seleccionarPageSize(size:number):void{
-    this.pageSize.set(size)
-    this.page=0
-    this.pageSizeDropdownOpen.set(false)
+  seleccionarPageSize(size: number): void {
+    this.pageSize.set(size);
+    this.page = 0;
   }
 
   /** Si está en true, las filas son clicables (cursor + resaltado) y emiten rowSelected. */

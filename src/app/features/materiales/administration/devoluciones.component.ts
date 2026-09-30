@@ -4,6 +4,8 @@ import { ActivatedRoute } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { MaterialesLiveService } from '../data-access/materiales-live.service';
 import { FormsModule } from '@angular/forms';
+import { AuthService } from '../../../core/services/auth.service';
+import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
 import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
@@ -25,6 +27,7 @@ import {
 } from '../data-access/materiales-api.service';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
 import { EsperaDirective } from '../../../shared/directives/espera.directive';
+import { PageSizeSelectComponent } from '../../../shared/components/page-size-select.component';
 
 const ESTADOS_DEVOLUCION: { value: EstadoDevolucion; label: string; desc: string }[] = [
   { value: 'BUENO', label: 'Bueno', desc: 'Sin daños visibles' },
@@ -53,16 +56,21 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
 @Component({
   selector: 'app-materiales-devoluciones',
   standalone: true,
-  imports: [EsperaDirective, DialogDirective, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, LoadingSkeletonComponent],
+  imports: [EsperaDirective, DialogDirective, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, LoadingSkeletonComponent, PageSizeSelectComponent],
   template: `
     <div class="p-6">
+      <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
+        <span>Materiales</span><span aria-hidden="true">/</span><span>Operación</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Devoluciones</span>
+      </nav>
       <div class="flex items-center justify-between mb-5">
         <h1 class="text-xl font-bold text-gray-800">Devoluciones</h1>
-        <button (click)="abrirCrear()"
-          class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-          style="background-color: var(--accent-brand)">
-          + Registrar devolución
-        </button>
+        @if (puedeRegistrar()) {
+          <button (click)="abrirCrear()"
+            class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
+            style="background-color: var(--accent-brand)">
+            + Registrar devolución
+          </button>
+        }
       </div>
 
       @if (loading) {
@@ -90,11 +98,12 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                 </button>
               }
             </div>
-            <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
-              <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</span>
+            <div class="relative flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200" [class.z-40]="estadoDropdownOpen()">
+              <button type="button" (click)="estadoDropdownOpen.update(v => !v)" class="absolute inset-0 z-0 rounded-xl cursor-pointer" aria-label="Estado de devolución"></button>
+              <span class="pointer-events-none relative z-10 text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</span>
 
               <!-- Dropdown personalizado para estado -->
-              <div class="relative">
+              <div class="relative z-20 pointer-events-none">
                 <button
                   type="button"
                   (click)="estadoDropdownOpen.update(v => !v)"
@@ -110,7 +119,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                   <div class="fixed inset-0 z-10" (click)="estadoDropdownOpen.set(false)"></div>
 
                   <!-- Menú flotante -->
-                  <div class="absolute left-0 top-full mt-2 z-20 w-44 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <div class="absolute left-0 top-full mt-2 z-20 w-44 pointer-events-auto rounded-xl border shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100" style="background-color: var(--surface); border-color: var(--border);">
                     <div class="p-1 space-y-0.5 max-h-64 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                       <button
                         type="button"
@@ -140,47 +149,33 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
               </div>
             </div>
             <!-- Filas por página -->
-            <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
-              <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filas</span>
-              <div class="relative">
-                <button
-                  type="button"
-                  (click)="pageSizeDropdownOpen.update(v => !v)"
-                  class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer">
-                  <span>{{ pageSize() }}</span>
-                  <svg class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" [class.rotate-180]="pageSizeDropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                @if (pageSizeDropdownOpen()) {
-                  <div class="fixed inset-0 z-10" (click)="pageSizeDropdownOpen.set(false)"></div>
-
-                  <div class="absolute left-0 top-full mt-2 z-20 w-20 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                    <div class="p-1 space-y-0.5">
-                      @for (size of [10, 20, 50, 100]; track size) {
-                        <button
-                          type="button"
-                          (click)="seleccionarPageSize(size)"
-                          class="w-full px-3 py-1.5 text-sm text-center rounded-lg transition-colors font-medium"
-                          [class.bg-green-50]="pageSize() === size"
-                          [class.text-green-700]="pageSize() === size"
-                          [class.text-gray-600]="pageSize() !== size"
-                          [class.hover:bg-gray-50]="pageSize() !== size">
-                          {{ size }}
-                        </button>
-                      }
-                    </div>
-                  </div>
-                }
-              </div>
-            </div>
+            <app-page-size-select [value]="pageSize()" (valueChange)="seleccionarPageSize($event)" />
           </div>
 
           @if (devolucionesFiltradas.length === 0) {
             <app-empty-state titulo="Sin resultados para estos filtros" variante="busqueda" />
           } @else {
-          <div class="overflow-x-auto">
+          <div class="space-y-3 p-3 md:hidden">
+            @for (d of devolucionesPaginadas; track d.id_devolucion) {
+              <article class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <p class="font-semibold text-gray-800 truncate">{{ nombreProducto(d) }}</p>
+                    <p class="mt-1 text-xs text-gray-500">
+                      @if (d.id_item) { {{ nombreItem(d.id_item) }} } @else { Sobrante: {{ d.cantidad }} {{ unidadDeLote(d) }} }
+                    </p>
+                  </div>
+                  <app-status-badge [value]="d.estado" />
+                </div>
+                <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                  <div><dt class="text-gray-400">Fecha</dt><dd class="text-gray-700">{{ d.fecha | date: 'short' }}</dd></div>
+                  <div><dt class="text-gray-400">Chequeo</dt><dd class="text-gray-700">@if (!d.id_item) { — } @else if (itemChequeoDe(d); as ic) { {{ ic.estado ? 'Pasa' : 'No pasa' }} } @else { Pendiente }</dd></div>
+                  <div class="col-span-2"><dt class="text-gray-400">Observación</dt><dd class="text-gray-700">{{ d.observacion ?? '—' }}</dd></div>
+                </dl>
+              </article>
+            }
+          </div>
+          <div class="hidden overflow-x-auto md:block">
           <table class="w-full text-sm">
             <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
               <tr>
@@ -387,7 +382,6 @@ export class MaterialesDevolucionesComponent implements OnInit {
   filtroTexto = '';
   filtroEstado: EstadoDevolucion | '' = '';
   pageSize = signal(20);
-  pageSizeDropdownOpen = signal(false);
   estadoDropdownOpen = signal(false);
   page = 0;
 
@@ -405,7 +399,6 @@ export class MaterialesDevolucionesComponent implements OnInit {
   seleccionarPageSize(size: number): void {
     this.pageSize.set(size);
     this.page = 0;
-    this.pageSizeDropdownOpen.set(false);
   }
 
   get devolucionesFiltradas(): Devolucion[] {
@@ -438,11 +431,15 @@ export class MaterialesDevolucionesComponent implements OnInit {
 
   constructor(
     private api: MaterialesApiService,
+    private auth: AuthService,
+    private policy: MaterialesScreenPolicy,
     private toast: ToastService,
     private live: MaterialesLiveService,
     private destroyRef: DestroyRef,
     private route: ActivatedRoute,
   ) {}
+
+  puedeRegistrar(): boolean { return this.policy.puedeRegistrarDevolucion(); }
 
   /**
    * Préstamos en estado ENTREGADA. El backend cierra la solicitud (→ DEVUELTA)
@@ -543,13 +540,17 @@ export class MaterialesDevolucionesComponent implements OnInit {
     try {
       // M9 — solo `listarDevoluciones()` es crítico; si una secundaria da 403
       // (excepción personal) no debe tumbar la tabla entera.
+      // Evita pedir catálogos que el rol no puede leer: el interceptor muestra
+      // el 403 antes de que un catch local pueda descartarlo.
+      const puedeVerChequeos = this.auth.isAdmin() || this.auth.tieneServicio('materiales.chequeos.ver');
+      const puedeVerItemsChequeo = this.auth.isAdmin() || this.auth.tieneServicio('materiales.items-chequeo.ver');
       const [devoluciones, solicitudes, items, lotes, chequeo, item_chequeo] = await Promise.all([
         this.api.listarDevoluciones(),
         this.api.listarSolicitudes().catch(() => [] as Solicitud[]),
-        this.api.listarItems().catch(() => [] as Item[]),
-        this.api.listarLotes().catch(() => [] as Lote[]),
-        this.api.listarChequeos().catch(()=>[] as Chequeo[]),
-        this.api.listarItemsChequeo().catch(()=> [] as ItemChequeo[]),
+        this.auth.tieneServicio('materiales.items.ver') ? this.api.listarItems().catch(() => [] as Item[]) : Promise.resolve([] as Item[]),
+        this.auth.tieneServicio('materiales.lotes.ver') ? this.api.listarLotes().catch(() => [] as Lote[]) : Promise.resolve([] as Lote[]),
+        puedeVerChequeos ? this.api.listarChequeos().catch(() => [] as Chequeo[]) : Promise.resolve([] as Chequeo[]),
+        puedeVerItemsChequeo ? this.api.listarItemsChequeo().catch(() => [] as ItemChequeo[]) : Promise.resolve([] as ItemChequeo[]),
       ]);
       this.devoluciones = devoluciones;
       this.solicitudes = solicitudes;
@@ -566,6 +567,7 @@ export class MaterialesDevolucionesComponent implements OnInit {
 
   /** `idSolicitud` opcional: preselecciona un préstamo puntual (deep link desde Vencimientos) en vez de dejar el selector vacío. */
   abrirCrear(idSolicitud?: string): void {
+    if (!this.puedeRegistrar()) return;
     if (!idSolicitud && this.solicitudesEntregadas.length === 0) {
       this.toast.warn('Nada que devolver', 'No hay préstamos en estado ENTREGADA pendientes de devolución.');
       return;
