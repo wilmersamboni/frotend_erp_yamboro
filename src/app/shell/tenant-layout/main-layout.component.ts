@@ -1,5 +1,7 @@
-import { Component, OnInit, signal, inject, effect } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Component, OnInit, signal, inject, effect, computed, DestroyRef } from '@angular/core';
+import { RouterOutlet, RouterLink, Router, NavigationEnd } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { filter } from 'rxjs';
 import { NavbarComponent } from '../tenant-navbar/navbar.component';
 import { SidebarComponent } from '../tenant-sidebar/sidebar.component';
 import { AprendizContextService } from '../../core/services/aprendiz-context.service';
@@ -13,7 +15,7 @@ import { AprendizContextService } from '../../core/services/aprendiz-context.ser
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [RouterOutlet, NavbarComponent, SidebarComponent],
+  imports: [RouterOutlet, RouterLink, NavbarComponent, SidebarComponent],
   template: `
     <div class="flex h-screen bg-[#F0F2F5]">
 
@@ -59,6 +61,13 @@ import { AprendizContextService } from '../../core/services/aprendiz-context.ser
              traen su propio p-6 (Vencimientos, Novedades...) esto solo
              suma un poco más de aire, no rompe nada. -->
         <main class="pretty-scroll m-4 lg:m-6 p-4 lg:p-6 flex-1 min-w-0 overflow-x-hidden overflow-y-auto bg-white rounded-2xl border border-gray-200/60 shadow-sm">
+          @if (mostrarMiga()) {
+            <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
+              <a routerLink="/home" class="hover:text-[#39A900]">Inicio</a>
+              <span aria-hidden="true">/</span>
+              <span aria-current="page" class="font-semibold text-gray-800">{{ etiquetaRuta() }}</span>
+            </nav>
+          }
           <router-outlet />
         </main>
 
@@ -72,6 +81,21 @@ export class MainLayoutComponent implements OnInit {
   sidebarOpen = signal(false);
   mobileMenuOpen = signal(false);
   private aprendizContext = inject(AprendizContextService);
+  private router = inject(Router);
+  private destroyRef = inject(DestroyRef);
+  private ruta = signal(this.router.url.split('?')[0]);
+  readonly mostrarMiga = computed(() => this.ruta() !== '/home' && !this.ruta().includes('/materiales'));
+  readonly etiquetaRuta = computed(() => {
+    const segmento = this.ruta().split('/').filter(Boolean).at(-1) ?? 'Inicio';
+    const etiquetas: Record<string, string> = {
+      seguimiento: 'Seguimiento', docs: 'Historial del aprendiz', format: 'Formatos',
+      blog: 'Asistente', admin: 'Administración', settings: 'Configuración', migracion: 'Migración',
+      horarios: 'Horarios', 'programador-eventos': 'Programador de eventos',
+      'mis-horarios': 'Mis horarios', 'aprendiz-mis-horarios': 'Mis horarios',
+      encuestas: 'Encuestas', preguntas: 'Preguntas de encuesta',
+    };
+    return etiquetas[segmento] ?? segmento.replace(/-/g, ' ');
+  });
 
   /** Evita que el drawer mobile quede abierto tapando la página tras navegar. */
   private readonly closeOnBodyScrollLock = effect(() => {
@@ -82,6 +106,10 @@ export class MainLayoutComponent implements OnInit {
     // Se carga una sola vez por sesión — el sidebar y el home lo leen del
     // mismo signal, así que solo se pide al backend una vez.
     this.aprendizContext.cargar();
+    this.router.events.pipe(
+      filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe((event) => this.ruta.set(event.urlAfterRedirects.split('?')[0]));
   }
 
   /** Cierra el drawer mobile al hacer click en cualquier link de navegación. */

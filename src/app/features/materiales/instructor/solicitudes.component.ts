@@ -131,7 +131,24 @@ interface LineaForm {
           @if (solicitudesFiltradas.length === 0) {
             <app-empty-state titulo="Sin resultados para estos filtros" variante="busqueda" />
           } @else {
-          <div class="overflow-x-auto">
+          <div class="space-y-3 p-3 md:hidden">
+            @for (s of solicitudesPaginadas; track s.id_solicitud) {
+              <article class="rounded-xl border border-gray-200 p-3 text-sm">
+                <div class="flex items-start justify-between gap-3"><strong class="text-gray-800">{{ productosResumen(s) }}</strong><app-status-badge [value]="s.estado" /></div>
+                <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs"><dt class="text-gray-500">Solicita</dt><dd class="text-right text-gray-700">{{ s.usuario_nombre || '—' }}</dd><dt class="text-gray-500">Cantidad</dt><dd class="text-right text-gray-700">{{ s.cantidad }}</dd><dt class="text-gray-500">Fecha</dt><dd class="text-right text-gray-700">{{ s.fecha | date: 'short' }}</dd></dl>
+                @if (s.observacion) { <p class="mt-2 text-xs text-gray-500">{{ s.observacion }}</p> }
+                <div class="mt-3 flex flex-wrap justify-end gap-2">
+                  <button (click)="verDetalle(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600">Ver</button>
+                  @if (s.estado === 'PENDIENTE' && puedeAprobar && puedeGestionar(s)) { <button (click)="aprobar(s)" [disabled]="bodegaInactiva(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-700 disabled:opacity-40">Aprobar</button> }
+                  @if (s.estado === 'PENDIENTE' && puedeRechazar && puedeGestionar(s)) { <button (click)="rechazar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-red-200 text-red-600">Rechazar</button> }
+                  @if (s.estado === 'APROBADA' && !entregaPendiente(s) && puedeEntregar && puedeGestionar(s)) { <button (click)="abrirEntregar(s)" [disabled]="bodegaInactiva(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-blue-200 text-blue-700 disabled:opacity-40">Entregar</button> }
+                  @if (s.estado === 'APROBADA' && !entregaPendiente(s) && puedeRechazar && puedeGestionar(s)) { <button (click)="cancelar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600">Cancelar</button> }
+                  @if (s.estado === 'EN_ENTREGA' && esSolicitantePropio(s)) { <button (click)="confirmarRecepcion(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-700">Confirmar recepcion</button> }
+                </div>
+              </article>
+            }
+          </div>
+          <div class="hidden overflow-x-auto md:block">
           <table class="w-full text-sm">
             <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
               <tr>

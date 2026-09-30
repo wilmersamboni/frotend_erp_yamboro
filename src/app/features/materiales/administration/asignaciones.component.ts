@@ -19,6 +19,7 @@ import { AlertComponent } from '../../../shared/ui/alert.component';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
 import { EsperaDirective } from '../../../shared/directives/espera.directive';
 import { PageSizeSelectComponent } from '../../../shared/components/page-size-select.component';
+import { TableFilterComponent } from '../../../shared/components/table-filter.component';
 
 interface LineaAsignacionForm{
   id_producto:string;
@@ -45,7 +46,7 @@ interface Ficha {
 @Component({
   selector: 'app-materiales-asignaciones',
   standalone: true,
-  imports: [EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, ElegirPlacasAsignacionModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent],
+  imports: [EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, ElegirPlacasAsignacionModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent, TableFilterComponent],
   template: `
     <div class="p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
@@ -92,6 +93,9 @@ interface Ficha {
                 </button>
               }
             </div>
+            <app-table-filter label="Estado" [options]="opcionesEstadoFiltro" [value]="filtroEstado"
+              (valueChange)="seleccionarEstado($event)" />
+            @if (false) {
             <div class="relative flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200" [class.z-40]="estadoDropdownOpen()">
               <button type="button" (click)="estadoDropdownOpen.update(v => !v)" class="absolute inset-0 z-0 rounded-xl cursor-pointer" aria-label="Estado de asignación"></button>
               <span class="pointer-events-none relative z-10 text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</span>
@@ -143,13 +147,30 @@ interface Ficha {
               </div>
             </div>
             <!-- Filas por página -->
+            }
             <app-page-size-select [value]="pageSize()" (valueChange)="seleccionarPageSize($event)" />
           </div>
 
           @if (asignacionesFiltradas.length === 0) {
             <app-empty-state titulo="Sin resultados para estos filtros" variante="busqueda" />
           } @else {
-          <div class="overflow-x-auto">
+          <div class="space-y-3 p-3 md:hidden">
+            @for (a of asignacionesPaginadas; track a.id_asignacion) {
+              <article class="rounded-xl border border-gray-200 p-3 text-sm">
+                <div class="flex items-start justify-between gap-3"><strong class="text-gray-800">{{ nombreFicha(a) }}</strong><app-status-badge [value]="a.estado" /></div>
+                <p class="mt-2 text-gray-700">{{ descripcionLineas(a) }}</p>
+                <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs"><dt class="text-gray-500">Cantidad</dt><dd class="text-right">{{ a.cantidad }}</dd><dt class="text-gray-500">Fecha</dt><dd class="text-right">{{ a.fecha_asignacion | date: 'short' }}</dd></dl>
+                <div class="mt-3 flex flex-wrap justify-end gap-2">
+                  <button (click)="toggleUbicacion(a)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600">Ambiente</button>
+                  @if (a.estado === 'ACTIVA' && puedeAnular) { <button (click)="anular(a)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-amber-200 text-amber-700">Anular</button> }
+                </div>
+                @if (filaAbierta === a.id_asignacion) {
+                  <p class="mt-2 text-xs text-gray-500">{{ ubicacionCargando.has(a.id_curso) ? 'Consultando ambiente...' : ((ubicacionesFicha.get(a.id_curso) ?? []).join(', ') || 'Esta ficha no tiene ambiente asignado.') }}</p>
+                }
+              </article>
+            }
+          </div>
+          <div class="hidden overflow-x-auto md:block">
           <table class="w-full text-sm">
             <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
               <tr>
@@ -364,6 +385,11 @@ export class MaterialesAsignacionesComponent implements OnInit {
   filtroTexto = '';
   filtroEstado: EstadoAsignacion | '' = '';
   pageSize = signal(20);
+  readonly opcionesEstadoFiltro = [
+    { value: '', label: 'Todos' },
+    ...(['ACTIVA', 'DEVUELTA', 'ANULADA'] as EstadoAsignacion[]).map((estado) => ({ value: estado, label: estado })),
+  ];
+  /** Solo sostiene el bloque legado inactivo durante la migración a TableFilter. */
   estadoDropdownOpen = signal(false);
   page = 0;
   readonly estadosAsignacion: EstadoAsignacion[] = ['ACTIVA', 'DEVUELTA', 'ANULADA'];
@@ -373,10 +399,9 @@ export class MaterialesAsignacionesComponent implements OnInit {
     this.page = 0;
   }
 
-  seleccionarEstado(valor: EstadoAsignacion | ''): void {
-    this.filtroEstado = valor;
+  seleccionarEstado(valor: string): void {
+    this.filtroEstado = valor as EstadoAsignacion | '';
     this.page = 0;
-    this.estadoDropdownOpen.set(false);
   }
 
   get asignacionesFiltradas(): Asignacion[] {

@@ -80,7 +80,32 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
         <app-empty-state titulo="No hay traslados que cumplan los filtros seleccionados." variante="busqueda" />
       } @else {
         <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
-          <div class="overflow-x-auto">
+          <div class="space-y-3 p-3 md:hidden">
+            @for (t of trasladosFiltrados; track t.id_traslado) {
+              <article class="rounded-xl border border-gray-200 p-3 text-sm">
+                <div class="flex items-start justify-between gap-3">
+                  <strong class="text-gray-800">{{ t.item?.producto?.nombre ?? t.item?.placa_sena ?? t.item?.codigo_sku ?? 'Item' }}</strong>
+                  <app-status-badge [value]="t.estado" />
+                </div>
+                <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                  <dt class="text-gray-500">Origen</dt><dd class="text-right text-gray-700">{{ nombreSitioTraslado(t.sitio_origen, t.id_sitio_origen) }}</dd>
+                  <dt class="text-gray-500">Destino</dt><dd class="text-right text-gray-700">{{ nombreSitioTraslado(t.sitio_destino, t.id_sitio_destino) }}</dd>
+                  <dt class="text-gray-500">Fecha</dt><dd class="text-right text-gray-700">{{ t.fecha_solicitud | date: 'short' }}</dd>
+                </dl>
+                <p class="mt-2 text-xs text-gray-500">{{ t.justificacion || 'Sin justificacion' }}</p>
+                <div class="mt-3 flex flex-wrap justify-end gap-2">
+                  <button (click)="verDetalle(t)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600">Ver</button>
+                  @if (t.estado === 'PENDIENTE' && puedeAprobar && !esSolicitantePropio(t) && esResponsableDelSitio(t)) {
+                    <button (click)="aprobar(t)" [disabled]="bodegaInactiva(t)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-700 disabled:opacity-40">Aprobar</button>
+                  }
+                  @if (t.estado === 'PENDIENTE' && puedeRechazar && !esSolicitantePropio(t) && esResponsableDelSitio(t)) {
+                    <button (click)="abrirRechazar(t)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-red-200 text-red-600">Rechazar</button>
+                  }
+                </div>
+              </article>
+            }
+          </div>
+          <div class="hidden overflow-x-auto md:block">
           <table class="w-full text-sm">
             <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
               <tr>

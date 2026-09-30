@@ -5,12 +5,14 @@ import { roleGuard } from '../../core/guards/role.guard';
 export const SURVEY_ROUTES: Routes = [
   {
     path: 'encuestas',
+    title: 'Encuestas | ERP',
     canActivate: [roleGuard],
     data: { roles: ['administrador', 'administrador_erp'], servicios: ['encuestas.gestionar'] },
     loadComponent: () => import('./management/encuestas.component').then((m) => m.EncuestasComponent),
   },
   {
     path: 'encuestas/preguntas',
+    title: 'Preguntas de encuesta | ERP',
     canActivate: [roleGuard],
     data: { roles: ['administrador', 'administrador_erp'], servicios: ['encuestas.gestionar'] },
     loadComponent: () => import('./management/preguntas.component').then((m) => m.PreguntasComponent),

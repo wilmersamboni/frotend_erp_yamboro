@@ -117,7 +117,31 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
         </div>
 
         <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
-          <div class="overflow-x-auto">
+          <div class="space-y-3 p-3 md:hidden">
+            @for (n of novedadesFiltradas; track n.id_novedad) {
+              <article class="rounded-xl border border-gray-200 p-3 text-sm">
+                <div class="flex items-start justify-between gap-3">
+                  <div><strong class="text-gray-800">{{ n.tipo }}</strong><p class="mt-1 text-xs text-gray-500">{{ n.item?.producto?.nombre ?? n.item?.codigo_sku ?? 'Item' }}</p></div>
+                  <app-status-badge [value]="n.estado" />
+                </div>
+                <p class="mt-3 text-sm text-gray-700">{{ n.descripcion }}</p>
+                <p class="mt-2 text-xs text-gray-500">{{ nombreUsuario(n) }} · {{ n.fecha | date: 'short' }}</p>
+                <div class="mt-3 flex flex-wrap justify-end gap-2">
+                  <button (click)="verDetalle(n)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600">Ver</button>
+                  @if (puedeEditar && n.estado === 'PENDIENTE' && esResponsableDelSitio(n)) {
+                    <button (click)="cambiarEstado(n, 'EN_PROCESO')" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-blue-200 text-blue-600">En proceso</button>
+                  }
+                  @if (puedeEditar && n.estado === 'EN_PROCESO' && esResponsableDelSitio(n)) {
+                    <button (click)="cambiarEstado(n, 'RESUELTA')" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 text-green-700">Resolver</button>
+                  }
+                  @if (puedeEliminar) {
+                    <button (click)="eliminar(n)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-red-200 text-red-600">Eliminar</button>
+                  }
+                </div>
+              </article>
+            }
+          </div>
+          <div class="hidden overflow-x-auto md:block">
           <table class="w-full text-sm">
             <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
               <tr>

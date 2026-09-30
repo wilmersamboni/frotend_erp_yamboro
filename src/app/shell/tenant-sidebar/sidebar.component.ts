@@ -833,7 +833,15 @@ export class SidebarComponent implements OnChanges, OnInit {
       '/materiales/actas': 'Actas',
     };
     return ['Operación', 'Inventario', 'Catálogo', 'Actas']
-      .map((label) => ({ label, links: group.links.filter((link) => destinos[link.href] === label) }))
+      .map((label) => ({
+        label,
+        links: group.links.filter((link) => {
+          // Las rutas antiguas por rol redirigen a la canónica; para el menú
+          // representan la misma pantalla y deben caer en la misma sección.
+          const canonica = link.href.replace(/^\/(?:instructor|aprendiz)(?=\/materiales\/)/, '');
+          return destinos[canonica] === label;
+        }),
+      }))
       .filter((section) => section.links.length > 0);
   }
 

@@ -42,7 +42,7 @@ import { DialogDirective } from '../../../shared/directives/dialog.directive';
               @if (!parCoordenadas || col !== parCoordenadas.lng) {
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">
-                  {{ parCoordenadas && col === parCoordenadas.lat ? 'Ubicación' : (columnLabels[col] ?? formatLabel(col)) }}
+                  {{ parCoordenadas && col === parCoordenadas.lat ? 'Ubicación' : (columnLabels[col] || formatLabel(col)) }}
                 </label>
 
                 @if (parCoordenadas && col === parCoordenadas.lat) {
@@ -106,7 +106,7 @@ import { DialogDirective } from '../../../shared/directives/dialog.directive';
                     [type]="tiposCampo[col]"
                     [(ngModel)]="form[col]"
                     [name]="col"
-                    [placeholder]="placeholders[col] ?? ''"
+                    [placeholder]="placeholders[col]"
                     class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
                 }
               </div>

@@ -349,7 +349,12 @@ const VENTANAS = [7, 15, 30] as const;
           </div>
         } @else {
           <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden mb-8">
-            <div class="overflow-x-auto">
+            <div class="space-y-3 p-3 md:hidden">
+              @for (f of vencidas; track f.id_solicitud) {
+                <article class="rounded-xl border border-red-200 p-3 text-sm"><div class="flex justify-between gap-3"><strong>{{ f.producto_nombre }}</strong><span class="rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">{{ f.dias }} dias</span></div><p class="mt-1 text-xs text-gray-500">{{ f.solicitante_nombre || 'Sin solicitante' }} · {{ f.bodega_nombre || 'Sin bodega' }}</p><p class="mt-2 text-xs text-gray-600">Vencia: {{ f.fecha_devolucion | date: 'shortDate' }}</p>@if (puedeRegistrarDevolucion(f)) { <a [routerLink]="rutaDevoluciones()" [queryParams]="{ id_solicitud: f.id_solicitud }" class="mt-3 inline-flex rounded-lg px-3 py-2 text-xs font-semibold text-white" style="background-color: var(--accent-brand)">Registrar devolucion</a> }</article>
+              }
+            </div>
+            <div class="hidden overflow-x-auto md:block">
             <table class="w-full text-sm">
               <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
                 <tr>
@@ -414,7 +419,12 @@ const VENTANAS = [7, 15, 30] as const;
           </div>
         } @else {
           <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
-            <div class="overflow-x-auto">
+            <div class="space-y-3 p-3 md:hidden">
+              @for (f of porVencer; track f.id_solicitud) {
+                <article class="rounded-xl border border-amber-200 p-3 text-sm"><div class="flex justify-between gap-3"><strong>{{ f.producto_nombre }}</strong><span class="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700">{{ f.dias }} dias</span></div><p class="mt-1 text-xs text-gray-500">{{ f.solicitante_nombre || 'Sin solicitante' }} · {{ f.bodega_nombre || 'Sin bodega' }}</p><p class="mt-2 text-xs text-gray-600">Vence: {{ f.fecha_devolucion | date: 'shortDate' }}</p></article>
+              }
+            </div>
+            <div class="hidden overflow-x-auto md:block">
             <table class="w-full text-sm">
               <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
                 <tr>

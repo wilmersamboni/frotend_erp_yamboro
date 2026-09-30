@@ -28,6 +28,7 @@ import {
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
 import { EsperaDirective } from '../../../shared/directives/espera.directive';
 import { PageSizeSelectComponent } from '../../../shared/components/page-size-select.component';
+import { TableFilterComponent } from '../../../shared/components/table-filter.component';
 
 const ESTADOS_DEVOLUCION: { value: EstadoDevolucion; label: string; desc: string }[] = [
   { value: 'BUENO', label: 'Bueno', desc: 'Sin daños visibles' },
@@ -56,7 +57,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
 @Component({
   selector: 'app-materiales-devoluciones',
   standalone: true,
-  imports: [EsperaDirective, DialogDirective, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, LoadingSkeletonComponent, PageSizeSelectComponent],
+  imports: [EsperaDirective, DialogDirective, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, LoadingSkeletonComponent, PageSizeSelectComponent, TableFilterComponent],
   template: `
     <div class="p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
@@ -98,6 +99,9 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                 </button>
               }
             </div>
+            <app-table-filter label="Estado" [options]="opcionesEstadoFiltro" [value]="filtroEstado"
+              (valueChange)="seleccionarEstado($event)" />
+            @if (false) {
             <div class="relative flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200" [class.z-40]="estadoDropdownOpen()">
               <button type="button" (click)="estadoDropdownOpen.update(v => !v)" class="absolute inset-0 z-0 rounded-xl cursor-pointer" aria-label="Estado de devolución"></button>
               <span class="pointer-events-none relative z-10 text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</span>
@@ -149,6 +153,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
               </div>
             </div>
             <!-- Filas por página -->
+            }
             <app-page-size-select [value]="pageSize()" (valueChange)="seleccionarPageSize($event)" />
           </div>
 
@@ -383,10 +388,14 @@ export class MaterialesDevolucionesComponent implements OnInit {
   filtroEstado: EstadoDevolucion | '' = '';
   pageSize = signal(20);
   estadoDropdownOpen = signal(false);
+  readonly opcionesEstadoFiltro = [
+    { value: '', label: 'Todos' },
+    ...ESTADOS_DEVOLUCION.map((estado) => ({ value: estado.value, label: estado.label })),
+  ];
   page = 0;
 
-  seleccionarEstado(valor: EstadoDevolucion | ''): void {
-    this.filtroEstado = valor;
+  seleccionarEstado(valor: string): void {
+    this.filtroEstado = valor as EstadoDevolucion | '';
     this.page = 0;
     this.estadoDropdownOpen.set(false);
   }
