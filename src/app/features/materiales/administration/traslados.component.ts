@@ -47,8 +47,11 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
   standalone: true,
   imports: [EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, TableFilterComponent, LoadingSkeletonComponent],
   template: `
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-5">
+    <div class="p-4 sm:p-6">
+      <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
+        <span>Materiales</span><span aria-hidden="true">/</span><span>Operación</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Traslados</span>
+      </nav>
+      <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
         <h1 class="text-xl font-bold text-gray-800">Traslados</h1>
         <button (click)="abrirCrear()"
           class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
@@ -68,7 +71,7 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
         <app-table-filter label="Estado" [options]="opcionesEstadoFiltro" [value]="estadoFiltro" (valueChange)="estadoFiltro = $event" />
         <app-table-filter label="Origen" [options]="opcionesOrigenFiltro" [value]="origenFiltro" (valueChange)="origenFiltro = $event" />
         <app-table-filter label="Destino" [options]="opcionesDestinoFiltro" [value]="destinoFiltro" (valueChange)="destinoFiltro = $event" />
-        <input appEspera [(ngModel)]="busquedaFiltro" type="search" placeholder="Buscar ítem o justificación?" class="min-w-56 flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+        <input appEspera [(ngModel)]="busquedaFiltro" type="search" placeholder="Buscar ítem o justificación?" class="min-w-0 flex-1 basis-48 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
       </div>
 
       @if (loading) {
@@ -196,6 +199,9 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
     @if (crearOpen) {
       <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarCrear()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
+          <nav aria-label="Migas de pan" class="mb-3 flex items-center gap-1.5 text-xs text-gray-500">
+            <span>Materiales</span><span aria-hidden="true">/</span><span>Operación</span><span aria-hidden="true">/</span><span>Traslados</span><span aria-hidden="true">/</span><span aria-current="page" class="font-medium text-gray-700">Nuevo traslado</span>
+          </nav>
           <div class="flex items-center justify-between mb-5">
             <h2 class="text-lg font-bold text-gray-800">Nuevo traslado</h2>
             <button aria-label="Cerrar" (click)="cerrarCrear()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
@@ -286,6 +292,9 @@ export class MaterialesTrasladosComponent implements OnInit {
   readonly opcionesEstadoFiltro = [{ label: 'Todos los estados', value: '' }, { label: 'Pendiente', value: 'PENDIENTE' }, { label: 'Aprobado', value: 'APROBADO' }, { label: 'Rechazado', value: 'RECHAZADO' }];
   items: Item[] = [];
   sitios: Sitio[] = [];
+  /** Sitios donde el usuario es responsable o líder de área; permite que la
+   * misma UI sirva a administradores e instructores responsables. */
+  misSitiosACargoIds = new Set<string>();
   loading = false;
   saving = false;
   error: string | null = null;
@@ -351,9 +360,11 @@ export class MaterialesTrasladosComponent implements OnInit {
     const respDestino = t.sitio_destino?.id_responsable ?? null;
     if (respOrigen) {
       const origenEsSolicitante = respOrigen === t.id_usuario_solicita;
-      return respOrigen === uid || (origenEsSolicitante && respDestino === uid);
+      if (respOrigen === uid || (origenEsSolicitante && respDestino === uid)) return true;
+      return this.misSitiosACargoIds.has(t.id_sitio_origen);
     }
-    return !respDestino || respDestino === uid;
+    if (!respDestino || respDestino === uid) return true;
+    return this.misSitiosACargoIds.has(t.id_sitio_destino);
   }
 
   /** Origen o destino ya no acepta aprobar (ver plan 2026-09-18) — deshabilita
@@ -465,7 +476,7 @@ export class MaterialesTrasladosComponent implements OnInit {
   }
 
   destinosDisponibles(): Sitio[] {
-    return this.sitios.filter((s) => !this.idsSitioOrigen.has(s.id_sitio));
+    return this.sitios.filter((s) => !this.idsSitioOrigen.has(s.id_sitio) && s.estado);
   }
 
   opcionesDestino(): { value: string; label: string }[] {
@@ -477,14 +488,16 @@ export class MaterialesTrasladosComponent implements OnInit {
     try {
       // M9 — solo `listarTraslados()` es crítico; una secundaria con 403
       // (excepción personal) no debe tumbar la tabla entera.
-      const [traslados, items, sitios] = await Promise.all([
+      const [traslados, items, sitios, sitiosACargo] = await Promise.all([
         this.api.listarTraslados(),
         this.api.listarItems().catch(() => [] as Item[]),
         this.api.listarSitios().catch(() => [] as Sitio[]),
+        this.api.sitiosACargo().catch(() => [] as Sitio[]),
       ]);
       this.traslados = traslados;
       this.items = items;
       this.sitios = sitios;
+      this.misSitiosACargoIds = new Set(sitiosACargo.map((s) => s.id_sitio));
     } catch (e) {
       this.toast.httpError(e, 'No se pudieron cargar los traslados.');
     } finally {
