@@ -9,7 +9,7 @@ import { StatusBadgeComponent } from '../../../shared/components/status-badge.co
 import { TableFilterComponent } from '../../../shared/components/table-filter.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
-import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from '../data-access/materiales-api.service';
+import { Item, ItemDetalleBusqueda, Lote, MaterialesApiService, Sitio, Traslado } from '../data-access/materiales-api.service';
 import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 import { AlertComponent } from '../../../shared/ui/alert.component';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
@@ -84,7 +84,7 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
             @for (t of trasladosFiltrados; track t.id_traslado) {
               <article class="rounded-xl border border-gray-200 p-3 text-sm">
                 <div class="flex items-start justify-between gap-3">
-                  <strong class="text-gray-800">{{ t.item?.producto?.nombre ?? t.item?.placa_sena ?? t.item?.codigo_sku ?? 'Item' }}</strong>
+                  <strong class="text-gray-800">{{ descripcionTraslado(t) }}</strong>
                   <app-status-badge [value]="t.estado" />
                 </div>
                 <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
@@ -121,7 +121,7 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
             <tbody class="divide-y divide-gray-100">
               @for (t of trasladosFiltrados; track t.id_traslado) {
                 <tr class="hover:bg-gray-50/80 transition-colors">
-                  <td class="px-4 py-3 text-gray-700">{{ t.item?.producto?.nombre ?? t.item?.placa_sena ?? t.item?.codigo_sku ?? '—' }}</td>
+                  <td class="px-4 py-3 text-gray-700">{{ descripcionTraslado(t) }}</td>
                   <td class="px-4 py-3 text-gray-700">{{ nombreSitioTraslado(t.sitio_origen, t.id_sitio_origen) }}</td>
                   <td class="px-4 py-3 text-gray-700">{{ nombreSitioTraslado(t.sitio_destino, t.id_sitio_destino) }}</td>
                   <td class="px-4 py-3 text-gray-500 max-w-[200px] truncate">{{ t.justificacion ?? '—' }}</td>
@@ -174,8 +174,16 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
             <button aria-label="Cerrar" (click)="detalleAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
           <dl class="space-y-2.5 text-sm">
-            <div class="flex justify-between gap-4"><dt class="text-gray-500">Ítem</dt><dd class="text-gray-800 font-medium text-right">{{ detalle.item?.producto?.nombre ?? detalle.item?.codigo_sku ?? '—' }}</dd></div>
-            <div class="flex justify-between gap-4"><dt class="text-gray-500">SKU / Placa</dt><dd class="text-gray-800 font-mono text-right">{{ detalle.item?.placa_sena || detalle.item?.codigo_sku || '—' }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-gray-500">Contenido</dt><dd class="text-gray-800 font-medium text-right">{{ descripcionTraslado(detalle) }}</dd></div>
+            @if (detalle.lineas?.length) {
+              <div class="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                @for (linea of detalle.lineas; track linea.id_traslado_linea) {
+                  <div>{{ linea.tipo === 'LOTE' ? (linea.cantidad + ' × ' + (linea.lote?.producto?.nombre ?? linea.lote?.codigo_lote ?? 'Lote')) : (linea.item?.placa_sena || linea.item?.codigo_sku || 'Ítem') }}</div>
+                }
+              </div>
+            } @else {
+              <div class="flex justify-between gap-4"><dt class="text-gray-500">SKU / Placa</dt><dd class="text-gray-800 font-mono text-right">{{ detalle.item?.placa_sena || detalle.item?.codigo_sku || '—' }}</dd></div>
+            }
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Origen</dt><dd class="text-gray-800 text-right">{{ nombreSitioTraslado(detalle.sitio_origen, detalle.id_sitio_origen) }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Encargado del origen</dt><dd class="text-gray-800 text-right">{{ detalle.origen_responsable_nombre ?? (detalle.sitio_origen?.id_responsable ? 'No disponible' : 'sin responsable') }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Destino</dt><dd class="text-gray-800 text-right">{{ nombreSitioTraslado(detalle.sitio_destino, detalle.id_sitio_destino) }}</dd></div>
@@ -246,7 +254,25 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
               @if (errorBusqueda) { <p class="text-red-500 text-xs mt-1.5">{{ errorBusqueda }}</p> }
             </div>
 
-            @if (itemsSeleccionados.length) {
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Agregar lote de consumo o perecedero</label>
+              <div class="flex gap-2">
+                <app-ss class="min-w-0 flex-1" [options]="opcionesLotes()" placeholder="Seleccioná un lote..."
+                  [(ngModel)]="loteSeleccionadoId" (ngModelChange)="onLoteSeleccionado()"></app-ss>
+                <input type="number" min="1" [max]="cantidadMaximaLote()" [(ngModel)]="cantidadLote"
+                  aria-label="Cantidad del lote"
+                  class="w-20 rounded-lg border border-gray-200 px-2 text-sm" />
+                <button type="button" (click)="agregarLote()"
+                  [disabled]="!loteSeleccionadoId || cantidadLote < 1 || cantidadLote > cantidadMaximaLote()"
+                  class="rounded-lg border border-green-600 px-3 text-sm font-medium text-green-700 disabled:opacity-40">Agregar</button>
+              </div>
+              <p class="mt-1 text-xs text-gray-400">Solo se pueden combinar líneas que salgan de la misma bodega.</p>
+              @if (loteSeleccionadoId && cantidadLote > cantidadMaximaLote()) {
+                <p class="mt-1 text-xs text-red-600">Máximo disponible para este lote: {{ cantidadMaximaLote() }}.</p>
+              }
+            </div>
+
+            @if (itemsSeleccionados.length || lotesSeleccionados.length) {
               <ul class="divide-y divide-gray-100 border border-gray-100 rounded-lg text-xs">
                 @for (it of itemsSeleccionados; track it.item.id_item) {
                   <li class="px-3 py-2"
@@ -268,6 +294,18 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
                       </div>
                       <button aria-label="Quitar" type="button" data-dirty (click)="quitarItem(it.item.id_item)"
                         class="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 text-base leading-none">×</button>
+                    </div>
+                  </li>
+                }
+                @for (seleccion of lotesSeleccionados; track seleccion.lote.id_lote) {
+                  <li class="px-3 py-2">
+                    <div class="flex items-start justify-between gap-2">
+                      <div>
+                        <span class="font-semibold text-gray-800">{{ seleccion.lote.producto?.nombre ?? 'Lote' }}</span>
+                        <span class="font-mono text-gray-500"> · {{ seleccion.lote.codigo_lote || 'Sin código' }}</span>
+                        <span class="block text-gray-500">{{ seleccion.cantidad }} {{ seleccion.lote.unidad_medida || 'unidades' }} · sale de {{ nombreSitioTraslado(undefined, seleccion.lote.id_sitio || '') }}</span>
+                      </div>
+                      <button aria-label="Quitar lote" type="button" data-dirty (click)="quitarLote(seleccion.lote.id_lote)" class="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 text-base leading-none">×</button>
                     </div>
                   </li>
                 }
@@ -297,10 +335,10 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
           <div class="flex justify-end gap-2 mt-6">
             <button (click)="cerrarCrear()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
             <button (click)="guardarTraslado()"
-              [disabled]="saving || itemsSeleccionados.length === 0 || !idSitioDestino || justificacion.trim().length < 10"
+              [disabled]="saving || (itemsSeleccionados.length + lotesSeleccionados.length) === 0 || !idSitioDestino || justificacion.trim().length < 10"
               class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
               style="background-color: var(--accent-brand)">
-              {{ saving ? 'Guardando...' : (itemsSeleccionados.length > 1 ? 'Solicitar ' + itemsSeleccionados.length + ' traslados' : 'Solicitar traslado') }}
+              {{ saving ? 'Guardando...' : 'Solicitar traslado' }}
             </button>
           </div>
         </div>
@@ -316,6 +354,7 @@ export class MaterialesTrasladosComponent implements OnInit {
   busquedaFiltro = '';
   readonly opcionesEstadoFiltro = [{ label: 'Todos los estados', value: '' }, { label: 'Pendiente', value: 'PENDIENTE' }, { label: 'Aprobado', value: 'APROBADO' }, { label: 'Rechazado', value: 'RECHAZADO' }];
   items: Item[] = [];
+  lotes: Lote[] = [];
   sitios: Sitio[] = [];
   /** Sitios donde el usuario es responsable o líder de área; permite que la
    * misma UI sirva a administradores e instructores responsables. */
@@ -340,6 +379,9 @@ export class MaterialesTrasladosComponent implements OnInit {
   errorBusqueda: string | null = null;
   /** Ítems agregados al traslado (masivo). */
   itemsSeleccionados: ItemDetalleBusqueda[] = [];
+  lotesSeleccionados: { lote: Lote; cantidad: number }[] = [];
+  loteSeleccionadoId: string | null = null;
+  cantidadLote = 1;
   /** `id_item → motivo` de los que el backend rechazó. */
   fallidos: Record<string, string> = {};
   /** Ítem elegido en el selector con búsqueda (por placa/SKU). */
@@ -418,6 +460,16 @@ export class MaterialesTrasladosComponent implements OnInit {
     return sitio?.nombre ?? this.sitios.find((s) => s.id_sitio === id)?.nombre ?? '—';
   }
 
+  descripcionTraslado(traslado: Traslado): string {
+    if (traslado.lineas?.length) {
+      return traslado.lineas.map((linea) => linea.tipo === 'LOTE'
+        ? `${linea.cantidad} × ${linea.lote?.producto?.nombre ?? linea.lote?.codigo_lote ?? 'Lote'}`
+        : linea.item?.producto?.nombre ?? linea.item?.placa_sena ?? linea.item?.codigo_sku ?? 'Ítem',
+      ).join(', ');
+    }
+    return traslado.item?.producto?.nombre ?? traslado.item?.placa_sena ?? traslado.item?.codigo_sku ?? '—';
+  }
+
   get trasladosFiltrados(): Traslado[] {
     const texto = this.busquedaFiltro.trim().toLocaleLowerCase();
     return this.traslados.filter((traslado) => {
@@ -493,10 +545,54 @@ export class MaterialesTrasladosComponent implements OnInit {
     delete this.fallidos[idItem];
   }
 
+  opcionesLotes(): { value: string; label: string }[] {
+    const origenes = this.idsSitioOrigen;
+    return this.lotes
+      .filter((lote) => lote.estado === 'ACTIVO' && !!lote.id_sitio
+        && lote.cantidad_disponible - (lote.cantidad_reservada ?? 0) > 0
+        && !this.lotesSeleccionados.some((seleccion) => seleccion.lote.id_lote === lote.id_lote)
+        && (origenes.size === 0 || origenes.has(lote.id_sitio!)))
+      .map((lote) => ({
+        value: lote.id_lote,
+        label: `${lote.producto?.nombre ?? 'Lote'}${lote.codigo_lote ? ` · ${lote.codigo_lote}` : ''} (${lote.cantidad_disponible - (lote.cantidad_reservada ?? 0)} disponibles)`,
+      }));
+  }
+
+  /** Saldo real: existencias del lote menos lo reservado en otros traslados pendientes. */
+  cantidadMaximaLote(): number {
+    const lote = this.lotes.find((actual) => actual.id_lote === this.loteSeleccionadoId);
+    return lote ? Math.max(0, lote.cantidad_disponible - (lote.cantidad_reservada ?? 0)) : 0;
+  }
+
+  /** Un cambio de lote comienza en una unidad; no conserva un valor del lote anterior. */
+  onLoteSeleccionado(): void {
+    this.cantidadLote = 1;
+  }
+
+  agregarLote(): void {
+    const lote = this.lotes.find((actual) => actual.id_lote === this.loteSeleccionadoId);
+    const disponible = lote ? lote.cantidad_disponible - (lote.cantidad_reservada ?? 0) : 0;
+    if (!lote || !Number.isInteger(this.cantidadLote) || this.cantidadLote < 1 || this.cantidadLote > disponible) {
+      this.errorBusqueda = 'Indicá una cantidad válida dentro del saldo disponible del lote.';
+      return;
+    }
+    this.lotesSeleccionados = [...this.lotesSeleccionados, { lote, cantidad: this.cantidadLote }];
+    this.loteSeleccionadoId = null;
+    this.cantidadLote = 1;
+    this.errorBusqueda = null;
+  }
+
+  quitarLote(idLote: string): void {
+    this.lotesSeleccionados = this.lotesSeleccionados.filter((seleccion) => seleccion.lote.id_lote !== idLote);
+  }
+
   /** Bodegas de origen de los ítems agregados (el destino no puede ser una de ellas). */
   private get idsSitioOrigen(): Set<string> {
     return new Set(
-      this.itemsSeleccionados.map((i) => i.ubicacion?.id_sitio).filter((x): x is string => !!x),
+      [
+        ...this.itemsSeleccionados.map((i) => i.ubicacion?.id_sitio),
+        ...this.lotesSeleccionados.map((seleccion) => seleccion.lote.id_sitio),
+      ].filter((x): x is string => !!x),
     );
   }
 
@@ -513,14 +609,16 @@ export class MaterialesTrasladosComponent implements OnInit {
     try {
       // M9 — solo `listarTraslados()` es crítico; una secundaria con 403
       // (excepción personal) no debe tumbar la tabla entera.
-      const [traslados, items, sitios, sitiosACargo] = await Promise.all([
+      const [traslados, items, lotes, sitios, sitiosACargo] = await Promise.all([
         this.api.listarTraslados(),
         this.api.listarItems().catch(() => [] as Item[]),
+        this.api.listarLotes().catch(() => [] as Lote[]),
         this.api.listarSitios().catch(() => [] as Sitio[]),
         this.api.sitiosACargo().catch(() => [] as Sitio[]),
       ]);
       this.traslados = traslados;
       this.items = items;
+      this.lotes = lotes;
       this.sitios = sitios;
       this.misSitiosACargoIds = new Set(sitiosACargo.map((s) => s.id_sitio));
     } catch (e) {
@@ -536,6 +634,9 @@ export class MaterialesTrasladosComponent implements OnInit {
     this.buscando = false;
     this.errorBusqueda = null;
     this.itemsSeleccionados = [];
+    this.lotesSeleccionados = [];
+    this.loteSeleccionadoId = null;
+    this.cantidadLote = 1;
     this.fallidos = {};
     this.idSitioDestino = null;
     this.justificacion = '';
@@ -576,7 +677,7 @@ export class MaterialesTrasladosComponent implements OnInit {
   }
 
   async guardarTraslado(): Promise<void> {
-    if (this.itemsSeleccionados.length === 0 || !this.idSitioDestino) return;
+    if ((this.itemsSeleccionados.length + this.lotesSeleccionados.length) === 0 || !this.idSitioDestino) return;
     if (this.justificacion.trim().length < 10) {
       this.error = 'La justificación es obligatoria (mín. 10 caracteres).';
       return;
@@ -586,11 +687,14 @@ export class MaterialesTrasladosComponent implements OnInit {
     this.fallidos = {};
     try {
       await this.api.crearTraslado({
-        id_items: this.itemsSeleccionados.map((i) => i.item.id_item),
+        lineas: [
+          ...this.itemsSeleccionados.map((i) => ({ id_item: i.item.id_item })),
+          ...this.lotesSeleccionados.map(({ lote, cantidad }) => ({ id_lote: lote.id_lote, cantidad })),
+        ],
         id_sitio_destino: this.idSitioDestino,
         justificacion: this.justificacion.trim(),
       });
-      this.toast.ok(this.itemsSeleccionados.length > 1 ? 'Traslados solicitados' : 'Traslado solicitado');
+      this.toast.ok((this.itemsSeleccionados.length + this.lotesSeleccionados.length) > 1 ? 'Traslado solicitado' : 'Traslado solicitado');
       this.crearOpen = false;
       await this.cargar();
     } catch (e: any) {
