@@ -511,3 +511,23 @@ button.forgot-link:hover { text-decoration: underline; }
   .form-input { padding: 14px 14px 14px 42px; font-size: 14px; }
   .submit-btn { padding: 14px; font-size: 14px; }
 }
+
+/* ── El login es siempre claro, también con el modo oscuro activo ──────
+   dark-theme.css pone `color-scheme: dark` y `input { color: var(--text) }`
+   (texto casi blanco) para toda la app: aquí eso dejaba el texto invisible
+   sobre los campos claros y el autocompletado de Chrome en gris azulado.
+   `:host` sube la especificidad por encima de `:root[data-theme="dark"] input`. */
+:host { color-scheme: light; }
+
+:host .form-input { color: #071a0a; }
+:host .form-input::placeholder { color: #8fa896; }
+
+:host .form-input:-webkit-autofill,
+:host .form-input:-webkit-autofill:hover,
+:host .form-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #071a0a;
+  caret-color: #071a0a;
+  box-shadow: 0 0 0 1000px #f5faf6 inset;
+  transition: background-color 9999s ease-out 0s;
+}
+:host .form-input:-webkit-autofill:focus { box-shadow: 0 0 0 1000px #fff inset; }

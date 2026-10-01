@@ -702,13 +702,23 @@ export class SidebarComponent implements OnChanges, OnInit {
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>`),
           },
           {
-            // Solo aprendiz encargado de bodega: `materiales.devoluciones.ver`
-            // no está en MATERIALES_APRENDIZ, llega vía el bundle B3 →
-            // `servicioEstricto` (AND) oculta el link a un aprendiz normal.
+            // "Devoluciones de él": `materiales.devoluciones.ver` está en
+            // MATERIALES_APRENDIZ desde 2026-09-16 y GET /devoluciones recorta a
+            // sus propias solicitudes (registrarlas sigue siendo del encargado).
             label: 'Devoluciones', href: '/aprendiz/materiales/devoluciones',
             roles: ['aprendiz'],
             servicioEstricto: 'materiales.devoluciones.ver',
             safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l-4-4m0 0l4-4m-4 4h11a4 4 0 010 8h-1"/></svg>`),
+          },
+          {
+            // Sus préstamos vencidos o por vencer: GET /solicitudes/vencimientos
+            // recorta a las solicitudes propias del aprendiz
+            // (SolicitudesService.resolverSolicitudesParaVencimientos) y no le
+            // ofrece registrar la devolución (puede_gestionar_devolucion=false).
+            label: 'Vencimientos', href: '/materiales/vencimientos',
+            roles: ['aprendiz'],
+            servicioEstricto: 'materiales.solicitudes.ver',
+            safeIcon: this.safe(`<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`),
           },
           {
             label: 'Productos', href: '/materiales/productos',
@@ -832,8 +842,16 @@ export class SidebarComponent implements OnChanges, OnInit {
       '/materiales/bodegas': 'Catálogo', '/materiales/sitios': 'Catálogo',
       '/materiales/actas': 'Actas',
     };
+    // Instructor y aprendiz tienen rutas propias (/instructor/materiales/…,
+    // /aprendiz/materiales/…): se clasifican por la ruta sin ese prefijo. Antes
+    // solo se reconocían las rutas de admin y esos links (Solicitudes,
+    // Devoluciones, Novedades, Traslados, Kardex) desaparecían del menú aunque
+    // el usuario tuviera el permiso. Y lo que no esté en la tabla va a
+    // "Operación" en vez de perderse: este orden es visual, nunca debe ocultar.
+    const seccion = (href: string): string =>
+      destinos[href.replace(/^\/(instructor|aprendiz)(?=\/materiales\/)/, '')] ?? 'Operación';
     return ['Operación', 'Inventario', 'Catálogo', 'Actas']
-      .map((label) => ({ label, links: group.links.filter((link) => destinos[link.href] === label) }))
+      .map((label) => ({ label, links: group.links.filter((link) => seccion(link.href) === label) }))
       .filter((section) => section.links.length > 0);
   }
 
