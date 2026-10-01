@@ -35,10 +35,12 @@ export class NetworkStatusService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), PING_TIMEOUT_MS);
       try {
-        // Cualquier respuesta (incluido un 404) confirma que el servidor
-        // contestó — `fetch` solo rechaza ante un fallo real de red/timeout,
-        // no ante un status de error HTTP.
-        await fetch('/api2', { method: 'HEAD', signal: controller.signal, cache: 'no-store' });
+        // Cualquier respuesta confirma que el servidor contestó — `fetch` solo
+        // rechaza ante un fallo real de red/timeout, no ante un status HTTP.
+        // `/healthz` lo responde nginx con 200 (sin log de acceso); antes se
+        // usaba `/api2`, que daba 404 y llenaba la consola de errores rojos
+        // cada 15 s. En `ng serve` devuelve el index.html (200), igual sirve.
+        await fetch('/healthz', { method: 'HEAD', signal: controller.signal, cache: 'no-store' });
       } finally {
         clearTimeout(timeoutId);
       }
