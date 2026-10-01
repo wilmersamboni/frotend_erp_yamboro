@@ -413,6 +413,25 @@ button.forgot-link:hover { text-decoration: underline; }
 .link-btn:hover:not(:disabled) { text-decoration: underline; }
 .link-btn:disabled { color: #8fa896; cursor: default; }
 
+/* Elegir usuario cuando la persona tiene varios */
+.cuentas { display: flex; flex-direction: column; gap: 8px; }
+.cuenta-opcion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 1.5px solid #e2e8f0;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.cuenta-opcion:hover { border-color: #b7dfa0; }
+.cuenta-opcion input { accent-color: #39A900; margin: 0; }
+.cuenta-activa { border-color: #39A900; background: #f0fdf4; }
+.cuenta-unica { cursor: default; }
+.cuenta-nombre { font-size: 14px; font-weight: 600; color: #1e293b; word-break: break-all; }
+
 .submit-btn {
   width: 100%;
   padding: 16px;

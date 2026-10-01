@@ -58,12 +58,14 @@ export class LoginComponent implements OnInit, OnDestroy {
 
   // ── Recuperación de contraseña por código al correo ──
   /** 'no' = formulario de ingreso normal. */
-  readonly recuperar = signal<'no' | 'solicitar' | 'codigo' | 'listo'>('no');
+  readonly recuperar = signal<'no' | 'solicitar' | 'codigo' | 'nueva' | 'listo'>('no');
   readonly recuperacionDisponible = signal<boolean | null>(null);
   readonly enviando = signal(false);
   readonly aviso = signal<string | null>(null);
   readonly esperaReenvio = signal(0);
-  rec = { login: '', codigo: '', nueva: '', confirma: '' };
+  /** Usuarios de la persona, conocidos solo después de verificar el código. */
+  readonly usuariosRec = signal<string[]>([]);
+  rec = { correo: '', codigo: '', login: '', nueva: '', confirma: '' };
   private reenvioTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
@@ -135,7 +137,8 @@ export class LoginComponent implements OnInit, OnDestroy {
   async abrirRecuperacion(): Promise<void> {
     this.error.set(null);
     this.aviso.set(null);
-    this.rec = { login: this.credentials.login.trim(), codigo: '', nueva: '', confirma: '' };
+    this.rec = { correo: '', codigo: '', login: '', nueva: '', confirma: '' };
+    this.usuariosRec.set([]);
     this.recuperar.set('solicitar');
     if (this.slugFromUrl) localStorage.setItem('tenantSlug', this.slugFromUrl);
     this.recuperacionDisponible.set(await this.recuperacion.disponible());
@@ -148,12 +151,12 @@ export class LoginComponent implements OnInit, OnDestroy {
   }
 
   async enviarCodigo(): Promise<void> {
-    const login = this.rec.login.trim();
-    if (!login) { this.error.set('Escribe tu usuario.'); return; }
+    const correo = this.rec.correo.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) { this.error.set('Escribe un correo válido.'); return; }
     this.error.set(null);
     this.enviando.set(true);
     try {
-      const r = await this.recuperacion.solicitar(login);
+      const r = await this.recuperacion.solicitar(correo);
       this.aviso.set(r.mensaje);
       this.recuperar.set('codigo');
       this.iniciarEsperaReenvio();
@@ -168,16 +171,35 @@ export class LoginComponent implements OnInit, OnDestroy {
     return !!this.rec.confirma && this.rec.nueva === this.rec.confirma;
   }
 
-  async cambiarContrasena(): Promise<void> {
+  async verificarCodigo(): Promise<void> {
     if (!/^\d{6}$/.test(this.rec.codigo.trim())) { this.error.set('El código tiene 6 dígitos.'); return; }
+    this.error.set(null);
+    this.enviando.set(true);
+    try {
+      const { usuarios } = await this.recuperacion.verificar(this.rec.correo.trim(), this.rec.codigo.trim());
+      this.usuariosRec.set(usuarios);
+      // Con un solo usuario no hay nada que elegir.
+      this.rec.login = usuarios.length === 1 ? usuarios[0] : '';
+      this.aviso.set(null);
+      this.recuperar.set('nueva');
+    } catch (e: any) {
+      this.error.set(this.mensajeError(e, 'No se pudo verificar el código.'));
+    } finally {
+      this.enviando.set(false);
+    }
+  }
+
+  async cambiarContrasena(): Promise<void> {
+    if (!this.rec.login) { this.error.set('Elige el usuario al que le vas a cambiar la contraseña.'); return; }
     if (this.rec.nueva.length < 8) { this.error.set('La nueva contraseña debe tener al menos 8 caracteres.'); return; }
     if (!this.contrasenasCoinciden) { this.error.set('Las contraseñas no coinciden.'); return; }
     this.error.set(null);
     this.enviando.set(true);
     try {
-      const r = await this.recuperacion.restablecer(this.rec.login.trim(), this.rec.codigo.trim(), this.rec.nueva);
+      const r = await this.recuperacion.restablecer(this.rec.correo.trim(), this.rec.codigo.trim(), this.rec.login, this.rec.nueva);
       this.aviso.set(r.mensaje);
-      this.credentials = { login: this.rec.login.trim(), password: '' };
+      // Ya sabe cuál es su usuario: queda escrito para entrar.
+      this.credentials = { login: r.usuario, password: '' };
       this.recuperar.set('listo');
     } catch (e: any) {
       this.error.set(this.mensajeError(e, 'No se pudo cambiar la contraseña.'));
