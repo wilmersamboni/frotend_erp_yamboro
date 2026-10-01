@@ -411,34 +411,41 @@ private capturarGraficos() {
   };
 }
 
-  exportarPDF(): void {
+  /**
+   * exportarPDF es async: antes no se esperaba, así que el aviso "PDF generado"
+   * salía antes de terminar y un fallo nunca llegaba al catch.
+   */
+  async exportarPDF(): Promise<void> {
+    if (this.exportando) return;
     this.exportando = true;
-    setTimeout(() => {
-      try {
-        this.exportService.exportarPDF(
-          this.stats, this.etapaActiva, this.etapaCertificada, this.practicas,
-          this.capturarGraficos()
-        );
-        this.toast.ok('PDF generado', 'El reporte fue exportado correctamente.');
-      } catch {
-        this.toast.error('Error', 'No se pudo generar el PDF.');
-      } finally {
-        this.exportando = false;
-      }
-    }, 100);
+    try {
+      await this.exportService.exportarPDF(
+        this.stats, this.etapaActiva, this.etapaCertificada, this.practicas,
+        this.capturarGraficos()
+      );
+      this.toast.ok('PDF generado', 'El reporte fue exportado correctamente.');
+    } catch (e) {
+      console.error('[panel] exportar PDF falló', e);
+      this.toast.error('Error', 'No se pudo generar el PDF.');
+    } finally {
+      this.exportando = false;
+    }
   }
 
-  exportarExcel(): void {
+  async exportarExcel(): Promise<void> {
+    if (this.exportando) return;
     this.exportando = true;
-    this.exportService.exportarExcel(
-      this.stats, this.etapaActiva, this.etapaCertificada, this.practicas,
-      this.capturarGraficos()
-    ).then(() => {
-      this.exportando = false;
+    try {
+      await this.exportService.exportarExcel(
+        this.stats, this.etapaActiva, this.etapaCertificada, this.practicas,
+        this.capturarGraficos()
+      );
       this.toast.ok('Excel generado', 'El reporte fue exportado correctamente.');
-    }).catch(() => {
-      this.exportando = false;
+    } catch (e) {
+      console.error('[panel] exportar Excel falló', e);
       this.toast.error('Error', 'No se pudo generar el archivo Excel.');
-    });
+    } finally {
+      this.exportando = false;
+    }
   }
 }
