@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 /**
- * Recuperación de contraseña de un usuario del centro (sin sesión). El centro
+ * Recuperación de contraseña de un usuario del centro (sin sesión), por el correo de su persona. El centro
  * lo pone el interceptor en la cabecera `x-tenant`, igual que en el login.
  * Backend: `backend-epsas/src/recuperacion/`.
  */
@@ -22,11 +22,19 @@ export class RecuperacionService {
     }
   }
 
-  solicitar(login: string): Promise<{ mensaje: string }> {
-    return firstValueFrom(this.http.post<{ mensaje: string }>(`${this.base}/solicitar`, { login }));
+  /** Se busca por correo: cada correo pertenece a una sola persona del centro. */
+  solicitar(correo: string): Promise<{ mensaje: string }> {
+    return firstValueFrom(this.http.post<{ mensaje: string }>(`${this.base}/solicitar`, { correo }));
   }
 
-  restablecer(login: string, codigo: string, nuevoPassword: string): Promise<{ mensaje: string }> {
-    return firstValueFrom(this.http.post<{ mensaje: string }>(`${this.base}/restablecer`, { login, codigo, nuevoPassword }));
+  /** Comprueba el código (sin gastarlo) y trae los usuarios de esa persona para elegir uno. */
+  verificar(correo: string, codigo: string): Promise<{ usuarios: string[] }> {
+    return firstValueFrom(this.http.post<{ usuarios: string[] }>(`${this.base}/verificar`, { correo, codigo }));
+  }
+
+  restablecer(correo: string, codigo: string, login: string, nuevoPassword: string): Promise<{ mensaje: string; usuario: string }> {
+    return firstValueFrom(
+      this.http.post<{ mensaje: string; usuario: string }>(`${this.base}/restablecer`, { correo, codigo, login, nuevoPassword }),
+    );
   }
 }
