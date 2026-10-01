@@ -127,8 +127,11 @@
               <div class="form-group">
                 <label class="form-label" for="rec-codigo">Código de 6 dígitos</label>
                 <div class="input-wrap">
-                  <input id="rec-codigo" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6"
-                    [(ngModel)]="rec.codigo" name="recCodigo" placeholder="000000" required class="form-input form-input-codigo" />
+                  <!-- Sin maxlength: al pegar "0 2 9 1 2 3" (el correo muestra cada dígito en su cuadro) cortaba en
+                       el 6.º carácter contando espacios. soloDigitosCodigo() deja únicamente los 6 dígitos. -->
+                  <input #codigoInput id="rec-codigo" type="text" inputmode="numeric" autocomplete="one-time-code"
+                    [value]="rec.codigo" (input)="soloDigitosCodigo(codigoInput)" name="recCodigo" placeholder="000000"
+                    required class="form-input form-input-codigo" />
                 </div>
               </div>
               <button type="submit" class="submit-btn" [disabled]="enviando()" [class.is-loading]="enviando()">

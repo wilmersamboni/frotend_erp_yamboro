@@ -171,6 +171,13 @@ export class LoginComponent implements OnInit, OnDestroy {
     return !!this.rec.confirma && this.rec.nueva === this.rec.confirma;
   }
 
+  /** Deja solo los dígitos (máx. 6) de lo que se escriba o pegue: el código copiado del correo trae espacios entre cuadros. */
+  soloDigitosCodigo(input: HTMLInputElement): void {
+    const limpio = input.value.replace(/\D/g, '').slice(0, 6);
+    if (input.value !== limpio) input.value = limpio;
+    this.rec.codigo = limpio;
+  }
+
   async verificarCodigo(): Promise<void> {
     if (!/^\d{6}$/.test(this.rec.codigo.trim())) { this.error.set('El código tiene 6 dígitos.'); return; }
     this.error.set(null);
