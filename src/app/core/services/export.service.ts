@@ -4,7 +4,7 @@ import autoTable from 'jspdf-autotable';
 import * as ExcelJS from 'exceljs';
 import { Stats, DonaStats, categorizarEstado } from './stats.service';
 import { ResultadoConsulta } from '../../shared/models/estudiante.model';
-import { InformePdf, TINTA, RGB, fechaInforme } from '../../shared/utils/informe-pdf';
+import { InformePdf, TINTA, RGB, fechaInforme, hoyLocal } from '../../shared/utils/informe-pdf';
 
 /** Charts ya renderizados + datos para gráficos nativos de Excel. */
 export interface GraficosExport {
@@ -1139,143 +1139,227 @@ export class ExportService {
   // ══════════════════════════════════════════════════════════════════════════
   //  HISTORIAL DEL APRENDIZ — EXCEL (mejorado visualmente)
   // ══════════════════════════════════════════════════════════════════════════
+  /**
+   * Excel del historial con el mismo lenguaje sobrio de los PDF (2026-10-01):
+   * cada hoja con título, encabezado gris con filtros e inmovilizado, fechas
+   * como fechas reales (ordenables), estados en texto de color y lista para
+   * imprimir. Antes: 6 hojas de 6 colores, fechas ISO como texto, bitácoras y
+   * observaciones en hojas separadas.
+   */
   async exportarHistorialExcel(resultado: ResultadoConsulta, personasMap: Map<string, string>): Promise<void> {
     const { estudiante, historial, practicas } = resultado;
     const wb = new ExcelJS.Workbook();
     wb.creator = 'EPSAS';
     wb.created = new Date();
 
-    const V = '39A900', V_CL = 'DCF5CE', A = '1565C0', A_CL = 'DBEAFE';
-    const M = '7E22CE', M_CL = 'F3E8FF', AM = 'D97706', AM_CL = 'FEF9C3';
-    const W = 'FFFFFF', G = 'F5F5F5', T = '212121';
+    const TX = 'FF1F2937', GRIS = 'FF6B7280', TENUE = 'FF9CA3AF', LINEA = 'FFE5E7EB', LINEA_F = 'FFD1D5DB', SUAVE = 'FFF9FAFB', ACENTO = 'FF2D6A0F';
+    const COLOR_ESTADO: Record<string, string> = {
+      aprobado: 'FF15803D', aprobada: 'FF15803D', activo: 'FF15803D', activa: 'FF15803D', completado: 'FF15803D', finalizada: 'FF15803D', finalizado: 'FF15803D',
+      'en curso': 'FF1D4ED8', 'en proceso': 'FF1D4ED8', pendiente: 'FFB45309',
+      reprobado: 'FFB91C1C', rechazada: 'FFB91C1C', cancelada: 'FFB91C1C', inactivo: 'FF6B7280',
+    };
+    const fuente = (o: Partial<ExcelJS.Font> = {}): Partial<ExcelJS.Font> => ({ name: 'Calibri', size: 10, color: { argb: TX }, ...o });
 
-    const enc = (ws: ExcelJS.Worksheet, cols: string[], f: number, color: string) => {
-      const row = ws.getRow(f);
-      cols.forEach((v, i) => {
-        const c = row.getCell(i + 1);
-        c.value = v;
-        c.font  = { name: 'Calibri', size: 10, bold: true, color: { argb: W } };
-        c.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: color } };
-        c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-        c.border = {
-          top: { style: 'medium', color: { argb: color } },
-          bottom: { style: 'medium', color: { argb: color } },
-          left: { style: 'thin', color: { argb: W } },
-          right: { style: 'thin', color: { argb: W } },
-        };
-      });
-      row.height = 22;
+    const nombre = `${estudiante.nombre ?? ''} ${estudiante.apellido ?? ''}`.replace(/\s+/g, ' ').trim() || 'Aprendiz';
+    const subtitulo = [`C.C. ${estudiante.documento || '—'}`, estudiante.programa, estudiante.estado].filter(Boolean).join('   ·   ');
+
+    /** Fecha como fecha de Excel. AAAA-MM-DD se toma tal cual (sin corrimiento por zona horaria). */
+    const fecha = (v?: string | null): Date | string => {
+      if (!v) return '—';
+      const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v);
+      if (m) return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? '—' : new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
     };
 
-    const fil = (ws: ExcelJS.Worksheet, vals: any[], f: number, alt: boolean, altC: string) => {
-      const row = ws.getRow(f);
-      vals.forEach((v, i) => {
-        const c = row.getCell(i + 1);
-        c.value = v;
-        c.font  = { name: 'Calibri', size: 9, color: { argb: T } };
-        c.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: alt ? altC : W } };
-        c.alignment = { vertical: 'middle', wrapText: true };
-        c.border = {
-          top: { style: 'hair', color: { argb: 'E0E0E0' } },
-          bottom: { style: 'hair', color: { argb: 'E0E0E0' } },
-          left: { style: 'thin', color: { argb: 'E0E0E0' } },
-          right: { style: 'thin', color: { argb: 'E0E0E0' } },
-        };
+    type Col = { titulo: string; ancho: number; tipo?: 'fecha' | 'numero' | 'estado' | 'negrita' };
+
+    /** Hoja con título (fila 1), subtítulo (2), encabezado (4) y datos desde la 5. */
+    const hoja = (titulo: string, cols: Col[], filas: any[][], vacio = 'Sin registros.') => {
+      const ws = wb.addWorksheet(titulo, {
+        views: [{ state: 'frozen', ySplit: 4, showGridLines: false }],
+        pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9,
+          margins: { left: 0.5, right: 0.5, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 } },
+        headerFooter: { oddFooter: `&L&8&K9CA3AF${nombre} · C.C. ${estudiante.documento || '—'}&R&8&K6B7280Página &P de &N` },
       });
+      ws.columns = cols.map((c) => ({ width: c.ancho }));
+      const ultima = String.fromCharCode(64 + cols.length);
+
+      ws.mergeCells(`A1:${ultima}1`);
+      const t = ws.getCell('A1');
+      t.value = titulo;
+      t.font = fuente({ size: 15, bold: true });
+      t.alignment = { vertical: 'middle' };
+      ws.getRow(1).height = 26;
+      for (let c = 1; c <= cols.length; c++) ws.getRow(1).getCell(c).border = { bottom: { style: 'medium', color: { argb: ACENTO } } };
+
+      ws.mergeCells(`A2:${ultima}2`);
+      const st = ws.getCell('A2');
+      st.value = `${nombre}   ·   ${subtitulo}`;
+      st.font = fuente({ size: 9.5, color: { argb: GRIS } });
+      ws.getRow(2).height = 18;
+
+      const head = ws.getRow(4);
+      cols.forEach((c, i) => {
+        const cell = head.getCell(i + 1);
+        cell.value = c.titulo.toUpperCase();
+        cell.font = fuente({ size: 8.5, bold: true, color: { argb: GRIS } });
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: SUAVE } };
+        cell.alignment = { vertical: 'middle', horizontal: c.tipo === 'numero' ? 'center' : 'left' };
+        cell.border = { bottom: { style: 'medium', color: { argb: LINEA_F } } };
+      });
+      head.height = 22;
+
+      if (!filas.length) {
+        const r = ws.getRow(5);
+        r.getCell(1).value = vacio;
+        r.getCell(1).font = fuente({ italic: true, color: { argb: TENUE } });
+        return ws;
+      }
+
+      filas.forEach((valores, fi) => {
+        const r = ws.getRow(5 + fi);
+        valores.forEach((v, ci) => {
+          const c = cols[ci];
+          const cell = r.getCell(ci + 1);
+          cell.value = v ?? '—';
+          cell.font = fuente();
+          cell.alignment = { vertical: 'top', wrapText: true, horizontal: c.tipo === 'numero' ? 'center' : 'left' };
+          cell.border = { bottom: { style: 'thin', color: { argb: LINEA } } };
+          if (c.tipo === 'fecha' && v instanceof Date) cell.numFmt = 'dd/mm/yyyy';
+          if (c.tipo === 'negrita') cell.font = fuente({ bold: true });
+          if (c.tipo === 'estado' && typeof v === 'string') {
+            cell.font = fuente({ bold: true, color: { argb: COLOR_ESTADO[v.trim().toLowerCase()] ?? TX } });
+          }
+        });
+      });
+      ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4 + filas.length, column: cols.length } };
+      return ws;
     };
 
-    // ── Hoja 1: Resumen ─────────────────────────────────────────────────────
-    const ws1 = wb.addWorksheet('Resumen');
-    ws1.columns = [{ width: 26 }, { width: 42 }];
-    ws1.mergeCells('A1:B1');
-    const t1 = ws1.getCell('A1');
-    t1.value = `Historial — ${estudiante.nombre} ${estudiante.apellido}`;
-    t1.font  = { name: 'Calibri', size: 14, bold: true, color: { argb: W } };
-    t1.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: V } };
-    t1.alignment = { horizontal: 'center', vertical: 'middle' };
-    ws1.getRow(1).height = 34;
+    // ── Resumen ─────────────────────────────────────────────────────────────
+    const totalBitacoras = practicas.reduce((n, p) => n + p.seguimientos.reduce((m, s) => m + s.bitacoras.length, 0), 0);
+    const totalObservaciones = practicas.reduce((n, p) => n + p.seguimientos.reduce((m, s) => m + s.observaciones.length, 0), 0);
 
-    const datos: [string, any][] = [
+    const ws1 = wb.addWorksheet('Resumen', { views: [{ showGridLines: false }], pageSetup: { paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
+    ws1.columns = [{ width: 24 }, { width: 22 }, { width: 22 }, { width: 22 }];
+    ws1.mergeCells('A1:D1');
+    ws1.getCell('A1').value = 'Historial del aprendiz';
+    ws1.getCell('A1').font = fuente({ size: 9, bold: true, color: { argb: ACENTO } });
+    ws1.mergeCells('A2:D2');
+    ws1.getCell('A2').value = nombre;
+    ws1.getCell('A2').font = fuente({ size: 18, bold: true });
+    ws1.getRow(2).height = 30;
+    ws1.mergeCells('A3:D3');
+    ws1.getCell('A3').value = subtitulo;
+    ws1.getCell('A3').font = fuente({ size: 10, color: { argb: GRIS } });
+    ws1.mergeCells('A4:D4');
+    ws1.getCell('A4').value = `Generado el ${new Date().toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+    ws1.getCell('A4').font = fuente({ size: 8.5, color: { argb: TENUE } });
+    for (let c = 1; c <= 4; c++) ws1.getRow(4).getCell(c).border = { bottom: { style: 'medium', color: { argb: ACENTO } } };
+
+    // Cifras: valor grande arriba, etiqueta abajo.
+    const cifras: [string, number][] = [
+      ['Matrículas', historial.length], ['Etapas prácticas', practicas.length],
+      ['Bitácoras', totalBitacoras], ['Observaciones', totalObservaciones],
+    ];
+    cifras.forEach(([etq, n], i) => {
+      const v = ws1.getRow(6).getCell(i + 1);
+      v.value = n;
+      v.font = fuente({ size: 20, bold: true });
+      v.alignment = { horizontal: 'left', vertical: 'bottom' };
+      const e = ws1.getRow(7).getCell(i + 1);
+      e.value = etq.toUpperCase();
+      e.font = fuente({ size: 8, bold: true, color: { argb: GRIS } });
+      e.border = { bottom: { style: 'thin', color: { argb: LINEA } } };
+    });
+    ws1.getRow(6).height = 30;
+
+    ws1.getCell('A9').value = 'DATOS PERSONALES';
+    ws1.getCell('A9').font = fuente({ size: 9, bold: true, color: { argb: ACENTO } });
+    const datos: [string, string][] = [
       ['Documento', estudiante.documento || '—'],
-      ['Programa', estudiante.programa || '—'],
-      ['Correo', estudiante.email || '—'],
+      ['Estado', estudiante.estado || '—'],
+      ['Correo electrónico', estudiante.email || '—'],
       ['Teléfono', estudiante.telefono || '—'],
-      ['Estado', estudiante.estado],
-      ['Total Matrículas', historial.length],
-      ['Total Etapas Prácticas', practicas.length],
+      ['Programa actual', estudiante.programa || '—'],
     ];
     datos.forEach(([k, v], i) => {
-      const fn = i + 3;
-      ws1.getCell(`A${fn}`).value = k;
-      ws1.getCell(`A${fn}`).font = { name: 'Calibri', size: 10, bold: true, color: { argb: T } };
-      ws1.getCell(`B${fn}`).value = v;
-      fil(ws1, [k, v], fn, i % 2 === 1, V_CL);
+      const fila = 10 + i;
+      ws1.mergeCells(`B${fila}:D${fila}`);
+      const ck = ws1.getCell(`A${fila}`);
+      ck.value = k;
+      ck.font = fuente({ size: 9, bold: true, color: { argb: GRIS } });
+      const cv = ws1.getCell(`B${fila}`);
+      cv.value = v;
+      cv.font = fuente();
+      [ck, cv].forEach((c) => (c.border = { bottom: { style: 'thin', color: { argb: LINEA } } }));
+      ws1.getRow(fila).height = 18;
     });
+    ws1.getCell('A16').value = 'Cada hoja de este libro tiene filtros en su encabezado. Las fechas se pueden ordenar.';
+    ws1.getCell('A16').font = fuente({ size: 8.5, italic: true, color: { argb: TENUE } });
 
-    // ── Hoja 2: Matrículas ──────────────────────────────────────────────────
-    const ws2 = wb.addWorksheet('Matrículas');
-    ws2.columns = [{ width: 16 }, { width: 34 }, { width: 14 }, { width: 14 }];
-    enc(ws2, ['Ficha', 'Programa', 'Periodo', 'Estado'], 1, A);
-    historial.forEach((h, i) => fil(ws2, [h.idCurso, h.nombreCurso, h.periodo, h.estado], i + 2, i % 2 === 1, A_CL));
+    // ── Matrículas ──────────────────────────────────────────────────────────
+    hoja('Matrículas',
+      [{ titulo: 'Ficha', ancho: 14, tipo: 'negrita' }, { titulo: 'Programa', ancho: 44 }, { titulo: 'Periodo', ancho: 12 }, { titulo: 'Estado', ancho: 14, tipo: 'estado' }],
+      historial.map((h) => [h.idCurso || '—', h.nombreCurso || '—', h.periodo || '—', h.estado || '—']),
+      'Sin matrículas registradas.');
 
-    // ── Hoja 3: Etapas y Asignaciones ───────────────────────────────────────
-    const ws3 = wb.addWorksheet('Etapas y Asignaciones');
-    ws3.columns = [
-      { width: 14 }, { width: 26 }, { width: 22 }, { width: 16 }, { width: 14 },
-      { width: 14 }, { width: 14 }, { width: 24 }, { width: 14 }, { width: 8 }, { width: 14 }, { width: 14 },
-    ];
-    enc(ws3, [
-      'Ficha', 'Programa', 'Empresa', 'Modalidad', 'Estado Etapa', 'Inicio Etapa', 'Fin Etapa',
-      'Instructor', 'Estado Asig.', 'Horas', 'Inicio Asig.', 'Fin Asig.',
-    ], 1, M);
-    let f3 = 2;
-    practicas.forEach(p => {
-      const base = [p.fichaCurso, p.programa, p.empresa, p.modalidad, p.estado, p.fechaInicio, p.fechaFin];
-      if (!p.asignaciones.length) {
-        fil(ws3, [...base, 'Sin instructor', '—', '—', '—', '—'], f3++, f3 % 2 === 0, M_CL);
-      } else {
-        p.asignaciones.forEach(a => {
-          fil(ws3, [...base, this.nombreInstructor(a.instructor, personasMap), a.estado, a.horas, a.fechaInicio, a.fechaFin], f3++, f3 % 2 === 0, M_CL);
-        });
-      }
-    });
+    // ── Etapa práctica (una fila por etapa) ─────────────────────────────────
+    hoja('Etapa práctica',
+      [
+        { titulo: 'Ficha', ancho: 12, tipo: 'negrita' }, { titulo: 'Programa', ancho: 32 }, { titulo: 'Empresa', ancho: 28 },
+        { titulo: 'Modalidad', ancho: 20 }, { titulo: 'Estado', ancho: 13, tipo: 'estado' }, { titulo: 'Inicio', ancho: 12, tipo: 'fecha' },
+        { titulo: 'Fin', ancho: 12, tipo: 'fecha' }, { titulo: 'Seguimientos', ancho: 13, tipo: 'numero' },
+        { titulo: 'Bitácoras', ancho: 11, tipo: 'numero' }, { titulo: 'Observaciones', ancho: 14, tipo: 'numero' },
+        { titulo: 'Observación general', ancho: 40 },
+      ],
+      practicas.map((p) => [
+        p.fichaCurso || '—', p.programa || '—', p.empresa || '—', p.modalidad || '—', p.estado || '—',
+        fecha(p.fechaInicio), fecha(p.fechaFin), p.seguimientos.length,
+        p.seguimientos.reduce((n, s) => n + s.bitacoras.length, 0),
+        p.seguimientos.reduce((n, s) => n + s.observaciones.length, 0),
+        p.observacion || '—',
+      ]),
+      'El aprendiz no tiene etapa práctica registrada.');
 
-    // ── Hoja 4: Seguimientos ────────────────────────────────────────────────
-    const ws4 = wb.addWorksheet('Seguimientos');
-    ws4.columns = [{ width: 14 }, { width: 14 }, { width: 14 }, { width: 14 }, { width: 42 }, { width: 10 }];
-    enc(ws4, ['Ficha', 'Estado', 'Inicio', 'Fin', 'Observación', 'Acta'], 1, A);
-    let f4 = 2;
-    practicas.forEach(p => {
-      p.seguimientos.forEach(s => {
-        fil(ws4, [p.fichaCurso, s.estado, s.fechaInicio, s.fechaFin, s.observacion || '—', s.actasPdf ? 'Sí' : 'No'], f4++, f4 % 2 === 0, A_CL);
-      });
-    });
+    // ── Instructores ────────────────────────────────────────────────────────
+    hoja('Instructores',
+      [
+        { titulo: 'Ficha', ancho: 12, tipo: 'negrita' }, { titulo: 'Instructor', ancho: 32 }, { titulo: 'Horas', ancho: 9, tipo: 'numero' },
+        { titulo: 'Desde', ancho: 12, tipo: 'fecha' }, { titulo: 'Hasta', ancho: 12, tipo: 'fecha' }, { titulo: 'Estado', ancho: 13, tipo: 'estado' },
+      ],
+      practicas.flatMap((p) => p.asignaciones.map((a) => [
+        p.fichaCurso || '—', this.nombreInstructor(a.instructor, personasMap), a.horas ?? 0, fecha(a.fechaInicio), fecha(a.fechaFin), a.estado || '—',
+      ])),
+      'Sin instructores asignados.');
 
-    // ── Hoja 5: Bitácoras ──────────────────────────────────────────────────
-    const ws5 = wb.addWorksheet('Bitácoras');
-    ws5.columns = [{ width: 14 }, { width: 14 }, { width: 14 }, { width: 14 }];
-    enc(ws5, ['Ficha', 'Seguimiento (inicio)', 'Fecha Bitácora', 'Estado'], 1, V);
-    let f5 = 2;
-    practicas.forEach(p => {
-      p.seguimientos.forEach(s => {
-        s.bitacoras.forEach(b => {
-          fil(ws5, [p.fichaCurso, s.fechaInicio, b.fecha, b.estado], f5++, f5 % 2 === 0, V_CL);
-        });
-      });
-    });
+    // ── Seguimientos ────────────────────────────────────────────────────────
+    hoja('Seguimientos',
+      [
+        { titulo: 'Ficha', ancho: 12, tipo: 'negrita' }, { titulo: 'N.º', ancho: 6, tipo: 'numero' }, { titulo: 'Estado', ancho: 13, tipo: 'estado' },
+        { titulo: 'Inicio', ancho: 12, tipo: 'fecha' }, { titulo: 'Fin', ancho: 12, tipo: 'fecha' }, { titulo: 'Bitácoras', ancho: 11, tipo: 'numero' },
+        { titulo: 'Observaciones', ancho: 14, tipo: 'numero' }, { titulo: 'Acta', ancho: 8, tipo: 'numero' }, { titulo: 'Observación', ancho: 44 },
+      ],
+      practicas.flatMap((p) => p.seguimientos.map((s, j) => [
+        p.fichaCurso || '—', j + 1, s.estado || '—', fecha(s.fechaInicio), fecha(s.fechaFin),
+        s.bitacoras.length, s.observaciones.length, s.actasPdf ? 'Sí' : 'No', s.observacion || '—',
+      ])),
+      'Sin seguimientos registrados.');
 
-    // ── Hoja 6: Observaciones ──────────────────────────────────────────────
-    const ws6 = wb.addWorksheet('Observaciones');
-    ws6.columns = [{ width: 14 }, { width: 14 }, { width: 14 }, { width: 52 }];
-    enc(ws6, ['Ficha', 'Seguimiento (inicio)', 'Fecha', 'Descripción'], 1, AM);
-    let f6 = 2;
-    practicas.forEach(p => {
-      p.seguimientos.forEach(s => {
-        s.observaciones.forEach(o => {
-          fil(ws6, [p.fichaCurso, s.fechaInicio, o.fecha, o.descripcion], f6++, f6 % 2 === 0, AM_CL);
-        });
-      });
-    });
+    // ── Registros: bitácoras y observaciones juntas, en orden cronológico ──
+    hoja('Registros',
+      [
+        { titulo: 'Fecha', ancho: 12, tipo: 'fecha' }, { titulo: 'Ficha', ancho: 12 }, { titulo: 'Seguimiento', ancho: 12, tipo: 'numero' },
+        { titulo: 'Registro', ancho: 14, tipo: 'negrita' }, { titulo: 'Estado', ancho: 13, tipo: 'estado' }, { titulo: 'Detalle', ancho: 60 },
+      ],
+      practicas.flatMap((p) => p.seguimientos.flatMap((s, j) => [
+        ...s.bitacoras.map((b) => ({ orden: b.fecha ?? '', fila: [fecha(b.fecha), p.fichaCurso || '—', j + 1, 'Bitácora', b.estado || '—', '—'] })),
+        ...s.observaciones.map((o) => ({ orden: o.fecha ?? '', fila: [fecha(o.fecha), p.fichaCurso || '—', j + 1, 'Observación', '—', o.descripcion || '—'] })),
+      ]))
+        .sort((a, b) => a.orden.localeCompare(b.orden))
+        .map((r) => r.fila),
+      'Sin bitácoras ni observaciones registradas.');
 
     // ── Descargar ───────────────────────────────────────────────────────────
     const buffer = await wb.xlsx.writeBuffer();
@@ -1283,8 +1367,8 @@ export class ExportService {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const slug = `${estudiante.nombre}_${estudiante.apellido}`.trim().replace(/\s+/g, '_').toLowerCase() || 'aprendiz';
-    a.download = `historial_${slug}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    const slug = nombre.replace(/\s+/g, '_').toLowerCase() || 'aprendiz';
+    a.download = `historial_${slug}_${hoyLocal()}.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
   }
