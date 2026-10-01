@@ -125,23 +125,4 @@ export class PersonaService {
     return firstValueFrom(this.http.post(`${BASE}/credencial/registrar_jwsv`, data));
   }
 
-  // ── Recuperación de contraseña ────────────────────────────────────────────
-
-  async solicitarRecuperacion(correo: string): Promise<any> {
-    return firstValueFrom(
-      this.http.post(`${BASE}/departamento/recuperar/solicitar`, { correo })
-    );
-  }
-
-  async verificarCodigo(correo: string, codigo: string): Promise<any> {
-    return firstValueFrom(
-      this.http.post(`${BASE}/departamento/recuperar/verificar`, { correo, codigo })
-    );
-  }
-
-  async cambiarPassword(correo: string, codigo: string, nuevoPassword: string): Promise<any> {
-    return firstValueFrom(
-      this.http.post(`${BASE}/departamento/recuperar/cambiar`, { correo, codigo, nuevoPassword })
-    );
-  }
 }

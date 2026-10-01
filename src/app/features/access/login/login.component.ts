@@ -2,6 +2,7 @@ import { Component, signal, OnInit, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+import { RecuperacionService } from '../../../core/services/recuperacion.service';
 import { environment } from '../../../../environments/environment';
 
 // Direcciones IPv4 (ej: 192.168.50.108) — no son subdominios de tenant.
@@ -55,7 +56,22 @@ export class LoginComponent implements OnInit, OnDestroy {
 
   private carouselTimer: ReturnType<typeof setInterval> | null = null;
 
-  constructor(private auth: AuthService, private router: Router, private route: ActivatedRoute) {}
+  // ── Recuperación de contraseña por código al correo ──
+  /** 'no' = formulario de ingreso normal. */
+  readonly recuperar = signal<'no' | 'solicitar' | 'codigo' | 'listo'>('no');
+  readonly recuperacionDisponible = signal<boolean | null>(null);
+  readonly enviando = signal(false);
+  readonly aviso = signal<string | null>(null);
+  readonly esperaReenvio = signal(0);
+  rec = { login: '', codigo: '', nueva: '', confirma: '' };
+  private reenvioTimer: ReturnType<typeof setInterval> | null = null;
+
+  constructor(
+    private auth: AuthService,
+    private router: Router,
+    private route: ActivatedRoute,
+    private recuperacion: RecuperacionService,
+  ) {}
 
   private resolveSlugFromUrl(): string | null {
     const hostname = window.location.hostname;
@@ -78,6 +94,7 @@ export class LoginComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     if (this.carouselTimer) clearInterval(this.carouselTimer);
+    if (this.reenvioTimer) clearInterval(this.reenvioTimer);
   }
 
   private iniciarCarrusel(): void {
@@ -112,6 +129,76 @@ export class LoginComponent implements OnInit, OnDestroy {
   onFlechaAnterior(): void {
     this.anteriorSlide();
     this.reiniciarTemporizador();
+  }
+
+  // ── Recuperación ──────────────────────────────────────────────────────────
+  async abrirRecuperacion(): Promise<void> {
+    this.error.set(null);
+    this.aviso.set(null);
+    this.rec = { login: this.credentials.login.trim(), codigo: '', nueva: '', confirma: '' };
+    this.recuperar.set('solicitar');
+    if (this.slugFromUrl) localStorage.setItem('tenantSlug', this.slugFromUrl);
+    this.recuperacionDisponible.set(await this.recuperacion.disponible());
+  }
+
+  volverAlLogin(): void {
+    this.error.set(null);
+    this.aviso.set(null);
+    this.recuperar.set('no');
+  }
+
+  async enviarCodigo(): Promise<void> {
+    const login = this.rec.login.trim();
+    if (!login) { this.error.set('Escribe tu usuario.'); return; }
+    this.error.set(null);
+    this.enviando.set(true);
+    try {
+      const r = await this.recuperacion.solicitar(login);
+      this.aviso.set(r.mensaje);
+      this.recuperar.set('codigo');
+      this.iniciarEsperaReenvio();
+    } catch (e: any) {
+      this.error.set(this.mensajeError(e, 'No se pudo enviar el código. Inténtalo de nuevo.'));
+    } finally {
+      this.enviando.set(false);
+    }
+  }
+
+  get contrasenasCoinciden(): boolean {
+    return !!this.rec.confirma && this.rec.nueva === this.rec.confirma;
+  }
+
+  async cambiarContrasena(): Promise<void> {
+    if (!/^\d{6}$/.test(this.rec.codigo.trim())) { this.error.set('El código tiene 6 dígitos.'); return; }
+    if (this.rec.nueva.length < 8) { this.error.set('La nueva contraseña debe tener al menos 8 caracteres.'); return; }
+    if (!this.contrasenasCoinciden) { this.error.set('Las contraseñas no coinciden.'); return; }
+    this.error.set(null);
+    this.enviando.set(true);
+    try {
+      const r = await this.recuperacion.restablecer(this.rec.login.trim(), this.rec.codigo.trim(), this.rec.nueva);
+      this.aviso.set(r.mensaje);
+      this.credentials = { login: this.rec.login.trim(), password: '' };
+      this.recuperar.set('listo');
+    } catch (e: any) {
+      this.error.set(this.mensajeError(e, 'No se pudo cambiar la contraseña.'));
+    } finally {
+      this.enviando.set(false);
+    }
+  }
+
+  private iniciarEsperaReenvio(): void {
+    this.esperaReenvio.set(60);
+    if (this.reenvioTimer) clearInterval(this.reenvioTimer);
+    this.reenvioTimer = setInterval(() => {
+      this.esperaReenvio.update(s => Math.max(0, s - 1));
+      if (this.esperaReenvio() === 0 && this.reenvioTimer) clearInterval(this.reenvioTimer);
+    }, 1000);
+  }
+
+  private mensajeError(e: any, respaldo: string): string {
+    if (e?.status === 429) return 'Demasiados intentos seguidos. Espera un minuto e inténtalo de nuevo.';
+    const m = e?.error?.message;
+    return (Array.isArray(m) ? m.join('. ') : m) || respaldo;
   }
 
   async onSubmit(): Promise<void> {

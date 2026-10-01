@@ -51,8 +51,19 @@
     <!-- ══════════════ PANEL DERECHO — formulario ══════════════ -->
     <div class="login-right">
 
-      <h1 class="right-title">Hola de nuevo</h1>
-      <p class="right-sub">Ingresa tus credenciales para continuar</p>
+      @if (recuperar() === 'no') {
+        <h1 class="right-title">Hola de nuevo</h1>
+        <p class="right-sub">Ingresa tus credenciales para continuar</p>
+      } @else {
+        <h1 class="right-title">Recuperar contraseña</h1>
+        <p class="right-sub">
+          @switch (recuperar()) {
+            @case ('solicitar') { Escribe tu usuario y te enviaremos un código al correo que tienes registrado. }
+            @case ('codigo') { Escribe el código que te llegó y tu nueva contraseña. }
+            @default { Listo, ya puedes entrar con tu nueva contraseña. }
+          }
+        </p>
+      }
 
       <!-- Error -->
       @if (error()) {
@@ -78,7 +89,90 @@
         </div>
       }
 
-      @if (slugFromUrl) {
+      @if (slugFromUrl && recuperar() !== 'no') {
+        <div class="login-form">
+          @if (aviso() && recuperar() !== 'solicitar') {
+            <div class="info-box">{{ aviso() }}</div>
+          }
+
+          @if (recuperar() === 'solicitar') {
+            @if (recuperacionDisponible() === false) {
+              <div class="info-box">
+                La recuperación por correo no está habilitada. Para restablecer tu contraseña, contacta al administrador de tu centro.
+              </div>
+            } @else {
+              <form (ngSubmit)="enviarCodigo()" class="login-form">
+                <div class="form-group">
+                  <label class="form-label" for="rec-login">Usuario</label>
+                  <div class="input-wrap">
+                    <span class="input-icon">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                      </svg>
+                    </span>
+                    <input id="rec-login" type="text" [(ngModel)]="rec.login" name="recLogin" autocapitalize="none" autocorrect="off"
+                      spellcheck="false" placeholder="Ingresa tu Usuario" required class="form-input" />
+                  </div>
+                </div>
+                <button type="submit" class="submit-btn" [disabled]="enviando() || recuperacionDisponible() === null" [class.is-loading]="enviando()">
+                  {{ enviando() ? 'Enviando…' : 'Enviar código' }}
+                </button>
+              </form>
+            }
+          }
+
+          @if (recuperar() === 'codigo') {
+            <form (ngSubmit)="cambiarContrasena()" class="login-form">
+              <div class="form-group">
+                <label class="form-label" for="rec-codigo">Código de 6 dígitos</label>
+                <div class="input-wrap">
+                  <input id="rec-codigo" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6"
+                    [(ngModel)]="rec.codigo" name="recCodigo" placeholder="000000" required class="form-input form-input-codigo" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="rec-nueva">Nueva contraseña</label>
+                <div class="input-wrap">
+                  <input id="rec-nueva" [type]="showPassword() ? 'text' : 'password'" autocomplete="new-password"
+                    [(ngModel)]="rec.nueva" name="recNueva" placeholder="Mínimo 8 caracteres" required class="form-input form-input-sinicono form-input-pw" />
+                  <button type="button" (click)="showPassword.set(!showPassword())" class="toggle-pw"
+                    [attr.aria-label]="showPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="rec-confirma">Confirmar contraseña</label>
+                <div class="input-wrap">
+                  <input id="rec-confirma" [type]="showPassword() ? 'text' : 'password'" autocomplete="new-password"
+                    [(ngModel)]="rec.confirma" name="recConfirma" placeholder="Repite la contraseña" required class="form-input form-input-sinicono" />
+                </div>
+                @if (rec.confirma && !contrasenasCoinciden) {
+                  <p class="rec-nota rec-nota-err">Las contraseñas no coinciden</p>
+                }
+              </div>
+              <button type="submit" class="submit-btn" [disabled]="enviando()" [class.is-loading]="enviando()">
+                {{ enviando() ? 'Guardando…' : 'Cambiar contraseña' }}
+              </button>
+              <button type="button" class="link-btn" (click)="enviarCodigo()" [disabled]="esperaReenvio() > 0 || enviando()">
+                {{ esperaReenvio() > 0 ? 'Reenviar código en ' + esperaReenvio() + ' s' : 'Reenviar código' }}
+              </button>
+            </form>
+          }
+
+          @if (recuperar() === 'listo') {
+            <button type="button" class="submit-btn" (click)="volverAlLogin()">Iniciar sesión</button>
+          }
+
+          @if (recuperar() !== 'listo') {
+            <button type="button" class="link-btn" (click)="volverAlLogin()">← Volver al inicio de sesión</button>
+          }
+        </div>
+      }
+
+      @if (slugFromUrl && recuperar() === 'no') {
         <form (ngSubmit)="onSubmit()" class="login-form">
 
           <!-- Usuario -->
@@ -127,8 +221,9 @@
           </div>
 
           <!-- Olvidé contraseña -->
-          <!-- <div class="forgot-row">
-          </div> -->
+          <div class="forgot-row">
+            <button type="button" class="forgot-link" (click)="abrirRecuperacion()">¿Olvidaste tu contraseña?</button>
+          </div>
 
           <!-- Botón ingresar -->
           <button type="submit" [disabled]="loading()" class="submit-btn"

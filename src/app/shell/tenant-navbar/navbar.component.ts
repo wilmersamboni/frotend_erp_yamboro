@@ -53,14 +53,15 @@ import { environment } from '../../../environments/environment';
             <app-notificaciones-campana [cargo]="userCargo()" />
           }
 
+          <!-- Colores por tokens del tema (no clases con el hex fijo): esas clases chocaban con los overrides de ThemeService y el avatar quedaba verde sobre verde. -->
           <!-- Avatar — foto de perfil si el usuario subió una (Ajustes > Perfil), iniciales por defecto.
                Lleva directo a Ajustes: antes abría un menú con una sola opción
                ("Configuración"), o sea un clic de más. -->
           <a routerLink="/settings" title="Configuración" aria-label="Ir a configuración"
             class="w-9 h-9 rounded-full flex items-center justify-center
                    text-sm font-bold flex-shrink-0 select-none cursor-pointer
-                   bg-[#007832]/10 text-[#007832] border-2 border-[#007832]/20
-                   hover:bg-[#007832]/20 transition-colors overflow-hidden">
+                   transition-[filter] hover:brightness-95 overflow-hidden"
+            style="background:var(--accent-soft);color:var(--accent-text);border:2px solid color-mix(in srgb, var(--accent-brand) 30%, transparent);">
             @if (userFotoUrl()) {
               <img [src]="userFotoUrl()" alt="" class="w-full h-full object-cover" />
             } @else {
