@@ -38,7 +38,11 @@ import {
     <div class="p-6">
     <h1 class="text-xl font-bold text-gray-800 mb-5">Aprendices</h1>
 
-    <div>
+    <!-- Tarjeta: buscador, tabla y paginación juntos, con bordes redondeados.
+         overflow-hidden recorta las esquinas; los menús (filtros, columnas) son
+         paneles fijos, así que no los afecta. -->
+    <div class="rounded-2xl border overflow-hidden"
+      style="background: var(--surface); border-color: var(--border); box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04);">
 
       <!-- Toolbar: búsqueda · columnas · filas por página -->
       <app-table-toolbar
@@ -62,12 +66,16 @@ import {
               [columns]="headerColumns()"
               [areas]="areas()"
               [selectedAreas]="selectedAreas()"
+              [programas]="programas()"
+              [selectedProgramas]="selectedProgramas()"
               [selectedStatuses]="selectedStatuses()"
               [sortCol]="sortCol"
               [sortDir]="sortDir"
               (sortChange)="sort($event)"
               (toggleArea)="toggleArea($event)"
               (clearAreas)="selectedAreas.set([]); resetPage()"
+              (togglePrograma)="togglePrograma($event)"
+              (clearProgramas)="selectedProgramas.set([]); resetPage()"
               (toggleStatus)="toggleStatus($event)"
               (clearStatuses)="selectedStatuses.set([]); resetPage()"
             />
@@ -141,8 +149,9 @@ export class TableInfoComponent implements OnInit {
 
   filterValue      = signal('');
   selectedAreas    = signal<string[]>([]);
+  selectedProgramas = signal<string[]>([]);
   selectedStatuses = signal<string[]>([]);
-  rowsPerPage      = signal(5);
+  rowsPerPage      = signal(10);
   page             = signal(1);
 
   sortCol  = 'name';
@@ -162,10 +171,28 @@ export class TableInfoComponent implements OnInit {
   alumnoParaAsignaciones:   Aprendiz | null = null;
 
   // ── Computed ───────────────────────────────────────────────────────────────
+  /**
+   * Programas para el filtro: los que tienen aprendices en la tabla (no un
+   * catálogo aparte), ordenados. Si hay áreas filtradas, solo los de esas áreas.
+   */
+  programas = computed(() => {
+    const areas = this.selectedAreas();
+    const nombres = new Set<string>();
+    for (const r of this.data()) {
+      if (!r.programa) continue;
+      if (areas.length > 0 && !areas.includes(r.area)) continue;
+      nombres.add(r.programa);
+    }
+    // Los ya marcados siempre se ven, aunque el filtro de área los deje fuera: si no, no habría cómo desmarcarlos.
+    for (const p of this.selectedProgramas()) nombres.add(p);
+    return [...nombres].sort((a, b) => a.localeCompare(b, 'es'));
+  });
+
   filtered = computed(() => {
     let rows = this.data();
     const filter   = this.filterValue();
     const areas    = this.selectedAreas();
+    const programas = this.selectedProgramas();
     const statuses = this.selectedStatuses();
 
     if (filter) {
@@ -191,6 +218,7 @@ export class TableInfoComponent implements OnInit {
   }
     if (statuses.length > 0) rows = rows.filter(r => statuses.includes(r.estado));
     if (areas.length    > 0) rows = rows.filter(r => areas.includes(r.area));
+    if (programas.length > 0) rows = rows.filter(r => programas.includes(r.programa));
 
     return rows;
   });
@@ -294,6 +322,12 @@ export class TableInfoComponent implements OnInit {
       next.has(uid) ? next.delete(uid) : next.add(uid);
       return next;
     });
+  }
+
+  togglePrograma(programa: string): void {
+    const cur = this.selectedProgramas();
+    this.selectedProgramas.set(cur.includes(programa) ? cur.filter(p => p !== programa) : [...cur, programa]);
+    this.resetPage();
   }
 
   toggleArea(area: string): void {

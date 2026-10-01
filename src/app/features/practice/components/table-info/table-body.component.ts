@@ -34,7 +34,7 @@ import { AuthService } from '../../../../core/services/auth.service';
           [class.bg-[#F8FFFE]]="odd">
 
           @for (col of columns(); track col.uid) {
-            <td class="py-3 px-4 border-b border-gray-50 text-gray-700 text-sm">
+            <td class="py-3 px-4 border-b border-gray-100 text-gray-700 text-sm">
 
               @switch (col.uid) {
 
