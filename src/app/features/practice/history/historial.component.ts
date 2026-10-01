@@ -1,5 +1,5 @@
 import {
-  Component, inject, signal, computed, OnInit,
+  Component, inject, signal, computed, OnInit, ViewChild,
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -12,7 +12,7 @@ import { PracticaService } from '../../../core/services/practica.service';
 import { ExportService } from '../../../core/services/export.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { EtapaPracticaItem, ResultadoConsulta } from '../../../shared/models/estudiante.model';
-import { HistorialBuscadorComponent } from './components/historial-buscador.component';
+import { HistorialBuscadorComponent, etiquetaCargo, iniciales as inicialesDe } from './components/historial-buscador.component';
 import { EtapaPracticaCardComponent } from './components/etapa-practica-card.component';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 
@@ -26,16 +26,20 @@ type Estado = 'idle' | 'loading' | 'success' | 'error';
     <div class="p-6 max-w-4xl mx-auto">
 
       <div class="text-center mb-7">
-        <p class="text-xs font-bold uppercase tracking-[0.14em] text-[#2d8000] mb-1">Consulta académica</p>
-        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Historial del aprendiz</h1>
-        <p class="text-sm text-gray-400 mt-1 max-w-md mx-auto">
-          Buscá por cédula para ver en un solo lugar sus matrículas, etapa práctica, bitácoras y observaciones.
+        <span class="inline-flex w-12 h-12 rounded-2xl items-center justify-center mb-3"
+          style="background: var(--accent-soft); color: var(--accent-text);">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l2.5 2.5M3.05 11a9 9 0 1 1 .5 4M3 4v5h5"/></svg>
+        </span>
+        <p class="text-[11px] font-bold uppercase tracking-[0.16em] mb-1" style="color: var(--accent-text);">Consulta académica</p>
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Historial del aprendiz</h1>
+        <p class="text-sm text-gray-500 mt-1.5 max-w-lg mx-auto">
+          Busca por nombre o cédula para ver en un solo lugar sus matrículas, etapa práctica, bitácoras y observaciones.
         </p>
       </div>
 
       <!-- Buscador con autocomplete delegado al subcomponente -->
-      <app-historial-buscador
-        class="block w-full max-w-2xl mx-auto mb-7"
+      <app-historial-buscador #buscador
+        class="block w-full max-w-2xl mx-auto mb-8"
         [personas]="personas()"
         [cargandoPersonas]="cargandoPersonas()"
         [buscando]="estado === 'loading'"
@@ -45,19 +49,59 @@ type Estado = 'idle' | 'loading' | 'success' | 'error';
       />
 
       <!-- Panel de resultados -->
-      <div class="rounded-2xl bg-white border border-gray-200/60 shadow-sm overflow-hidden">
+      <div class="rounded-2xl border shadow-sm overflow-hidden" style="background: var(--surface); border-color: var(--border);">
 
         @if (estado === 'idle') {
-          <div class="flex flex-col items-center gap-3 py-16 px-6 text-center">
-            <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#39A900]/10 text-[#39A900]">
-              <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-              </svg>
+          @if (recientes().length) {
+            <!-- Consultados recientemente (solo se guarda el id interno en este navegador) -->
+            <div class="p-5 sm:p-6">
+              <div class="flex items-center justify-between mb-3">
+                <h2 class="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Consultados recientemente</h2>
+                <button type="button" (click)="borrarRecientes()"
+                  class="text-xs font-medium text-gray-400 hover:text-gray-600 px-2 py-1 rounded-lg hover:bg-gray-50">Borrar</button>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                @for (p of recientes(); track p.id) {
+                  <button type="button" (click)="abrirReciente(p.persona)"
+                    class="group flex items-center gap-3 p-3 rounded-xl border text-left transition-all hover:-translate-y-px hover:shadow-md"
+                    style="border-color: var(--border);">
+                    <span class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                      style="background: var(--accent-soft); color: var(--accent-text);">{{ p.iniciales }}</span>
+                    <span class="min-w-0 flex-1">
+                      <span class="block text-sm font-semibold text-gray-800 truncate">{{ p.nombre }}</span>
+                      <span class="block text-xs text-gray-400 truncate">{{ p.cedula }}@if (p.cargo) { · {{ p.cargo }} }</span>
+                    </span>
+                    <svg class="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/></svg>
+                  </button>
+                }
+              </div>
             </div>
-            <p class="text-sm font-semibold text-gray-700">Ingresá la cédula del aprendiz</p>
-            <p class="text-xs text-gray-400 max-w-xs">Vas a ver su información personal, cursos matriculados y toda su etapa práctica.</p>
-          </div>
+          } @else if (cargandoPersonas() && idsRecientes().length) {
+            <div class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              @for (i of idsRecientes(); track i) {
+                <div class="h-16 rounded-xl animate-pulse" style="background: var(--surface2);"></div>
+              }
+            </div>
+          } @else {
+            <!-- Primera vez: qué se va a encontrar -->
+            <div class="p-6 sm:p-8">
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                @for (c of queVeras; track c.titulo) {
+                  <div class="rounded-xl p-4 border" style="border-color: var(--border); background: var(--surface2);">
+                    <span class="w-9 h-9 rounded-lg flex items-center justify-center mb-3" [style.background]="c.bg" [style.color]="c.color">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" [attr.d]="c.icono"/></svg>
+                    </span>
+                    <p class="text-sm font-semibold text-gray-800">{{ c.titulo }}</p>
+                    <p class="text-xs text-gray-500 mt-1 leading-relaxed">{{ c.texto }}</p>
+                  </div>
+                }
+              </div>
+              <p class="mt-5 text-center text-xs text-gray-400">
+                Pulsa <kbd class="inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded border text-[11px] font-semibold" style="border-color: var(--border); background: var(--surface);">/</kbd>
+                para empezar a buscar
+              </p>
+            </div>
+          }
         }
 
         @if (estado === 'loading') {
@@ -87,14 +131,15 @@ type Estado = 'idle' | 'loading' | 'success' | 'error';
         @if (estado === 'success' && resultado) {
 
           <!-- Datos personales -->
-          <div class="p-4 sm:p-6 border-b border-gray-100">
-            <div class="flex flex-wrap items-center gap-3 sm:gap-4 mb-4">
-              <div class="w-12 h-12 rounded-full bg-[#39A900]/10 flex items-center justify-center
-                          text-[#39A900] font-semibold text-lg flex-shrink-0">
+          <div class="h-16 sm:h-20" style="background: linear-gradient(120deg, var(--accent-soft), transparent 85%);"></div>
+          <div class="px-4 sm:px-6 pb-5 -mt-8 sm:-mt-10 border-b" style="border-color: var(--border);">
+            <div class="flex flex-wrap items-end gap-3 sm:gap-4 mb-5">
+              <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center font-bold text-xl sm:text-2xl flex-shrink-0 shadow-md ring-4"
+                style="background: var(--accent-brand); color: #fff; --tw-ring-color: var(--surface);">
                 {{ iniciales(resultado.estudiante.nombre + ' ' + resultado.estudiante.apellido) }}
               </div>
-              <div class="min-w-0">
-                <h2 class="text-lg font-semibold text-gray-800 truncate">
+              <div class="min-w-0 pb-1">
+                <h2 class="text-lg sm:text-xl font-bold text-gray-900 truncate">
                   {{ resultado.estudiante.nombre }} {{ resultado.estudiante.apellido }}
                 </h2>
                 <p class="text-sm text-gray-500 truncate">{{ resultado.estudiante.programa }}</p>
@@ -126,49 +171,38 @@ type Estado = 'idle' | 'loading' | 'success' | 'error';
               </div>
             </div>
 
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <p class="text-gray-400 text-xs mb-1">Documento</p>
-                <p class="text-gray-700 font-medium">{{ resultado.estudiante.documento }}</p>
-              </div>
-              <div>
-                <p class="text-gray-400 text-xs mb-1">Matriculas</p>
-                <p class="text-gray-700 font-medium">{{ totalCursos }}</p>
-              </div>
-              <div>
-                <p class="text-gray-400 text-xs mb-1">Email</p>
-                <p class="text-gray-700 font-medium truncate">{{ resultado.estudiante.email || '—' }}</p>
-              </div>
-              <div>
-                <p class="text-gray-400 text-xs mb-1">Telefono</p>
-                <p class="text-gray-700 font-medium">{{ resultado.estudiante.telefono || '—' }}</p>
-              </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              @for (d of datosPersonales(); track d.etiqueta) {
+                <div class="flex items-start gap-2.5 min-w-0">
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-gray-400" style="background: var(--surface2);">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" [attr.d]="d.icono"/></svg>
+                  </span>
+                  <div class="min-w-0">
+                    <p class="text-gray-400 text-[11px] uppercase tracking-wide font-semibold">{{ d.etiqueta }}</p>
+                    <p class="text-gray-700 font-medium truncate" [title]="d.valor">{{ d.valor }}</p>
+                  </div>
+                </div>
+              }
             </div>
           </div>
 
           <!-- Resumen numerico -->
-          <div class="p-4 sm:p-6 border-b border-gray-100">
-            <h3 class="text-sm font-semibold text-gray-600 mb-3">Historial academico</h3>
-
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-              <div class="bg-gray-50 rounded-xl p-3 text-center">
-                <p class="text-2xl font-bold text-gray-800">{{ totalCursos }}</p>
-                <p class="text-xs text-gray-400 mt-1">Cursos</p>
-              </div>
-              <div class="bg-green-50 rounded-xl p-3 text-center">
-                <p class="text-2xl font-bold text-green-600">{{ totalPracticas }}</p>
-                <p class="text-xs text-gray-400 mt-1">Practicas</p>
-              </div>
-              <div class="bg-[#39A900]/5 rounded-xl p-3 text-center">
-                <p class="text-2xl font-bold text-[#39A900]">{{ totalBitacoras }}</p>
-                <p class="text-xs text-gray-400 mt-1">Bitacoras</p>
-              </div>
-              <div class="bg-blue-50 rounded-xl p-3 text-center">
-                <p class="text-2xl font-bold text-blue-600">{{ totalObservaciones }}</p>
-                <p class="text-xs text-gray-400 mt-1">Observaciones</p>
-              </div>
+          <div class="p-4 sm:p-6 border-b" style="border-color: var(--border);">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+              @for (e of estadisticas(); track e.etiqueta) {
+                <div class="rounded-xl p-3.5 flex items-center gap-3" [style.background]="e.bg">
+                  <span class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background: var(--surface);" [style.color]="e.color">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" [attr.d]="e.icono"/></svg>
+                  </span>
+                  <div>
+                    <p class="text-xl font-bold leading-none" [style.color]="e.color">{{ e.valor }}</p>
+                    <p class="text-xs text-gray-500 mt-1">{{ e.etiqueta }}</p>
+                  </div>
+                </div>
+              }
             </div>
 
+            <h3 class="text-sm font-semibold text-gray-700 mb-3">Matrículas</h3>
             @if (resultado.historial.length) {
               <div class="overflow-x-auto">
                 <table class="w-full text-sm">
@@ -204,13 +238,13 @@ type Estado = 'idle' | 'loading' | 'success' | 'error';
                 </table>
               </div>
             } @else {
-              <p class="text-sm text-gray-400 italic">Sin matriculas registradas.</p>
+              <p class="text-sm text-gray-400">Sin matrículas registradas.</p>
             }
           </div>
 
           <!-- Etapas practicas -->
           <div class="p-4 sm:p-6">
-            <h3 class="text-sm font-semibold text-gray-600 mb-3">Etapa practica</h3>
+            <h3 class="text-sm font-semibold text-gray-700 mb-3">Etapa práctica</h3>
 
             @if (resultado.practicas.length) {
               @for (p of resultado.practicas; track p.id) {
@@ -222,9 +256,7 @@ type Estado = 'idle' | 'loading' | 'success' | 'error';
                 />
               }
             } @else {
-              <p class="text-sm text-gray-400 italic">
-                El aprendiz no tiene etapa practica registrada.
-              </p>
+              <p class="text-sm text-gray-400">El aprendiz no tiene etapa práctica registrada.</p>
             }
           </div>
 
@@ -244,12 +276,96 @@ export class HistorialComponent implements OnInit {
    *  la campana de notificaciones) hasta que la lista de personas cargue. */
   private personaIdPendiente: string | null = null;
 
+  @ViewChild('buscador') private buscador?: HistorialBuscadorComponent;
+
   ngOnInit(): void {
     const personaId = this.route.snapshot.queryParamMap.get('persona');
     if (personaId) {
       this.personaIdPendiente = personaId;
       this.cargarPersonasLazy();
+    } else if (this.idsRecientes().length) {
+      // Para mostrar los recientes hace falta la lista (solo se guardan ids).
+      this.cargarPersonasLazy();
     }
+  }
+
+  // ── Consultados recientemente ─────────────────────────────────────────────
+  /** Solo ids internos (idPersona) en este navegador: ni nombres ni cédulas. */
+  readonly idsRecientes = signal<string[]>(leerRecientes());
+
+  readonly recientes = computed(() => {
+    const porId = new Map(this.personas().map((p: any) => [p.idPersona ?? p.id_persona ?? p.id, p]));
+    return this.idsRecientes()
+      .map((id) => porId.get(id))
+      .filter((p): p is any => !!p)
+      .map((p: any) => {
+        const nombre = [p.nombre, p.apellido].filter(Boolean).join(' ').trim() || 'Sin nombre';
+        return {
+          id: p.idPersona ?? p.id_persona ?? p.id,
+          persona: p,
+          nombre,
+          iniciales: inicialesDe(nombre),
+          cedula: String(p.cedula ?? p.numeroDocumento ?? ''),
+          cargo: etiquetaCargo(p.cargo),
+        };
+      });
+  });
+
+  abrirReciente(p: any): void {
+    this.buscador?.mostrarNombre([p.nombre, p.apellido].filter(Boolean).join(' ').trim());
+    this.seleccionarPersona(p);
+  }
+
+  borrarRecientes(): void {
+    this.idsRecientes.set([]);
+    guardarRecientes([]);
+  }
+
+  private recordar(p: any): void {
+    const id = p.idPersona ?? p.id_persona ?? p.id;
+    if (!id) return;
+    const lista = [id, ...this.idsRecientes().filter((x) => x !== id)].slice(0, MAX_RECIENTES);
+    this.idsRecientes.set(lista);
+    guardarRecientes(lista);
+  }
+
+  /** Tarjetas del estado inicial: qué muestra el historial. */
+  readonly queVeras = [
+    { titulo: 'Matrículas', texto: 'Fichas y programas en los que ha estado, con su periodo y estado.',
+      icono: 'M4 19.5V6a2 2 0 0 1 2-2h12v14H6a2 2 0 0 0-2 2zm0 0A2 2 0 0 0 6 22h12',
+      bg: 'var(--info-bg)', color: 'var(--info-text)' },
+    { titulo: 'Etapa práctica', texto: 'Empresa, fechas, instructores asignados y avance de la práctica.',
+      icono: 'M3 7h18v13H3zM8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2',
+      bg: 'var(--ok-bg)', color: 'var(--ok-text)' },
+    { titulo: 'Bitácoras y observaciones', texto: 'Cada seguimiento con sus documentos y comentarios.',
+      icono: 'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 13h6M9 17h4',
+      bg: 'var(--violet-bg)', color: 'var(--violet-text)' },
+  ];
+
+  /** Documento, matrículas, email y teléfono del aprendiz consultado. */
+  datosPersonales() {
+    const e = this.resultado?.estudiante;
+    if (!e) return [];
+    return [
+      { etiqueta: 'Documento', valor: e.documento || '—', icono: 'M3 6h18v12H3zM7 10h4M7 14h6M15 10h2' },
+      { etiqueta: 'Matrículas', valor: String(this.totalCursos), icono: 'M4 19.5V6a2 2 0 0 1 2-2h12v14H6a2 2 0 0 0-2 2zm0 0A2 2 0 0 0 6 22h12' },
+      { etiqueta: 'Email', valor: e.email || '—', icono: 'M3 6h18v12H3zM3 7l9 6 9-6' },
+      { etiqueta: 'Teléfono', valor: e.telefono || '—', icono: 'M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2' },
+    ];
+  }
+
+  /** Tarjetas de totales del historial. */
+  estadisticas() {
+    return [
+      { etiqueta: 'Cursos', valor: this.totalCursos, bg: 'var(--info-bg)', color: 'var(--info-text)',
+        icono: 'M4 19.5V6a2 2 0 0 1 2-2h12v14H6a2 2 0 0 0-2 2zm0 0A2 2 0 0 0 6 22h12' },
+      { etiqueta: 'Prácticas', valor: this.totalPracticas, bg: 'var(--ok-bg)', color: 'var(--ok-text)',
+        icono: 'M3 7h18v13H3zM8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2' },
+      { etiqueta: 'Bitácoras', valor: this.totalBitacoras, bg: 'var(--accent-soft)', color: 'var(--accent-text)',
+        icono: 'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5' },
+      { etiqueta: 'Observaciones', valor: this.totalObservaciones, bg: 'var(--violet-bg)', color: 'var(--violet-text)',
+        icono: 'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z' },
+    ];
   }
 
   // ── Estado ────────────────────────────────────────────────────────────────
@@ -324,6 +440,7 @@ export class HistorialComponent implements OnInit {
   seleccionarPersona(p: any): void {
     const cedula = String(p.cedula ?? p.numeroDocumento ?? '');
     this.ultimoDoc = cedula;
+    this.recordar(p);
     this.cargarPersonasLazy();
     this.buscar$.next(cedula);
   }
@@ -425,8 +542,7 @@ export class HistorialComponent implements OnInit {
 
   // ── Computed helpers ──────────────────────────────────────────────────────
   iniciales(nombre: string): string {
-    return (nombre ?? '').split(/\s+/).slice(0, 2)
-      .map(n => n[0] ?? '').join('').toUpperCase() || '?';
+    return inicialesDe(nombre);
   }
 
   get totalCursos():    number { return this.resultado?.historial.length ?? 0; }
@@ -443,4 +559,21 @@ export class HistorialComponent implements OnInit {
       (acc, p) => acc + p.seguimientos.reduce((a, s) => a + s.observaciones.length, 0), 0,
     );
   }
+}
+
+const CLAVE_RECIENTES = 'historial.recientes';
+const MAX_RECIENTES = 6;
+
+/** Ids de personas consultadas (por navegador). Vacío si no hay o no se puede leer. */
+function leerRecientes(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(CLAVE_RECIENTES) ?? '[]');
+    return Array.isArray(v) ? v.filter((x) => typeof x === 'string').slice(0, MAX_RECIENTES) : [];
+  } catch {
+    return [];
+  }
+}
+
+function guardarRecientes(ids: string[]): void {
+  try { localStorage.setItem(CLAVE_RECIENTES, JSON.stringify(ids)); } catch { /* sin almacenamiento: no se recuerdan */ }
 }

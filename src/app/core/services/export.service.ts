@@ -4,6 +4,7 @@ import autoTable from 'jspdf-autotable';
 import * as ExcelJS from 'exceljs';
 import { Stats, DonaStats, categorizarEstado } from './stats.service';
 import { ResultadoConsulta } from '../../shared/models/estudiante.model';
+import { InformePdf, TINTA, RGB, fechaInforme } from '../../shared/utils/informe-pdf';
 
 /** Charts ya renderizados + datos para gráficos nativos de Excel. */
 export interface GraficosExport {
@@ -1015,214 +1016,124 @@ export class ExportService {
     return map.get(id) ?? 'Instructor no encontrado';
   }
 
+  /**
+   * PDF del historial con formato de informe (estilo común en
+   * shared/utils/informe-pdf.ts, el mismo del reporte del día de horarios).
+   * Rediseñado 2026-10-01: el anterior pintaba cada sección con un color
+   * distinto y repartía bitácoras y observaciones en tablas sueltas.
+   */
   exportarHistorialPDF(resultado: ResultadoConsulta, personasMap: Map<string, string>): void {
     const { estudiante, historial, practicas } = resultado;
-    const doc = new jsPDF();
-    const pw = doc.internal.pageSize.getWidth();
-    const ph = doc.internal.pageSize.getHeight();
-    const mg = 14;
-    const fecha = new Date().toLocaleDateString('es-CO', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-    });
+    const inf = new InformePdf({ marca: 'Plataforma académica · SENA', tipo: 'Historial del aprendiz' });
+    const f = fechaInforme;
+    const rango = (a?: string, b?: string) => (a || b ? `${f(a)} – ${f(b)}` : '—');
 
-    const es = (y: number, n: number) => {
-      if (y + n > ph - mg) { doc.addPage(); return mg; }
-      return y;
-    };
+    const nombre = `${estudiante.nombre ?? ''} ${estudiante.apellido ?? ''}`.replace(/\s+/g, ' ').trim() || 'Aprendiz';
+    const generado = new Date().toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
+    const totalBitacoras = practicas.reduce((n, p) => n + p.seguimientos.reduce((m, s) => m + s.bitacoras.length, 0), 0);
+    const totalObservaciones = practicas.reduce((n, p) => n + p.seguimientos.reduce((m, s) => m + s.observaciones.length, 0), 0);
 
-    // ── Encabezado ──────────────────────────────────────────────────────────
-    doc.setFillColor(...this.hexToRgb(this.C.verdeOsc));
-    doc.rect(0, 0, pw, 30, 'F');
-    doc.setFillColor(...this.hexToRgb(this.C.verde));
-    doc.rect(0, 0, pw, 24, 'F');
-    doc.setFillColor(...this.hexToRgb(this.C.verdeOsc));
-    doc.triangle(pw - 36, 0, pw, 0, pw, 30, 'F');
-    doc.setFillColor(255, 255, 255);
-    doc.circle(pw - 18, 15, 9, 'F');
-    doc.setTextColor(...this.hexToRgb(this.C.verdeOsc));
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.text('SENA', pw - 18, 17, { align: 'center' });
+    inf.encabezado(
+      nombre,
+      [`C.C. ${estudiante.documento || '—'}`, estudiante.programa, estudiante.estado].filter(Boolean).join('   ·   '),
+      `Generado el ${generado}`,
+    );
+    inf.cifras([
+      { valor: historial.length, etiqueta: 'Matrículas' },
+      { valor: practicas.length, etiqueta: 'Etapas prácticas' },
+      { valor: totalBitacoras, etiqueta: 'Bitácoras' },
+      { valor: totalObservaciones, etiqueta: 'Observaciones' },
+    ]);
 
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(15);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`Historial — ${estudiante.nombre} ${estudiante.apellido}`, mg, 12);
-    doc.setFontSize(8.5);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Generado el ${fecha}`, mg, 20);
+    // ── 1. Datos personales ─────────────────────────────────────────────────
+    inf.seccion('1', 'Datos personales');
+    inf.datos([
+      ['Documento', estudiante.documento || '—'],
+      ['Estado', estudiante.estado || '—'],
+      ['Correo electrónico', estudiante.email || '—'],
+      ['Teléfono', estudiante.telefono || '—'],
+      ['Programa actual', estudiante.programa || '—'],
+    ], 2);
 
-    let y = 38;
-
-    // ── Datos Personales ────────────────────────────────────────────────────
-    y = this.ribbon(doc, 'Datos Personales', this.C.verdeOsc, y, mg);
-    y += 2;
-
-    autoTable(doc, {
-      startY: y,
-      head: [['Campo', 'Valor']],
-      body: [
-        ['Documento', estudiante.documento || '—'],
-        ['Programa', estudiante.programa || '—'],
-        ['Correo', estudiante.email || '—'],
-        ['Teléfono', estudiante.telefono || '—'],
-        ['Estado', estudiante.estado],
-        ['Total Matrículas', String(historial.length)],
-        ['Total Etapas Prácticas', String(practicas.length)],
-      ],
-      headStyles: { fillColor: this.hexToRgb(this.C.verdeOsc), textColor: 255 },
-      alternateRowStyles: { fillColor: this.hexToRgb(this.C.verdeClaro) },
-      styles: { fontSize: 9 },
-      margin: { left: mg, right: mg },
-      columnStyles: { 0: { cellWidth: 40, fontStyle: 'bold' } },
-    });
-    y = (doc as any).lastAutoTable.finalY + 12;
-
-    // ── Historial Académico ─────────────────────────────────────────────────
-    y = es(y, 20);
-    y = this.ribbon(doc, 'Historial Académico (Matrículas)', this.C.azul, y, mg);
-    y += 2;
-
-    autoTable(doc, {
-      startY: y,
-      head: [['Ficha', 'Programa', 'Periodo', 'Estado']],
-      body: historial.length
-        ? historial.map(h => [h.idCurso || '—', h.nombreCurso || '—', h.periodo || '—', h.estado])
-        : [['—', 'Sin matrículas registradas', '—', '—']],
-      headStyles: { fillColor: this.hexToRgb(this.C.azul), textColor: 255 },
-      alternateRowStyles: { fillColor: this.hexToRgb(this.C.azulClaro) },
-      styles: { fontSize: 9 },
-      margin: { left: mg, right: mg },
-    });
-    y = (doc as any).lastAutoTable.finalY + 12;
-
-    // ── Etapas Prácticas ────────────────────────────────────────────────────
-    if (!practicas.length) {
-      y = es(y, 10);
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(120, 120, 120);
-      doc.text('El aprendiz no tiene etapa práctica registrada.', mg, y);
+    // ── 2. Matrículas ───────────────────────────────────────────────────────
+    inf.seccion('2', 'Matrículas');
+    if (historial.length) {
+      const colorEstado: Record<string, RGB> = { Aprobado: TINTA.ok, Reprobado: TINTA.error, 'En curso': TINTA.info };
+      inf.tabla(['Ficha', 'Programa', 'Periodo', 'Estado'],
+        historial.map((h) => [h.idCurso || '—', h.nombreCurso || '—', h.periodo || '—', h.estado || '—']),
+        {
+          columnStyles: { 0: { cellWidth: 24 }, 2: { cellWidth: 26 }, 3: { cellWidth: 24, fontStyle: 'bold' } },
+          didParseCell: (d: any) => {
+            if (d.section === 'body' && d.column.index === 3) d.cell.styles.textColor = colorEstado[d.cell.raw] ?? TINTA.texto;
+          },
+        });
+    } else {
+      inf.vacio('Sin matrículas registradas.');
     }
 
-    practicas.forEach((p, idx) => {
-      y = es(y, 16);
-      y = this.ribbon(doc, `Etapa Práctica ${idx + 1} — ${p.programa || 'Sin programa'} (${p.fichaCurso || '—'})`, this.C.verdeOsc, y, mg);
-      y += 2;
+    // ── 3. Etapa práctica ───────────────────────────────────────────────────
+    inf.seccion('3', 'Etapa práctica');
+    if (!practicas.length) inf.vacio('El aprendiz no tiene etapa práctica registrada.');
 
-      autoTable(doc, {
-        startY: y,
-        head: [['Empresa', 'Modalidad', 'Estado', 'Inicio', 'Fin']],
-        body: [[
-          p.empresa || '—', p.modalidad || '—', p.estado || '—',
-          p.fechaInicio ? new Date(p.fechaInicio).toLocaleDateString('es-CO') : '—',
-          p.fechaFin    ? new Date(p.fechaFin).toLocaleDateString('es-CO')    : '—',
-        ]],
-        headStyles: { fillColor: this.hexToRgb(this.C.verdeOsc), textColor: 255 },
-        styles: { fontSize: 8.5 },
-        margin: { left: mg, right: mg },
-        didDrawCell: (data) => {
-          if (data.section === 'body' && data.column.index === 2) {
-            const estado = String(data.cell.raw);
-            doc.setFillColor(...this.hexToRgb(this.estadoBg(estado)));
-            doc.rect(data.cell.x + 0.1, data.cell.y + 0.1, data.cell.width - 0.2, data.cell.height - 0.2, 'F');
-            doc.setTextColor(...this.hexToRgb(this.estadoFg(estado)));
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8);
-            doc.text(estado, data.cell.x + data.cell.width / 2, data.cell.y + data.cell.height / 2 + 1, { align: 'center' });
-          }
-        },
-      });
-      y = (doc as any).lastAutoTable.finalY + 6;
+    practicas.forEach((p, i) => {
+      inf.subseccion(`3.${i + 1}`, `${p.programa || 'Programa sin nombre'}${p.fichaCurso ? `  —  Ficha ${p.fichaCurso}` : ''}`);
+      inf.datos([
+        ['Empresa', p.empresa || '—'], ['Modalidad', p.modalidad || '—'], ['Estado', p.estado || '—'],
+        ['Inicio', f(p.fechaInicio)], ['Fin', f(p.fechaFin)], ['Seguimientos', String(p.seguimientos.length)],
+      ], 3);
+      if (p.observacion) inf.nota('Observación general', p.observacion);
 
       // Instructores
-      y = es(y, 14);
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(60, 60, 60);
-      doc.text('Instructores Asignados', mg + 2, y);
-      y += 2;
+      inf.rotulo('Instructores asignados');
+      if (p.asignaciones.length) {
+        inf.tabla(['Instructor', 'Horas', 'Periodo', 'Estado'],
+          p.asignaciones.map((a) => [this.nombreInstructor(a.instructor, personasMap), a.horas ?? 0, rango(a.fechaInicio, a.fechaFin), a.estado || '—']),
+          { columnStyles: { 1: { cellWidth: 16, halign: 'center' }, 2: { cellWidth: 48 }, 3: { cellWidth: 26 } } });
+      } else {
+        inf.y += 3;
+        inf.vacio('Sin instructores asignados.');
+      }
 
-      autoTable(doc, {
-        startY: y,
-        head: [['Instructor', 'Estado', 'Horas', 'Inicio', 'Fin']],
-        body: p.asignaciones.length
-          ? p.asignaciones.map(a => [
-              this.nombreInstructor(a.instructor, personasMap), a.estado || '—',
-              String(a.horas ?? 0),
-              a.fechaInicio ? new Date(a.fechaInicio).toLocaleDateString('es-CO') : '—',
-              a.fechaFin    ? new Date(a.fechaFin).toLocaleDateString('es-CO')    : '—',
-            ])
-          : [['—', 'Sin instructores asignados', '—', '—', '—']],
-        headStyles: { fillColor: this.hexToRgb(this.C.morado), textColor: 255 },
-        alternateRowStyles: { fillColor: this.hexToRgb(this.C.moradoClaro) },
-        styles: { fontSize: 8 },
-        margin: { left: mg, right: mg },
-      });
-      y = (doc as any).lastAutoTable.finalY + 8;
+      // Seguimientos: una tabla cronológica por seguimiento con bitácoras y observaciones juntas.
+      // El rótulo viaja con el primer seguimiento (título + cabecera + una fila).
+      inf.rotulo(`Seguimientos (${p.seguimientos.length})`, p.seguimientos.length ? 46 : 14);
+      inf.y += 4.5;
+      if (!p.seguimientos.length) inf.vacio('Sin seguimientos registrados.');
 
-      // Seguimientos
-      p.seguimientos.forEach((s, idxS) => {
-        y = es(y, 14);
-        y = this.ribbon(doc, `Seguimiento ${idxS + 1} (${s.estado || '—'})`, this.C.azul, y, mg);
-        y += 2;
-
-        if (s.observacion) {
-          y = es(y, 8);
-          doc.setFontSize(8);
-          doc.setFont('helvetica', 'italic');
-          doc.setTextColor(100, 100, 100);
-          const ln = doc.splitTextToSize(s.observacion, pw - mg * 2 - 4);
-          doc.text(ln, mg + 4, y + 4);
-          y += 4 + ln.length * 4;
+      p.seguimientos.forEach((s, j) => {
+        // Título + observación + cabecera y primera fila de su tabla, en la misma página.
+        const lineasObs = s.observacion ? inf.partir(s.observacion, inf.ancho, 8.6) : [];
+        inf.asegurar(10 + lineasObs.length * 4 + 22);
+        inf.texto(`Seguimiento ${j + 1}`, inf.mg, inf.y, { size: 9.2, bold: true });
+        inf.texto(`${s.estado || 'Sin estado'}   ·   ${rango(s.fechaInicio, s.fechaFin)}`, inf.pw - inf.mg, inf.y, { size: 8, color: TINTA.gris, align: 'right' });
+        inf.y += 2;
+        inf.regla(inf.y);
+        inf.y += 3.5;
+        if (lineasObs.length) {
+          inf.texto(lineasObs, inf.mg, inf.y + 1, { size: 8.6, italic: true, color: TINTA.gris });
+          inf.y += lineasObs.length * 4 + 3;
         }
 
-        autoTable(doc, {
-          startY: y + 2,
-          head: [['Bitácora — Fecha', 'Estado']],
-          body: s.bitacoras.length
-            ? s.bitacoras.map(b => [b.fecha ? new Date(b.fecha).toLocaleDateString('es-CO') : '—', b.estado || '—'])
-            : [['—', 'Sin bitácoras']],
-          headStyles: { fillColor: this.hexToRgb(this.C.azul), textColor: 255 },
-          styles: { fontSize: 8 },
-          margin: { left: mg + 4, right: mg },
-          tableWidth: pw - mg * 2 - 4,
-        });
-        y = (doc as any).lastAutoTable.finalY + 3;
+        const registros = [
+          ...s.bitacoras.map((b) => ({ fecha: b.fecha, tipo: 'Bitácora', detalle: b.estado ? `Estado: ${b.estado}` : '—' })),
+          ...s.observaciones.map((o) => ({ fecha: o.fecha, tipo: 'Observación', detalle: o.descripcion || '—' })),
+        ].sort((a, b) => (a.fecha ?? '').localeCompare(b.fecha ?? ''));
 
-        autoTable(doc, {
-          startY: y,
-          head: [['Observación — Fecha', 'Descripción']],
-          body: s.observaciones.length
-            ? s.observaciones.map(o => [o.fecha ? new Date(o.fecha).toLocaleDateString('es-CO') : '—', o.descripcion || '—'])
-            : [['—', 'Sin observaciones']],
-          headStyles: { fillColor: this.hexToRgb(this.C.amarillo), textColor: 255 },
-          styles: { fontSize: 8 },
-          columnStyles: { 1: { cellWidth: pw - mg * 2 - 4 - 35 } },
-          margin: { left: mg + 4, right: mg },
-          tableWidth: pw - mg * 2 - 4,
-        });
-        y = (doc as any).lastAutoTable.finalY + 8;
+        if (registros.length) {
+          inf.tabla(['Fecha', 'Registro', 'Detalle'],
+            registros.map((r) => [f(r.fecha), r.tipo, r.detalle]),
+            { columnStyles: { 0: { cellWidth: 24 }, 1: { cellWidth: 26, fontStyle: 'bold' } } });
+        } else {
+          inf.vacio('Sin bitácoras ni observaciones en este seguimiento.');
+        }
+        inf.y += 1;
       });
-
-      y += 4;
+      inf.y += 4;
     });
 
-    // ── Pie de página ───────────────────────────────────────────────────────
-    const pages = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pages; i++) {
-      doc.setPage(i);
-      doc.setFillColor(...this.hexToRgb(this.C.verdeOsc));
-      doc.rect(0, ph - 10, pw, 10, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.5);
-      doc.text(`Historial Aprendiz · SENA`, mg, ph - 4);
-      doc.text(`Página ${i} de ${pages}`, pw - mg - 28, ph - 4);
-    }
-
-    const slug = `${estudiante.nombre}_${estudiante.apellido}`.trim().replace(/\s+/g, '_').toLowerCase() || 'aprendiz';
-    doc.save(`historial_${slug}_${new Date().toISOString().slice(0, 10)}.pdf`);
+    inf.terminar({ izquierda: `${nombre}  ·  C.C. ${estudiante.documento || '—'}`, derechaEncabezado: nombre });
+    const slug = nombre.replace(/\s+/g, '_').toLowerCase() || 'aprendiz';
+    inf.doc.save(`historial_${slug}_${new Date().toISOString().slice(0, 10)}.pdf`);
   }
 
   // ══════════════════════════════════════════════════════════════════════════
