@@ -20,6 +20,9 @@ import { DialogDirective } from '../../../shared/directives/dialog.directive';
 import { EsperaDirective } from '../../../shared/directives/espera.directive';
 import { PageSizeSelectComponent } from '../../../shared/components/page-size-select.component';
 import { TableFilterComponent } from '../../../shared/components/table-filter.component';
+import { CargasSecundarias } from '../data-access/cargas-secundarias';
+import { AvisoCargasComponent } from '../ui/aviso-cargas.component';
+import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
 
 interface LineaAsignacionForm{
   id_producto:string;
@@ -46,7 +49,7 @@ interface Ficha {
 @Component({
   selector: 'app-materiales-asignaciones',
   standalone: true,
-  imports: [EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, ElegirPlacasAsignacionModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent, TableFilterComponent],
+  imports: [AvisoCargasComponent, EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, ElegirPlacasAsignacionModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent, TableFilterComponent],
   template: `
     <div class="p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
@@ -60,6 +63,8 @@ interface Ficha {
           + Nueva asignación
         </button>
       </div>
+
+      <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
 
       @if (bodegasInactivas().length > 0) {
         <app-alert class="mb-4" variante="advertencia" [titulo]="bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas'">
@@ -358,6 +363,10 @@ interface Ficha {
   `,
 })
 export class MaterialesAsignacionesComponent implements OnInit {
+  /** Catálogos auxiliares de la pantalla: si uno falla se avisa, no se muestra vacío. */
+  readonly secundarias = new CargasSecundarias();
+  readonly recargar = (): void => void this.cargar();
+  private readonly acceso = inject(MaterialesScreenPolicy);
   private readonly confirm = inject(ConfirmService);
 
   asignaciones: Asignacion[] = [];
@@ -600,11 +609,12 @@ export class MaterialesAsignacionesComponent implements OnInit {
 
   private async cargar(): Promise<void> {
     this.loading = true;
+    this.secundarias.reiniciar();
     try {
       const [asignaciones, productos, sitios, fichasRaw, ambientes] = await Promise.all([
         this.api.listarAsignaciones(),
         this.api.listarProductos(),
-        this.api.listarSitios().catch(() => [] as Sitio[]),
+        this.secundarias.cargar('bodegas', () => this.api.listarSitios(), this.acceso.puedeListar('sitios')),
         this.erpCatalogo.getFichas(),
         this.erpCatalogo.getAmbientes(),
       ]);

@@ -15,6 +15,7 @@ import { EtapaPracticaItem, ResultadoConsulta } from '../../../shared/models/est
 import { HistorialBuscadorComponent } from './components/historial-buscador.component';
 import { EtapaPracticaCardComponent } from './components/etapa-practica-card.component';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
+import { log } from '../../../core/utils/log';
 
 type Estado = 'idle' | 'loading' | 'success' | 'error';
 
@@ -310,7 +311,7 @@ export class HistorialComponent implements OnInit {
       } else {
         this.errorMsg       = 'No se pudo cargar el historial. Verifica tu conexión e intenta de nuevo.';
         this.esReintentable = true;
-        console.error('[historial] consulta falló', err?.status ?? err);
+        log.error('[historial] consulta falló', err?.status ?? err);
       }
       this.estado = 'error';
     });
@@ -350,7 +351,7 @@ export class HistorialComponent implements OnInit {
       error: (err) => {
         // El autocomplete queda vacío pero avisamos y el próximo intento reintenta
         // (personasCargadas sigue en false y el servicio no cachea el fallo).
-        console.error('[historial] carga de personas falló', err?.status ?? err);
+        log.error('[historial] carga de personas falló', err?.status ?? err);
         this.cargandoPersonas.set(false);
         this.toast.httpError(err, 'No se pudo cargar la lista de aprendices. Intenta de nuevo.');
       },
@@ -368,11 +369,11 @@ export class HistorialComponent implements OnInit {
   }
 
   // ── Exportar ──────────────────────────────────────────────────────────────
-  exportarPDF(): void {
+  async exportarPDF(): Promise<void> {
     if (!this.resultado || this.exportando()) return;
     this.exportando.set('pdf');
     try {
-      this.exportService.exportarHistorialPDF(this.resultado, this.personasMap());
+      await this.exportService.exportarHistorialPDF(this.resultado, this.personasMap());
       this.toast.ok('PDF generado', 'El historial fue exportado correctamente.');
     } catch {
       this.toast.error('Error', 'No se pudo generar el PDF.');
@@ -416,7 +417,7 @@ export class HistorialComponent implements OnInit {
       // Antes sin catch (auditoría 2026-09-16): el panel de documentos
       // quedaba vacío en silencio, sin avisar — mismo patrón que
       // cargarPersonasLazy() en este mismo componente.
-      console.error('[historial] carga de documentos falló', err?.status ?? err);
+      log.error('[historial] carga de documentos falló', err?.status ?? err);
       this.toast.httpError(err, 'No se pudieron cargar los documentos de las prácticas.');
     } finally {
       this.cargandoDocs.set(false);

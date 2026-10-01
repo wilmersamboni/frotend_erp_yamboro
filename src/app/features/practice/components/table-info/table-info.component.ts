@@ -19,6 +19,7 @@ import { TablePaginationComponent }    from './table-pagination.component';
 import {
   Aprendiz, COLUMNS, INITIAL_VISIBLE_COLS, formatDate,
 } from './table-info.types';
+import { log } from '../../../../core/utils/log';
 
 @Component({
   selector: 'app-table-info',
@@ -299,7 +300,7 @@ export class TableInfoComponent implements OnInit {
       }
 
     } catch (e: any) {
-      console.error('[TableInfo] Error:', e?.message ?? e);
+      log.error('[TableInfo] Error:', e?.message ?? e);
       this.data.set([]);
     } finally {
       this.loading.set(false);
@@ -372,7 +373,7 @@ export class TableInfoComponent implements OnInit {
       this.data.update(lista =>
         lista.map(a => a.id === item.id ? { ...a, estado: estadoAnterior } : a)
       );
-      console.error('[TableInfo] Error cambiando estado:', e?.message ?? e);
+      log.error('[TableInfo] Error cambiando estado:', e?.message ?? e);
     }
   }
 

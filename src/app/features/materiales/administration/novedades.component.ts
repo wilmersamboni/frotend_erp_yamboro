@@ -19,6 +19,9 @@ import { EstadoItem, Item, MaterialesApiService, Novedad, Sitio, TipoNovedad } f
 import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
+import { CargasSecundarias } from '../data-access/cargas-secundarias';
+import { AvisoCargasComponent } from '../ui/aviso-cargas.component';
+import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
 
 /** Estados en los que puede quedar el ítem al mover una novedad (Tier SigMat M7). */
 const OPCIONES_ESTADO_ITEM: { label: string; value: EstadoItem | '' }[] = [
@@ -67,7 +70,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
 @Component({
   selector: 'app-materiales-novedades',
   standalone: true,
-  imports: [DialogDirective, EmptyStateComponent, SearchableSelectComponent, FormsModule, DatePipe, AdminModalComponent, BarcodeScannerComponent, StatusBadgeComponent, StatCardComponent, TableFilterComponent, LoadingSkeletonComponent],
+  imports: [AvisoCargasComponent, DialogDirective, EmptyStateComponent, SearchableSelectComponent, FormsModule, DatePipe, AdminModalComponent, BarcodeScannerComponent, StatusBadgeComponent, StatCardComponent, TableFilterComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-4 sm:p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
@@ -89,6 +92,8 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
           + Nueva novedad
         </button>
       </div>
+
+      <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
 
       <div class="flex flex-wrap gap-2 mb-5">
         <app-table-filter label="Tipo" [options]="opcionesTipoFiltro" [value]="tipoFiltro" (valueChange)="tipoFiltro = $event" />
@@ -267,6 +272,10 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
   `,
 })
 export class MaterialesNovedadesComponent implements OnInit {
+  /** Catálogos auxiliares de la pantalla: si uno falla se avisa, no se muestra vacío. */
+  readonly secundarias = new CargasSecundarias();
+  readonly recargar = (): void => void this.cargar();
+  private readonly acceso = inject(MaterialesScreenPolicy);
   private readonly confirm = inject(ConfirmService);
 
   novedades: Novedad[] = [];
@@ -428,14 +437,15 @@ export class MaterialesNovedadesComponent implements OnInit {
   private async cargar(): Promise<void> {
     this.idItemFiltro = this.route.snapshot.queryParamMap.get('id_item');
     this.loading = true;
+    this.secundarias.reiniciar();
     try {
-      // M9 — solo `listarNovedades()` es crítico; una secundaria con 403
-      // (excepción personal) no debe tumbar la tabla entera.
+      // M9 — solo `listarNovedades()` es crítico; una secundaria que falle no
+      // debe tumbar la tabla entera (pero tampoco pasar por "no hay datos").
       const [novedades, items, sitios, usuarios] = await Promise.all([
         this.api.listarNovedades(),
-        this.api.listarItems().catch(() => [] as Item[]),
-        this.api.listarSitios().catch(() => [] as Sitio[]),
-        this.personaApi.listarUsuarios().catch(() => []),
+        this.secundarias.cargar('ítems', () => this.api.listarItems(), this.acceso.puedeListar('items')),
+        this.secundarias.cargar('bodegas', () => this.api.listarSitios(), this.acceso.puedeListar('sitios')),
+        this.secundarias.cargar('usuarios', () => this.personaApi.listarUsuarios()),
       ]);
       this.novedades = novedades;
       this.items = items;

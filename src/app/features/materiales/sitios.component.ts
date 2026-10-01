@@ -9,6 +9,8 @@ import { ConfirmService } from '../../core/services/confirm.service';
 import { Item, MaterialesApiService, Sitio } from './data-access/materiales-api.service';
 import { PersonaService } from '../../core/services/persona.service';
 import { DialogDirective } from '../../shared/directives/dialog.directive';
+import { CargasSecundarias } from './data-access/cargas-secundarias';
+import { AvisoCargasComponent } from './ui/aviso-cargas.component';
 
 const OPCIONES_FILTRO_TIPO = [
   { label: 'Todos los tipos', value: '' },
@@ -53,10 +55,12 @@ const OPCIONES_TIPO: OpcionSelect[] = [
 @Component({
   selector: 'app-materiales-sitios',
   standalone: true,
-  imports: [DialogDirective, FormsModule, AdminTableComponent, AdminModalComponent],
+  imports: [AvisoCargasComponent, DialogDirective, FormsModule, AdminTableComponent, AdminModalComponent],
   template: `
     <div class="p-6">
       <h1 class="text-xl font-bold text-gray-800 mb-5">Sitios de almacenamiento</h1>
+
+      <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
 
       <app-admin-table
         [addLabel]="puedeCrear() ? 'Nuevo sitio' : null"
@@ -131,6 +135,9 @@ const OPCIONES_TIPO: OpcionSelect[] = [
   `,
 })
 export class MaterialesSitiosComponent implements OnInit {
+  /** Catálogos auxiliares de la pantalla: si uno falla se avisa, no se muestra vacío. */
+  readonly secundarias = new CargasSecundarias();
+  readonly recargar = (): void => void this.cargar();
   private readonly confirm = inject(ConfirmService);
 
   sitios: Sitio[] = [];
@@ -291,6 +298,7 @@ export class MaterialesSitiosComponent implements OnInit {
 
   private async cargar(): Promise<void> {
     this.loading = true;
+    this.secundarias.reiniciar();
     try {
       const [sitios, responsables, centros, areas, items] = await Promise.all([
         this.api.listarSitios(),
@@ -301,9 +309,9 @@ export class MaterialesSitiosComponent implements OnInit {
         // ver la sesión de permisos del 09-16). El selector "Responsable"
         // queda vacío para quien no tiene ese servicio; el resto de la
         // pantalla sigue funcionando.
-        this.personaApi.listarResponsablesBodega().catch(() => [] as any[]),
+        this.secundarias.cargar('responsables', () => this.personaApi.listarResponsablesBodega()),
         this.personaApi.listarCentros(),
-        this.personaApi.listarAreas().catch(() => [] as any[]),
+        this.secundarias.cargar('áreas', () => this.personaApi.listarAreas()),
         this.api.listarItems(),
       ]);
       this.sitios = sitios;

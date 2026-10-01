@@ -270,7 +270,7 @@ export class MaterialesExistenciasComponent implements OnInit {
   ];
 
   exportarExcel(): void { void this.exporter.excel('existencias', 'Existencias', this.exportColumns, this.filtradas()); }
-  exportarPdf(): void { this.exporter.pdf('existencias', 'Existencias', this.exportColumns, this.filtradas()); }
+  exportarPdf(): void { void this.exporter.pdf('existencias', 'Existencias', this.exportColumns, this.filtradas()); }
 
   private async cargar(): Promise<void> {
     this.loading = true;

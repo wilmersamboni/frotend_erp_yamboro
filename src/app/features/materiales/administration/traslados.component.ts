@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { MaterialesLiveService } from '../data-access/materiales-live.service';
@@ -14,6 +14,9 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state.comp
 import { AlertComponent } from '../../../shared/ui/alert.component';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
 import { EsperaDirective } from '../../../shared/directives/espera.directive';
+import { CargasSecundarias } from '../data-access/cargas-secundarias';
+import { AvisoCargasComponent } from '../ui/aviso-cargas.component';
+import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
 
 /**
  * Traslados de ítems entre sitios — PENDIENTE → APROBADO/RECHAZADO, terminal
@@ -45,7 +48,7 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
 @Component({
   selector: 'app-materiales-traslados',
   standalone: true,
-  imports: [EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, TableFilterComponent, LoadingSkeletonComponent],
+  imports: [AvisoCargasComponent, EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, TableFilterComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-4 sm:p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
@@ -59,6 +62,8 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
           + Nuevo traslado
         </button>
       </div>
+
+      <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
 
       @if (bodegasInactivas().length > 0) {
         <app-alert class="mb-4" variante="advertencia" [titulo]="bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas'">
@@ -347,6 +352,10 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
   `,
 })
 export class MaterialesTrasladosComponent implements OnInit {
+  /** Catálogos auxiliares de la pantalla: si uno falla se avisa, no se muestra vacío. */
+  readonly secundarias = new CargasSecundarias();
+  readonly recargar = (): void => void this.cargar();
+  private readonly acceso = inject(MaterialesScreenPolicy);
   traslados: Traslado[] = [];
   estadoFiltro = '';
   origenFiltro = '';
@@ -606,15 +615,16 @@ export class MaterialesTrasladosComponent implements OnInit {
 
   private async cargar(): Promise<void> {
     this.loading = true;
+    this.secundarias.reiniciar();
     try {
-      // M9 — solo `listarTraslados()` es crítico; una secundaria con 403
-      // (excepción personal) no debe tumbar la tabla entera.
+      // M9 — solo `listarTraslados()` es crítico; una secundaria que falle no
+      // debe tumbar la tabla entera (pero tampoco pasar por "no hay datos").
       const [traslados, items, lotes, sitios, sitiosACargo] = await Promise.all([
         this.api.listarTraslados(),
-        this.api.listarItems().catch(() => [] as Item[]),
-        this.api.listarLotes().catch(() => [] as Lote[]),
-        this.api.listarSitios().catch(() => [] as Sitio[]),
-        this.api.sitiosACargo().catch(() => [] as Sitio[]),
+        this.secundarias.cargar('ítems', () => this.api.listarItems(), this.acceso.puedeListar('items')),
+        this.secundarias.cargar('lotes', () => this.api.listarLotes(), this.acceso.puedeListar('lotes')),
+        this.secundarias.cargar('bodegas', () => this.api.listarSitios(), this.acceso.puedeListar('sitios')),
+        this.secundarias.cargar('bodegas a tu cargo', () => this.api.sitiosACargo()),
       ]);
       this.traslados = traslados;
       this.items = items;

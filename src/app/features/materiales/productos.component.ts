@@ -1,4 +1,4 @@
-import { Component, OnInit, computed } from '@angular/core';
+import { Component, OnInit, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AdminTableComponent, TableRowLink } from '../../shared/components/admin-table.component';
@@ -8,6 +8,9 @@ import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 import { Categoria, Item, MaterialesApiService, Producto, Sitio } from './data-access/materiales-api.service';
 import { AlertComponent } from '../../shared/ui/alert.component';
+import { CargasSecundarias } from './data-access/cargas-secundarias';
+import { AvisoCargasComponent } from './ui/aviso-cargas.component';
+import { MaterialesScreenPolicy } from './ui/materiales-screen-policy';
 
 /**
  * CRUD de Productos. Crear un producto DEVOLUTIVO genera automáticamente
@@ -34,7 +37,7 @@ import { AlertComponent } from '../../shared/ui/alert.component';
 @Component({
   selector: 'app-materiales-productos',
   standalone: true,
-  imports: [AlertComponent, FormsModule, RouterLink, AdminTableComponent, ProductoFormModalComponent],
+  imports: [AvisoCargasComponent, AlertComponent, FormsModule, RouterLink, AdminTableComponent, ProductoFormModalComponent],
   template: `
     <div class="p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
@@ -52,6 +55,8 @@ import { AlertComponent } from '../../shared/ui/alert.component';
           </a>
         }
       </div>
+
+      <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
 
       @if (bodegasInactivas().length > 0) {
         <app-alert class="mb-4" variante="advertencia" [titulo]="bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas'">
@@ -92,6 +97,10 @@ import { AlertComponent } from '../../shared/ui/alert.component';
   `,
 })
 export class MaterialesProductosComponent implements OnInit {
+  /** Catálogos auxiliares de la pantalla: si uno falla se avisa, no se muestra vacío. */
+  readonly secundarias = new CargasSecundarias();
+  readonly recargar = (): void => void this.cargar();
+  private readonly acceso = inject(MaterialesScreenPolicy);
   productos: Producto[] = [];
   categorias: Categoria[] = [];
   sitios: Sitio[] = [];
@@ -128,14 +137,11 @@ export class MaterialesProductosComponent implements OnInit {
   }
   puedeGestionarActivo = (row: any): boolean =>
     this.puedeEliminar() && this.estadoFiltro !== 'todos' && this.esResponsableDeSitio(row.id_sitio);
-  // `GET /sitios` (backend) ya acepta `materiales.sitios.ver` O
-  // `materiales.traslados.crear` (ver SitiosController) — antes acá solo se
-  // chequeaba el primero, más estricto de lo que el backend permite, así
-  // que alguien con solo `traslados.crear` no cargaba bodegas ni veía el
-  // aviso de bodega inactiva (2026-09-18), aunque sí lo viera en Solicitudes.
-  puedeVerSitios = computed(() =>
-    this.auth.tieneServicio('materiales.sitios.ver') || this.auth.tieneServicio('materiales.traslados.crear'),
-  );
+  // Misma regla que `GET /sitios` del backend (`LECTURA_LISTA.sitios`) — acá
+  // se chequeaba solo `sitios.ver`, más estricto de lo que el backend permite,
+  // y alguien con solo `traslados.crear` no cargaba bodegas ni veía el aviso de
+  // bodega inactiva (2026-09-18), aunque sí lo viera en Solicitudes.
+  puedeVerSitios = computed(() => this.acceso.puedeListar('sitios'));
 
   modalOpen = false;
   editando: Producto | null = null;
@@ -217,6 +223,7 @@ export class MaterialesProductosComponent implements OnInit {
 
   private async cargar(): Promise<void> {
     this.loading = true;
+    this.secundarias.reiniciar();
     try {
       // Un aprendiz o instructor comunes ya NO traen por defecto
       // `materiales.sitios.ver`/`materiales.categorias.ver`/`materiales.items.ver`
@@ -226,16 +233,16 @@ export class MaterialesProductosComponent implements OnInit {
       // no se pierde nada visible: el nombre ya llega embebido en
       // `producto.categoria`.
       const verSitios = this.puedeVerSitios();
-      const verCategorias = this.auth.tieneServicio('materiales.categorias.ver');
-      const verItems = this.auth.tieneServicio('materiales.items.ver');
+      const verCategorias = this.acceso.puedeListar('categorias');
+      const verItems = this.acceso.puedeListar('items');
       // Quien no puede desactivar tampoco ve el filtro (línea 61) — para esa
       // audiencia el comportamiento se mantiene igual que siempre: solo activos.
       const incluirInactivos = this.puedeEliminar() && this.estadoFiltro !== 'activos';
       const [productos, categorias, sitios, items] = await Promise.all([
         this.api.listarProductos(incluirInactivos),
-        verCategorias ? this.api.listarCategorias().catch(() => [] as Categoria[]) : Promise.resolve([] as Categoria[]),
-        verSitios ? this.api.listarSitios().catch(() => [] as Sitio[]) : Promise.resolve([] as Sitio[]),
-        verItems ? this.api.listarItems().catch(() => [] as Item[]) : Promise.resolve([] as Item[]),
+        this.secundarias.cargar('categorías', () => this.api.listarCategorias(), verCategorias),
+        this.secundarias.cargar('bodegas', () => this.api.listarSitios(), verSitios),
+        this.secundarias.cargar('ítems', () => this.api.listarItems(), verItems),
       ]);
       // `listarProductos(true)` trae activos + desactivados; en modo
       // "Desactivados" nos quedamos solo con los que están dados de baja, en

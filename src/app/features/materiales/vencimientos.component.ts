@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, Injector, OnInit, WritableSignal, afterNextRender, effect, signal, viewChild, viewChildren } from '@angular/core';
+import { Component, ElementRef, HostListener, Injector, OnInit, WritableSignal, afterNextRender, effect, signal, viewChild, viewChildren, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -9,6 +9,9 @@ import { TableFilterComponent, TableFilterOption } from '../../shared/components
 import { LoadingSkeletonComponent } from '../../shared/components/loading-skeleton.component';
 import { FilaVencimiento, Lote, MaterialesApiService, Sitio } from './data-access/materiales-api.service';
 import { EsperaDirective } from '../../shared/directives/espera.directive';
+import { CargasSecundarias } from './data-access/cargas-secundarias';
+import { AvisoCargasComponent } from './ui/aviso-cargas.component';
+import { MaterialesScreenPolicy } from './ui/materiales-screen-policy';
 
 const VENTANAS = [7, 15, 30] as const;
 
@@ -58,7 +61,7 @@ const VENTANAS = [7, 15, 30] as const;
 @Component({
   selector: 'app-materiales-vencimientos',
   standalone: true,
-  imports: [EsperaDirective, DatePipe, FormsModule, RouterLink, TableFilterComponent, LoadingSkeletonComponent],
+  imports: [AvisoCargasComponent, EsperaDirective, DatePipe, FormsModule, RouterLink, TableFilterComponent, LoadingSkeletonComponent],
   styles: [
     `
       .urg-fill { transform-origin: left center; }
@@ -92,6 +95,8 @@ const VENTANAS = [7, 15, 30] as const;
           </div>
         </div>
       </div>
+
+      <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
 
       <!-- Dos mundos distintos (lotes perecederos vs. préstamos) — separados en pestañas
            para no mezclarlos en una sola pantalla larga; "Ventana" arriba aplica a las dos.
@@ -464,6 +469,10 @@ const VENTANAS = [7, 15, 30] as const;
   `,
 })
 export class MaterialesVencimientosComponent implements OnInit {
+  /** Catálogos auxiliares de la pantalla: si uno falla se avisa, no se muestra vacío. */
+  readonly secundarias = new CargasSecundarias();
+  readonly recargar = (): void => void this.cargar();
+  private readonly acceso = inject(MaterialesScreenPolicy);
   readonly ventanas = VENTANAS;
   ventana = signal<(typeof VENTANAS)[number]>(7);
   /** Admin, encargado de bodega o líder de área — los únicos con visibilidad
@@ -725,15 +734,12 @@ export class MaterialesVencimientosComponent implements OnInit {
 
   async cargar(): Promise<void> {
     this.loading = true;
+    this.secundarias.reiniciar();
     try {
       const [r, lotes, sitios] = await Promise.all([
         this.api.vencimientosSolicitudes(this.ventana()),
-        this.puedeVerPerecederos
-          ? this.api.listarLotes().catch(() => [] as Lote[])
-          : Promise.resolve([] as Lote[]),
-        this.puedeVerPerecederos
-          ? this.api.listarSitios().catch(() => [] as Sitio[])
-          : Promise.resolve([] as Sitio[]),
+        this.secundarias.cargar('lotes perecederos', () => this.api.listarLotes(), this.puedeVerPerecederos),
+        this.secundarias.cargar('bodegas', () => this.api.listarSitios(), this.puedeVerPerecederos && this.acceso.puedeListar('sitios')),
       ]);
       this.vencidas = r.vencidas;
       this.porVencer = r.por_vencer;

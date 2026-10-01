@@ -1,5 +1,3 @@
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { to12h as to12hUtil } from '../../../core/utils/horarios.util';
 
 const NAVY  = '#1e3a5f';
@@ -31,13 +29,15 @@ const tipoLabel:    Record<string, string> = { formativo: 'Formativo', instituci
  * navegador del usuario, no la del servidor — sigue pendiente si algún día
  * se expone un endpoint/hora de servidor para leerla de forma confiable.
  */
-export function descargarReporteDia(
+export async function descargarReporteDia(
   horariosEnriquecidos: any[],
   todosLosEventos: any[],
   totalAmbientes: number,
   institucion: string,
   generadoPor: string,
-): void {
+): Promise<void> {
+  // jspdf (~430 kB) solo se descarga cuando alguien pide el reporte.
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
   const hoy = new Date();
   const today = hoy.toISOString().split('T')[0];
   const fechaLabel = hoy.toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });

@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { log } from '../utils/log';
 
 const BASE = environment.apiUrl;
 
@@ -28,7 +29,7 @@ export class MatriculaService {
       if (resp?.matriculas && Array.isArray(resp.matriculas)) return resp.matriculas;
       return [];
     } catch (error) {
-      console.error('Error listando todas las matrículas:', error);
+      log.error('Error listando todas las matrículas:', error);
       return [];
     }
   }

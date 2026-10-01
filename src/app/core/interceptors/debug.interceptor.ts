@@ -1,5 +1,6 @@
 import { HttpInterceptorFn, HttpResponse } from '@angular/common/http';
 import { tap } from 'rxjs/operators';
+import { log } from '../utils/log';
 
 /**
  * Interceptor de depuración — loguea en consola cualquier respuesta
@@ -11,14 +12,14 @@ export const debugInterceptor: HttpInterceptorFn = (req, next) => {
     tap({
       next: (event) => {
         if (event instanceof HttpResponse && !event.ok) {
-          console.warn(
+          log.warn(
             `[DEBUG] ${req.method} ${req.url} → status ${event.status} pero ok=false`,
             '\nBody:', event.body
           );
         }
       },
       error: (err) => {
-        console.error(
+        log.error(
           `[DEBUG] ${req.method} ${req.url} → ERROR`,
           '\nStatus:', err.status,
           '\nBody:', err.error

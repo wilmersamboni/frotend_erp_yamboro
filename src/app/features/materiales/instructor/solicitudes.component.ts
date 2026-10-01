@@ -33,6 +33,8 @@ import { DialogDirective } from '../../../shared/directives/dialog.directive';
 import { EsperaDirective } from '../../../shared/directives/espera.directive';
 import { PageSizeSelectComponent } from '../../../shared/components/page-size-select.component';
 import { TableFilterComponent } from '../../../shared/components/table-filter.component';
+import { CargasSecundarias } from '../data-access/cargas-secundarias';
+import { AvisoCargasComponent } from '../ui/aviso-cargas.component';
 
 /** Línea del modal "Nueva solicitud" — `p:<id>` producto devolutivo, `l:<id>` lote consumible. */
 interface LineaForm {
@@ -59,7 +61,7 @@ interface LineaForm {
 @Component({
   selector: 'app-materiales-solicitudes-usuario',
   standalone: true,
-  imports: [EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent, TableFilterComponent],
+  imports: [AvisoCargasComponent, EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent, TableFilterComponent],
   template: `
     <div class="p-4 sm:p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
@@ -73,6 +75,8 @@ interface LineaForm {
           + Nueva solicitud
         </button>
       </div>
+
+      <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
 
       @if (bodegasInactivas().length > 0) {
         <app-alert class="mb-4" variante="advertencia" [titulo]="bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas'">
@@ -509,6 +513,9 @@ interface LineaForm {
   `,
 })
 export class MaterialesSolicitudesUsuarioComponent implements OnInit {
+  /** Catálogos auxiliares de la pantalla: si uno falla se avisa, no se muestra vacío. */
+  readonly secundarias = new CargasSecundarias();
+  readonly recargar = (): void => void this.cargar();
   private readonly confirmDlg = inject(ConfirmService);
   private readonly avisos = inject(UnsavedChangesService);
   /** Compara con el estado al abrir el modal: cerrar por error (fondo, ×) ya no tira lo escrito sin preguntar. */
@@ -955,34 +962,33 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
 
   private async cargar(): Promise<void> {
     this.loading = true;
+    this.secundarias.reiniciar();
     try {
       if (!this.red.alcanzable() && (await this.cargarListaGuardada())) return;
-      // M9 — solo `listarSolicitudes()` es crítico; si una secundaria da 403
-      // (excepción personal) no debe tumbar la tabla entera. `GET /sitios`
+      // M9 — solo `listarSolicitudes()` es crítico; una secundaria que falle
+      // no debe tumbar la tabla entera (pero tampoco pasar por "no hay
+      // datos"). `GET /sitios`
       // exige `materiales.sitios.ver` O `materiales.traslados.crear`
       // (`SitiosController.getSitios`) — un instructor común no tiene ninguno
       // de los dos por defecto desde el recorte de esta sesión (antes sí,
       // vía `traslados.crear`, y por eso este 403 no se veía hasta ahora), así
       // que ni se pide si no aplica ninguno de los dos: el paso "Bodega" del
       // modal se salta solo (ver `pasoBodega`), no bloquea crear la solicitud.
-      const verSitios =
-        this.auth.isAdmin() ||
-        this.auth.tieneServicio('materiales.sitios.ver') ||
-        this.auth.tieneServicio('materiales.traslados.crear');
+      const verSitios = this.auth.isAdmin() || this.policy.puedeListar('sitios');
       const personaId = this.esInstructor ? this.auth.user()?.personaId : undefined;
       // Mismos servicios que acepta el backend en GET /items y GET /lotes: pedir lo que el
       // rol no puede ver dispara un 403 y el aviso global "Sin permiso" aunque se ignore.
-      const tiene = (...servicios: string[]) => servicios.some((x) => this.auth.tieneServicio(x));
-      const verItems = this.auth.isAdmin() || tiene('materiales.items.ver', 'materiales.novedades.crear', 'materiales.traslados.crear');
-      const verLotes = this.auth.isAdmin() || tiene('materiales.lotes.ver', 'materiales.solicitudes.crear');
+      const verItems = this.auth.isAdmin() || this.policy.puedeListar('items');
+      const verLotes = this.auth.isAdmin() || this.policy.puedeListar('lotes');
+      const verProductos = this.auth.isAdmin() || this.policy.puedeListar('productos');
       const [solicitudes, productos, lotes, items, sitios, fichas, sitiosACargo] = await Promise.all([
         this.api.listarSolicitudes(),
-        this.api.listarProductos().catch(() => [] as Producto[]),
-        verLotes ? this.api.listarLotes().catch(() => [] as Lote[]) : Promise.resolve([] as Lote[]),
-        verItems ? this.api.listarItems().catch(() => [] as Item[]) : Promise.resolve([] as Item[]),
-        verSitios ? this.api.listarSitios().catch(() => [] as Sitio[]) : Promise.resolve([] as Sitio[]),
-        personaId ? this.erpApi.obtenerCursosLiderados(personaId).catch(() => [] as CursoLiderado[]) : Promise.resolve([] as CursoLiderado[]),
-        this.api.sitiosACargo().catch(() => [] as Sitio[]),
+        this.secundarias.cargar('productos', () => this.api.listarProductos(), verProductos),
+        this.secundarias.cargar('lotes', () => this.api.listarLotes(), verLotes),
+        this.secundarias.cargar('ítems', () => this.api.listarItems(), verItems),
+        this.secundarias.cargar('bodegas', () => this.api.listarSitios(), verSitios),
+        this.secundarias.cargar('fichas', () => this.erpApi.obtenerCursosLiderados(personaId ?? ''), !!personaId),
+        this.secundarias.cargar('bodegas a tu cargo', () => this.api.sitiosACargo()),
       ]);
       this.solicitudes = solicitudes;
       this.datosGuardadosDe = null;

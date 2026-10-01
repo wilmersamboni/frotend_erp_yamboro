@@ -155,7 +155,7 @@ export class MaterialesKardexComponent implements OnInit {
   ];
 
   exportarExcel(): void { void this.exporter.excel('kardex', 'Kardex', this.exportColumns, this.filas); }
-  exportarPdf(): void { this.exporter.pdf('kardex', 'Kardex', this.exportColumns, this.filas); }
+  exportarPdf(): void { void this.exporter.pdf('kardex', 'Kardex', this.exportColumns, this.filas); }
 
   private async cargar(): Promise<void> {
     this.loading = true;

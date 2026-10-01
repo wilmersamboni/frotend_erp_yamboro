@@ -1,9 +1,11 @@
 import { ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, ViewChild, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
-import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
-import { DecodeHintType } from '@zxing/library';
-import { FORMATOS_ESCANEO_DEFECTO } from './barcode-scanner.types';
+// Solo tipos: ZXing (~480 kB) se descarga al prender la cámara (ver
+// `activarCamara`). Importado acá viajaba con Ítems, Novedades y Solicitudes
+// aunque nadie escaneara.
+import type { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
+import type { BarcodeFormat, DecodeHintType } from '@zxing/library';
 
 /**
  * Escáner de código de barras/QR reusable — "tonto": solo lee un string de
@@ -89,7 +91,8 @@ import { FORMATOS_ESCANEO_DEFECTO } from './barcode-scanner.types';
 })
 export class BarcodeScannerComponent implements OnChanges, OnDestroy {
   @Input() activo = true;
-  @Input() formatos = FORMATOS_ESCANEO_DEFECTO;
+  /** `null` = `FORMATOS_ESCANEO_DEFECTO` (ver barcode-scanner.types.ts). */
+  @Input() formatos: BarcodeFormat[] | null = null;
   /** Ventana mínima entre dos emisiones del mismo código — evita que un
    *  código quieto frente a la cámara dispare el mismo scan en cada frame. */
   @Input() debounceMs = 1500;
@@ -154,8 +157,15 @@ export class BarcodeScannerComponent implements OnChanges, OnDestroy {
       return;
     }
     try {
+      const [{ BrowserMultiFormatReader }, { DecodeHintType }, { FORMATOS_ESCANEO_DEFECTO }] = await Promise.all([
+        import('@zxing/browser'),
+        import('@zxing/library'),
+        import('./barcode-scanner.types'),
+      ]);
+      // Mientras bajaba la librería pudieron cerrar el modal o pasar a manual.
+      if (this.modo() !== 'camara') return;
       const hints = new Map<DecodeHintType, unknown>();
-      hints.set(DecodeHintType.POSSIBLE_FORMATS, this.formatos);
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, this.formatos ?? FORMATOS_ESCANEO_DEFECTO);
       // TRY_HARDER: hace que ZXing pruebe más variantes de rotación/lectura
       // por frame (más lento por intento, pero lee bastante más códigos
       // chicos/borrosos/en mal ángulo) — vale la pena porque además bajamos
