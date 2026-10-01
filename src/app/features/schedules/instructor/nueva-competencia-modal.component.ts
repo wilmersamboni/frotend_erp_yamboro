@@ -6,6 +6,7 @@ import { ToastService } from '../../../core/services/toast.service';
 import { durHorarioMin, Resultado } from '../../../core/utils/horarios.util';
 import { TuiDay } from '@taiga-ui/cdk';
 import { DateInputComponent } from '../../../shared/components/date-input.component';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 /**
  * Modal "Añadir Competencia / Resultado" — extraído de instructor-mis-horarios.component.ts.
@@ -19,14 +20,14 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
 @Component({
   selector: 'app-nueva-competencia-modal',
   standalone: true,
-  imports: [FormsModule, LucideAngularModule, DateInputComponent],
+  imports: [DialogDirective, FormsModule, LucideAngularModule, DateInputComponent],
   template: `
     @if (compModal()) {
-    <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+    <div appDialog class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl shadow-xl comp-modal-wide" (click)="$event.stopPropagation()">
         <div class="px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-3 flex-shrink-0">
           <h3>Añadir Competencia / Resultado</h3>
-          <button class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" (click)="cerrar()"><lucide-icon name="x" [size]="18"></lucide-icon></button>
+          <button aria-label="Cerrar" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" (click)="cerrar()"><lucide-icon name="x" [size]="18"></lucide-icon></button>
         </div>
         <div class="modal-body">
         <div class="form-group">
@@ -73,7 +74,7 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
                      [class.comp-cal-boundary]="cell.isIni || cell.isFin"
                      [class.comp-cal-sel]="cell.inRange && compDiasClase().includes(cell.iso)"
                      [class.comp-cal-other]="cell.otherMonth"
-                     (click)="cell.inRange && toggleDiaClase(cell.iso)">
+                     data-dirty (click)="cell.inRange && toggleDiaClase(cell.iso)">
                   {{ cell.day }}
                 </div>
               }
@@ -96,31 +97,31 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
                 <input class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:border-[#39A900]" style="flex:1;"
                        [ngModel]="r.texto" (ngModelChange)="setCompResultado(i, $event)"
                        placeholder="Resultado {{ i + 1 }}">
-                <button type="button" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" (click)="removeCompResultado(i)" title="Quitar">
+                <button aria-label="Quitar" type="button" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" data-dirty (click)="removeCompResultado(i)" title="Quitar">
                   <lucide-icon name="x" [size]="14"></lucide-icon>
                 </button>
               </div>
               <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
-                <button type="button" class="border border-gray-300 hover:bg-gray-50 hover:border-[#39A900]/50 hover:text-[#39A900] text-gray-700 rounded-lg transition-all" style="font-size:11px;padding:3px 8px;"
+                <button type="button" class="border border-gray-300 hover:bg-gray-50 hover:border-[#39A900]/50 hover:text-[#39A900] text-gray-700 rounded-lg transition-all inline-flex items-center gap-1" style="font-size:12px;padding:3px 8px;"
                         [disabled]="compDiasClase().length === 0"
                         (click)="seleccionarResultado(i)">
-                  <lucide-icon name="calendar" [size]="11" style="vertical-align:-2px;margin-right:4px;"></lucide-icon>
+                  <lucide-icon name="calendar" [size]="11"></lucide-icon>
                   {{ resultadoActivo() === i ? 'Editando fechas ↓' : (r.fechaInicio ? 'Cambiar fechas' : 'Elegir fechas') }}
                 </button>
                 @if (r.fechaInicio) {
-                  <span style="font-size:11px;color:var(--text-muted);">
+                  <span style="font-size:12px;color:var(--text-muted);">
                     {{ formatDiaClaseFull(r.fechaInicio) }} @if (r.fechaFin && r.fechaFin !== r.fechaInicio) { → {{ formatDiaClaseFull(r.fechaFin) }} }
                   </span>
                 } @else if (compDiasClase().length === 0) {
-                  <span style="font-size:11px;color:var(--text-muted);font-style:italic;">Primero marca los días de clase arriba</span>
+                  <span style="font-size:12px;color:var(--text-muted);font-style:italic;">Primero marca los días de clase arriba</span>
                 } @else {
-                  <span style="font-size:11px;color:var(--text-muted);font-style:italic;">Sin fechas asignadas</span>
+                  <span style="font-size:12px;color:var(--text-muted);font-style:italic;">Sin fechas asignadas</span>
                 }
               </div>
             </div>
           }
-          <button type="button" class="border border-gray-300 hover:bg-gray-50 hover:border-[#39A900]/50 hover:text-[#39A900] text-gray-700 rounded-lg transition-all" style="font-size:12px;padding:5px 10px;" (click)="addCompResultado()">
-            <lucide-icon name="plus" [size]="12" style="vertical-align:-2px;margin-right:4px;"></lucide-icon>Agregar resultado
+          <button type="button" class="border border-gray-300 hover:bg-gray-50 hover:border-[#39A900]/50 hover:text-[#39A900] text-gray-700 rounded-lg transition-all inline-flex items-center gap-1" style="font-size:12px;padding:5px 10px;" data-dirty (click)="addCompResultado()">
+            <lucide-icon name="plus" [size]="12"></lucide-icon>Agregar resultado
           </button>
 
           <!-- Calendario único, reutilizado para el resultado seleccionado arriba
@@ -150,7 +151,7 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
                          [class.r-cal-boundary]="cell.allowed && (cell.isIni || cell.isFin)"
                          [class.comp-cal-other]="(cell.otherMonth || !cell.allowed) && !cell.ocupado"
                          [title]="cell.ocupado ? 'Ya asignado a otro resultado' : ''"
-                         (click)="cell.allowed && pickRCalDay(cell.iso)">
+                         data-dirty (click)="cell.allowed && pickRCalDay(cell.iso)">
                       {{ cell.day }}
                     </div>
                   }
@@ -168,29 +169,49 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
             }
           }
         </div>
+        </div>
 
-        <div class="btn-row mt-4">
+        <div class="btn-row">
           <button class="border border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold rounded-xl px-5 py-2 transition-all" (click)="cerrar()">Cancelar</button>
           <button class="bg-sena-gradient hover:opacity-90 text-white font-semibold rounded-xl px-5 py-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed" [disabled]="!compFormValid()" (click)="saveComp()"
                   [title]="compFormValid() ? '' : 'Completa todos los campos antes de guardar'">
             Guardar
           </button>
         </div>
-        </div>
       </div>
     </div>
     }
   `,
   styles: [`
-    .comp-modal-wide { max-width: 440px; width: 100%; }
+    /* max-height + flex column: el formulario puede crecer mucho (varios
+       resultados, cada uno con su propio mini-calendario) y antes no tenía
+       límite ni scroll — en pantallas bajas el modal se salía del viewport
+       y el botón Guardar quedaba fuera de la vista, inalcanzable. */
+    .comp-modal-wide {
+      max-width: 440px; width: 100%;
+      max-height: 92vh; display: flex; flex-direction: column;
+    }
 
     /* .modal (global) no trae padding propio — sólo .modal-header lo tiene.
        Sin este wrapper, Nombre/Resultados/fechas quedaban pegados a los
-       bordes del modal y Cancelar/Guardar sin margen inferior. */
-    .modal-body { padding: 20px 24px 24px; }
+       bordes del modal y Cancelar/Guardar sin margen inferior.
+       flex:1 + overflow-y:auto: es la única zona que scrollea — el header y
+       el footer (.btn-row) quedan siempre visibles. Scrollbar oculta (sigue
+       scrolleando con rueda/trackpad/teclado, solo no se dibuja la barra),
+       mismo criterio que .pretty-scroll en styles.css. */
+    .modal-body {
+      padding: 20px 24px 24px;
+      flex: 1; min-height: 0; overflow-y: auto;
+      scrollbar-width: none; -ms-overflow-style: none;
+    }
+    .modal-body::-webkit-scrollbar { display: none; }
 
-    /* .btn-row tampoco existe globalmente. */
-    .btn-row { display: flex; justify-content: flex-end; gap: 10px; }
+    /* .btn-row tampoco existe globalmente. Footer fijo fuera del scroll. */
+    .btn-row {
+      display: flex; justify-content: flex-end; gap: 10px;
+      padding: 14px 24px; border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
 
     .comp-cal-wrap {
       border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px;
@@ -207,29 +228,29 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
     .comp-cal-nav:hover { background: var(--tui-primary); color: white; border-color: var(--tui-primary); }
     .comp-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
     .comp-cal-dayhdr {
-      text-align: center; font-size: 9px; font-weight: 700;
+      text-align: center; font-size: 12px; font-weight: 700;
       color: var(--text-muted); padding: 3px 0 4px;
       text-transform: uppercase; letter-spacing: .03em;
     }
     .comp-cal-cell {
-      text-align: center; font-size: 11px; padding: 5px 2px;
+      text-align: center; font-size: 12px; padding: 5px 2px;
       border-radius: 8px; cursor: default; color: var(--text);
       transition: background .1s, color .1s; user-select: none;
     }
     .comp-cal-other { color: var(--text-muted); opacity: .3; }
-    .comp-cal-dayhdr.weekend { color: #dc2626; }
-    .comp-cal-cell.weekend { color: #dc2626; }
+    .comp-cal-dayhdr.weekend { color: var(--err-text); }
+    .comp-cal-cell.weekend { color: var(--err-text); }
     .comp-cal-inrange { cursor: pointer; }
-    .comp-cal-inrange:not(.comp-cal-sel):hover { background: rgba(57,169,0,.12); color: #2d8500; }
+    .comp-cal-inrange:not(.comp-cal-sel):hover { background: color-mix(in srgb, var(--accent-brand) 12%, transparent); color: var(--accent-text); }
     /* Días de clase ya asignados a OTRO resultado — tachados y no clicables,
        para que no se puedan volver a elegir por error. */
     .r-cal-ocupado {
       text-decoration: line-through; cursor: not-allowed;
       color: var(--text-muted); background: var(--surface2); opacity: .6;
     }
-    .r-cal-allowed { cursor: pointer; background: rgba(57,169,0,.08); font-weight: 600; color: #2d8500; }
-    .r-cal-allowed:hover { background: rgba(57,169,0,.16); }
-    .r-cal-inrange { cursor: pointer; background: rgba(57,169,0,.22); color: #226600; }
+    .r-cal-allowed { cursor: pointer; background: color-mix(in srgb, var(--accent-brand) 8%, transparent); font-weight: 600; color: var(--accent-text); }
+    .r-cal-allowed:hover { background: color-mix(in srgb, var(--accent-brand) 16%, transparent); }
+    .r-cal-inrange { cursor: pointer; background: color-mix(in srgb, var(--accent-brand) 22%, transparent); color: var(--accent-text); }
     .r-cal-boundary {
       cursor: pointer;
       background: var(--tui-primary) !important; color: white !important;
@@ -237,26 +258,26 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
     }
     .comp-cal-boundary {
       cursor: pointer;
-      background: #fff7ed; color: #c2410c;
-      font-weight: 700; outline: 2px solid #fed7aa; outline-offset: -2px;
+      background: var(--warn-bg); color: var(--warn-text);
+      font-weight: 700; outline: 2px solid var(--warn-border); outline-offset: -2px;
       border-radius: 8px;
     }
-    .comp-cal-boundary:hover:not(.comp-cal-sel) { background: #ffedd5; }
+    .comp-cal-boundary:hover:not(.comp-cal-sel) { background: var(--warn-bg); }
     .comp-cal-sel {
       background: var(--tui-primary) !important; color: white !important;
-      font-weight: 700; box-shadow: 0 1px 4px rgba(57,169,0,.35);
+      font-weight: 700; box-shadow: 0 1px 4px color-mix(in srgb, var(--accent-brand) 35%, transparent);
       outline: none !important;
     }
     .comp-cal-total {
       display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
-      font-size: 11px; color: var(--text-muted);
+      font-size: 12px; color: var(--text-muted);
       border-top: 1px solid var(--border); padding-top: 7px; margin-top: 7px;
     }
     .comp-cal-total strong { color: var(--text); }
 
     .comp-cal-hint {
       display: flex; align-items: center; gap: 6px;
-      font-size: 11px; color: var(--text-muted); font-style: italic;
+      font-size: 12px; color: var(--text-muted); font-style: italic;
       margin-bottom: 8px; padding: 5px 8px;
       border-radius: 6px; background: var(--surface2);
     }
@@ -270,7 +291,7 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
     }
     .resultado-activo {
       border-color: var(--tui-primary);
-      background: rgba(57,169,0,.05);
+      background: color-mix(in srgb, var(--accent-brand) 5%, transparent);
     }
   `],
 })
@@ -464,7 +485,7 @@ export class NuevaCompetenciaModalComponent {
       this.guardado.emit();
       this.toast.ok('Competencia registrada', 'La competencia fue añadida al horario correctamente.');
     } catch (e: any) {
-      this.toast.error('Error al guardar competencia', e?.error?.message ?? 'No se pudo registrar la competencia.');
+      this.toast.httpError(e, 'No se pudo registrar la competencia.', 'Error al guardar competencia');
     }
   }
 

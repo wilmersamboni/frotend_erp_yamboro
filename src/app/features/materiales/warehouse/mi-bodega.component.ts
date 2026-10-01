@@ -6,7 +6,7 @@ import { AdminModalComponent } from '../../tenant-administration/ui/admin-modal.
 import { ProductoFormModalComponent } from '../ui/producto-form-modal.component';
 import { OpcionSelect } from '../../tenant-administration/services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { ToastService } from '../../../core/services/toast.service';
+import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import {
   Categoria, Item, Lote, MaterialesApiService, Producto, Sitio,
@@ -529,7 +529,7 @@ export class MiBodegaComponent implements OnInit {
       this.modalOpen.set(false);
       await this.cargar();
     } catch (e: any) {
-      this.error.set(e?.error?.message ?? 'No se pudo guardar.');
+      this.error.set(mensajeDeError(e, 'No se pudo guardar.'));
     } finally {
       this.saving.set(false);
     }

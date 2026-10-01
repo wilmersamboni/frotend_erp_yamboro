@@ -29,7 +29,7 @@ import {
   selector: 'app-file-upload-zone',
   standalone: true,
   styles: [`
-    .zone-drag { border-color: #39A900 !important; background: rgb(57 169 0 / 0.06) !important; }
+    .zone-drag { border-color: var(--accent-brand) !important; background: color-mix(in srgb, var(--accent-brand) 6%, transparent) !important; }
   `],
   template: `
     <!-- Zona visual: clic delega al padre via (clickZone) -->
@@ -84,7 +84,7 @@ import {
             <span class="text-base leading-none">{{ iconoArchivo(f.name) }}</span>
             <span class="flex-1 truncate text-gray-700">{{ f.name }}</span>
             <span class="text-gray-400 flex-shrink-0">{{ formatBytes(f.size) }}</span>
-            <button
+            <button aria-label="Quitar"
               type="button"
               (click)="quitarArchivo(f); $event.stopPropagation()"
               class="text-red-400 hover:text-red-600 transition-colors flex-shrink-0 leading-none"

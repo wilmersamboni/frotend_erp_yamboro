@@ -4,15 +4,15 @@
 
 /* ── Event type colors — usados en el badge de la tabla; el calendario y el
    modal tienen su propia copia encapsulada de estas mismas reglas ── */
-.ev-tipo-formativo     { background: #dbeafe; color: #1d4ed8; }
-.ev-tipo-institucional { background: #dcfce7; color: #166534; }
-.ev-tipo-evaluacion    { background: #fed7aa; color: #92400e; }
-.ev-tipo-festivo       { background: #fee2e2; color: #991b1b; }
+.ev-tipo-formativo     { background: var(--info-bg); color: var(--info-text); }
+.ev-tipo-institucional { background: var(--ok-bg); color: var(--ok-text); }
+.ev-tipo-evaluacion    { background: var(--warn-bg); color: var(--warn-text); }
+.ev-tipo-festivo       { background: var(--err-bg); color: var(--err-text); }
 
-.tipo-badge-formativo     { background: #dbeafe; color: #1d4ed8; }
-.tipo-badge-institucional { background: #dcfce7; color: #166534; }
-.tipo-badge-evaluacion    { background: #fed7aa; color: #92400e; }
-.tipo-badge-festivo       { background: #fee2e2; color: #991b1b; }
+.tipo-badge-formativo     { background: var(--info-bg); color: var(--info-text); }
+.tipo-badge-institucional { background: var(--ok-bg); color: var(--ok-text); }
+.tipo-badge-evaluacion    { background: var(--warn-bg); color: var(--warn-text); }
+.tipo-badge-festivo       { background: var(--err-bg); color: var(--err-text); }
 
 /* Avatar de icono por tipo de evento — reemplaza el chip de color pesado
    que cubría todo el nombre; reusa los mismos tokens .ev-tipo-* (background
@@ -28,7 +28,7 @@
    ancho de toda la tabla mucho más allá de min-width, forzando un scroll
    horizontal desproporcionado — sobre todo en mobile. */
 .ev-name-cell strong {
-  font-size: 13px; font-weight: 700; color: #1f2937;
+  font-size: 13px; font-weight: 700; color: var(--text);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
@@ -58,7 +58,7 @@
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 780px; }
 .data-table thead tr { background: var(--surface2); border-bottom: 1px solid var(--border); }
 .data-table th {
-  padding: 11px 14px; color: #374151; font-size: 11px; font-weight: 800;
+  padding: 11px 14px; color: var(--text-2); font-size: 12px; font-weight: 800;
   text-transform: uppercase; letter-spacing: .05em; text-align: left; white-space: nowrap;
 }
 .data-table th.col-acciones, .data-table td.col-acciones { text-align: right; }
@@ -69,7 +69,7 @@
 /* Botón de eliminar, mismo tamaño/forma que .btn-icon (global) pero con
    acento rojo solo al hover — antes era un botón ad-hoc con clases Tailwind
    sueltas, de tamaño/hover distinto al de Editar. */
-.btn-icon-danger:hover:not(:disabled) { background: #fef2f2; color: #dc2626; }
+.btn-icon-danger:hover:not(:disabled) { background: var(--err-bg); color: var(--err-text); }
 
 .empty-state {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -93,10 +93,10 @@
 
 .fichas-count-chip {
   display: inline-flex; align-items: center; gap: 4px;
-  font-size: 11px; font-weight: 700;
-  background: #dcfce7; color: #15803d;
+  font-size: 12px; font-weight: 700;
+  background: var(--ok-bg); color: var(--ok-text);
   border-radius: 20px; padding: 3px 9px;
 }
 /* Sin fichas invitadas — chip neutro en vez del mismo verde de "sí hay
    fichas", para que el color siga transmitiendo estado real, no decoración. */
-.fichas-count-chip--empty { background: #f3f4f6; color: #6b7280; }
+.fichas-count-chip--empty { background: var(--surface3); color: var(--text-muted); }

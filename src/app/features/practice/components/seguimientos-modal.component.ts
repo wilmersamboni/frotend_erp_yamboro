@@ -5,15 +5,18 @@ import { BitacorasModalComponent } from './bitacoras-modal.component';
 import { AuthService } from '../../../core/services/auth.service';
 import { SeguimientoService } from '../../../core/services';
 import { ToastService } from '../../../core/services/toast.service';
+import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
+import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 @Component({
   selector: 'app-seguimientos-modal',
   standalone: true,
-  imports: [FormsModule, NgClass, BitacorasModalComponent],
+  imports: [DialogDirective, LoadingSkeletonComponent, EmptyStateComponent, FormsModule, NgClass, BitacorasModalComponent],
   template: `
     @if (isOpen && alumno) {
       <!-- Backdrop -->
-      <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+      <div appDialog class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
         (click)="$event.target === $event.currentTarget && closed.emit()">
 
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col">
@@ -21,7 +24,7 @@ import { ToastService } from '../../../core/services/toast.service';
           <!-- Header -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
             <h2 class="text-lg font-bold text-gray-800">Seguimientos de {{ alumno?.name }}</h2>
-            <button (click)="closed.emit()"
+            <button aria-label="Cerrar" (click)="closed.emit()"
               class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors text-lg leading-none">×</button>
           </div>
 
@@ -29,11 +32,9 @@ import { ToastService } from '../../../core/services/toast.service';
           <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
 
             @if (loading()) {
-              <div class="flex justify-center py-8">
-                <div class="w-8 h-8 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
-              </div>
+              <app-loading-skeleton variant="detail" [rows]="3" label="Cargando seguimientos" />
             } @else if (seguimientos().length === 0) {
-              <p class="text-center text-gray-400 text-sm py-8">No hay seguimientos registrados</p>
+              <app-empty-state titulo="No hay seguimientos registrados" />
             } @else {
               @for (item of seguimientos(); track item.id) {
 
@@ -56,7 +57,7 @@ import { ToastService } from '../../../core/services/toast.service';
                       <!-- Botón ⋮ con menú desplegable: solo admin e instructor -->
                       @if (canGestionarSeguimiento()) {
                         <div class="relative">
-                          <button
+                          <button aria-label="Más opciones"
                             (click)="toggleMenu(item.id)"
                             class="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 transition-colors text-lg font-bold">
                             ⋮
@@ -67,7 +68,7 @@ import { ToastService } from '../../../core/services/toast.service';
 
                               <!-- ── Cambiar estado ── -->
                               <div class="px-3 pt-2 pb-1">
-                                <p class="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-1">
+                                <p class="text-xs uppercase tracking-wide text-gray-400 font-semibold mb-1">
                                   Cambiar estado
                                 </p>
                                 @for (est of ESTADOS; track est.key) {
@@ -150,7 +151,7 @@ import { ToastService } from '../../../core/services/toast.service';
 
       <!-- Modal editar observación -->
       @if (editOpen()) {
-        <div class="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+        <div appDialog class="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
           <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
             <h3 class="text-lg font-bold text-gray-800 mb-4">Editar Seguimiento</h3>
             <textarea [(ngModel)]="editObservacion" rows="4"

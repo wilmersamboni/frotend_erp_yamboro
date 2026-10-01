@@ -54,10 +54,10 @@ export function nombreCompleto(p: { nombre?: string; apellido?: string } | null 
 // ── Compartidas por la vista de grid y el historial de competencias ──────
 
 export const RESULTADO_ESTADO_INFO: Record<ResultadoEstado, { label: string; bg: string; text: string }> = {
-  'sin-fecha':  { label: 'Sin fecha',  bg: '#f3f4f6', text: '#6b7280' },
-  'pendiente':  { label: 'Pendiente',  bg: '#fef3c7', text: '#92400e' },
-  'en-curso':   { label: 'En curso',   bg: '#dbeafe', text: '#1d4ed8' },
-  'completado': { label: 'Completado', bg: '#dcfce7', text: '#166534' },
+  'sin-fecha':  { label: 'Sin fecha',  bg: 'var(--surface3)', text: 'var(--text-muted)' },
+  'pendiente':  { label: 'Pendiente',  bg: 'var(--warn-bg)', text: 'var(--warn-text)' },
+  'en-curso':   { label: 'En curso',   bg: 'var(--info-bg)', text: 'var(--info-text)' },
+  'completado': { label: 'Completado', bg: 'var(--ok-bg)', text: 'var(--ok-text)' },
 };
 
 /** Ícono según el estado del resultado: check si ya completó, reloj en otro caso */
@@ -125,4 +125,71 @@ export function calcHorasCompetencia(
   if (min === 0) return `${hrs}h`;
   if (hrs === 0) return `${min}min`;
   return `${hrs}h ${min}min`;
+}
+
+// ── Estado de las competencias de un horario (icono de libro + tooltip) ──
+
+/** Fecha LOCAL "YYYY-MM-DD" — toISOString() da UTC y en Colombia salta de día desde las 7 pm. */
+export function hoyIsoLocal(d: Date = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Días de calendario entre dos fechas ISO (b - a). */
+export function diasEntre(aIso: string, bIso: string): number {
+  const a = new Date(aIso.slice(0, 10) + 'T00:00:00').getTime();
+  const b = new Date(bIso.slice(0, 10) + 'T00:00:00').getTime();
+  return Math.round((b - a) / 86_400_000);
+}
+
+export type EstadoCompetencias = 'sin' | 'proxima' | 'vigente' | 'por-terminar' | 'vencida';
+
+/** Una competencia vigente que termina en este número de días o menos, sin otra cargada después, se marca "por terminar". */
+export const DIAS_AVISO_FIN_COMPETENCIA = 7;
+
+/** Texto al pasar el mouse sobre el libro de competencia — explica el color. */
+export function tituloCompetencia(e: ReturnType<typeof estadoCompetencias>): string {
+  const nombre = e.comp?.nombre ?? '';
+  const fecha = (iso?: string | null) => (iso ? formatFechaCorta(iso.slice(0, 10)) : '');
+  switch (e.estado) {
+    case 'sin': return 'Sin competencia asignada';
+    case 'vigente': return 'Competencia vigente: ' + nombre + (e.comp?.fechaFin ? ' · termina el ' + fecha(e.comp.fechaFin) : '');
+    case 'por-terminar': return nombre + (e.dias === 0 ? ' termina HOY' : ' termina en ' + e.dias + ' día' + (e.dias === 1 ? '' : 's')) + ' y no hay otra asignada';
+    case 'proxima': return 'Sin competencia en curso · la próxima (' + nombre + ') inicia el ' + fecha(e.comp?.fechaInicio);
+    case 'vencida': return nombre + ' terminó el ' + fecha(e.comp?.fechaFin) + ' y no hay una nueva asignada';
+  }
+}
+
+/**
+ * Resume en qué punto está el horario respecto a sus competencias:
+ * - sin: nunca se le asignó ninguna.
+ * - vigente: hay una en curso (y, si termina pronto, ya hay otra cargada después).
+ * - por-terminar: la vigente termina en ≤ 7 días y no hay ninguna posterior.
+ * - proxima: ninguna en curso, pero hay una que todavía no empieza.
+ * - vencida: todas terminaron y no hay una nueva.
+ * `comp` es la competencia más relevante para mostrar en cada caso.
+ */
+export function estadoCompetencias(
+  comps: any[] | null | undefined,
+  hoy: string = hoyIsoLocal(),
+): { estado: EstadoCompetencias; comp: any | null; dias: number | null } {
+  const lista = comps ?? [];
+  if (!lista.length) return { estado: 'sin', comp: null, dias: null };
+
+  const vigente = lista.find(c =>
+    (!c.fechaInicio || c.fechaInicio.slice(0, 10) <= hoy) &&
+    (!c.fechaFin || c.fechaFin.slice(0, 10) >= hoy));
+  const futuras = lista
+    .filter(c => c.fechaInicio && c.fechaInicio.slice(0, 10) > hoy)
+    .sort((a, b) => a.fechaInicio.localeCompare(b.fechaInicio));
+
+  if (vigente) {
+    const dias = vigente.fechaFin ? diasEntre(hoy, vigente.fechaFin) : null;
+    const porTerminar = dias !== null && dias <= DIAS_AVISO_FIN_COMPETENCIA && !futuras.length;
+    return { estado: porTerminar ? 'por-terminar' : 'vigente', comp: vigente, dias };
+  }
+  if (futuras.length) {
+    return { estado: 'proxima', comp: futuras[0], dias: diasEntre(hoy, futuras[0].fechaInicio) };
+  }
+  const ultima = [...lista].sort((a, b) => (b.fechaFin ?? '').localeCompare(a.fechaFin ?? ''))[0];
+  return { estado: 'vencida', comp: ultima, dias: ultima?.fechaFin ? diasEntre(ultima.fechaFin, hoy) : null };
 }

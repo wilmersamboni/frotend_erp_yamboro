@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { AdminTableComponent } from '../../shared/components/admin-table.component';
 import { AdminModalComponent } from '../tenant-administration/ui/admin-modal.component';
 import { AuthService } from '../../core/services/auth.service';
-import { ToastService } from '../../core/services/toast.service';
+import { ToastService, mensajeDeError } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 import { Categoria, MaterialesApiService } from './data-access/materiales-api.service';
 
@@ -126,7 +126,7 @@ export class MaterialesCategoriasComponent implements OnInit {
       this.modalOpen = false;
       await this.cargar();
     } catch (e: any) {
-      this.error = e?.error?.message ?? 'No se pudo guardar la categoría.';
+      this.error = mensajeDeError(e, 'No se pudo guardar la categoría.');
     } finally {
       this.saving = false;
     }

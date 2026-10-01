@@ -62,6 +62,66 @@ export async function prepararSnapshotEntregaOffline(
   return true;
 }
 
+/**
+ * Prepara de una vez todas las solicitudes indicadas (las APROBADAS que este
+ * usuario puede entregar) — evita tener que pulsar "Preparar offline" fila por
+ * fila antes de irse a una bodega sin señal. Devuelve cuántas quedaron listas;
+ * una que falle no impide preparar las demás.
+ */
+export async function prepararTodasEntregaOffline(
+  solicitudes: Solicitud[],
+  api: MaterialesApiService,
+  offlineSnapshot: OfflineSnapshotService,
+): Promise<number> {
+  const resultados = await Promise.allSettled(
+    solicitudes.map((s) => prepararSnapshotEntregaOffline(s, api, offlineSnapshot)),
+  );
+  return resultados.filter((r) => r.status === 'fulfilled' && r.value).length;
+}
+
+// ── Lista de solicitudes de la pantalla ──────────────────────────────────
+// La última lista cargada con señal se guarda por usuario y tenant: sin señal
+// (o al recargar la app sin red) la pantalla se puede abrir igual y mostrar
+// las solicitudes con las que se va a trabajar. Va por usuario porque la lista
+// que devuelve el servidor depende de sus permisos y bodegas.
+
+const FLUJO_LISTA = 'materiales.solicitudes-lista';
+
+function claveLista(): string {
+  let usuario = '';
+  let tenant = '';
+  try {
+    usuario = JSON.parse(localStorage.getItem('user') ?? 'null')?.id ?? '';
+    tenant = localStorage.getItem('tenantSlug') ?? '';
+  } catch {
+    // localStorage no disponible: sin clave estable no se guarda ni se lee nada.
+  }
+  return usuario ? `${tenant}:${usuario}` : '';
+}
+
+export async function guardarListaSolicitudes(lista: Solicitud[], offlineSnapshot: OfflineSnapshotService): Promise<void> {
+  const clave = claveLista();
+  if (!clave) return;
+  try {
+    await offlineSnapshot.guardar(FLUJO_LISTA, clave, lista);
+  } catch {
+    // Guardar la copia es un extra: si IndexedDB falla, la pantalla sigue normal.
+  }
+}
+
+export async function leerListaSolicitudes(
+  offlineSnapshot: OfflineSnapshotService,
+): Promise<{ data: Solicitud[]; fetchedAt: number } | null> {
+  const clave = claveLista();
+  if (!clave) return null;
+  try {
+    const snap = await offlineSnapshot.obtener<Solicitud[]>(FLUJO_LISTA, clave);
+    return snap ? { data: snap.data, fetchedAt: snap.fetchedAt } : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Lee lo que `prepararSnapshotEntregaOffline` guardó — `null` si esta
  *  solicitud puntual nunca se preparó (o el snapshot se limpió). */
 export async function leerSnapshotEntregaOffline(

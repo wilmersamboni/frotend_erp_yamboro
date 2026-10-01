@@ -4,6 +4,9 @@ import { RouterLink } from '@angular/router';
 import { StatusBadgeComponent } from './status-badge.component';
 import { TableFilterComponent } from './table-filter.component';
 import { LoadingSkeletonComponent } from './loading-skeleton.component';
+import { EmptyStateComponent } from './empty-state.component';
+import { EsperaDirective } from '../directives/espera.directive';
+import { PageSizeSelectComponent } from './page-size-select.component';
 
 
 /** Enlace de navegación cruzada por fila (ej. Producto → Existencias filtradas por ese producto). */
@@ -42,7 +45,7 @@ export interface TableRowLink {
 @Component({
   selector: 'app-admin-table',
   standalone: true,
-  imports: [FormsModule, RouterLink, StatusBadgeComponent, TableFilterComponent, LoadingSkeletonComponent],
+  imports: [EsperaDirective, FormsModule, RouterLink, StatusBadgeComponent, TableFilterComponent, LoadingSkeletonComponent, EmptyStateComponent, PageSizeSelectComponent],
   template: `
     <div [class]="searchable
         ? 'bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden'
@@ -57,11 +60,11 @@ export interface TableRowLink {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
               </svg>
             </div>
-            <input type="text" [(ngModel)]="busqueda" (ngModelChange)="page = 0"
+            <input appEspera type="text" [(ngModel)]="busqueda" (ngModelChange)="page = 0"
               [placeholder]="searchPlaceholder"
               class="w-full pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:border-[#39A900] focus:bg-white transition-all text-gray-900 placeholder:text-gray-400" />
             @if (busqueda) {
-              <button (click)="busqueda = ''; page = 0"
+              <button aria-label="Limpiar búsqueda" (click)="busqueda = ''; page = 0"
                 class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -70,47 +73,7 @@ export interface TableRowLink {
             }
           </div>
 
-          <!-- Filas por página -->
-          <!-- Filas por página -->
-          <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
-            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filas</span>
-            
-            <!-- Dropdown personalizado para filas -->
-            <div class="relative">
-              <button 
-                type="button"
-                (click)="pageSizeDropdownOpen.update(v => !v)"
-                class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer">
-                <span>{{ pageSize() }}</span>
-                <svg class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" [class.rotate-180]="pageSizeDropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              @if (pageSizeDropdownOpen()) {
-                <!-- Backdrop para cerrar al hacer clic afuera -->
-                <div class="fixed inset-0 z-10" (click)="pageSizeDropdownOpen.set(false)"></div>
-
-                <!-- Menú flotante compacto -->
-                <div class="absolute left-0 top-full mt-2 z-20 w-20 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                  <div class="p-1 space-y-0.5">
-                    @for (size of [10, 20, 50, 100]; track size) {
-                      <button
-                        type="button"
-                        (click)="seleccionarPageSize(size)"
-                        class="w-full px-3 py-1.5 text-sm text-center rounded-lg transition-colors font-medium"
-                        [class.bg-green-50]="pageSize() === size"
-                        [class.text-green-700]="pageSize() === size"
-                        [class.text-gray-600]="pageSize() !== size"
-                        [class.hover:bg-gray-50]="pageSize() !== size">
-                        {{ size }}
-                      </button>
-                    }
-                  </div>
-                </div>
-              }
-            </div>
-          </div>
+          <app-page-size-select [value]="pageSize()" (valueChange)="seleccionarPageSize($event)" />
 
           <!-- Filtro opcional (ej. estado activo/desactivado) — lo controla el padre -->
           @if (filterOptions && filterOptions.length) {
@@ -123,7 +86,7 @@ export interface TableRowLink {
           @if (addLabel) {
             <button (click)="add.emit()"
               class="sm:ml-auto shrink-0 flex items-center justify-center gap-1.5 px-4 py-2 text-white text-sm font-semibold rounded-xl transition-colors"
-              style="background-color: #39A900">
+              style="background-color: var(--accent-brand)">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
               </svg>
@@ -137,13 +100,13 @@ export interface TableRowLink {
         <app-loading-skeleton variant="table" [rows]="6" [columns]="skeletonColumnCount"
           [showToolbar]="searchable" label="Cargando registros" />
       } @else if (rows.length === 0) {
-        <p class="text-center text-gray-400 text-sm py-10">No hay registros</p>
+        <app-empty-state titulo="No hay registros" ayuda="Cuando se agregue información aparecerá aquí." />
       } @else if (filasVisibles.length === 0) {
-        <p class="text-center text-gray-400 text-sm py-10">Sin resultados para "{{ busqueda }}"</p>
+        <app-empty-state titulo="Sin resultados para «{{ busqueda }}»" variante="busqueda" />
       } @else {
         <div [class]="searchable ? 'overflow-x-auto' : 'overflow-x-auto rounded-xl border border-gray-100'">
           <table class="w-full text-sm">
-            <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
+            <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
               <tr>
                 @if (checkable) {
                   <th class="w-10 px-4 py-3">
@@ -220,7 +183,7 @@ export interface TableRowLink {
               de <strong class="text-gray-800">{{ filasVisibles.length }}</strong> registros
             </span>
             <div class="flex items-center gap-2">
-              <button (click)="page = page - 1" [disabled]="page === 0"
+              <button aria-label="Página anterior" (click)="page = page - 1" [disabled]="page === 0"
                 class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
@@ -229,7 +192,7 @@ export interface TableRowLink {
               <span class="px-4 py-1.5 text-sm font-semibold text-[#39A900] bg-[#39A900]/10 rounded-lg border border-[#39A900]/20">
                 {{ page + 1 }} / {{ totalPaginas }}
               </span>
-              <button (click)="page = page + 1" [disabled]="page + 1 >= totalPaginas"
+              <button aria-label="Página siguiente" (click)="page = page + 1" [disabled]="page + 1 >= totalPaginas"
                 class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -308,13 +271,11 @@ export class AdminTableComponent implements DoCheck {
   /** Estado interno del buscador/paginador (solo activo con `searchable`). */
   busqueda = '';
   page = 0;
-  pageSize = signal(20)
-  pageSizeDropdownOpen= signal(false)
+  pageSize = signal(20);
 
-  seleccionarPageSize(size:number):void{
-    this.pageSize.set(size)
-    this.page=0
-    this.pageSizeDropdownOpen.set(false)
+  seleccionarPageSize(size: number): void {
+    this.pageSize.set(size);
+    this.page = 0;
   }
 
   /** Si está en true, las filas son clicables (cursor + resaltado) y emiten rowSelected. */

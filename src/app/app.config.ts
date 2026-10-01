@@ -1,7 +1,6 @@
 import { ApplicationConfig, provideZoneChangeDetection, LOCALE_ID } from '@angular/core';
-import { MessageService, ConfirmationService } from 'primeng/api';
 import { signal } from '@angular/core'; // ← agrega signal
-import { provideRouter } from '@angular/router';
+import { provideRouter, withViewTransitions } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { providePrimeNG } from 'primeng/config';
@@ -101,7 +100,7 @@ registerLocaleData(localeEs);
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
-    provideRouter(routes),
+    provideRouter(routes, withViewTransitions()),
     provideHttpClient(
       withInterceptors([
         authInterceptor,
@@ -186,7 +185,8 @@ export const appConfig: ApplicationConfig = {
       }),
     ),
 
-    providePrimeNG({ theme: { preset: Aura } }),
+    // darkModeSelector: el mismo atributo que usa el resto del modo oscuro (ThemeService / index.html).
+    providePrimeNG({ theme: { preset: Aura, options: { darkModeSelector: '[data-theme="dark"]' } } }),
     { provide: LOCALE_ID, useValue: 'es' },
     {
       provide: TUI_LANGUAGE,
@@ -195,8 +195,6 @@ export const appConfig: ApplicationConfig = {
     ...provideTaiga({ scrollbars: 'native' }),
     tuiAssetsPathProvider('assets/taiga-ui/icons'),
     provideLottieOptions({ player: () => player }),
-    MessageService, // ← proveedor global para ToastService
-    ConfirmationService, // ← proveedor global; el <p-confirmDialog> vive en app.ts (Ronda 6)
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000',

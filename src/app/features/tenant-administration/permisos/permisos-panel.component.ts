@@ -1,8 +1,9 @@
 import { Component, Input, OnChanges, signal } from '@angular/core';
-import { ConfirmationService } from 'primeng/api';
 import { AdminService } from '../services/admin.service';
 import { PermisosGestionService, Permiso } from '../../../core/services/permisos-gestion.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
+import { ConfirmService } from '../../../core/services/confirm.service';
 
 /**
  * Traducción de `servicio.nombre` técnico → frase en español. No es
@@ -161,6 +162,7 @@ function labelPasoGenerico(posicion: number, acciones: string[]): string {
 @Component({
   selector: 'app-permisos-panel',
   standalone: true,
+  imports: [LoadingSkeletonComponent],
   template: `
     <div class="w-full bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden mt-4">
       <div class="bg-gray-50/60 border-b border-gray-100 px-6 py-4 flex items-center justify-between flex-wrap gap-2">
@@ -197,9 +199,7 @@ function labelPasoGenerico(posicion: number, acciones: string[]): string {
 
       <div class="p-6">
         @if (cargando()) {
-          <div class="flex justify-center py-10">
-            <div class="w-7 h-7 border-4 border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
-          </div>
+          <app-loading-skeleton variant="form" [rows]="5" label="Cargando permisos" />
         } @else {
           <div class="max-h-[560px] overflow-y-auto pr-2 flex flex-col gap-6">
             @for (grupo of grupos(); track grupo.modulo) {
@@ -209,7 +209,7 @@ function labelPasoGenerico(posicion: number, acciones: string[]): string {
                   [class.collapsed]="isColapsado(grupo.modulo)"
                   (click)="toggleGrupo(grupo.modulo)">
                   <span>{{ grupo.icono }}</span> {{ grupo.modulo }}
-                  <span class="ml-auto text-[10px] font-bold text-gray-400 bg-white border border-gray-200 px-2 py-0.5 rounded-full">
+                  <span class="ml-auto text-xs font-bold text-gray-400 bg-white border border-gray-200 px-2 py-0.5 rounded-full">
                     {{ grupo.servicios.length }} permisos
                   </span>
                   <button type="button" class="perm-activar-modulo-btn"
@@ -283,7 +283,7 @@ function labelPasoGenerico(posicion: number, acciones: string[]): string {
     </div>
   `,
   styles: [`
-    .perm-recurso-bloque { padding: 9px 4px; border-top: 1px solid #f1f3ef; }
+    .perm-recurso-bloque { padding: 9px 4px; border-top: 1px solid var(--border-soft); }
     .perm-recurso-bloque:first-child { border-top: none; }
     .perm-recurso-row {
       display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
@@ -291,69 +291,69 @@ function labelPasoGenerico(posicion: number, acciones: string[]): string {
     .perm-recurso-nombre {
       flex: 0 0 156px; min-width: 0; display: flex; flex-direction: column; gap: 2px;
     }
-    .perm-recurso-nombre span { font-size: 13px; font-weight: 600; color: #1f2937; }
+    .perm-recurso-nombre span { font-size: 13px; font-weight: 600; color: var(--text); }
     .perm-exc-badge {
-      align-self: flex-start; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
-      color: #a2670d; background: #fbf0dd; border: none; padding: 1px 6px; border-radius: 5px; cursor: pointer;
+      align-self: flex-start; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+      color: var(--warn-text); background: var(--warn-bg); border: none; padding: 1px 6px; border-radius: 5px; cursor: pointer;
     }
-    .perm-exc-badge:hover { background: #f6e2bd; }
+    .perm-exc-badge:hover { background: var(--warn-bg); }
 
     .perm-extras-linea {
       display: flex; align-items: center; gap: 9px; margin-top: 7px; padding-left: 170px; flex-wrap: wrap;
     }
     .perm-extras-etiqueta {
-      font-size: 10px; font-weight: 700; color: #b7c0b3; text-transform: uppercase; letter-spacing: .04em; flex-shrink: 0;
+      font-size: 12px; font-weight: 700; color: var(--text-faint); text-transform: uppercase; letter-spacing: .04em; flex-shrink: 0;
     }
     @media (max-width: 640px) { .perm-extras-linea { padding-left: 0; } }
 
-    .perm-escalera { display: inline-flex; border: 1.5px solid #e5e7eb; border-radius: 9px; overflow: hidden; flex-shrink: 0; }
+    .perm-escalera { display: inline-flex; border: 1.5px solid var(--border); border-radius: 9px; overflow: hidden; flex-shrink: 0; }
     .perm-escalon {
-      font-family: inherit; font-size: 11.5px; font-weight: 600; color: #9ca3af; background: #fff;
-      border: none; border-right: 1.5px solid #e5e7eb; padding: 6px 12px; cursor: pointer; white-space: nowrap;
+      font-family: inherit; font-size: 12px; font-weight: 600; color: var(--text-faint); background: var(--surface);
+      border: none; border-right: 1.5px solid var(--border); padding: 6px 12px; cursor: pointer; white-space: nowrap;
       transition: background .12s ease, color .12s ease;
     }
     .perm-escalera .perm-escalon:last-child { border-right: none; }
-    .perm-escalon:hover { background: #f5f7f4; }
-    .perm-escalon.activo { background: var(--nivel-color, #007832); color: #fff; }
+    .perm-escalon:hover { background: var(--surface2); }
+    .perm-escalon.activo { background: var(--nivel-color, var(--accent)); color: #fff; }
 
     .perm-extras { display: flex; gap: 6px; flex-wrap: wrap; }
     .perm-extra-chip {
-      font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; border: 1.4px solid #e5e7eb;
-      background: #fff; color: #9ca3af; cursor: pointer; white-space: nowrap; transition: all .12s ease;
+      font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 999px; border: 1.4px solid var(--border);
+      background: var(--surface); color: var(--text-faint); cursor: pointer; white-space: nowrap; transition: all .12s ease;
     }
-    .perm-extra-chip.on { border-color: #39A900; color: #39A900; background: rgba(57,169,0,.08); }
-    .perm-extra-chip:hover { border-color: #39A900; }
+    .perm-extra-chip.on { border-color: var(--accent-brand); color: var(--accent-text); background: color-mix(in srgb, var(--accent-brand) 8%, transparent); }
+    .perm-extra-chip:hover { border-color: var(--accent-brand); }
 
     .perm-group-header {
       width: 100%; display: flex; align-items: center; gap: 8px;
       background: none; border: none; cursor: pointer; font-family: inherit;
       text-align: left; padding: 0 0 8px; margin-bottom: 12px;
       border-bottom: 1px solid rgba(209,213,219,.7);
-      font-size: 12px; font-weight: 700; color: #374151;
+      font-size: 12px; font-weight: 700; color: var(--text-2);
       text-transform: uppercase; letter-spacing: .04em;
     }
     .perm-group-header.collapsed { border-bottom-color: transparent; margin-bottom: 0; padding-bottom: 0; }
-    .perm-group-header:hover { color: #39A900; }
-    .perm-group-chevron { color: #9ca3af; flex-shrink: 0; transition: transform .18s ease-in-out, color .15s; }
+    .perm-group-header:hover { color: var(--accent-text); }
+    .perm-group-chevron { color: var(--text-faint); flex-shrink: 0; transition: transform .18s ease-in-out, color .15s; }
     .perm-group-chevron.expanded { transform: rotate(90deg); }
-    .perm-group-header:hover .perm-group-chevron { color: #39A900; }
+    .perm-group-header:hover .perm-group-chevron { color: var(--accent-text); }
 
     .perm-activar-modulo-btn {
-      font-size: 10.5px; font-weight: 700; text-transform: none; letter-spacing: normal;
-      color: #39A900; background: #fff; border: 1.4px solid #39A900;
+      font-size: 12px; font-weight: 700; text-transform: none; letter-spacing: normal;
+      color: var(--accent-text); background: var(--surface); border: 1.4px solid var(--accent-brand);
       border-radius: 999px; padding: 3px 10px; cursor: pointer; white-space: nowrap;
       transition: background .15s ease;
     }
-    .perm-activar-modulo-btn:hover:not(:disabled) { background: rgba(57,169,0,.08); }
+    .perm-activar-modulo-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--accent-brand) 8%, transparent); }
     .perm-activar-modulo-btn:disabled { opacity: .5; cursor: not-allowed; }
 
     .panel-action-btn {
-      font-size: 11.5px; font-weight: 700; color: #374151; background: #fff;
-      border: 1.4px solid #d1d5db; border-radius: 8px; padding: 6px 12px;
+      font-size: 12px; font-weight: 700; color: var(--text-2); background: var(--surface);
+      border: 1.4px solid var(--border-strong); border-radius: 8px; padding: 6px 12px;
       cursor: pointer; white-space: nowrap; transition: all .15s ease;
     }
-    .panel-action-btn:hover:not(:disabled) { border-color: #9ca3af; background: #f9fafb; }
-    .panel-action-btn.danger { color: #b91c1c; border-color: #fca5a5; }
+    .panel-action-btn:hover:not(:disabled) { border-color: var(--border-strong); background: var(--surface2); }
+    .panel-action-btn.danger { color: var(--err-text); border-color: var(--err-border); }
     .panel-action-btn.danger:hover:not(:disabled) { background: rgba(185,28,28,.06); }
     .panel-action-btn:disabled { opacity: .5; cursor: not-allowed; }
   `],
@@ -378,7 +378,7 @@ export class PermisosPanelComponent implements OnChanges {
     private admin: AdminService,
     private permisosSvc: PermisosGestionService,
     private toast: ToastService,
-    private confirmSvc: ConfirmationService,
+    private confirmSvc: ConfirmService,
   ) {}
 
   async ngOnChanges(): Promise<void> {

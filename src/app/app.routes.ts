@@ -5,6 +5,7 @@ import { SERVICIOS_ADMIN_PANEL } from './features/tenant-administration/config/a
 import { SCHEDULE_ROUTES } from './features/schedules/schedules.routes';
 import { SURVEY_ROUTES } from './features/surveys/surveys.routes';
 import { MATERIALS_ROUTES } from './features/materiales/materiales.routes';
+import { conAvisoDeCambios } from './core/services/unsaved-changes.service';
 
 function tieneSubdominio(): boolean {
   const hostname = window.location.hostname;
@@ -15,7 +16,7 @@ function tieneSubdominio(): boolean {
   return hostname.split('.').length >= 3;
 }
 
-export const routes: Routes = [
+const RUTAS: Routes = [
   // ─────────────────────────────────────────────
   // SIN SUBDOMINIO → Panel de administración de tenants
   // ─────────────────────────────────────────────
@@ -34,15 +35,18 @@ export const routes: Routes = [
     children: [
       {
         path: '',
+        title: 'Iniciar sesión | ERP',
         loadComponent: () => import('./features/access/login/login.component').then((m) => m.LoginComponent),
       },
       {
         // Alias: authGuard redirige a /login — debe resolver al mismo login de la raíz
         path: 'login',
+        title: 'Iniciar sesión | ERP',
         loadComponent: () => import('./features/access/login/login.component').then((m) => m.LoginComponent),
       },
       {
         path: '404',
+        title: 'Página no encontrada | ERP',
         loadComponent: () => import('./features/errors/not-found.component').then((m) => m.NotFoundComponent),
       },
       {
@@ -52,10 +56,10 @@ export const routes: Routes = [
         canActivate: [authGuard],
         loadComponent: () => import('./shell/tenant-layout/main-layout.component').then((m) => m.MainLayoutComponent),
         children: [
-          { path: 'home', loadComponent: () => import('./features/dashboard/home.component').then((m) => m.HomeComponent) },
+          { path: 'home', title: 'Inicio | ERP', loadComponent: () => import('./features/dashboard/home.component').then((m) => m.HomeComponent) },
           // Sin `roles`: admin/instructor entran libres; el aprendiz solo si ya
           // tiene etapa práctica (deep-link — el link del sidebar ya se filtra).
-          { path: 'seguimiento', canActivate: [roleGuard], data: { soloAprendizConEtapa: true }, loadComponent: () => import('./features/practice/seguimiento.component').then((m) => m.SeguimientoComponent) },
+          { path: 'seguimiento', title: 'Seguimiento | ERP', canActivate: [roleGuard], data: { soloAprendizConEtapa: true }, loadComponent: () => import('./features/practice/seguimiento.component').then((m) => m.SeguimientoComponent) },
           // 'servicios' es alternativa OR a 'roles' (misma lógica que /admin):
           // quien no es admin por cargo pero tiene los servicios que esta
           // pantalla realmente consume (busca por cédula en personas +
@@ -69,15 +73,15 @@ export const routes: Routes = [
           // 2026-09-15: "un instructor... solo debería poder acceder a este
           // de igual manera con la gestión de formatos, solo si le conceden
           // el permiso").
-          { path: 'docs', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['practica.historial.ver'] }, loadComponent: () => import('./features/practice/history/historial.component').then((m) => m.HistorialComponent) },
+          { path: 'docs', title: 'Historial | ERP', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['practica.historial.ver'] }, loadComponent: () => import('./features/practice/history/historial.component').then((m) => m.HistorialComponent) },
           // Formatos: accesible a cualquiera con `practica.formatos.ver`
           // (aprendiz lo trae por defecto) — ya NO exige tener una etapa
           // práctica activa (corregido 2026-09-16, pedido explícito: "el
           // aprendiz por defecto debería tener acceso a verlos"). El
           // componente no depende de ninguna etapa (lista formatos globales),
           // así que la restricción era puramente de visibilidad, no técnica.
-          { path: 'format', canActivate: [roleGuard], loadComponent: () => import('./features/practice/templates/formatos.component').then((m) => m.FormatosComponent) },
-          { path: 'blog', loadComponent: () => import('./features/assistant/chat.component').then((m) => m.ChatComponent) },
+          { path: 'format', title: 'Formatos | ERP', canActivate: [roleGuard], loadComponent: () => import('./features/practice/templates/formatos.component').then((m) => m.FormatosComponent) },
+          { path: 'blog', title: 'Asistente | ERP', loadComponent: () => import('./features/assistant/chat.component').then((m) => m.ChatComponent) },
           // Sin 'roles': el acceso a /admin es por cargo NADA — es 100% por
           // servicio, vía SERVICIOS_ADMIN_PANEL (admin.config.ts). Antes era
           // un único servicio ('permisos.gestionar'), lo que bloqueaba de
@@ -91,15 +95,15 @@ export const routes: Routes = [
           // etc.) que dejaba entrar a cualquier instructor aunque se le
           // revocara 'permisos.gestionar' explícitamente. Ver plan "Ronda 3"
           // (continuación, Fase 10/11).
-          { path: 'admin', canActivate: [roleGuard], data: { servicios: SERVICIOS_ADMIN_PANEL }, loadComponent: () => import('./features/tenant-administration/admin-panel/admin-panel.component').then((m) => m.AdminPanelComponent) },
-          { path: 'settings', loadComponent: () => import('./features/preferences/settings.component').then((m) => m.SettingsComponent) },
+          { path: 'admin', title: 'Administración | ERP', canActivate: [roleGuard], data: { servicios: SERVICIOS_ADMIN_PANEL }, loadComponent: () => import('./features/tenant-administration/admin-panel/admin-panel.component').then((m) => m.AdminPanelComponent) },
+          { path: 'settings', title: 'Ajustes | ERP', loadComponent: () => import('./features/preferences/settings.component').then((m) => m.SettingsComponent) },
           // OJO: 'servicios' (OR), no 'serviciosRequeridos' (AND) — roles=admin
           // y "instructor con practica.migracion otorgado" son POBLACIONES
           // DISTINTAS (misma lección de Fase 3.2: AND es solo para cuando
           // roles y el servicio gatean a la MISMA gente). Con AND, un
           // instructor con el servicio nunca pasaba porque 'roles' ya lo
           // bloqueaba antes de que el servicio tuviera chance de rescatarlo.
-          { path: 'migracion', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['practica.migracion'] }, loadComponent: () => import('./features/practice/migration/migration.component').then((m) => m.MigrationComponent) },
+          { path: 'migracion', title: 'Migración | ERP', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['practica.migracion'] }, loadComponent: () => import('./features/practice/migration/migration.component').then((m) => m.MigrationComponent) },
 
           // ── Horarios (portado de ChronoGest) ──────────────────────────────
           // Solo el servicio elevado gatea la ruta (no 'horarios.ver'/'horarios.competencias':
@@ -167,12 +171,12 @@ export const routes: Routes = [
       // /responder/:token como público (@Public(), sin personaId en la
       // respuesta), así que el link/QR se responde de forma anónima, sin
       // loguearse ni pasar por ninguna página de "Mis Encuestas".
-      { path: 'responder/:token', loadComponent: () => import('./features/surveys/public-response/responder-encuesta.component').then((m) => m.ResponderEncuestaComponent) },
+      { path: 'responder/:token', title: 'Responder encuesta | ERP', loadComponent: () => import('./features/surveys/public-response/responder-encuesta.component').then((m) => m.ResponderEncuestaComponent) },
       // Link/QR único por grupo (una ficha, varios instructores) — también
       // público: sin personaId no se puede resolver "el siguiente pendiente",
       // así que el componente lista todos los instructores del grupo y el
       // aprendiz anónimo elige a cuál responder (ver GrupoPublicoController).
-      { path: 'responder-grupo/:grupoId', loadComponent: () => import('./features/surveys/public-group/responder-grupo.component').then((m) => m.ResponderGrupoComponent) },
+      { path: 'responder-grupo/:grupoId', title: 'Responder encuesta | ERP', loadComponent: () => import('./features/surveys/public-group/responder-grupo.component').then((m) => m.ResponderGrupoComponent) },
       { path: '**', redirectTo: '404' },
     ],
   },
@@ -180,3 +184,5 @@ export const routes: Routes = [
   // Comodín global (por si ningún canMatch pasa)
   { path: '**', redirectTo: '' },
 ];
+
+export const routes: Routes = conAvisoDeCambios(RUTAS);

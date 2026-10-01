@@ -4,6 +4,7 @@ import { ErpCatalogoService } from '../data-access/erp-catalogo.service';
 import { AuthService } from '../../../core/services/auth.service';
 import {
   DIAS_SEMANA, DIAS_LABELS, fechaInicioDelDia, fechaFinDelDia,
+  estadoCompetencias, tituloCompetencia,
   to12h as to12hUtil,
 } from '../../../core/utils/horarios.util';
 import { LucideAngularModule } from 'lucide-angular';
@@ -29,7 +30,7 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
     <div class="ficha-info-card mt-4 mb-4" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:var(--surface); padding:14px 18px; border:1px solid var(--border); border-radius:10px;">
       <span class="text-xs text-muted">Ficha:</span>
       <strong>{{ ficha().codigo }}</strong>
-      <span class="bg-green-100 text-green-700 rounded-full lowercase font-bold" style="font-size:11px;padding:2px 9px;">{{ ficha().programa }}</span>
+      <span class="bg-green-100 text-green-700 rounded-full lowercase font-bold" style="font-size:12px;padding:2px 9px;">{{ ficha().programa }}</span>
       @if (ficha().fechaInicio || ficha().fechaFin) {
         <span class="text-xs text-muted" style="margin-left:auto;"><lucide-icon name="calendar" [size]="14" style="vertical-align:-2px"></lucide-icon> {{ ficha().fechaInicio ?? '?' }} — {{ ficha().fechaFin ?? '?' }}</span>
       }
@@ -63,11 +64,11 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
       <div class="mt-4" style="display:flex; flex-direction:column; align-items:center; gap:10px;
                                background:var(--surface); border:1px solid var(--border);
                                border-radius:10px; padding:32px 18px; text-align:center;">
-        <lucide-icon name="alert-triangle" [size]="28" style="color:#dc2626;"></lucide-icon>
-        <p style="margin:0; color:#dc2626; font-weight:600; font-size:14px;">{{ errorCarga() }}</p>
+        <lucide-icon name="alert-triangle" [size]="28" style="color:var(--err-text);"></lucide-icon>
+        <p style="margin:0; color:var(--err-text); font-weight:600; font-size:14px;">{{ errorCarga() }}</p>
         <button type="button" (click)="inicializar()"
-                style="padding:6px 18px; border:1px solid #dc2626; border-radius:8px;
-                       background:transparent; color:#dc2626; font-size:13px; font-weight:600; cursor:pointer;">
+                style="padding:6px 18px; border:1px solid var(--err-text); border-radius:8px;
+                       background:transparent; color:var(--err-text); font-size:13px; font-weight:600; cursor:pointer;">
           Reintentar
         </button>
       </div>
@@ -111,8 +112,8 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
                         <span class="info-val">
                           @if (h.ubicacionTransversalNombre && h.ambiente?.nombre) {
                             <span class="amb-temp-wrap">
-                              <span style="color:#d97706;font-weight:700;">{{ h.ubicacionTransversalNombre }}</span>
-                              <lucide-icon name="info" [size]="10" style="color:#d97706;flex-shrink:0;"></lucide-icon>
+                              <span style="color:var(--warn-text);font-weight:700;">{{ h.ubicacionTransversalNombre }}</span>
+                              <lucide-icon name="info" [size]="10" style="color:var(--warn-text);flex-shrink:0;"></lucide-icon>
                               <span class="amb-temp-tooltip">
                                 <span class="amb-temp-row">
                                   <span class="amb-temp-lbl">Temporal</span>
@@ -127,7 +128,7 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
                           } @else if (h.ambiente?.nombre) {
                             {{ h.ambiente.nombre }}
                           } @else if (h.ubicacionTransversalNombre) {
-                            <span style="font-weight:700;color:#39A900">{{ h.ubicacionTransversalNombre }}</span>
+                            <span style="font-weight:700;color:var(--accent-text)">{{ h.ubicacionTransversalNombre }}</span>
                           } @else {
                             —
                           }
@@ -161,21 +162,23 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
                           <lucide-icon name="check-circle" [size]="9"></lucide-icon> Horario finalizado
                         </div>
                       } @else {
-                        <span class="bg-gray-100 text-gray-500 rounded-full lowercase font-bold" style="font-size:11px;padding:2px 9px;margin-top:6px;display:inline-block;">inactivo</span>
+                        <span class="bg-gray-100 text-gray-500 rounded-full lowercase font-bold" style="font-size:12px;padding:2px 9px;margin-top:6px;display:inline-block;">inactivo</span>
                       }
                     </div><!-- end card-bottom -->
                   </div><!-- end card-main -->
 
                   <!-- ── Columna derecha: iconos interactivos ── -->
                   <div class="card-actions-col">
-                    <div class="card-help-btn"
+                    @let est = compEstado(h);
+                    <div [class]="'card-help-btn comp-' + est.estado"
                          [class.card-help-active]="compTooltip.state()?.h?.id === h.id"
-                         (click)="compTooltip.abrir(h, getCompetenciaVigente(h), $event)">
-                      <lucide-icon name="help-circle" [size]="15"></lucide-icon>
+                         [title]="compTitulo(est)" [attr.aria-label]="compTitulo(est)"
+                         (click)="compTooltip.abrir(h, est.comp, $event)">
+                      <lucide-icon name="book-open" [size]="15"></lucide-icon>
                     </div>
                     @if (fichaEventos().length && isToday(d)) {
                       @for (ev of fichaEventos(); track ev.id) {
-                        <button [class]="'ev-notif-btn ev-notif-' + ev.tipo"
+                        <button [class]="'ev-notif-btn ev-notif-' + ev.tipo" [attr.aria-label]="'Evento: ' + ev.nombre"
                                 (mouseenter)="showEventoTooltip(ev, $event)"
                                 (mouseleave)="hideEventoTooltip()">
                           <lucide-icon name="bell" [size]="9"></lucide-icon>
@@ -205,7 +208,7 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
       <div [class]="'ev-tooltip-box ev-tooltip-' + eventoTooltip()!.ev.tipo"
            [style.left.px]="eventoTooltip()!.x"
            [style.top.px]="eventoTooltip()!.y">
-        <p style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.8;margin-bottom:5px;">
+        <p style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.8;margin-bottom:5px;">
           {{ tipoLabelEvento(eventoTooltip()!.ev.tipo) }}
         </p>
         <p style="font-weight:700;font-size:14px;margin:0 0 2px;color:inherit;">{{ eventoTooltip()!.ev.nombre }}</p>
@@ -461,6 +464,15 @@ export class AprendizMisHorariosComponent implements OnInit, OnDestroy {
     if (nowMin < startMin) return 0;
     if (nowMin > endMin) return 100;
     return Math.round(((nowMin - startMin) / (endMin - startMin)) * 100);
+  }
+
+  /** Estado de la competencia para el libro de la card: distingue "sin competencia" de "ya terminó" o "todavía no empieza". */
+  compEstado(h: any): ReturnType<typeof estadoCompetencias> {
+    return estadoCompetencias(h.competencias);
+  }
+
+  compTitulo(e: ReturnType<typeof estadoCompetencias>): string {
+    return tituloCompetencia(e);
   }
 
   getCompetenciaVigente(h: any): any | null {

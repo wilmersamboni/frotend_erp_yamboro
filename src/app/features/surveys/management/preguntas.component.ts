@@ -1,21 +1,17 @@
-import { Component, OnInit, signal, inject } from '@angular/core';
+import { Component, OnInit, signal, inject, ElementRef, Injector, afterNextRender } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { ToastModule } from 'primeng/toast';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { MessageService, ConfirmationService } from 'primeng/api';
+import gsap from 'gsap';
 
 import { EncuestasApiService, Pregunta } from '../data-access/encuestas-api.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { ConfirmService } from '../../../core/services/confirm.service';
 
 @Component({
   selector: 'app-preguntas',
   standalone: true,
-  imports: [FormsModule, RouterLink, ToastModule, ConfirmDialogModule],
-  providers: [MessageService, ConfirmationService],
+  imports: [FormsModule, RouterLink],
   template: `
-    <p-toast position="top-right" [baseZIndex]="9999" />
-    <p-confirmdialog />
 
     <div class="bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-50 p-3 sm:p-4 lg:p-8">
       <div class="max-w-3xl mx-auto space-y-4 sm:space-y-6">
@@ -64,7 +60,7 @@ import { ToastService } from '../../../core/services/toast.service';
               class="group flex items-center justify-center gap-2 px-5 py-2.5 text-white text-sm font-bold rounded-xl
                      shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]
                      disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap"
-              style="background: linear-gradient(135deg, #39A900 0%, #2d8500 100%)">
+              style="background: linear-gradient(135deg, var(--accent-brand) 0%, var(--accent-brand-dark) 100%)">
               <svg class="w-4 h-4 group-hover:rotate-90 transition-transform duration-300"
                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
@@ -91,18 +87,19 @@ import { ToastService } from '../../../core/services/toast.service';
           @if (!loading() && preguntas().length > 0) {
             <ul class="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
               @for (p of preguntas(); track p.id) {
-                <li class="flex items-center justify-between gap-3 px-4 py-3 bg-gray-50/60">
+                <li [attr.data-pid]="p.id" class="flex items-center justify-between gap-3 px-4 py-3 bg-gray-50/60 overflow-hidden">
                   <span class="text-sm text-gray-800" [class.line-through]="!p.activo" [class.text-gray-400]="!p.activo">
                     {{ p.texto }}
                   </span>
                   <div class="flex items-center gap-1.5 flex-shrink-0">
                     <button
+                      data-anim="badge-activo"
                       (click)="toggleActivo(p)"
                       [class]="'px-2.5 py-1 rounded-lg text-xs font-bold transition-all ' +
                         (p.activo ? 'bg-[#39A900]/10 text-[#2d8500]' : 'bg-gray-100 text-gray-500')">
                       {{ p.activo ? 'Activa' : 'Inactiva' }}
                     </button>
-                    <button
+                    <button aria-label="Eliminar"
                       (click)="eliminar(p)"
                       class="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all"
                       title="Eliminar">
@@ -125,7 +122,14 @@ import { ToastService } from '../../../core/services/toast.service';
 export class PreguntasComponent implements OnInit {
   private api   = inject(EncuestasApiService);
   private toast = inject(ToastService);
-  private confirm = inject(ConfirmationService);
+  private confirm = inject(ConfirmService);
+
+  private host     = inject(ElementRef).nativeElement as HTMLElement;
+  private injector = inject(Injector);
+
+  /** Animaciones GSAP (2026-09-25) — desactivadas con prefers-reduced-motion. */
+  readonly reducirMovimiento =
+    typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   preguntas = signal<Pregunta[]>([]);
   loading   = signal(false);
@@ -134,15 +138,29 @@ export class PreguntasComponent implements OnInit {
 
   ngOnInit(): void { this.cargar(); }
 
-  async cargar(): Promise<void> {
-    this.loading.set(true);
+  /**
+   * `silencioso`: recarga sin pasar por "Cargando…" — antes cada alta,
+   * activación o baja vaciaba la lista y la volvía a pintar (parpadeo).
+   */
+  async cargar(silencioso = false): Promise<void> {
+    if (!silencioso) this.loading.set(true);
     try {
       this.preguntas.set(await this.api.getPreguntas());
+      if (!silencioso && !this.reducirMovimiento) {
+        afterNextRender(() => {
+          const filas = Array.from(this.host.querySelectorAll('[data-pid]')).slice(0, 15);
+          gsap.from(filas, { y: 10, opacity: 0, duration: 0.3, stagger: 0.04, ease: 'power2.out', clearProps: 'transform,opacity' });
+        }, { injector: this.injector });
+      }
     } catch (e: any) {
       this.toast.httpError(e, 'No se pudieron cargar las preguntas.');
     } finally {
-      this.loading.set(false);
+      if (!silencioso) this.loading.set(false);
     }
+  }
+
+  private fila(id: string): HTMLElement | null {
+    return this.host.querySelector<HTMLElement>(`[data-pid="${id}"]`);
   }
 
   async crear(): Promise<void> {
@@ -150,10 +168,22 @@ export class PreguntasComponent implements OnInit {
     if (!texto) return;
     this.guardando.set(true);
     try {
+      const antes = new Set(this.preguntas().map((x) => x.id));
       await this.api.crearPregunta(texto);
       this.nuevoTexto = '';
       this.toast.ok('Agregada', 'Pregunta creada correctamente.');
-      await this.cargar();
+      await this.cargar(true);
+      // La pregunta nueva entra deslizándose con un destello verde.
+      const nueva = this.preguntas().find((x) => !antes.has(x.id));
+      if (nueva && !this.reducirMovimiento) {
+        afterNextRender(() => {
+          const li = this.fila(nueva.id);
+          if (!li) return;
+          gsap.fromTo(li,
+            { x: -16, opacity: 0, backgroundColor: 'rgba(57,169,0,0.16)' },
+            { x: 0, opacity: 1, backgroundColor: 'rgba(249,250,251,0.6)', duration: 0.9, ease: 'power2.out', clearProps: 'transform,opacity,backgroundColor' });
+        }, { injector: this.injector });
+      }
     } catch (e: any) {
       this.toast.httpError(e, 'No se pudo crear la pregunta.');
     } finally {
@@ -164,7 +194,13 @@ export class PreguntasComponent implements OnInit {
   async toggleActivo(p: Pregunta): Promise<void> {
     try {
       await this.api.actualizarPregunta(p.id, { activo: !p.activo });
-      await this.cargar();
+      await this.cargar(true);
+      if (!this.reducirMovimiento) {
+        afterNextRender(() => {
+          const badge = this.fila(p.id)?.querySelector('[data-anim="badge-activo"]');
+          if (badge) gsap.fromTo(badge, { scale: 0.8 }, { scale: 1, duration: 0.4, ease: 'back.out(3)', clearProps: 'transform' });
+        }, { injector: this.injector });
+      }
     } catch (e: any) {
       this.toast.httpError(e, 'No se pudo actualizar la pregunta.');
     }
@@ -182,7 +218,12 @@ export class PreguntasComponent implements OnInit {
         try {
           await this.api.eliminarPregunta(p.id);
           this.toast.ok('Eliminada', 'Pregunta eliminada correctamente.');
-          await this.cargar();
+          // La fila se colapsa antes de salir de la lista.
+          const li = this.fila(p.id);
+          if (li && !this.reducirMovimiento) {
+            await gsap.to(li, { height: 0, paddingTop: 0, paddingBottom: 0, opacity: 0, duration: 0.3, ease: 'power2.in' });
+          }
+          await this.cargar(true);
         } catch (e: any) {
           this.toast.httpError(e, 'No se pudo eliminar la pregunta.');
         }

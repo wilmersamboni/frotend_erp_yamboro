@@ -4,12 +4,16 @@ import { DatePipe } from '@angular/common';
 import { MaterialesLiveService } from '../data-access/materiales-live.service';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
-import { ToastService } from '../../../core/services/toast.service';
+import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { TableFilterComponent } from '../../../shared/components/table-filter.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from '../data-access/materiales-api.service';
+import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
+import { AlertComponent } from '../../../shared/ui/alert.component';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
+import { EsperaDirective } from '../../../shared/directives/espera.directive';
 
 /**
  * Traslados de ítems entre sitios — PENDIENTE → APROBADO/RECHAZADO, terminal
@@ -41,45 +45,44 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
 @Component({
   selector: 'app-materiales-traslados',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, TableFilterComponent, LoadingSkeletonComponent],
+  imports: [EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, TableFilterComponent, LoadingSkeletonComponent],
   template: `
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-5">
+    <div class="p-4 sm:p-6">
+      <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
+        <span>Materiales</span><span aria-hidden="true">/</span><span>Operación</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Traslados</span>
+      </nav>
+      <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
         <h1 class="text-xl font-bold text-gray-800">Traslados</h1>
         <button (click)="abrirCrear()"
           class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-          style="background-color: #39A900">
+          style="background-color: var(--accent-brand)">
           + Nuevo traslado
         </button>
       </div>
 
       @if (bodegasInactivas().length > 0) {
-        <div class="mb-4 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-start gap-2">
-          <span>⚠️</span>
-          <span>
-            {{ bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas' }}:
-            <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
-            — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
-          </span>
-        </div>
+        <app-alert class="mb-4" variante="advertencia" [titulo]="bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas'">
+          <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
+          — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
+        </app-alert>
       }
 
       <div class="flex flex-wrap gap-2 mb-5">
         <app-table-filter label="Estado" [options]="opcionesEstadoFiltro" [value]="estadoFiltro" (valueChange)="estadoFiltro = $event" />
         <app-table-filter label="Origen" [options]="opcionesOrigenFiltro" [value]="origenFiltro" (valueChange)="origenFiltro = $event" />
         <app-table-filter label="Destino" [options]="opcionesDestinoFiltro" [value]="destinoFiltro" (valueChange)="destinoFiltro = $event" />
-        <input [(ngModel)]="busquedaFiltro" type="search" placeholder="Buscar ítem o justificación?" class="min-w-56 flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+        <input appEspera [(ngModel)]="busquedaFiltro" type="search" placeholder="Buscar ítem o justificación?" class="min-w-0 flex-1 basis-48 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
       </div>
 
       @if (loading) {
         <app-loading-skeleton variant="table" [rows]="6" [columns]="6" [showToolbar]="false" label="Cargando traslados" />
       } @else if (trasladosFiltrados.length === 0) {
-        <p class="text-center text-gray-400 text-sm py-10">No hay traslados que cumplan los filtros seleccionados.</p>
+        <app-empty-state titulo="No hay traslados que cumplan los filtros seleccionados." variante="busqueda" />
       } @else {
         <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
           <div class="overflow-x-auto">
           <table class="w-full text-sm">
-            <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
+            <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
               <tr>
                 <th class="px-4 py-3 text-left font-semibold">Ítem</th>
                 <th class="px-4 py-3 text-left font-semibold">Origen</th>
@@ -101,7 +104,7 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ t.fecha_solicitud | date: 'short' }}</td>
                   <td class="px-4 py-3">
                     @if (bodegaInactiva(t) && t.estado === 'PENDIENTE') {
-                      <div class="mb-1.5 flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
+                      <div class="mb-1.5 flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
                         ⚠️ Origen o destino inactivo — no se puede aprobar
                       </div>
                     }
@@ -115,7 +118,7 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
                           <button (click)="aprobar(t)" [disabled]="bodegaInactiva(t)"
                             [title]="bodegaInactiva(t) ? 'Origen o destino inactivo — no se puede aprobar. Rechazá el traslado en su lugar.' : ''"
                             [style.opacity]="bodegaInactiva(t) ? 0.45 : 1" [style.cursor]="bodegaInactiva(t) ? 'not-allowed' : 'pointer'"
-                            [style.backgroundColor]="bodegaInactiva(t) ? '#f3f4f6' : '#fff'" [style.color]="bodegaInactiva(t) ? '#9ca3af' : '#16a34a'" [style.borderColor]="bodegaInactiva(t) ? '#e5e7eb' : '#bbf7d0'"
+                            [style.backgroundColor]="bodegaInactiva(t) ? 'var(--surface3)' : 'var(--surface)'" [style.color]="bodegaInactiva(t) ? 'var(--text-faint)' : 'var(--ok-text)'" [style.borderColor]="bodegaInactiva(t) ? 'var(--border)' : 'var(--ok-border)'"
                             class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors">
                             Aprobar
                           </button>
@@ -139,17 +142,17 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
     </div>
 
     @if (detalleAbierto && detalle) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="detalleAbierto = false">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="detalleAbierto = false">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-5">
             <h2 class="text-lg font-bold text-gray-800">Detalle del traslado</h2>
-            <button (click)="detalleAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="detalleAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
           <dl class="space-y-2.5 text-sm">
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Ítem</dt><dd class="text-gray-800 font-medium text-right">{{ detalle.item?.producto?.nombre ?? detalle.item?.codigo_sku ?? '—' }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">SKU / Placa</dt><dd class="text-gray-800 font-mono text-right">{{ detalle.item?.placa_sena || detalle.item?.codigo_sku || '—' }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Origen</dt><dd class="text-gray-800 text-right">{{ nombreSitioTraslado(detalle.sitio_origen, detalle.id_sitio_origen) }}</dd></div>
-            <div class="flex justify-between gap-4"><dt class="text-gray-500">Encargado del origen</dt><dd class="text-gray-800 text-right">{{ detalle.origen_responsable_nombre ?? detalle.sitio_origen?.id_responsable ?? 'sin responsable' }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-gray-500">Encargado del origen</dt><dd class="text-gray-800 text-right">{{ detalle.origen_responsable_nombre ?? (detalle.sitio_origen?.id_responsable ? 'No disponible' : 'sin responsable') }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Destino</dt><dd class="text-gray-800 text-right">{{ nombreSitioTraslado(detalle.sitio_destino, detalle.id_sitio_destino) }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Estado</dt><dd class="text-gray-800 text-right">{{ detalle.estado }}</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Justificación</dt><dd class="text-gray-800 text-right">{{ detalle.justificacion || '—' }}</dd></div>
@@ -169,11 +172,11 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
     }
 
     @if (rechazarOpen && trasladoARechazar) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="rechazarOpen = false">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="rechazarOpen = false">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-bold text-gray-800">Rechazar traslado</h2>
-            <button (click)="rechazarOpen = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="rechazarOpen = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
           <p class="text-sm text-gray-500 mb-3">
             {{ trasladoARechazar.item?.producto?.nombre ?? trasladoARechazar.item?.codigo_sku ?? 'Ítem' }} →
@@ -194,11 +197,14 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
     }
 
     @if (crearOpen) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarCrear()">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarCrear()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
+          <nav aria-label="Migas de pan" class="mb-3 flex items-center gap-1.5 text-xs text-gray-500">
+            <span>Materiales</span><span aria-hidden="true">/</span><span>Operación</span><span aria-hidden="true">/</span><span>Traslados</span><span aria-hidden="true">/</span><span aria-current="page" class="font-medium text-gray-700">Nuevo traslado</span>
+          </nav>
           <div class="flex items-center justify-between mb-5">
             <h2 class="text-lg font-bold text-gray-800">Nuevo traslado</h2>
-            <button (click)="cerrarCrear()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="cerrarCrear()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 
           <div class="space-y-3">
@@ -207,7 +213,7 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
               @if (opcionesItems().length) {
                 <app-ss [options]="opcionesItems()" placeholder="Buscá por placa SENA, SKU o producto..."
                   [(ngModel)]="itemSeleccionadoId" (ngModelChange)="onItemSeleccionado($event)"></app-ss>
-                <p class="text-[11px] text-gray-400 mt-1">Elegí uno o varios ítems devolutivos con placa SENA. Todos van a la misma bodega de destino.</p>
+                <p class="text-xs text-gray-400 mt-1">Elegí uno o varios ítems devolutivos con placa SENA. Todos van a la misma bodega de destino.</p>
               } @else {
                 <p class="text-xs text-gray-400">No hay ítems devolutivos con placa SENA. Asigná las placas desde el módulo de Ítems.</p>
               }
@@ -227,7 +233,7 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
                         <span class="font-semibold text-gray-800">{{ it.item.producto?.nombre ?? 'Ítem' }}</span>
                         <span class="font-mono text-gray-500"> · {{ it.item.placa_sena || it.item.codigo_sku }}</span>
                         <span class="block text-gray-500">Sale de: <span class="text-gray-800 font-medium">{{ it.ubicacion?.nombre ?? '—' }}</span> · estado {{ it.item.estado }}</span>
-                        <span class="block text-gray-500">Encargado: <span class="text-gray-800">{{ it.ubicacion?.responsable_nombre ?? it.ubicacion?.id_responsable ?? 'sin responsable' }}</span></span>
+                        <span class="block text-gray-500">Encargado: <span class="text-gray-800">{{ it.ubicacion?.responsable_nombre ?? (it.ubicacion?.id_responsable ? 'No disponible' : 'sin responsable') }}</span></span>
                         @if (it.novedad_activa) {
                           <span class="block text-amber-600">Tiene una novedad activa ({{ it.novedad_activa.tipo }})</span>
                         }
@@ -235,7 +241,7 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
                           <span class="block text-red-600 font-medium">⚠ {{ fallidos[it.item.id_item] }}</span>
                         }
                       </div>
-                      <button type="button" (click)="quitarItem(it.item.id_item)"
+                      <button aria-label="Quitar" type="button" data-dirty (click)="quitarItem(it.item.id_item)"
                         class="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 text-base leading-none">×</button>
                     </div>
                   </li>
@@ -253,7 +259,7 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
                   placeholder="¿Por qué y para qué se traslada? (mín. 10 caracteres)"
                   class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]"></textarea>
                 @if (justificacion.trim().length > 0 && justificacion.trim().length < 10) {
-                  <p class="text-[11px] text-amber-600 mt-0.5">Faltan {{ 10 - justificacion.trim().length }} caracteres.</p>
+                  <p class="text-xs text-amber-600 mt-0.5">Faltan {{ 10 - justificacion.trim().length }} caracteres.</p>
                 }
               </div>
             }
@@ -268,7 +274,7 @@ import { Item, ItemDetalleBusqueda, MaterialesApiService, Sitio, Traslado } from
             <button (click)="guardarTraslado()"
               [disabled]="saving || itemsSeleccionados.length === 0 || !idSitioDestino || justificacion.trim().length < 10"
               class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
-              style="background-color: #39A900">
+              style="background-color: var(--accent-brand)">
               {{ saving ? 'Guardando...' : (itemsSeleccionados.length > 1 ? 'Solicitar ' + itemsSeleccionados.length + ' traslados' : 'Solicitar traslado') }}
             </button>
           </div>
@@ -286,6 +292,9 @@ export class MaterialesTrasladosComponent implements OnInit {
   readonly opcionesEstadoFiltro = [{ label: 'Todos los estados', value: '' }, { label: 'Pendiente', value: 'PENDIENTE' }, { label: 'Aprobado', value: 'APROBADO' }, { label: 'Rechazado', value: 'RECHAZADO' }];
   items: Item[] = [];
   sitios: Sitio[] = [];
+  /** Sitios donde el usuario es responsable o líder de área; permite que la
+   * misma UI sirva a administradores e instructores responsables. */
+  misSitiosACargoIds = new Set<string>();
   loading = false;
   saving = false;
   error: string | null = null;
@@ -351,9 +360,11 @@ export class MaterialesTrasladosComponent implements OnInit {
     const respDestino = t.sitio_destino?.id_responsable ?? null;
     if (respOrigen) {
       const origenEsSolicitante = respOrigen === t.id_usuario_solicita;
-      return respOrigen === uid || (origenEsSolicitante && respDestino === uid);
+      if (respOrigen === uid || (origenEsSolicitante && respDestino === uid)) return true;
+      return this.misSitiosACargoIds.has(t.id_sitio_origen);
     }
-    return !respDestino || respDestino === uid;
+    if (!respDestino || respDestino === uid) return true;
+    return this.misSitiosACargoIds.has(t.id_sitio_destino);
   }
 
   /** Origen o destino ya no acepta aprobar (ver plan 2026-09-18) — deshabilita
@@ -465,7 +476,7 @@ export class MaterialesTrasladosComponent implements OnInit {
   }
 
   destinosDisponibles(): Sitio[] {
-    return this.sitios.filter((s) => !this.idsSitioOrigen.has(s.id_sitio));
+    return this.sitios.filter((s) => !this.idsSitioOrigen.has(s.id_sitio) && s.estado);
   }
 
   opcionesDestino(): { value: string; label: string }[] {
@@ -477,14 +488,16 @@ export class MaterialesTrasladosComponent implements OnInit {
     try {
       // M9 — solo `listarTraslados()` es crítico; una secundaria con 403
       // (excepción personal) no debe tumbar la tabla entera.
-      const [traslados, items, sitios] = await Promise.all([
+      const [traslados, items, sitios, sitiosACargo] = await Promise.all([
         this.api.listarTraslados(),
         this.api.listarItems().catch(() => [] as Item[]),
         this.api.listarSitios().catch(() => [] as Sitio[]),
+        this.api.sitiosACargo().catch(() => [] as Sitio[]),
       ]);
       this.traslados = traslados;
       this.items = items;
       this.sitios = sitios;
+      this.misSitiosACargoIds = new Set(sitiosACargo.map((s) => s.id_sitio));
     } catch (e) {
       this.toast.httpError(e, 'No se pudieron cargar los traslados.');
     } finally {
@@ -531,7 +544,7 @@ export class MaterialesTrasladosComponent implements OnInit {
       this.itemsSeleccionados = [...this.itemsSeleccionados, detalle];
       this.itemSeleccionadoId = null;
     } catch (e: any) {
-      this.errorBusqueda = e?.error?.message ?? `No se encontró ningún ítem con la placa "${placa}".`;
+      this.errorBusqueda = mensajeDeError(e, `No se encontró ningún ítem con la placa "${placa}".`);
     } finally {
       this.buscando = false;
     }
@@ -559,9 +572,9 @@ export class MaterialesTrasladosComponent implements OnInit {
       const fallidos = e?.error?.data?.fallidos as { id_item: string; motivo: string }[] | undefined;
       if (fallidos?.length) {
         this.fallidos = Object.fromEntries(fallidos.map((f) => [f.id_item, f.motivo]));
-        this.error = e?.error?.message ?? 'Algunos ítems no se pueden trasladar. Revisá los marcados en rojo y quitalos.';
+        this.error = mensajeDeError(e, 'Algunos ítems no se pueden trasladar. Revisá los marcados en rojo y quitalos.');
       } else {
-        this.error = e?.error?.message ?? 'No se pudo crear el traslado.';
+        this.error = mensajeDeError(e, 'No se pudo crear el traslado.');
       }
     } finally {
       this.saving = false;

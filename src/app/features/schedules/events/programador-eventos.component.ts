@@ -1,8 +1,6 @@
 import { Component, OnInit, ViewChild, signal, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { ConfirmationService } from 'primeng/api';
 import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
 import { ToastService } from '../../../core/services/toast.service';
 import { HorariosApiService } from '../data-access/horarios-api.service';
@@ -10,20 +8,19 @@ import { ErpCatalogoService } from '../data-access/erp-catalogo.service';
 import { to12h as to12hUtil } from '../../../core/utils/horarios.util';
 import { CalendarioEventosComponent } from './calendario-eventos.component';
 import { EventoModalComponent } from './evento-modal.component';
+import { ConfirmService } from '../../../core/services/confirm.service';
 
 const TIPO_COLORS: Record<string, { bg: string; text: string }> = {
-  formativo:     { bg: '#dbeafe', text: '#1d4ed8' },
-  institucional: { bg: '#dcfce7', text: '#166534' },
-  evaluacion:    { bg: '#fed7aa', text: '#92400e' },
-  festivo:       { bg: '#fee2e2', text: '#991b1b' },
+  formativo:     { bg: 'var(--info-bg)', text: 'var(--info-text)' },
+  institucional: { bg: 'var(--ok-bg)', text: 'var(--ok-text)' },
+  evaluacion:    { bg: 'var(--warn-bg)', text: 'var(--warn-text)' },
+  festivo:       { bg: 'var(--err-bg)', text: 'var(--err-text)' },
 };
 
 @Component({
   selector: 'app-programador-eventos',
-  imports: [FormsModule, LucideAngularModule, ConfirmDialogModule, SearchableSelectComponent, CalendarioEventosComponent, EventoModalComponent],
-  providers: [ConfirmationService],
+  imports: [FormsModule, LucideAngularModule, SearchableSelectComponent, CalendarioEventosComponent, EventoModalComponent],
   template: `
-    <p-confirmdialog />
 
     <div class="page-header">
       <div>
@@ -93,7 +90,7 @@ const TIPO_COLORS: Record<string, { bg: string; text: string }> = {
                   <strong [title]="ev.nombre">{{ ev.nombre }}</strong>
                 </div>
               </td>
-              <td><span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold" [class]="'tipo-badge-' + ev.tipo">{{ tipoLabel(ev.tipo) }}</span></td>
+              <td><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold" [class]="'tipo-badge-' + ev.tipo">{{ tipoLabel(ev.tipo) }}</span></td>
               <td style="white-space:nowrap">
                 {{ formatFecha(ev.fechaInicio) }}
                 @if (ev.fechaFin && ev.fechaFin !== ev.fechaInicio) {
@@ -123,12 +120,12 @@ const TIPO_COLORS: Record<string, { bg: string; text: string }> = {
               <td class="col-desc"><span class="ev-desc-cell text-sm text-muted" [title]="ev.descripcion ?? ''">{{ ev.descripcion ?? '—' }}</span></td>
               <td class="col-acciones">
                 <div class="flex gap-1.5 justify-end">
-                  <button class="btn btn-icon" [disabled]="evento.esEventoPasado(ev)"
+                  <button [attr.aria-label]="evento.esEventoPasado(ev) ? 'Este evento ya pasó y no se puede editar' : 'Editar'" class="btn btn-icon" [disabled]="evento.esEventoPasado(ev)"
                           (click)="evento.abrirEditar(ev)"
                           [title]="evento.esEventoPasado(ev) ? 'Este evento ya pasó y no se puede editar' : 'Editar'">
                     <lucide-icon name="pencil" [size]="14"></lucide-icon>
                   </button>
-                  <button class="btn btn-icon btn-icon-danger" (click)="remove(ev.id)" title="Eliminar">
+                  <button aria-label="Eliminar" class="btn btn-icon btn-icon-danger" (click)="remove(ev.id)" title="Eliminar">
                     <lucide-icon name="trash-2" [size]="14"></lucide-icon>
                   </button>
                 </div>
@@ -197,7 +194,7 @@ export class ProgramadorEventosComponent implements OnInit {
     ].map(m => ({ value: m.val, label: m.label })),
   ];
 
-  private confirm = inject(ConfirmationService);
+  private confirm = inject(ConfirmService);
 
   constructor(
     private horariosApi: HorariosApiService,
@@ -253,7 +250,7 @@ export class ProgramadorEventosComponent implements OnInit {
           await this.load();
           this.toast.ok('Evento eliminado', 'El evento fue eliminado del sistema.');
         } catch (e: any) {
-          this.toast.error('Error al eliminar', e?.error?.message ?? 'No se pudo eliminar el evento.');
+          this.toast.httpError(e, 'No se pudo eliminar el evento.', 'Error al eliminar');
         }
       },
     });

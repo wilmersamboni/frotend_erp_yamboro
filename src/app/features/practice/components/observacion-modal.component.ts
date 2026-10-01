@@ -6,20 +6,21 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { SeguimientoService } from '../../../core/services';
-import { ToastService } from '../../../core/services/toast.service';
+import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
 import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 @Component({
   selector: 'app-observacion-modal',
   standalone: true,
-  imports: [FormsModule, SearchableSelectComponent],
+  imports: [DialogDirective, FormsModule, SearchableSelectComponent],
   template: `
     <!-- Input FUERA de @if para que ViewChild lo encuentre siempre -->
     <input #fileInput type="file" accept="image/jpeg,image/png,image/webp"
       style="display:none" (change)="onFotoSeleccionada($event)" />
 
     @if (isOpen && alumno) {
-      <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+      <div appDialog class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
         (click)="$event.target === $event.currentTarget && closed.emit()">
 
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]">
@@ -81,7 +82,7 @@ import { SearchableSelectComponent, SSOption } from '../../../shared/components/
                   <div class="flex flex-col gap-2">
                     @for (obs of historial(); track obs.id) {
                       <div class="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
-                        <span class="text-[11px] text-gray-400 block mb-1">
+                        <span class="text-xs text-gray-400 block mb-1">
                           {{ formatFecha(obs.fecha) }}
                         </span>
                         <p class="text-sm text-gray-700 leading-relaxed mb-2">
@@ -154,7 +155,7 @@ import { SearchableSelectComponent, SSOption } from '../../../shared/components/
                     <div class="relative rounded-xl overflow-hidden border border-gray-200">
                       <img [src]="fotoPreview()" alt="Evidencia"
                         class="w-full h-40 object-cover"/>
-                      <button type="button" (click)="quitarFoto()"
+                      <button aria-label="Quitar foto" type="button" (click)="quitarFoto()"
                         class="absolute top-2 right-2 bg-white/80 hover:bg-white
                                rounded-full p-1 shadow transition-colors">
                         <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor"
@@ -164,7 +165,7 @@ import { SearchableSelectComponent, SSOption } from '../../../shared/components/
                         </svg>
                       </button>
                       <div class="absolute bottom-0 left-0 right-0 bg-black/40 px-3 py-1">
-                        <span class="text-white text-[11px] truncate block">
+                        <span class="text-white text-xs truncate block">
                           {{ fotoArchivo()?.name }}
                         </span>
                       </div>
@@ -196,7 +197,7 @@ import { SearchableSelectComponent, SSOption } from '../../../shared/components/
               [disabled]="loading() || !seguimientoSeleccionadoId || !texto.trim()"
               class="px-5 py-2 text-sm text-white font-medium rounded-lg transition-all
                      disabled:opacity-60 shadow-md hover:shadow-lg"
-              style="background: linear-gradient(to right, #39A900, #007832)">
+              style="background: linear-gradient(to right, var(--accent-brand), var(--accent))">
               @if (loading()) {
                 <span class="flex items-center gap-2">
                   <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -390,11 +391,7 @@ export class ObservacionModalComponent implements OnChanges {
       this.closed.emit();
 
     } catch (e: any) {
-      const msg = e?.error?.message;
-      const detail =
-        Array.isArray(msg)      ? msg.join(' · ') :
-        typeof msg === 'string' ? msg :
-        'Error al guardar la observación.';
+      const detail = mensajeDeError(e, 'Error al guardar la observación.');
       this.error.set(detail);
       this.toast.error('Error', detail);
     } finally {

@@ -13,6 +13,7 @@ import {
   lineasDevolutivasDeSolicitud,
   leerSnapshotEntregaOffline,
 } from './solicitud-entrega-offline.util';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 interface LineaParaElegir extends LineaDevolutivaConOpciones {
   elegidos: string[];
@@ -39,14 +40,14 @@ interface LineaParaElegir extends LineaDevolutivaConOpciones {
 @Component({
   selector: 'app-entregar-solicitud-modal',
   standalone: true,
-  imports: [FormsModule, BarcodeScannerComponent],
+  imports: [DialogDirective, FormsModule, BarcodeScannerComponent],
   template: `
     @if (abierto) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cancelar()">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cancelar()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-5">
             <h2 class="text-lg font-bold text-gray-800">Marcar en entrega</h2>
-            <button (click)="cancelar()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="cancelar()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 
           @if (loading) {
@@ -65,7 +66,7 @@ interface LineaParaElegir extends LineaDevolutivaConOpciones {
             </p>
             <div class="flex justify-end gap-2 mt-6">
               <button (click)="cancelar()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
-              <button (click)="confirmar()" class="px-5 py-2 text-white text-sm font-medium rounded-lg transition-colors" style="background-color: #39A900">
+              <button (click)="confirmar()" class="px-5 py-2 text-white text-sm font-medium rounded-lg transition-colors" style="background-color: var(--accent-brand)">
                 Confirmar entrega
               </button>
             </div>
@@ -91,10 +92,10 @@ interface LineaParaElegir extends LineaDevolutivaConOpciones {
               </p>
             } @else {
               <p class="text-xs text-gray-400 mb-4">
-                Elegí exactamente la cantidad pedida de cada línea. Útil para descartar una unidad en mal estado
-                aunque el sistema la marque disponible.
+                Elegí exactamente la cantidad pedida de cada línea, marcando las placas de la lista o escaneándolas con la cámara.
+                Útil para descartar una unidad en mal estado aunque el sistema la marque disponible.
               </p>
-              <app-barcode-scanner class="block mb-2" [activo]="abierto && modo === 'manual'" (scanned)="onCodigoEscaneado($event)"></app-barcode-scanner>
+              <app-barcode-scanner class="block mb-2" [modoManual]="false" [activo]="abierto && modo === 'manual'" (scanned)="onCodigoEscaneado($event)"></app-barcode-scanner>
               @if (codigoNoEncontrado) {
                 <p class="text-xs text-red-500 mb-2">Placa "{{ codigoNoEncontrado }}" no encontrada en esta solicitud (o ya elegida / línea completa).</p>
               }
@@ -103,7 +104,7 @@ interface LineaParaElegir extends LineaDevolutivaConOpciones {
                   <div class="rounded-xl border border-gray-100 p-3">
                     <div class="flex items-center justify-between mb-2">
                       <p class="text-sm font-semibold text-gray-800">{{ linea.nombre }}</p>
-                      <span class="text-[11px] font-semibold rounded-full px-2 py-0.5"
+                      <span class="text-xs font-semibold rounded-full px-2 py-0.5"
                         [class.bg-green-50]="linea.elegidos.length === linea.cantidad"
                         [class.text-green-700]="linea.elegidos.length === linea.cantidad"
                         [class.bg-amber-50]="linea.elegidos.length !== linea.cantidad"
@@ -125,7 +126,7 @@ interface LineaParaElegir extends LineaDevolutivaConOpciones {
                               [checked]="estaElegido(linea, item.id_item)"
                               [disabled]="!estaElegido(linea, item.id_item) && linea.elegidos.length >= linea.cantidad"
                               (change)="toggleItem(linea, item.id_item)" />
-                            <span class="font-mono truncate">{{ item.placa_sena || item.codigo_sku || item.id_item.slice(0, 8) }}</span>
+                            <span class="font-mono truncate">{{ item.placa_sena || item.codigo_sku || 'Sin placa' }}</span>
                           </label>
                         }
                       </div>
@@ -139,7 +140,7 @@ interface LineaParaElegir extends LineaDevolutivaConOpciones {
               <button (click)="cancelar()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
               <button (click)="confirmar()" [disabled]="modo === 'manual' && !manualCompleto"
                 class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
-                style="background-color: #39A900">
+                style="background-color: var(--accent-brand)">
                 Confirmar entrega
               </button>
             </div>
@@ -224,9 +225,12 @@ export class EntregarSolicitudModalComponent implements OnChanges {
    *  matchea ningún ítem del snapshot/lista actual, no se descarta en
    *  silencio: se avisa, puede ser una placa de otro producto o un dato mal
    *  cargado en el sistema. */
-  onCodigoEscaneado(codigo: string): void {
+  onCodigoEscaneado(leido: string): void {
+    // Los lectores a veces devuelven espacios o cambian mayúsculas/minúsculas.
+    const norm = (t: string | null | undefined) => (t ?? '').trim().toLowerCase();
+    const codigo = leido.trim();
     for (const linea of this.lineas) {
-      const item = linea.opciones.find((i) => i.placa_sena === codigo);
+      const item = linea.opciones.find((i) => norm(i.placa_sena) === norm(codigo));
       if (item && !this.estaElegido(linea, item.id_item) && linea.elegidos.length < linea.cantidad) {
         this.toggleItem(linea, item.id_item);
         this.codigoNoEncontrado = null;

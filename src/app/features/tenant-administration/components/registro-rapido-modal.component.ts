@@ -9,6 +9,8 @@ import { environment } from '../../../../environments/environment';
 
 import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
 import { AuthService } from '../../../core/services/auth.service';
+import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 const BASE  = environment.apiUrl;
 
@@ -61,11 +63,11 @@ const ESQUEMAS: Record<Cargo, Esquema> = {
 @Component({
   selector: 'app-registro-rapido-modal',
   standalone: true,
-  imports: [FormsModule, SearchableSelectComponent],
+  imports: [DialogDirective, LoadingSkeletonComponent, FormsModule, SearchableSelectComponent],
   template: `
     @if (isOpen) {
       <!-- Backdrop -->
-      <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+      <div appDialog class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
            (click)="$event.target === $event.currentTarget && cerrar()">
 
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[92vh]">
@@ -100,7 +102,7 @@ const ESQUEMAS: Record<Cargo, Esquema> = {
                   </p>
                 </div>
               </div>
-              <button (click)="cerrar()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+              <button aria-label="Cerrar" (click)="cerrar()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -110,9 +112,9 @@ const ESQUEMAS: Record<Cargo, Esquema> = {
             <!-- Barra de progreso -->
             <div class="mt-4 flex gap-1.5">
               <div class="h-1.5 flex-1 rounded-full transition-all duration-300"
-                [style.background]="paso() >= 1 ? esquema().hex : '#e5e7eb'"></div>
+                [style.background]="paso() >= 1 ? esquema().hex : 'var(--border)'"></div>
               <div class="h-1.5 flex-1 rounded-full transition-all duration-300"
-                [style.background]="paso() >= 2 ? esquema().hex : '#e5e7eb'"></div>
+                [style.background]="paso() >= 2 ? esquema().hex : 'var(--border)'"></div>
             </div>
           </div>
 
@@ -120,9 +122,7 @@ const ESQUEMAS: Record<Cargo, Esquema> = {
           <div class="flex-1 overflow-y-auto p-6">
 
             @if (cargando()) {
-              <div class="flex justify-center py-12">
-                <div class="w-8 h-8 border-4 border-gray-200 border-t-[#39A900] rounded-full animate-spin"></div>
-              </div>
+              <app-loading-skeleton variant="form" [rows]="4" label="Cargando datos" />
             } @else if (exito()) {
               <!-- Estado de éxito -->
               <div class="flex flex-col items-center py-8 gap-4">

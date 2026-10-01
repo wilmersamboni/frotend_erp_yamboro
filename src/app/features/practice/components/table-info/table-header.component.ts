@@ -29,14 +29,14 @@ import { Column, StatusOption, STATUS_OPTIONS, statusDotColor } from './table-in
                   [class.text-green-700]="selectedAreas().length > 0"
                   [class.text-gray-500]="selectedAreas().length === 0">
                   <svg width="12" height="12" viewBox="0 0 24 24"
-                    [attr.fill]="selectedAreas().length > 0 ? '#39A900' : 'none'"
-                    [attr.stroke]="selectedAreas().length > 0 ? '#39A900' : 'currentColor'" stroke-width="2">
+                    [style.fill]="selectedAreas().length > 0 ? 'var(--accent-brand)' : 'none'"
+                    [style.stroke]="selectedAreas().length > 0 ? 'var(--accent-brand)' : 'currentColor'" stroke-width="2">
                     <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
                   </svg>
                   Área
                   @if (selectedAreas().length > 0) {
                     <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1
-                                  bg-[#39A900] text-white text-[10px] font-bold rounded-full">
+                                  bg-[#39A900] text-white text-xs font-bold rounded-full">
                       {{ selectedAreas().length }}
                     </span>
                   }
@@ -49,7 +49,7 @@ import { Column, StatusOption, STATUS_OPTIONS, statusDotColor } from './table-in
                 @if (showAreaMenu) {
                   <div class="absolute left-0 top-8 z-[9999] min-w-[180px] bg-white border border-gray-200 rounded-xl shadow-lg p-3"
                     (click)="$event.stopPropagation()">
-                    <p class="text-[10px] text-gray-400 font-medium uppercase tracking-wide mb-2">
+                    <p class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-2">
                       Filtrar por área
                     </p>
                     <div class="flex flex-col gap-1">
@@ -84,14 +84,14 @@ import { Column, StatusOption, STATUS_OPTIONS, statusDotColor } from './table-in
                   [class.text-green-700]="selectedStatuses().length > 0"
                   [class.text-gray-500]="selectedStatuses().length === 0">
                   <svg width="12" height="12" viewBox="0 0 24 24"
-                    [attr.fill]="selectedStatuses().length > 0 ? '#39A900' : 'none'"
-                    [attr.stroke]="selectedStatuses().length > 0 ? '#39A900' : 'currentColor'" stroke-width="2">
+                    [style.fill]="selectedStatuses().length > 0 ? 'var(--accent-brand)' : 'none'"
+                    [style.stroke]="selectedStatuses().length > 0 ? 'var(--accent-brand)' : 'currentColor'" stroke-width="2">
                     <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
                   </svg>
                   Estado
                   @if (selectedStatuses().length > 0) {
                     <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1
-                                  bg-[#39A900] text-white text-[10px] font-bold rounded-full">
+                                  bg-[#39A900] text-white text-xs font-bold rounded-full">
                       {{ selectedStatuses().length }}
                     </span>
                   }
@@ -104,7 +104,7 @@ import { Column, StatusOption, STATUS_OPTIONS, statusDotColor } from './table-in
                 @if (showStatusMenu) {
                   <div class="absolute left-0 top-8 z-[9999] min-w-[180px] bg-white border border-gray-200 rounded-xl shadow-lg p-3"
                     (click)="$event.stopPropagation()">
-                    <p class="text-[10px] text-gray-400 font-medium uppercase tracking-wide mb-2">
+                    <p class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-2">
                       Filtrar por estado
                     </p>
                     <div class="flex flex-col gap-1">

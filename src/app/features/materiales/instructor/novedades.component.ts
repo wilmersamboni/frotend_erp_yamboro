@@ -4,18 +4,22 @@ import { DatePipe } from '@angular/common';
 import { MaterialesLiveService } from '../data-access/materiales-live.service';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { BarcodeScannerComponent } from '../../../shared/scanner/barcode-scanner.component';
 import { AdminModalComponent } from '../../tenant-administration/ui/admin-modal.component';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { StatCardComponent } from '../../../shared/components/stat-card.component';
 import { TableFilterComponent } from '../../../shared/components/table-filter.component';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 import { OpcionSelect } from '../../tenant-administration/services/admin.service';
-import { ToastService } from '../../../core/services/toast.service';
+import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { PermisosService } from '../../../core/services/permisos.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { PersonaService } from '../../../core/services/persona.service';
 import { EstadoItem, Item, MaterialesApiService, Novedad, Sitio, TipoNovedad } from '../data-access/materiales-api.service';
+import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 /** Estados en los que puede quedar el ítem al mover una novedad (Tier SigMat M7). */
 const OPCIONES_ESTADO_ITEM: { label: string; value: EstadoItem | '' }[] = [
@@ -52,7 +56,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
 @Component({
   selector: 'app-instructor-materiales-novedades',
   standalone: true,
-  imports: [FormsModule, DatePipe, AdminModalComponent, StatusBadgeComponent, StatCardComponent, TableFilterComponent, LoadingSkeletonComponent],
+  imports: [DialogDirective, EmptyStateComponent, SearchableSelectComponent, FormsModule, DatePipe, AdminModalComponent, BarcodeScannerComponent, StatusBadgeComponent, StatCardComponent, TableFilterComponent, LoadingSkeletonComponent],
   template: `
     <div class="p-6">
       <div class="flex items-center justify-between mb-5">
@@ -61,13 +65,13 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
           @if (idItemFiltro) {
             <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#39A900]/10 text-[#2d8000] border border-[#39A900]/20">
               Filtrando por ítem
-              <button (click)="quitarFiltroItem()" class="hover:text-red-600" title="Quitar filtro">×</button>
+              <button aria-label="Quitar filtro" (click)="quitarFiltroItem()" class="hover:text-red-600" title="Quitar filtro">×</button>
             </span>
           }
         </div>
         <button (click)="nuevo()"
           class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-          style="background-color: #39A900">
+          style="background-color: var(--accent-brand)">
           + Nueva novedad
         </button>
       </div>
@@ -81,7 +85,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
       @if (loading) {
         <app-loading-skeleton variant="table" [rows]="6" [columns]="6" [showToolbar]="false" label="Cargando novedades" />
       } @else if (novedadesFiltradas.length === 0) {
-        <p class="text-center text-gray-400 text-sm py-10">No hay novedades {{ idItemFiltro ? 'para este ítem' : 'registradas' }}</p>
+        <app-empty-state titulo="No hay novedades {{ idItemFiltro ? 'para este ítem' : 'registradas' }}" />
       } @else {
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           <app-stat-card label="Total" [value]="novedadesFiltradas.length" tono="neutral">
@@ -101,7 +105,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
         <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
           <div class="overflow-x-auto">
           <table class="w-full text-sm">
-            <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
+            <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
               <tr>
                 <th class="px-4 py-3 text-left font-semibold">Tipo</th>
                 <th class="px-4 py-3 text-left font-semibold">Descripción</th>
@@ -168,30 +172,32 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
       [saving]="saving"
       [error]="error"
       (closed)="cerrarModal()"
-      (saved)="guardar($event)" />
+      (saved)="guardar($event)">
+      <div campoExtra class="mt-3">
+        <app-barcode-scanner [modoManual]="false" [activo]="modalOpen" (scanned)="onPlacaEscaneada($event)"></app-barcode-scanner>
+        @if (escaneo) {
+          <p class="mt-2 text-xs" [class.text-green-700]="escaneo.ok" [class.text-red-500]="!escaneo.ok">{{ escaneo.texto }}</p>
+        }
+      </div>
+    </app-admin-modal>
 
     @if (resolverAbierto && resolverNovedad) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="resolverAbierto = false">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="resolverAbierto = false">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-bold text-gray-800">Resolver novedad</h2>
-            <button (click)="resolverAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="resolverAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
           <p class="text-sm text-gray-500 mb-3">
             {{ resolverNovedad.tipo }} sobre
             <span class="font-medium text-gray-700">{{ resolverNovedad.item?.producto?.nombre ?? resolverNovedad.item?.codigo_sku ?? 'el ítem' }}</span>.
             Elegí en qué estado queda el ítem.
           </p>
-          <select [(ngModel)]="resolverEstadoItem"
-            class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
-            @for (o of opcionesEstadoItem; track o.value) {
-              <option [value]="o.value">{{ o.label }}</option>
-            }
-          </select>
+          <app-ss [options]="opcionesEstadoItem" [(ngModel)]="resolverEstadoItem"></app-ss>
           <div class="flex justify-end gap-2 mt-6">
             <button (click)="resolverAbierto = false" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
             <button (click)="confirmarResolver()" [disabled]="resolviendo"
-              class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors" style="background-color: #39A900">
+              class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors" style="background-color: var(--accent-brand)">
               {{ resolviendo ? 'Guardando...' : 'Confirmar' }}
             </button>
           </div>
@@ -200,11 +206,11 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
     }
 
     @if (detalleAbierto && detalle) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="detalleAbierto = false">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="detalleAbierto = false">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-5">
             <h2 class="text-lg font-bold text-gray-800">Detalle de la novedad</h2>
-            <button (click)="detalleAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="detalleAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
           <dl class="space-y-2.5 text-sm">
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Tipo</dt><dd class="text-gray-800 font-medium text-right">{{ detalle.tipo }}</dd></div>
@@ -316,8 +322,15 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
   get puedeEditar(): boolean {
     return this.permisos.tieneServicio('materiales.novedades.editar');
   }
+  /**
+   * OCULTO a propósito (2026-09-24): una novedad es un registro histórico y
+   * no debería borrarse. Pendiente decidir si se corrige (validar bodega en
+   * el backend, QA-03) o se elimina definitivamente el borrado — ver vault,
+   * "QA-03" en la prueba a gran escala de Materiales. Para reactivarlo:
+   * `return this.permisos.tieneServicio('materiales.novedades.eliminar');`
+   */
   get puedeEliminar(): boolean {
-    return this.permisos.tieneServicio('materiales.novedades.eliminar');
+    return false;
   }
 
   /**
@@ -361,7 +374,7 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
   nombreUsuario(n: Novedad): string {
     if (n.usuario_nombre) return n.usuario_nombre;
     const u = this.usuarios.find((x) => x.idUsuario === n.id_usuario);
-    return u ? `${u.persona?.nombre ?? ''} ${u.persona?.apellido ?? ''}`.trim() || n.id_usuario : n.id_usuario;
+    return (u && `${u.persona?.nombre ?? ''} ${u.persona?.apellido ?? ''}`.trim()) || 'Usuario no disponible';
   }
 
   contarEstado(estado: string): number {
@@ -398,6 +411,7 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
 
   nuevo(): void {
     this.form = { tipo: 'OTRO', descripcion: '', id_item: null };
+    this.escaneo = null;
     this.error = null;
     this.modalOpen = true;
   }
@@ -406,8 +420,31 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
     this.modalOpen = false;
   }
 
+  /** Resultado del último escaneo, para avisar si la placa se seleccionó o no se encontró. */
+  escaneo: { ok: boolean; texto: string } | null = null;
+
+  /**
+   * Un código leído con la cámara selecciona el ítem en el formulario (el mismo
+   * campo "Placa SENA"). Se busca por placa y, si el ítem no la tiene, por su
+   * código. Nunca se descarta en silencio: si no está entre los ítems visibles
+   * para este usuario, se avisa.
+   */
+  onPlacaEscaneada(leido: string): void {
+    const norm = (t: string | null | undefined) => (t ?? '').trim().toLowerCase();
+    const codigo = norm(leido);
+    const item =
+      this.items.find((i) => norm(i.placa_sena) === codigo) ??
+      this.items.find((i) => !i.placa_sena && norm(i.codigo_sku) === codigo);
+    if (!item) {
+      this.escaneo = { ok: false, texto: `No se encontró la placa "${leido.trim()}" entre los ítems que puedes reportar.` };
+      return;
+    }
+    this.form['id_item'] = item.id_item;
+    this.escaneo = { ok: true, texto: `Ítem seleccionado: ${item.producto?.nombre ?? 'ítem'} — ${item.placa_sena ?? item.codigo_sku}` };
+  }
+
   private etiquetaPlaca(item: Item): string {
-    return item.placa_sena?.trim() || `Sin placa SENA (${item.codigo_sku || item.id_item})`;
+    return item.placa_sena?.trim() || `Sin placa SENA (${item.codigo_sku || item.producto?.nombre || 'sin código'})`;
   }
 
   async guardar(form: Record<string, any>): Promise<void> {
@@ -431,7 +468,7 @@ export class InstructorMaterialesNovedadesComponent implements OnInit {
       this.modalOpen = false;
       await this.cargar();
     } catch (e: any) {
-      this.error = e?.error?.message ?? 'No se pudo registrar la novedad.';
+      this.error = mensajeDeError(e, 'No se pudo registrar la novedad.');
     } finally {
       this.saving = false;
     }

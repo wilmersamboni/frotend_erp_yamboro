@@ -1,5 +1,10 @@
 @import "tailwindcss";
 @import 'primeicons/primeicons.css';
+@import '@angular/cdk/overlay-prebuilt.css';
+@import 'tw-animate-css';
+/* Modo oscuro: paleta de Tailwind (generada) + tokens y ajustes a mano. */
+@import './styles/dark-tailwind.generated.css';
+@import './styles/dark-theme.css';
 
 /* ─── Login animations ───────────────────────────────────────────── */
 @keyframes twinkle {
@@ -14,15 +19,16 @@
 body, * {
   font-family: 'Sora', sans-serif;
 }
+body { background-color: var(--bg-app); }
 
 /* ─── Taiga UI – tokens globales requeridos ─────────────────────── */
 :root {
   /* Colores SENA */
   --tui-primary:                    #39A900;
-  --tui-primary-hover:              #5cd600;
-  --tui-primary-active:             #2d8200;
+  --tui-primary-hover:              var(--accent-brand-light);
+  --tui-primary-active:             var(--accent-brand-dark);
   --tui-background-accent-1:        #39A900;
-  --tui-background-accent-1-hover:  #5cd600;
+  --tui-background-accent-1-hover:  var(--accent-brand-light);
   --tui-border-focus:               #39A900;
 
   /* Tokens que TuiCalendar necesita */
@@ -47,7 +53,7 @@ body, * {
   --tui-background-neutral-2:         #f3f4f6;
   --tui-background-neutral-2-hover:   #e5e7eb;
   --tui-text-action:                  #39A900;
-  --tui-text-action-hover:            #2d8200;
+  --tui-text-action-hover:            var(--accent-brand-dark);
   --tui-border-normal:                #d1d5db;
   --tui-border-hover:                 #9ca3af;
 
@@ -62,20 +68,52 @@ body, * {
   --tui-padding-m:                    0.75rem;
   --tui-stroke-width: 1.5px;
 
-  /* ─── Tokens genéricos usados por las pantallas de horarios ─────── */
-  /* (portadas de ChronoGest — mismo esquema de color light-only que ahí) */
-  --surface:      #ffffff;
-  --surface2:     #f9fafb;
-  --text:         #111827;
-  --text-muted:   #6b7280;
-  --border:       #e5e7eb;
-  --blue:         #2563eb;
-  --gray-300:     #d1d5db;
+  /* ─── Tokens semánticos de color (modo claro) ───────────────────────
+     Toda pantalla nueva o migrada debe usar ESTOS en vez de hex fijos:
+     el modo oscuro solo redefine sus valores (src/styles/dark-theme.css).
+     Los primeros vienen de ChronoGest (horarios); el resto se agregó con
+     el modo oscuro. */
+  --bg-app:        #f0f2f5;   /* fondo detrás de todo */
+  --surface:       #ffffff;   /* tarjetas, navbar, modales */
+  --surface2:      #f9fafb;   /* encabezados de tabla, filas alternas */
+  --surface3:      #f1f5f9;   /* hover, chips */
+  --text:          #111827;
+  --text-2:        #374151;   /* texto secundario con peso */
+  --text-muted:    #6b7280;
+  --text-faint:    #94a3b8;
+  --border:        #e5e7eb;
+  --border-strong: #d1d5db;
+  --border-soft:   #f1f5f9;   /* divisores casi invisibles */
+  --blue:          #2563eb;
+  --gray-300:      #d1d5db;
+
+  --accent:        #39A900;   /* verde SENA: botones y barras */
+  --accent-text:   #2d8500;   /* verde como TEXTO (en oscuro se aclara) */
+  --accent-soft:   rgba(57, 169, 0, .08);
+  /* Verde "vivo" de las pantallas (#39A900) y sus variantes. En el tema verde
+     son exactamente los hex que había escritos a mano; en otro tema, el color
+     elegido. Los genera ThemeService; estos son solo el valor antes de que cargue. */
+  --accent-brand:       #39A900;
+  --accent-brand-dark:  #2d8500;
+  --accent-brand-light: #5cd600;
+
+  --ok-bg:   #dcfce7; --ok-text:   #166534; --ok-border:   #bbf7d0;
+  --warn-bg: #fef3c7; --warn-text: #92400e; --warn-border: #fcd34d;
+  --err-bg:  #fee2e2; --err-text:  #991b1b; --err-border:  #fecaca;
+  --info-bg: #dbeafe; --info-text: #1d4ed8; --info-border: #bfdbfe;
+  --indigo-bg: #e0e7ff; --indigo-text: #3730a3;
+  --violet-bg: #f3e8ff; --violet-text: #7c3aed;
+  --tooltip-bg: #1e293b; --tooltip-text: #f1f5f9;   /* tooltips oscuros */
+  --shadow-color: rgba(15, 23, 42, .06);
 }
 
 @layer components {
+  /* Con tokens, no hex: al estar en @layer con !important, le gana a
+     cualquier override de ThemeService (un !important dentro de una capa
+     vence a uno fuera de capa), así que el hex fijo dejaba estos botones
+     siempre verdes. En el tema verde los tokens valen los mismos hex. */
   .bg-sena-gradient {
-    background: linear-gradient(to right, #39A900, #5cd600) !important;
+    background: linear-gradient(to right, var(--accent-brand), var(--accent-brand-light)) !important;
   }
 }
 
@@ -163,15 +201,15 @@ body, * {
   gap: 4px;
   padding: 3px 9px;
   border-radius: 20px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   border: 1px solid transparent;
   text-transform: lowercase;
 }
 .badge.active {
-  background: #dbeafe;
-  color: #1d4ed8;
-  border-color: #bfdbfe;
+  background: var(--info-bg);
+  color: var(--info-text);
+  border-color: var(--info-border);
 }
 .badge.inactive {
   background: var(--surface2);
@@ -250,3 +288,55 @@ body, * {
   -ms-overflow-style: none;
 }
 .pretty-scroll::-webkit-scrollbar { display: none; }
+
+/* ─── Animaciones de interfaz ───────────────────────────────────────────────
+ * Entrada suave para TODOS los modales sin tocar cada componente: comparten el
+ * patrón "overlay fijo a pantalla completa con contenido centrado"
+ * (`fixed inset-0 … justify-center`). El velo aparece con fade y la tarjeta
+ * sube y escala unos milisegundos. Los fondos invisibles que solo capturan
+ * clics (`fixed inset-0 z-10`, sin centrado) no coinciden y no se animan.
+ *
+ * IMPORTANTE: usar `backwards`, NUNCA `both`/`forwards`. Con fill-mode que se queda aplicado
+ * despues de terminar, Chrome convierte a la tarjeta en el bloque contenedor de todo lo
+ * `position: fixed` que tenga dentro, aunque el transform final sea `none` — los desplegables
+ * de app-ss (fixed, con coordenadas del viewport) quedaban corridos dentro de los modales. */
+@keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes fade-up-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+/* `.anim-gsap`: el componente anima su propio modal con GSAP — sin esta
+ * exclusión corrían las dos animaciones y el modal "entraba dos veces". */
+.fixed.inset-0.justify-center:not(.anim-gsap) { animation: overlay-in 0.16s ease-out backwards; }
+.fixed.inset-0.justify-center:not(.anim-gsap) > * { animation: modal-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.empty-state-enter { animation: fade-up-in 0.25s ease-out backwards; }
+
+/* Lista con scroll pero sin barra visible (sigue desplazándose con rueda/touch). */
+.scroll-oculto { scrollbar-width: none; }
+.scroll-oculto::-webkit-scrollbar { display: none; }
+
+/* Transición entre pantallas (Angular withViewTransitions): fundido corto. */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.18s; }
+
+/* Respeta a quien pidió menos movimiento en su sistema operativo. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
+
+/* Las confirmaciones (Spartan, sobre el overlay del CDK) deben quedar por encima de cualquier modal propio (hay hasta z-[1090]). */
+.cdk-overlay-container { z-index: 10000; }
+
+/* El panel de un modal recibe el foco al abrirse (DialogDirective) para que el
+   lector de pantalla lo anuncie; no necesita el recuadro de foco. Los controles
+   de adentro conservan el suyo. */
+[role="dialog"][tabindex="-1"]:focus { outline: none; }

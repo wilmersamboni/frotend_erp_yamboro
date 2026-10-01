@@ -4,10 +4,13 @@ import { ActivatedRoute } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { MaterialesLiveService } from '../data-access/materiales-live.service';
 import { FormsModule } from '@angular/forms';
-import { ToastService } from '../../../core/services/toast.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
+import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
-import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
+import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
+import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 import {
   CreateDevolucionConsumibleDto,
   CreateDevolucionDto,
@@ -22,6 +25,9 @@ import {
   Chequeo,
   ItemChequeo
 } from '../data-access/materiales-api.service';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
+import { EsperaDirective } from '../../../shared/directives/espera.directive';
+import { PageSizeSelectComponent } from '../../../shared/components/page-size-select.component';
 
 const ESTADOS_DEVOLUCION: { value: EstadoDevolucion; label: string; desc: string }[] = [
   { value: 'BUENO', label: 'Bueno', desc: 'Sin daños visibles' },
@@ -50,22 +56,27 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
 @Component({
   selector: 'app-materiales-devoluciones',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, LoadingSkeletonComponent],
+  imports: [EsperaDirective, DialogDirective, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, LoadingSkeletonComponent, PageSizeSelectComponent],
   template: `
     <div class="p-6">
+      <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
+        <span>Materiales</span><span aria-hidden="true">/</span><span>Operación</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Devoluciones</span>
+      </nav>
       <div class="flex items-center justify-between mb-5">
         <h1 class="text-xl font-bold text-gray-800">Devoluciones</h1>
-        <button (click)="abrirCrear()"
-          class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-          style="background-color: #39A900">
-          + Registrar devolución
-        </button>
+        @if (puedeRegistrar()) {
+          <button (click)="abrirCrear()"
+            class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
+            style="background-color: var(--accent-brand)">
+            + Registrar devolución
+          </button>
+        }
       </div>
 
       @if (loading) {
         <app-loading-skeleton variant="table" [rows]="6" [columns]="5" [showToolbar]="false" label="Cargando devoluciones" />
       } @else if (devoluciones.length === 0) {
-        <p class="text-center text-gray-400 text-sm py-10">No hay devoluciones registradas</p>
+        <app-empty-state titulo="No hay devoluciones registradas" />
       } @else {
         <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
           <!-- Toolbar: búsqueda + filtro de estado + filas por página -->
@@ -76,22 +87,23 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                 </svg>
               </div>
-              <input type="text" [(ngModel)]="filtroTexto" (ngModelChange)="page = 0"
+              <input appEspera type="text" [(ngModel)]="filtroTexto" (ngModelChange)="page = 0"
                 placeholder="Buscar por producto o ítem..."
                 class="w-full pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:border-[#39A900] focus:bg-white transition-all text-gray-900 placeholder:text-gray-400" />
               @if (filtroTexto) {
-                <button (click)="filtroTexto = ''; page = 0" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                <button aria-label="Limpiar búsqueda" (click)="filtroTexto = ''; page = 0" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                   </svg>
                 </button>
               }
             </div>
-            <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
-              <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</span>
+            <div class="relative flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200" [class.z-40]="estadoDropdownOpen()">
+              <button type="button" (click)="estadoDropdownOpen.update(v => !v)" class="absolute inset-0 z-0 rounded-xl cursor-pointer" aria-label="Estado de devolución"></button>
+              <span class="pointer-events-none relative z-10 text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</span>
 
               <!-- Dropdown personalizado para estado -->
-              <div class="relative">
+              <div class="relative z-20 pointer-events-none">
                 <button
                   type="button"
                   (click)="estadoDropdownOpen.update(v => !v)"
@@ -107,7 +119,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                   <div class="fixed inset-0 z-10" (click)="estadoDropdownOpen.set(false)"></div>
 
                   <!-- Menú flotante -->
-                  <div class="absolute left-0 top-full mt-2 z-20 w-44 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <div class="absolute left-0 top-full mt-2 z-20 w-44 pointer-events-auto rounded-xl border shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100" style="background-color: var(--surface); border-color: var(--border);">
                     <div class="p-1 space-y-0.5 max-h-64 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                       <button
                         type="button"
@@ -137,49 +149,35 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
               </div>
             </div>
             <!-- Filas por página -->
-            <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
-              <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filas</span>
-              <div class="relative">
-                <button
-                  type="button"
-                  (click)="pageSizeDropdownOpen.update(v => !v)"
-                  class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer">
-                  <span>{{ pageSize() }}</span>
-                  <svg class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" [class.rotate-180]="pageSizeDropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                @if (pageSizeDropdownOpen()) {
-                  <div class="fixed inset-0 z-10" (click)="pageSizeDropdownOpen.set(false)"></div>
-
-                  <div class="absolute left-0 top-full mt-2 z-20 w-20 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                    <div class="p-1 space-y-0.5">
-                      @for (size of [10, 20, 50, 100]; track size) {
-                        <button
-                          type="button"
-                          (click)="seleccionarPageSize(size)"
-                          class="w-full px-3 py-1.5 text-sm text-center rounded-lg transition-colors font-medium"
-                          [class.bg-green-50]="pageSize() === size"
-                          [class.text-green-700]="pageSize() === size"
-                          [class.text-gray-600]="pageSize() !== size"
-                          [class.hover:bg-gray-50]="pageSize() !== size">
-                          {{ size }}
-                        </button>
-                      }
-                    </div>
-                  </div>
-                }
-              </div>
-            </div>
+            <app-page-size-select [value]="pageSize()" (valueChange)="seleccionarPageSize($event)" />
           </div>
 
           @if (devolucionesFiltradas.length === 0) {
-            <p class="text-center text-gray-400 text-sm py-10">Sin resultados para estos filtros</p>
+            <app-empty-state titulo="Sin resultados para estos filtros" variante="busqueda" />
           } @else {
-          <div class="overflow-x-auto">
+          <div class="space-y-3 p-3 md:hidden">
+            @for (d of devolucionesPaginadas; track d.id_devolucion) {
+              <article class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <p class="font-semibold text-gray-800 truncate">{{ nombreProducto(d) }}</p>
+                    <p class="mt-1 text-xs text-gray-500">
+                      @if (d.id_item) { {{ nombreItem(d.id_item) }} } @else { Sobrante: {{ d.cantidad }} {{ unidadDeLote(d) }} }
+                    </p>
+                  </div>
+                  <app-status-badge [value]="d.estado" />
+                </div>
+                <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                  <div><dt class="text-gray-400">Fecha</dt><dd class="text-gray-700">{{ d.fecha | date: 'short' }}</dd></div>
+                  <div><dt class="text-gray-400">Chequeo</dt><dd class="text-gray-700">@if (!d.id_item) { — } @else if (itemChequeoDe(d); as ic) { {{ ic.estado ? 'Pasa' : 'No pasa' }} } @else { Pendiente }</dd></div>
+                  <div class="col-span-2"><dt class="text-gray-400">Observación</dt><dd class="text-gray-700">{{ d.observacion ?? '—' }}</dd></div>
+                </dl>
+              </article>
+            }
+          </div>
+          <div class="hidden overflow-x-auto md:block">
           <table class="w-full text-sm">
-            <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
+            <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
               <tr>
                 <th class="px-4 py-3 text-left font-semibold">Producto</th>
                 <th class="px-4 py-3 text-left font-semibold">Ítem</th>
@@ -226,12 +224,12 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                 de <strong class="text-gray-800">{{ devolucionesFiltradas.length }}</strong> registros
               </span>
               <div class="flex items-center gap-2">
-                <button (click)="page = page - 1" [disabled]="page === 0"
+                <button aria-label="Página anterior" (click)="page = page - 1" [disabled]="page === 0"
                   class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                 </button>
                 <span class="px-4 py-1.5 text-sm font-semibold text-[#39A900] bg-[#39A900]/10 rounded-lg border border-[#39A900]/20">{{ page + 1 }} / {{ totalPaginas }}</span>
-                <button (click)="page = page + 1" [disabled]="page + 1 >= totalPaginas"
+                <button aria-label="Página siguiente" (click)="page = page + 1" [disabled]="page + 1 >= totalPaginas"
                   class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </button>
@@ -244,11 +242,11 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
     </div>
 
     @if (crearOpen) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarCrear()">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarCrear()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-5">
             <h2 class="text-lg font-bold text-gray-800">Registrar devolución</h2>
-            <button (click)="cerrarCrear()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="cerrarCrear()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 
           <div class="space-y-4">
@@ -271,13 +269,8 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                 @if (filas.length > 0) {
                   <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">Estado de las unidades que volvieron</label>
-                    <select [(ngModel)]="estadoGeneral" (ngModelChange)="aplicarATodas()"
-                      class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
-                      @for (op of estadosDevolucion; track op.value) {
-                        <option [ngValue]="op.value">{{ op.label }} — {{ op.desc }}</option>
-                      }
-                    </select>
-                    <p class="text-[11px] text-gray-400 mt-1">
+                    <app-ss [options]="opcionesEstadoDevLargo" [(ngModel)]="estadoGeneral" (ngModelChange)="aplicarATodas()"></app-ss>
+                    <p class="text-xs text-gray-400 mt-1">
                       Destildá las unidades que <b>todavía no volvieron</b>: el préstamo queda abierto hasta registrarlas.
                       Cambiá el estado fila por fila solo si alguna vuelve distinto.
                     </p>
@@ -290,23 +283,16 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                           class="w-4 h-4 accent-[#39A900] flex-none" title="¿Volvió esta unidad?" />
                         <div class="flex-1 min-w-0">
                           <p class="text-xs font-semibold text-gray-800 truncate">{{ f.producto_nombre || 'Unidad' }}</p>
-                          <p class="font-mono text-[11px] text-gray-400 truncate">
+                          <p class="font-mono text-xs text-gray-400 truncate">
                             {{ f.placa_sena || f.codigo_sku || '' }}{{ f.placa_sena && f.codigo_sku ? ' · ' + f.codigo_sku : '' }}
                           </p>
                         </div>
-                        <select [(ngModel)]="f.estadoDev" [disabled]="!f.volvio"
-                          class="px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] disabled:opacity-50"
-                          [class.border-red-300]="f.estadoDev === 'DAÑADO' || f.estadoDev === 'PERDIDO'"
-                          [class.border-amber-300]="f.estadoDev === 'REGULAR'">
-                          @for (op of estadosDevolucion; track op.value) {
-                            <option [ngValue]="op.value">{{ op.label }}</option>
-                          }
-                        </select>
+                        <div class="w-36 shrink-0"><app-ss [options]="opcionesEstadoDevCorto" [dense]="true" [tone]="(f.estadoDev === 'DAÑADO' || f.estadoDev === 'PERDIDO') ? 'danger' : (f.estadoDev === 'REGULAR') ? 'warn' : ''" [(ngModel)]="f.estadoDev" [disabled]="!f.volvio"></app-ss></div>
                       </div>
                     }
                   </div>
                   @if (marcadas.length && marcadas.length < filas.length) {
-                    <p class="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+                    <p class="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
                       Devolución parcial: {{ marcadas.length }} de {{ filas.length }}. El préstamo sigue ENTREGADO hasta que vuelvan todas.
                     </p>
                   }
@@ -329,8 +315,8 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                 @if (lineasConsumibles.length > 0) {
                   <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">Sobrante a devolver</label>
-                    <p class="text-[11px] text-gray-400 mb-2">
-                      Un consumible/perecedero normalmente NO vuelve. Si sobró algo sin usar, cargalo acá.
+                    <p class="text-xs text-gray-400 mb-2">
+                      Un consumible/perecedero normalmente NO vuelve. Si sobró algo sin usar, cargalo acá — hay plazo hasta el {{ lineasConsumibles[0].fecha_limite | date: 'dd/MM/yyyy' }}; después el préstamo se da por consumido.
                     </p>
                     <div class="space-y-2">
                       @for (l of lineasConsumibles; track l.id_lote) {
@@ -339,7 +325,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                             <p class="text-xs font-semibold text-gray-800 truncate">
                               {{ l.producto_nombre || 'Lote' }}{{ l.codigo_lote ? ' · ' + l.codigo_lote : '' }}
                             </p>
-                            <span class="text-[11px] text-gray-400 flex-none">{{ l.cantidad_pendiente }} {{ l.unidad_medida || '' }} pendiente(s)</span>
+                            <span class="text-xs text-gray-400 flex-none">{{ l.cantidad_pendiente }} {{ l.unidad_medida || '' }} pendiente(s)</span>
                           </div>
                           <div class="flex gap-2">
                             <input type="number" min="1" [max]="l.cantidad_pendiente"
@@ -367,7 +353,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
             <button (click)="cerrarCrear()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
             <button (click)="guardarDevolucion()" [disabled]="saving || !idSolicitud || (marcadas.length === 0 && sobrantesAEnviar.length === 0)"
               class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
-              style="background-color: #39A900">
+              style="background-color: var(--accent-brand)">
               {{ saving ? 'Guardando...' : 'Registrar devolución' }}
             </button>
           </div>
@@ -388,12 +374,14 @@ export class MaterialesDevolucionesComponent implements OnInit {
   error: string | null = null;
 
   readonly estadosDevolucion = ESTADOS_DEVOLUCION;
+  /** Opciones para <app-ss> (reemplaza al <select> nativo: su desplegable no respeta el modo oscuro). */
+  readonly opcionesEstadoDevLargo: SSOption[] = ESTADOS_DEVOLUCION.map((o) => ({ value: o.value, label: `${o.label} — ${o.desc}` }));
+  readonly opcionesEstadoDevCorto: SSOption[] = ESTADOS_DEVOLUCION.map((o) => ({ value: o.value, label: o.label }));
 
   // ── Filtros y paginación de la tabla (client-side) ──────────────────
   filtroTexto = '';
   filtroEstado: EstadoDevolucion | '' = '';
   pageSize = signal(20);
-  pageSizeDropdownOpen = signal(false);
   estadoDropdownOpen = signal(false);
   page = 0;
 
@@ -411,7 +399,6 @@ export class MaterialesDevolucionesComponent implements OnInit {
   seleccionarPageSize(size: number): void {
     this.pageSize.set(size);
     this.page = 0;
-    this.pageSizeDropdownOpen.set(false);
   }
 
   get devolucionesFiltradas(): Devolucion[] {
@@ -444,11 +431,15 @@ export class MaterialesDevolucionesComponent implements OnInit {
 
   constructor(
     private api: MaterialesApiService,
+    private auth: AuthService,
+    private policy: MaterialesScreenPolicy,
     private toast: ToastService,
     private live: MaterialesLiveService,
     private destroyRef: DestroyRef,
     private route: ActivatedRoute,
   ) {}
+
+  puedeRegistrar(): boolean { return this.policy.puedeRegistrarDevolucion(); }
 
   /**
    * Préstamos en estado ENTREGADA. El backend cierra la solicitud (→ DEVUELTA)
@@ -510,7 +501,9 @@ export class MaterialesDevolucionesComponent implements OnInit {
   nombreItem(id: string | null): string {
     if (!id) return '—';
     const item = this.items.find((i) => i.id_item === id);
-    return item ? `${item.codigo_sku}${item.placa_sena ? ' — ' + item.placa_sena : ''}` : '—';
+    if (!item) return '—';
+    // `codigo_sku` es null en los devolutivos con placa (usa_placa_sena=true): no se concatena a ciegas.
+    return [item.codigo_sku, item.placa_sena].filter(Boolean).join(' — ') || item.producto?.nombre || '—';
   }
 
   /** Unidad del lote de una devolución de sobrante — para la tabla de historial. */
@@ -547,13 +540,17 @@ export class MaterialesDevolucionesComponent implements OnInit {
     try {
       // M9 — solo `listarDevoluciones()` es crítico; si una secundaria da 403
       // (excepción personal) no debe tumbar la tabla entera.
+      // Evita pedir catálogos que el rol no puede leer: el interceptor muestra
+      // el 403 antes de que un catch local pueda descartarlo.
+      const puedeVerChequeos = this.auth.isAdmin() || this.auth.tieneServicio('materiales.chequeos.ver');
+      const puedeVerItemsChequeo = this.auth.isAdmin() || this.auth.tieneServicio('materiales.items-chequeo.ver');
       const [devoluciones, solicitudes, items, lotes, chequeo, item_chequeo] = await Promise.all([
         this.api.listarDevoluciones(),
         this.api.listarSolicitudes().catch(() => [] as Solicitud[]),
-        this.api.listarItems().catch(() => [] as Item[]),
-        this.api.listarLotes().catch(() => [] as Lote[]),
-        this.api.listarChequeos().catch(()=>[] as Chequeo[]),
-        this.api.listarItemsChequeo().catch(()=> [] as ItemChequeo[]),
+        this.auth.tieneServicio('materiales.items.ver') ? this.api.listarItems().catch(() => [] as Item[]) : Promise.resolve([] as Item[]),
+        this.auth.tieneServicio('materiales.lotes.ver') ? this.api.listarLotes().catch(() => [] as Lote[]) : Promise.resolve([] as Lote[]),
+        puedeVerChequeos ? this.api.listarChequeos().catch(() => [] as Chequeo[]) : Promise.resolve([] as Chequeo[]),
+        puedeVerItemsChequeo ? this.api.listarItemsChequeo().catch(() => [] as ItemChequeo[]) : Promise.resolve([] as ItemChequeo[]),
       ]);
       this.devoluciones = devoluciones;
       this.solicitudes = solicitudes;
@@ -570,6 +567,7 @@ export class MaterialesDevolucionesComponent implements OnInit {
 
   /** `idSolicitud` opcional: preselecciona un préstamo puntual (deep link desde Vencimientos) en vez de dejar el selector vacío. */
   abrirCrear(idSolicitud?: string): void {
+    if (!this.puedeRegistrar()) return;
     if (!idSolicitud && this.solicitudesEntregadas.length === 0) {
       this.toast.warn('Nada que devolver', 'No hay préstamos en estado ENTREGADA pendientes de devolución.');
       return;
@@ -611,7 +609,7 @@ export class MaterialesDevolucionesComponent implements OnInit {
         this.formConsumible[l.id_lote] ??= { cantidad: null, observacion: '' };
       }
     } catch (e: any) {
-      this.error = e?.error?.message ?? 'No se pudieron cargar las unidades del préstamo.';
+      this.error = mensajeDeError(e, 'No se pudieron cargar las unidades del préstamo.');
     } finally {
       this.cargandoPendientes = false;
       this.cargandoConsumibles = false;
@@ -708,7 +706,7 @@ export class MaterialesDevolucionesComponent implements OnInit {
       this.crearOpen = false;
       await this.cargar();
     } catch (e: any) {
-      this.error = e?.error?.message ?? 'No se pudo registrar la devolución.';
+      this.error = mensajeDeError(e, 'No se pudo registrar la devolución.');
     } finally {
       this.saving = false;
     }

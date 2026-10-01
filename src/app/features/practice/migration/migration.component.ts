@@ -45,13 +45,13 @@ interface EstadoMigracion {
   imports:         [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-<div class="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-50 p-6">
+<div class="min-h-screen bg-gradient-to-br from-gray-50 via-[var(--accent-soft)] to-gray-50 p-6">
 
   <!-- ── Encabezado ── -->
   <div class="max-w-4xl mx-auto">
     <div class="flex items-center gap-3 mb-6">
-      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700
-                  flex items-center justify-center shadow-lg shadow-blue-600/20">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--accent-brand)] to-[var(--accent-brand-dark)]
+                  flex items-center justify-center shadow-lg">
         <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0
@@ -90,7 +90,7 @@ interface EstadoMigracion {
             Errores: {{ estado().resumen?.errores ?? 0 }}
           </p>
         </div>
-        <button (click)="cerrarNotificacion()"
+        <button aria-label="Cerrar" (click)="cerrarNotificacion()"
           class="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
       </div>
     }
@@ -103,8 +103,8 @@ interface EstadoMigracion {
         class="relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer
                transition-all duration-200"
         [class]="dragging()
-          ? 'border-blue-400 bg-blue-50'
-          : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/50'"
+          ? 'border-[var(--accent-brand)] bg-[var(--accent-soft)]'
+          : 'border-gray-300 hover:border-[var(--accent-brand)] hover:bg-[var(--accent-soft)]'"
         (click)="fileInput.click()"
         (dragover)="$event.preventDefault(); dragging.set(true)"
         (dragleave)="dragging.set(false)"
@@ -118,7 +118,7 @@ interface EstadoMigracion {
             <div class="text-5xl">📂</div>
             <p class="font-medium text-gray-700">
               Arrastra el archivo aquí o
-              <span class="text-blue-600 font-bold">haz clic para seleccionar</span>
+              <span class="text-[var(--accent-text)] font-bold">haz clic para seleccionar</span>
             </p>
             <p class="text-xs text-gray-400">Formatos aceptados: .xlsx · .xls · máx. 50 MB</p>
           </div>
@@ -143,8 +143,8 @@ interface EstadoMigracion {
           class="flex-1 py-3 rounded-xl font-semibold text-sm transition-all
                  disabled:opacity-40 disabled:cursor-not-allowed"
           [class]="estado().status === 'running' || subiendo()
-            ? 'bg-blue-100 text-blue-600 cursor-not-allowed'
-            : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/20'">
+            ? 'bg-[var(--accent-soft)] text-[var(--accent-text)] cursor-not-allowed'
+            : 'bg-[var(--accent-brand)] text-white hover:bg-[var(--accent-brand-dark)] shadow-lg'">
           @if (subiendo()) {
             <span class="flex items-center justify-center gap-2">
               <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
@@ -179,11 +179,11 @@ interface EstadoMigracion {
         <!-- Barra de progreso indeterminada mientras corre -->
         @if (estado().status === 'running') {
           <div class="w-full bg-gray-100 rounded-full h-2 mb-4 overflow-hidden">
-            <div class="h-2 bg-blue-500 rounded-full animate-pulse"
+            <div class="h-2 bg-[var(--accent-brand)] rounded-full animate-pulse"
               style="width: 100%; animation: progress-bar 1.5s ease-in-out infinite alternate;">
             </div>
           </div>
-          <p class="text-xs text-blue-600 mb-3 font-medium animate-pulse">
+          <p class="text-xs text-[var(--accent-text)] mb-3 font-medium animate-pulse">
             ⏳ Procesando en el servidor… puedes seguir trabajando
           </p>
         }
@@ -319,7 +319,7 @@ export class MigrationComponent implements OnInit, OnDestroy {
   readonly estadoBadgeClass = computed(() => {
     const map: Record<string, string> = {
       idle:      'bg-gray-100 text-gray-600',
-      running:   'bg-blue-600 text-white animate-pulse',
+      running:   'bg-[var(--accent-brand)] text-white animate-pulse',
       completed: 'bg-green-100 text-green-700',
       error:     'bg-red-100 text-red-700',
     };

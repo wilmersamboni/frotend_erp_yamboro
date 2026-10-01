@@ -18,7 +18,7 @@ export type StatCardTono = 'neutral' | 'success' | 'info' | 'warning' | 'danger'
       <div class="absolute inset-x-0 top-0 h-1" [style.background-color]="paleta().acento"></div>
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
-          <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{{ label }}</p>
+          <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">{{ label }}</p>
           <p class="mt-1 text-2xl font-bold text-gray-800 tabular-nums">{{ value }}</p>
           @if (hint) {
             <p class="mt-0.5 text-xs text-gray-400">{{ hint }}</p>
@@ -42,12 +42,14 @@ export class StatCardComponent {
 
   private _tono = signal<StatCardTono>('neutral');
 
+  // Tokens de styles.css / dark-theme.css (no hex): con hex fijos, en modo
+  // oscuro los bordes pastel se veían blancos y las placas del ícono brillaban.
   private static readonly PALETA: Record<StatCardTono, { borde: string; acento: string; placaFondo: string }> = {
-    neutral: { borde: '#E5E7EB', acento: '#6B7280', placaFondo: '#F3F4F6' },
-    success: { borde: '#BBF7D0', acento: '#15803D', placaFondo: '#DCFCE7' },
-    info:    { borde: '#BFDBFE', acento: '#1D4ED8', placaFondo: '#DBEAFE' },
-    warning: { borde: '#FDE68A', acento: '#B45309', placaFondo: '#FEF3C7' },
-    danger:  { borde: '#FECACA', acento: '#B91C1C', placaFondo: '#FEE2E2' },
+    neutral: { borde: 'var(--border)',      acento: 'var(--text-muted)', placaFondo: 'var(--surface3)' },
+    success: { borde: 'var(--ok-border)',   acento: 'var(--ok-text)',    placaFondo: 'var(--ok-bg)' },
+    info:    { borde: 'var(--info-border)', acento: 'var(--info-text)',  placaFondo: 'var(--info-bg)' },
+    warning: { borde: 'var(--warn-border)', acento: 'var(--warn-text)',  placaFondo: 'var(--warn-bg)' },
+    danger:  { borde: 'var(--err-border)',  acento: 'var(--err-text)',   placaFondo: 'var(--err-bg)' },
   };
 
   paleta = computed(() => StatCardComponent.PALETA[this._tono()]);

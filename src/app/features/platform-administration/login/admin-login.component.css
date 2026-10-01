@@ -11,7 +11,7 @@
   padding: 48px 24px;
   position: relative;
   overflow: hidden;
-  background: #eef1ee;
+  background: var(--bg-app, #eef1ee);
 }
 
 /* Capa principal: la foto a pantalla completa, sin bordes redondeados,
@@ -42,7 +42,7 @@
   border-radius: 28px;
   overflow: hidden;
   position: relative;
-  background: white;
+  background: var(--surface, white);
   box-shadow: 0 24px 64px -16px rgba(0, 0, 0, .28), 0 2px 8px rgba(0, 0, 0, .08);
 }
 
@@ -122,7 +122,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #39A900;
+  background: var(--accent-brand, #39A900);
   border: 1.5px solid rgba(255, 255, 255, .25);
 }
 
@@ -169,11 +169,11 @@
 
 .left-dots {
   position: absolute;
-  top: 28px;
-  right: 28px;
+  top: 29px;
+  right: 29px;
   z-index: 3;
   display: flex;
-  gap: 6px;
+  gap: 9px;
 }
 
 .dot {
@@ -193,9 +193,11 @@
 }
 
 .dot.is-active {
-  width: 16px;
-  border-radius: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   background: #39A900;
+  
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -206,21 +208,21 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  background: white;
+  background: var(--surface, white);
   padding: 48px 44px;
 }
 
 .right-title {
   font-size: 28px;
   font-weight: 700;
-  color: #071a0a;
+  color: var(--text, #071a0a);
   margin: 0 0 8px;
   letter-spacing: -.01em;
 }
 
 .right-sub {
   font-size: 13.5px;
-  color: #8fa896;
+  color: var(--text-muted, #8fa896);
   margin: 0 0 30px;
 }
 
@@ -235,7 +237,7 @@
   display: block;
   font-size: 11px;
   font-weight: 700;
-  color: #2d4a33;
+  color: var(--text-2, #2d4a33);
   margin-bottom: 6px;
   letter-spacing: .5px;
   text-transform: uppercase;
@@ -250,7 +252,7 @@
   left: 18px;
   top: 50%;
   transform: translateY(-50%);
-  color: #8fa896;
+  color: var(--text-muted, #8fa896);
   pointer-events: none;
   display: flex;
 }
@@ -258,22 +260,22 @@
 .form-input {
   width: 100%;
   padding: 16px 16px 16px 46px;
-  border: 1.5px solid #e2ece5;
+  border: 1.5px solid var(--border, #e2ece5);
   border-radius: 18px;
   font-size: 15px;
-  color: #071a0a;
-  background: #f5faf6;
+  color: var(--text, #071a0a);
+  background: var(--surface2, #f5faf6);
   outline: none;
   transition: border-color .2s, background .2s;
 }
 
 .form-input:focus {
-  border-color: #39A900;
-  background: white;
+  border-color: var(--accent-brand, #39A900);
+  background: var(--surface, white);
 }
 
 .form-input.has-error {
-  border-color: #fca5a5;
+  border-color: var(--err-border, #fca5a5);
 }
 
 .form-input-pw { padding-right: 46px; }
@@ -283,7 +285,7 @@
   right: 16px;
   top: 50%;
   transform: translateY(-50%);
-  color: #8fa896;
+  color: var(--text-muted, #8fa896);
   background: none;
   border: none;
   cursor: pointer;
@@ -295,7 +297,7 @@
 .field-error {
   margin: 6px 2px 0;
   font-size: 12px;
-  color: #dc2626;
+  color: var(--err-text, #dc2626);
 }
 
 .submit-btn {
@@ -303,7 +305,7 @@
   padding: 16px;
   border-radius: 18px;
   border: none;
-  background: linear-gradient(135deg, #2a7a00, #39A900);
+  background: linear-gradient(135deg, var(--accent-brand-dark, #2a7a00), var(--accent-brand, #39A900));
   color: white;
   font-size: 15px;
   font-weight: 700;
@@ -325,7 +327,7 @@
 
 .right-footer {
   font-size: 10px;
-  color: #b8c9bb;
+  color: var(--text-faint, #b8c9bb);
   text-align: center;
   margin-top: 26px;
 }
@@ -333,6 +335,12 @@
 /* ══════════════════════════════════════════════════════════════════════════
    RESPONSIVE
 ══════════════════════════════════════════════════════════════════════════ */
+/* Panel izquierdo angosto (761–1100px): el rótulo y los puntos no caben en la misma franja; los
+   puntos bajan a una segunda fila, igual que en el login de los centros. */
+@media (min-width: 761px) and (max-width: 1100px) {
+  .left-dots { top: 68px; right: auto; left: 19px; }
+}
+
 @media (max-width: 760px) {
   .login-page { padding: 0; align-items: stretch; }
   .login-stage { max-width: 100%; }

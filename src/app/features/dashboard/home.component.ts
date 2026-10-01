@@ -110,12 +110,12 @@ export class HomeComponent implements OnInit {
       x: {
         grid: { display: false },
         border: { display: false },
-        ticks: { font: { size: 11, family: 'Inter' }, color: '#94a3b8' }
+        ticks: { font: { size: 12, family: 'Inter' }, color: '#94a3b8' }
       },
       y: {
-        grid: { color: '#f1f5f9' },
+        grid: { color: 'rgba(148, 163, 184, .18)' },  // tenue en claro y en oscuro
         border: { display: false },
-        ticks: { stepSize: 1, font: { size: 11, family: 'Inter' }, color: '#94a3b8' },
+        ticks: { stepSize: 1, font: { size: 12, family: 'Inter' }, color: '#94a3b8' },
         beginAtZero: true
       }
     }
@@ -185,11 +185,11 @@ export class HomeComponent implements OnInit {
     const otros = Math.max(0, this.stats.aprendices - activo - certificado - desertado - enRiesgo);
 
     const items = [
-      { key: 'activo',      label: 'Activas',        total: activo,      icon: 'pi-clipboard',            color: '#3b82f6', bg: '#eff6ff' },
-      { key: 'certificado', label: 'Certificadas',    total: certificado, icon: 'pi-check-circle',         color: '#a855f7', bg: '#faf5ff' },
-      { key: 'desertado',   label: 'Desertadas',      total: desertado,   icon: 'pi-times-circle',         color: '#f97316', bg: '#fff7ed' },
-      { key: 'enRiesgo',    label: 'En riesgo',       total: enRiesgo,    icon: 'pi-exclamation-triangle', color: '#f59e0b', bg: '#fffbeb' },
-      { key: 'otros',       label: 'Otros estados',   total: otros,       icon: 'pi-ellipsis-h',           color: '#64748b', bg: '#f1f5f9' },
+      { key: 'activo',      label: 'Activas',        total: activo,      icon: 'pi-clipboard',            color: '#3b82f6', bg: 'var(--info-bg)' },
+      { key: 'certificado', label: 'Certificadas',    total: certificado, icon: 'pi-check-circle',         color: '#a855f7', bg: 'var(--violet-bg)' },
+      { key: 'desertado',   label: 'Desertadas',      total: desertado,   icon: 'pi-times-circle',         color: '#f97316', bg: 'var(--warn-bg)' },
+      { key: 'enRiesgo',    label: 'En riesgo',       total: enRiesgo,    icon: 'pi-exclamation-triangle', color: '#f59e0b', bg: 'var(--warn-bg)' },
+      { key: 'otros',       label: 'Otros estados',   total: otros,       icon: 'pi-ellipsis-h',           color: '#64748b', bg: 'var(--surface3)' },
     ];
 
     this.estadosResumen = items.map(it => ({
@@ -237,6 +237,7 @@ export class HomeComponent implements OnInit {
     let accCert   = 0;
     const activasAcum      = activasPorMes.map(v => (accActiva += v));
     const certificadasAcum = certificadasPorMes.map(v => (accCert += v));
+    const acento = this.tokenColor('--accent-brand', '#39A900');
 
     this.chartDataEvolucion = {
       labels: meses,
@@ -244,12 +245,12 @@ export class HomeComponent implements OnInit {
         {
           label: 'Etapas Activas',
           data: activasAcum,
-          borderColor: '#39A900',
-          backgroundColor: 'rgba(57,169,0,0.08)',
+          borderColor: acento,
+          backgroundColor: acento + '14',
           fill: true,
           tension: 0.35,
           pointRadius: 3,
-          pointBackgroundColor: '#39A900',
+          pointBackgroundColor: acento,
         },
         {
           label: 'Etapas Certificadas',
@@ -265,14 +266,21 @@ export class HomeComponent implements OnInit {
     };
   }
 
+  /** Chart.js pinta en canvas y no entiende var(): se lee el token ya
+   *  resuelto (ThemeService lo emite como hex) para que siga al color de acento. */
+  private tokenColor(nombre: string, respaldo: string): string {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(nombre).trim();
+    return /^#[0-9a-f]{6}$/i.test(v) ? v : respaldo;
+  }
+
   private buildChartPersonal(): void {
     const avance = this.miPractica?.avance ?? 0;
     this.chartDataPersonal = {
       labels: ['Completado', 'Pendiente'],
       datasets: [{
         data: [avance, 100 - avance],
-        backgroundColor: ['#39A900', '#e2e8f0'],
-        hoverBackgroundColor: ['#2d8600', '#d1d5db'],
+        backgroundColor: [this.tokenColor('--accent-brand', '#39A900'), this.tokenColor('--border', '#e2e8f0')],
+        hoverBackgroundColor: [this.tokenColor('--accent-brand-dark', '#2d8600'), this.tokenColor('--border-strong', '#d1d5db')],
         borderWidth: 0
       }]
     };
@@ -368,7 +376,7 @@ export class HomeComponent implements OnInit {
         // visible — simplemente se le muestra el home de Horarios.
         this.aprendizTieneEtapa.set(false);
       } else {
-        this.toast.error('Error', 'No se pudieron cargar los datos del panel.');
+        this.toast.httpError(err, 'No se pudieron cargar los datos del panel.');
       }
     });
   }

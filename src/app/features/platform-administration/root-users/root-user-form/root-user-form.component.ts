@@ -3,6 +3,8 @@ import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Va
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { RootUserAdminService } from '../../../../core/services/admin/root-user-admin.service';
 import { AdminToastService } from '../../../../core/admin-auth/admin-toast.service';
+import { LoadingSkeletonComponent } from '../../../../shared/components/loading-skeleton.component';
+import { avisarCambiosSinGuardar } from '../../../../core/services/unsaved-changes.service';
 
 function passwordsCoincidenValidator(): ValidatorFn {
   return (group: AbstractControl): ValidationErrors | null => {
@@ -16,7 +18,7 @@ function passwordsCoincidenValidator(): ValidatorFn {
 @Component({
   selector: 'app-root-user-form',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [LoadingSkeletonComponent, ReactiveFormsModule, RouterLink],
   template: `
     <div class="max-w-2xl mx-auto rounded-3xl p-8">
       <div class="mb-6 mx-auto text-center">
@@ -26,14 +28,11 @@ function passwordsCoincidenValidator(): ValidatorFn {
           <span class="text-gray-600 font-medium">{{ modoEdicion() ? 'Editar' : 'Nuevo' }}</span>
         </nav>
         <h1 class="text-2xl font-bold text-gray-900 tracking-tight">{{ modoEdicion() ? 'Editar Usuario' : 'Nuevo Usuario Root' }}</h1>
+        <p class="text-sm text-gray-500 mt-1">Un usuario root puede entrar a este panel y administrar todos los centros. Dale acceso solo a quien lo necesite.</p>
       </div>
 
       @if (cargando()) {
-        <div class="flex flex-col items-center justify-center py-16">
-          <svg class="animate-spin" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#39A900" stroke-width="3">
-            <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" />
-          </svg>
-        </div>
+        <app-loading-skeleton variant="form" [rows]="4" label="Cargando usuario" />
       } @else {
         <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="space-y-5">
           <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -69,7 +68,7 @@ function passwordsCoincidenValidator(): ValidatorFn {
                   Contraseña @if (!modoEdicion()) { <span class="text-red-500">*</span> }
                 </label>
                 <input type="password" formControlName="password"
-                  [placeholder]="modoEdicion() ? 'Dejar vacío para no cambiar' : '••••••••'"
+                  [placeholder]="modoEdicion() ? 'Dejar vacío para no cambiar' : 'Mínimo 6 caracteres'"
                   class="w-full text-sm rounded-xl border outline-none px-3.5 py-2.5 transition-colors focus:border-[#39A900]"
                   [class.border-red-400]="form.controls.password.invalid && form.controls.password.touched"
                   [class.border-gray-200]="!(form.controls.password.invalid && form.controls.password.touched)" />
@@ -97,7 +96,7 @@ function passwordsCoincidenValidator(): ValidatorFn {
             </button>
             <button type="submit" [disabled]="guardando()"
               class="flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-              style="background:#39A900;">
+              style="background:var(--accent-brand);">
               @if (guardando()) {
                 <svg class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                   <circle cx="12" cy="12" r="10" stroke-opacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10" />
@@ -113,6 +112,7 @@ function passwordsCoincidenValidator(): ValidatorFn {
 })
 export class RootUserFormComponent {
   private readonly fb              = inject(FormBuilder);
+  private readonly _avisoCambios = avisarCambiosSinGuardar(() => this.form.dirty);
   private readonly rootUserService = inject(RootUserAdminService);
   private readonly toast           = inject(AdminToastService);
   private readonly router          = inject(Router);
@@ -149,7 +149,7 @@ export class RootUserFormComponent {
     this.cargando.set(true);
     this.rootUserService.obtenerPorId(id).subscribe({
       next: (u) => { this.form.patchValue({ nombre: u.nombre, correo: u.correo }); this.cargando.set(false); },
-      error: () => { this.cargando.set(false); this.toast.error('No se pudo cargar el usuario.'); this.router.navigate(['/root-users']); },
+      error: (err) => { this.cargando.set(false); this.toast.httpError(err, 'No se pudo cargar el usuario.'); this.router.navigate(['/root-users']); },
     });
   }
 
@@ -164,10 +164,11 @@ export class RootUserFormComponent {
     peticion.subscribe({
       next: () => {
         this.guardando.set(false);
+        this.form.markAsPristine();
         this.toast.success(this.modoEdicion() ? 'Usuario actualizado correctamente.' : 'Usuario creado correctamente.');
         this.router.navigate(['/root-users']);
       },
-      error: (err) => { this.guardando.set(false); this.toast.error(err?.error?.message ?? 'Ocurrió un error al guardar el usuario.'); },
+      error: (err) => { this.guardando.set(false); this.toast.httpError(err, 'Ocurrió un error al guardar el usuario.'); },
     });
   }
 

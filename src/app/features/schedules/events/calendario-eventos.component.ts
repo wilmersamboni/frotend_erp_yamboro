@@ -12,11 +12,11 @@ import { LucideAngularModule } from 'lucide-angular';
   template: `
     <div class="calendar-section mt-4">
       <div class="calendar-header">
-        <button class="w-8 h-8 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors" (click)="prevMes()">
+        <button aria-label="Mes anterior" class="w-8 h-8 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors" (click)="prevMes()">
           <lucide-icon name="chevron-left" [size]="18"></lucide-icon>
         </button>
         <h3 class="calendar-title">{{ mesActualLabel() }}</h3>
-        <button class="w-8 h-8 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors" (click)="nextMes()">
+        <button aria-label="Mes siguiente" class="w-8 h-8 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors" (click)="nextMes()">
           <lucide-icon name="chevron-right" [size]="18"></lucide-icon>
         </button>
         <button class="border border-gray-300 hover:bg-gray-50 hover:border-[#39A900]/50 hover:text-[#39A900] text-gray-700 rounded-lg px-3 py-1.5 text-sm transition-all ml-auto" (click)="irHoy()">Hoy</button>
@@ -58,17 +58,17 @@ import { LucideAngularModule } from 'lucide-angular';
       font-weight: 700; color: var(--text-muted);
       background: var(--surface2); border-bottom: 1px solid var(--border);
     }
-    .cal-day-header.weekend { color: #dc2626; }
-    .cal-cell.weekend .cal-day-num { color: #dc2626; }
+    .cal-day-header.weekend { color: var(--err-text); }
+    .cal-cell.weekend .cal-day-num { color: var(--err-text); }
     .cal-cell.weekend.today .cal-day-num { color: #fff; }
     .cal-cell {
       min-height: 90px; padding: 6px; border-right: 1px solid var(--border);
       border-bottom: 1px solid var(--border); cursor: pointer;
       transition: background .15s; position: relative;
     }
-    .cal-cell:hover { background: rgba(57,169,0,.06); }
+    .cal-cell:hover { background: color-mix(in srgb, var(--accent-brand) 6%, transparent); }
     .cal-cell.other-month { opacity: .4; }
-    .cal-cell.today { background: rgba(57,169,0,.08); }
+    .cal-cell.today { background: color-mix(in srgb, var(--accent-brand) 8%, transparent); }
     /* Días pasados: siguen mostrando sus eventos, pero no se puede crear uno
        nuevo desde acá (ver onDiaClick) — el cursor y la opacidad lo comunican
        antes de hacer clic, en vez de dejar llenar todo el formulario para
@@ -82,7 +82,7 @@ import { LucideAngularModule } from 'lucide-angular';
     }
     .cal-day-num { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
     .cal-event {
-      font-size: 10px; font-weight: 600; padding: 2px 5px;
+      font-size: 12px; font-weight: 600; padding: 2px 5px;
       border-radius: 4px; margin-bottom: 2px; cursor: pointer;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       transition: opacity .15s;
@@ -91,10 +91,10 @@ import { LucideAngularModule } from 'lucide-angular';
 
     /* ── Event type colors — duplicado con el padre y con evento-modal (chips), cada
        componente tiene su propio encapsulamiento de estilos ── */
-    .ev-tipo-formativo     { background: #dbeafe; color: #1d4ed8; }
-    .ev-tipo-institucional { background: #dcfce7; color: #166534; }
-    .ev-tipo-evaluacion    { background: #fed7aa; color: #92400e; }
-    .ev-tipo-festivo       { background: #fee2e2; color: #991b1b; }
+    .ev-tipo-formativo     { background: var(--info-bg); color: var(--info-text); }
+    .ev-tipo-institucional { background: var(--ok-bg); color: var(--ok-text); }
+    .ev-tipo-evaluacion    { background: var(--warn-bg); color: var(--warn-text); }
+    .ev-tipo-festivo       { background: var(--err-bg); color: var(--err-text); }
 
     .ml-auto { margin-left: auto; }
 

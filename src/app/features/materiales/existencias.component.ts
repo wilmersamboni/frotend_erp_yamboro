@@ -5,6 +5,10 @@ import { ToastService } from '../../core/services/toast.service';
 import { MaterialesApiService, ResumenExistencias } from './data-access/materiales-api.service';
 import { StatCardComponent } from '../../shared/components/stat-card.component';
 import { LoadingSkeletonComponent } from '../../shared/components/loading-skeleton.component';
+import { EmptyStateComponent } from '../../shared/components/empty-state.component';
+import { ExportColumn, TableExportService } from '../../shared/services/table-export.service';
+import { PageSizeSelectComponent } from '../../shared/components/page-size-select.component';
+import { EsperaDirective } from '../../shared/directives/espera.directive';
 
 /**
  * Panel de existencias — SOLO LECTURA (Tier SigMat M6). Reemplaza el CRUD que
@@ -32,7 +36,7 @@ import { LoadingSkeletonComponent } from '../../shared/components/loading-skelet
 @Component({
   selector: 'app-materiales-existencias',
   standalone: true,
-  imports: [FormsModule, StatCardComponent, LoadingSkeletonComponent],
+  imports: [EsperaDirective, EmptyStateComponent, FormsModule, StatCardComponent, LoadingSkeletonComponent, PageSizeSelectComponent],
   template: `
     <div class="p-6">
       <div class="mb-5">
@@ -66,64 +70,32 @@ import { LoadingSkeletonComponent } from '../../shared/components/loading-skelet
         </div>
 
         <div class="flex flex-wrap items-center gap-2 mb-3">
-          <input type="text" [(ngModel)]="q" (ngModelChange)="onBuscar($event)"
+          <input appEspera type="text" [(ngModel)]="q" (ngModelChange)="onBuscar($event)"
             placeholder="Buscar por producto, SKU o bodega…"
             class="w-full md:w-96 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] bg-white" />
-          <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
-            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filas</span>
-            <div class="relative">
-              <button
-                type="button"
-                (click)="pageSizeDropdownOpen.update(v => !v)"
-                class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer">
-                <span>{{ pageSize() }}</span>
-                <svg class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" [class.rotate-180]="pageSizeDropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              @if (pageSizeDropdownOpen()) {
-                <div class="fixed inset-0 z-10" (click)="pageSizeDropdownOpen.set(false)"></div>
-
-                <div class="absolute left-0 top-full mt-2 z-20 w-20 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                  <div class="p-1 space-y-0.5">
-                    @for (size of [10, 20, 50, 100]; track size) {
-                      <button
-                        type="button"
-                        (click)="seleccionarPageSize(size)"
-                        class="w-full px-3 py-1.5 text-sm text-center rounded-lg transition-colors font-medium"
-                        [class.bg-green-50]="pageSize() === size"
-                        [class.text-green-700]="pageSize() === size"
-                        [class.text-gray-600]="pageSize() !== size"
-                        [class.hover:bg-gray-50]="pageSize() !== size">
-                        {{ size }}
-                      </button>
-                    }
-                  </div>
-                </div>
-              }
-            </div>
-          </div>
+          <button type="button" (click)="exportarExcel()" class="px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:border-[#39A900] hover:text-[#267700]" aria-label="Exportar existencias a Excel">Excel</button>
+          <button type="button" (click)="exportarPdf()" class="px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:border-[#39A900] hover:text-[#267700]" aria-label="Exportar existencias a PDF">PDF</button>
+          <app-page-size-select [value]="pageSize()" (valueChange)="seleccionarPageSize($event)" />
           @if (idProductoFiltro()) {
             <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#39A900]/10 text-[#2d8000] border border-[#39A900]/20">
               Filtrando por producto
-              <button (click)="quitarFiltroProducto()" class="hover:text-red-600" title="Quitar filtro">×</button>
+              <button aria-label="Quitar filtro" (click)="quitarFiltroProducto()" class="hover:text-red-600" title="Quitar filtro">×</button>
             </span>
           }
         </div>
 
-        <p class="text-[11px] text-gray-400 mb-2">
+        <p class="text-xs text-gray-400 mb-2">
           <span class="font-semibold">Disponible</span> y <span class="font-semibold">Total</span> son efectivos:
           los <span class="font-semibold">devolutivos</span> se cuentan por unidad; los <span class="font-semibold">consumibles / perecederos</span>, por el saldo de sus lotes.
         </p>
 
         @if (filtradas().length === 0) {
-          <p class="text-center text-gray-400 text-sm py-10">Sin existencias para mostrar</p>
+          <app-empty-state titulo="Sin existencias para mostrar" />
         } @else {
           <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
             <table class="w-full text-sm">
-              <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
+              <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
                 <tr>
                   <th class="px-4 py-3 text-left font-semibold">Producto</th>
                   <th class="px-4 py-3 text-left font-semibold">Bodega</th>
@@ -140,7 +112,7 @@ import { LoadingSkeletonComponent } from '../../shared/components/loading-skelet
                   <tr class="hover:bg-gray-50/80 transition-colors">
                     <td class="px-4 py-3">
                       <div class="text-gray-800 font-medium">{{ r.nombre }}</div>
-                      <div class="text-[11px] text-gray-400">
+                      <div class="text-xs text-gray-400">
                         {{ r.sku || '—' }}
                         @if (r.marca || r.modelo) { · {{ marcaModelo(r) }} }
                         · {{ r.tipo_material }}
@@ -160,7 +132,7 @@ import { LoadingSkeletonComponent } from '../../shared/components/loading-skelet
                     <td class="px-3 py-3 text-right text-gray-700">{{ totalEfectivo(r) }}</td>
                     <td class="px-3 py-3 text-right">
                       @if (r.lotes_por_vencer > 0) {
-                        <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold" style="background-color:#FEF3C7;color:#B45309">{{ r.lotes_por_vencer }}</span>
+                        <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold" style="background-color:var(--warn-bg);color:var(--warn-text)">{{ r.lotes_por_vencer }}</span>
                       } @else {
                         <span class="text-gray-300">—</span>
                       }
@@ -199,13 +171,11 @@ export class MaterialesExistenciasComponent implements OnInit {
 
   /** Paginación client-side (los datos ya llegan completos del backend). */
   pageSize = signal(20);
-  pageSizeDropdownOpen = signal(false);
   pagina = signal(1);
 
   seleccionarPageSize(size: number): void {
     this.pageSize.set(size);
     this.pagina.set(1);
-    this.pageSizeDropdownOpen.set(false);
   }
 
   esDevolutivo = (r: ResumenExistencias): boolean => r.tipo_material === 'DEVOLUTIVO';
@@ -259,6 +229,7 @@ export class MaterialesExistenciasComponent implements OnInit {
     private toast: ToastService,
     private route: ActivatedRoute,
     private router: Router,
+    private exporter: TableExportService,
   ) {}
 
   /** Al buscar, volver a la primera página. */
@@ -281,6 +252,17 @@ export class MaterialesExistenciasComponent implements OnInit {
     this.pagina.set(1);
     this.router.navigate([], { relativeTo: this.route, queryParams: {} });
   }
+
+  private readonly exportColumns: ExportColumn<ResumenExistencias>[] = [
+    { label: 'Producto', value: (r) => r.nombre }, { label: 'SKU', value: (r) => r.sku },
+    { label: 'Bodega', value: (r) => r.sitio_nombre }, { label: 'Disponible', value: (r) => r.disponibles },
+    { label: 'Prestado', value: (r) => r.prestados }, { label: 'Mantenimiento', value: (r) => r.mantenimiento },
+    { label: 'Dañado', value: (r) => r.danados }, { label: 'Perdido', value: (r) => r.perdidos },
+    { label: 'Total', value: (r) => r.total }, { label: 'Por vencer', value: (r) => r.lotes_por_vencer },
+  ];
+
+  exportarExcel(): void { void this.exporter.excel('existencias', 'Existencias', this.exportColumns, this.filtradas()); }
+  exportarPdf(): void { this.exporter.pdf('existencias', 'Existencias', this.exportColumns, this.filtradas()); }
 
   private async cargar(): Promise<void> {
     this.loading = true;

@@ -3,6 +3,7 @@ import { DatePipe } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { AccionPendiente } from './indexed-db.service';
 import { SyncQueueService } from './sync-queue.service';
+import { DialogDirective } from '../../shared/directives/dialog.directive';
 
 /**
  * Diálogo genérico de reconciliación — una acción encolada pasa a
@@ -22,14 +23,14 @@ import { SyncQueueService } from './sync-queue.service';
 @Component({
   selector: 'app-reconciliation-dialog',
   standalone: true,
-  imports: [DatePipe, LucideAngularModule],
+  imports: [DialogDirective, DatePipe, LucideAngularModule],
   template: `
     @if (abierto) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrado.emit()">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrado.emit()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[85vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-bold text-gray-800">Acciones pendientes de revisión</h2>
-            <button (click)="cerrado.emit()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="cerrado.emit()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 
           @if (acciones.length === 0) {
@@ -43,7 +44,7 @@ import { SyncQueueService } from './sync-queue.service';
                   [class.border-gray-100]="a.estado !== 'conflicto'">
                   <div class="flex items-center justify-between mb-1">
                     <span class="text-sm font-semibold text-gray-800">{{ etiquetaTipo(a.tipo) }}</span>
-                    <span class="text-[11px] font-semibold rounded-full px-2 py-0.5"
+                    <span class="text-xs font-semibold rounded-full px-2 py-0.5"
                       [class.bg-amber-100]="a.estado === 'conflicto'"
                       [class.text-amber-700]="a.estado === 'conflicto'"
                       [class.bg-gray-100]="a.estado !== 'conflicto'"
@@ -59,7 +60,7 @@ import { SyncQueueService } from './sync-queue.service';
                     <button type="button" (click)="descartar(a)" class="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                       Descartar
                     </button>
-                    <button type="button" (click)="reintentar(a)" class="px-3 py-1.5 text-xs font-medium text-white rounded-lg transition-colors" style="background-color: #39A900">
+                    <button type="button" (click)="reintentar(a)" class="px-3 py-1.5 text-xs font-medium text-white rounded-lg transition-colors" style="background-color: var(--accent-brand)">
                       Reintentar
                     </button>
                   </div>

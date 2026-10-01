@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { firstValueFrom, map, Observable } from 'rxjs';
+import { HttpClient, HttpEventType } from '@angular/common/http';
+import { filter, firstValueFrom, map, Observable, tap } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 
 // Materiales vive dentro de backend-epsas-horarios (mismo backend que
@@ -255,7 +255,7 @@ export interface CreateNovedadDto {
 }
 
 export type EstadoTraslado = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO';
-export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'EN_ENTREGA' | 'ENTREGADA' | 'DEVUELTA' | 'CANCELADA';
+export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'EN_ENTREGA' | 'ENTREGADA' | 'DEVUELTA' | 'CANCELADA' | 'CONSUMIDA';
 
 /** Línea de una solicitud multi-línea (Tier SigMat M4). Producto devolutivo XOR lote consumible. */
 export interface LineaSolicitud {
@@ -440,6 +440,8 @@ export interface LineaConsumiblePendiente {
   cantidad_entregada: number;
   cantidad_ya_devuelta: number;
   cantidad_pendiente: number;
+  /** Hasta cuándo se acepta sobrante (entrega + 30 días); después la solicitud pasa a CONSUMIDA. */
+  fecha_limite: string;
 }
 
 export interface CreateDevolucionConsumibleDto {
@@ -523,7 +525,7 @@ export interface Acta {
   solicitud?: Solicitud;
 }
 
-export type EstadoAsignacion = 'ACTIVA' | 'ANULADA';
+export type EstadoAsignacion = 'ACTIVA' | 'ANULADA' | 'DEVUELTA';
 
 export interface Asignacion {
   id_asignacion: string;
@@ -645,14 +647,25 @@ export class MaterialesApiService {
     );
   }
   /** #5 PASO 1 — sube un .xlsx/.csv y devuelve el RESUMEN para revisar. No registra nada. */
-  previsualizarImportacion(archivo: File) {
+  /** `onProgreso` (opcional) recibe el % REAL de subida del archivo (0–100). */
+  previsualizarImportacion(archivo: File, onProgreso?: (pct: number) => void) {
     const fd = new FormData();
     fd.append('archivo', archivo);
     return this.unwrap(
-      this.http.post<Envelope<ResultadoPrevisualizacion>>(
-        `${BASE}/productos/importar/previsualizar`,
-        fd,
-      ),
+      this.http
+        .post<Envelope<ResultadoPrevisualizacion>>(`${BASE}/productos/importar/previsualizar`, fd, {
+          reportProgress: true,
+          observe: 'events',
+        })
+        .pipe(
+          tap((ev) => {
+            if (ev.type === HttpEventType.UploadProgress && ev.total) {
+              onProgreso?.(Math.round((ev.loaded / ev.total) * 100));
+            }
+          }),
+          filter((ev) => ev.type === HttpEventType.Response),
+          map((ev) => ev.body as Envelope<ResultadoPrevisualizacion>),
+        ),
     );
   }
   /** #5 PASO 2 — el encargado ya revisó: registra productos + stock. */

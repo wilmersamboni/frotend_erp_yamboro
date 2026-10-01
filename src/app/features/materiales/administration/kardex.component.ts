@@ -6,6 +6,8 @@ import { StatCardComponent } from '../../../shared/components/stat-card.componen
 import { ToastService } from '../../../core/services/toast.service';
 import { Kardex, MaterialesApiService } from '../data-access/materiales-api.service';
 import { TableFilterComponent, TableFilterOption } from '../../../shared/components/table-filter.component';
+import { ExportColumn, TableExportService } from '../../../shared/services/table-export.service';
+import { EsperaDirective } from '../../../shared/directives/espera.directive';
 
 /**
  * Log de movimientos de stock — solo lectura. Se llena solo como efecto
@@ -29,26 +31,31 @@ import { TableFilterComponent, TableFilterOption } from '../../../shared/compone
 @Component({
   selector: 'app-materiales-kardex',
   standalone: true,
-  imports: [FormsModule, AdminTableComponent, StatCardComponent, TableFilterComponent],
+  imports: [EsperaDirective, FormsModule, AdminTableComponent, StatCardComponent, TableFilterComponent],
   template: `
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-5">
+    <div class="p-4 sm:p-6">
+      <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
+        <span>Materiales</span><span aria-hidden="true">/</span><span>Inventario</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Kardex</span>
+      </nav>
+      <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
         <h1 class="text-xl font-bold text-gray-800">Kardex</h1>
-        <div class="flex gap-2 border-gray-200 ">
+        <div class="flex flex-wrap gap-2 border-gray-200">
           <app-table-filter label="Tipo" [options]="opcionesTipoFiltro" [value]="filtroTipo"
           (valueChange)="filtroTipo = $event" />
-          <input [(ngModel)]="filtroTexto" placeholder="Buscar por producto, SKU o placa..."
-            class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] bg-white w-xs " />
+          <input appEspera [(ngModel)]="filtroTexto" placeholder="Buscar por producto, SKU o placa..."
+            class="min-w-0 flex-1 basis-48 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] bg-white sm:w-xs sm:flex-none" />
+          <button type="button" (click)="exportarExcel()" class="px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:border-[#39A900] hover:text-[#267700]" aria-label="Exportar kardex a Excel">Excel</button>
+          <button type="button" (click)="exportarPdf()" class="px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:border-[#39A900] hover:text-[#267700]" aria-label="Exportar kardex a PDF">PDF</button>
           @if (idProductoFiltro || idItemFiltro) {
             <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#39A900]/10 text-[#2d8000] border border-[#39A900]/20">
               {{ idProductoFiltro ? 'Filtrando por producto' : 'Filtrando por ítem' }}
-              <button (click)="quitarFiltroCruzado()" class="hover:text-red-600" title="Quitar filtro">×</button>
+              <button aria-label="Quitar filtro" (click)="quitarFiltroCruzado()" class="hover:text-red-600" title="Quitar filtro">×</button>
             </span>
           }
         </div>
       </div>
 
-      <div class="grid grid-cols-3 gap-3 mb-5 max-w-xl">
+      <div class="grid grid-cols-1 min-[380px]:grid-cols-3 gap-3 mb-5 max-w-xl">
         <app-stat-card label="Total" [value]="filas.length" tono="neutral">
           <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
         </app-stat-card>
@@ -103,6 +110,7 @@ export class MaterialesKardexComponent implements OnInit {
     private toast: ToastService,
     private route: ActivatedRoute,
     private router: Router,
+    private exporter: TableExportService,
   ) {}
 
   ngOnInit(): void {
@@ -130,7 +138,7 @@ export class MaterialesKardexComponent implements OnInit {
       .map((k) => ({
         ...k,
         fecha: new Date(k.fecha).toLocaleString('es-CO'),
-        item_sku: k.item?.producto?.nombre ?? k.item?.codigo_sku ?? k.id_item,
+        item_sku: k.item?.producto?.nombre ?? k.item?.codigo_sku ?? k.item?.placa_sena ?? '—',
         observacion: k.observacion ?? '—',
       }));
   }
@@ -138,6 +146,16 @@ export class MaterialesKardexComponent implements OnInit {
   contarTipo(tipo: 'ENTRADA' | 'SALIDA'): number {
     return this.filas.filter((f) => f.tipo === tipo).length;
   }
+
+  private readonly exportColumns: ExportColumn<any>[] = [
+    { label: 'Fecha', value: (f) => f.fecha }, { label: 'Tipo', value: (f) => f.tipo },
+    { label: 'Ítem', value: (f) => f.item_sku }, { label: 'Cantidad', value: (f) => f.cantidad },
+    { label: 'Saldo anterior', value: (f) => f.saldo_anterior }, { label: 'Saldo actual', value: (f) => f.saldo_actual },
+    { label: 'Observación', value: (f) => f.observacion },
+  ];
+
+  exportarExcel(): void { void this.exporter.excel('kardex', 'Kardex', this.exportColumns, this.filas); }
+  exportarPdf(): void { this.exporter.pdf('kardex', 'Kardex', this.exportColumns, this.filas); }
 
   private async cargar(): Promise<void> {
     this.loading = true;

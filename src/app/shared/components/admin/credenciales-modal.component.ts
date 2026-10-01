@@ -1,22 +1,25 @@
 import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
+import { DialogDirective } from '../../directives/dialog.directive';
+import { copiarTexto } from '../../utils/copiar-texto';
 
 @Component({
   selector: 'app-admin-credenciales-modal',
   standalone: true,
+  imports: [DialogDirective],
   template: `
     @if (visible) {
-      <div class="fixed inset-0 z-[1090] flex items-center justify-center p-4" style="background: rgba(0,0,0,0.55);">
+      <div appDialog class="fixed inset-0 z-[1090] flex items-center justify-center p-4" style="background: rgba(0,0,0,0.55);">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
 
           <div class="px-5 pt-5 pb-3 flex items-center justify-between border-b border-gray-100">
             <div class="flex items-center gap-2">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#39A900" stroke-width="2">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="stroke: var(--accent-brand)" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round"
                   d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
               </svg>
               <h5 class="text-base font-bold text-gray-900">{{ titulo }}</h5>
             </div>
-            <button type="button" (click)="onCerrar()" class="text-gray-400 hover:text-gray-600 transition-colors">
+            <button aria-label="Cerrar" type="button" (click)="onCerrar()" class="text-gray-400 hover:text-gray-600 transition-colors">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -36,7 +39,7 @@ import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
 
           <div class="px-5 py-4 space-y-4">
             <div>
-              <label class="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Usuario / Login</label>
+              <label class="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Usuario (login)</label>
               <div class="flex items-center gap-2">
                 <code class="flex-1 text-sm px-3 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-mono truncate">{{ login }}</code>
                 <button type="button" (click)="copiar(login, 'login')"
@@ -83,7 +86,7 @@ import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
           <div class="px-5 pb-5 pt-1 flex justify-end">
             <button type="button" (click)="onCerrar()"
               class="text-sm font-semibold px-5 py-2.5 rounded-xl text-white transition-opacity hover:opacity-90"
-              style="background:#39A900;">
+              style="background:var(--accent-brand);">
               Entendido, ya guardé las credenciales
             </button>
           </div>
@@ -95,7 +98,7 @@ import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
 })
 export class AdminCredencialesModalComponent {
   @Input() visible = false;
-  @Input() titulo  = 'Credenciales del Tenant';
+  @Input() titulo  = 'Credenciales del centro';
   @Input() login   = '';
   @Input() password = '';
 
@@ -111,7 +114,8 @@ export class AdminCredencialesModalComponent {
   }
 
   copiar(texto: string, campo: 'login' | 'password'): void {
-    navigator.clipboard.writeText(texto).then(() => {
+    void copiarTexto(texto).then((ok) => {
+      if (!ok) return;
       if (campo === 'login') {
         this.copiadoLogin.set(true);
         setTimeout(() => this.copiadoLogin.set(false), 2000);

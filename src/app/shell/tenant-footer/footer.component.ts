@@ -21,16 +21,16 @@ import { LucideAngularModule } from 'lucide-angular';
 
         <!-- Columna 2 -->
         <div class="flex justify-center gap-6">
-          <a href="#" class="text-white hover:text-[#39A900] transition">
+          <a href="#" aria-label="Facebook" class="text-white hover:text-[#39A900] transition">
             <lucide-icon name="facebook" class="w-5 h-5"></lucide-icon>
           </a>
-          <a href="#" class="text-white hover:text-[#39A900] transition">
+          <a href="#" aria-label="X (Twitter)" class="text-white hover:text-[#39A900] transition">
             <lucide-icon name="twitter" class="w-5 h-5"></lucide-icon>
           </a>
-          <a href="#" class="text-white hover:text-[#39A900] transition">
+          <a href="#" aria-label="TikTok" class="text-white hover:text-[#39A900] transition">
             <lucide-icon name="music-2" class="w-5 h-5"></lucide-icon> <!-- TikTok -->
           </a>
-          <a href="#" class="text-white hover:text-[#39A900] transition">
+          <a href="#" aria-label="YouTube" class="text-white hover:text-[#39A900] transition">
             <lucide-icon name="youtube" class="w-5 h-5"></lucide-icon>
           </a>
         </div>

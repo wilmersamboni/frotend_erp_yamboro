@@ -16,7 +16,18 @@ export interface AuditLogFiltros {
   desde?: string;
   hasta?: string;
   accion?: AuditAccion;
+  /** Máximo de registros (el servidor acepta hasta 500; sin indicarlo devuelve 100). */
+  limite?: number;
 }
+
+/** Nombre en español de cada acción, para mostrarlo en pantalla. */
+export const ACCION_ETIQUETA: Record<AuditAccion, string> = {
+  CREATE: 'Creación',
+  UPDATE: 'Modificación',
+  DELETE: 'Eliminación',
+  LOGIN:  'Ingreso',
+  LOGOUT: 'Salida',
+};
 
 export const ACCION_COLORES: Record<AuditAccion, string> = {
   CREATE:  'bg-green-100 text-green-800',

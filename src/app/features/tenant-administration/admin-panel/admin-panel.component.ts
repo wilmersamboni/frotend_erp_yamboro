@@ -3,39 +3,27 @@ import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { AuthService } from '../../../core/services/auth.service';
-import { ToastModule } from 'primeng/toast';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { MessageService, ConfirmationService } from 'primeng/api';
 
 import { CONFIG, MODULOS, MODULOS_EPSAS, MODULOS_PRACTICA, MODULOS_ADMIN, CATEGORIA_ORDEN, CATEGORIA_ICONOS, CATEGORIA_DESCRIPCIONES, Modulo } from '../config/admin.config';
 import { AdminService } from '../services/admin.service';
 import { ApiService } from '../../../core/services/api.service';
 import { AdminTableComponent } from '../../../shared/components/admin-table.component';
+import { PageSizeSelectComponent } from '../../../shared/components/page-size-select.component';
 import { AdminModalComponent } from '../ui/admin-modal.component';
 import { RegistroRapidoModalComponent } from '../components/registro-rapido-modal.component';
 import { AdminInicioComponent } from '../components/admin-inicio.component';
 import { CrearPracticaModalComponent } from '../../practice/components/crear-practica-modal.component';
 import { PermisosPanelComponent } from '../permisos/permisos-panel.component';
+import { ConfirmService } from '../../../core/services/confirm.service';
+import { ToastService } from '../../../core/services/toast.service';
+import { EsperaDirective } from '../../../shared/directives/espera.directive';
 
 @Component({
   selector: 'app-admin-panel',
   standalone: true,
-  imports: [
-    FormsModule,
-    LucideAngularModule,
-    ToastModule,
-    ConfirmDialogModule,
-    AdminTableComponent,
-    AdminModalComponent,
-    RegistroRapidoModalComponent,
-    AdminInicioComponent,
-    CrearPracticaModalComponent,
-    PermisosPanelComponent,
-  ],
-  providers: [MessageService, ConfirmationService, AdminService],
+  imports: [EsperaDirective, FormsModule, LucideAngularModule, AdminTableComponent, AdminModalComponent, RegistroRapidoModalComponent, AdminInicioComponent, CrearPracticaModalComponent, PermisosPanelComponent, PageSizeSelectComponent],
+  providers: [AdminService],
   template: `
-    <p-toast position="top-right" [baseZIndex]="9999" />
-    <p-confirmdialog />
 
     <div class="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-50 p-4 lg:p-8">
       <div class="max-w-[1600px] mx-auto space-y-6">
@@ -122,7 +110,7 @@ import { PermisosPanelComponent } from '../permisos/permisos-panel.component';
             @if (sidebarColapsado()) {
               <div class="flex lg:flex-col items-center gap-2 border-b lg:border-b-0 lg:border-r
                           border-gray-300/80 bg-gray-100/75 p-2 lg:w-16 lg:flex-shrink-0">
-                <button (click)="toggleSidebar()" title="Expandir panel de módulos"
+                <button aria-label="Expandir panel de módulos" (click)="toggleSidebar()" title="Expandir panel de módulos"
                   class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-600 hover:text-gray-700 hover:bg-gray-200 transition-colors">
                   <lucide-icon name="panel-right-close" [size]="20"></lucide-icon>
                 </button>
@@ -130,8 +118,8 @@ import { PermisosPanelComponent } from '../permisos/permisos-panel.component';
             } @else {
             <div class="lg:w-64 lg:flex-shrink-0 border-b lg:border-b-0 lg:border-r border-gray-300/80 bg-gray-100/75 p-3">
               <div class="flex items-center justify-between mb-2 px-1">
-                <span class="text-[11px] font-bold uppercase tracking-wide text-gray-600">Módulos</span>
-                <button (click)="toggleSidebar()" title="Contraer panel de módulos"
+                <span class="text-xs font-bold uppercase tracking-wide text-gray-600">Módulos</span>
+                <button aria-label="Contraer panel de módulos" (click)="toggleSidebar()" title="Contraer panel de módulos"
                   class="w-6 h-6 flex items-center justify-center rounded-lg text-gray-600 hover:text-gray-700 hover:bg-gray-200 transition-colors">
                   <lucide-icon name="panel-right-open" [size]="20"></lucide-icon>
                 </button>
@@ -184,12 +172,12 @@ import { PermisosPanelComponent } from '../permisos/permisos-panel.component';
                         d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                     </svg>
                   </div>
-                  <input type="text" [(ngModel)]="admin.filtro"
+                  <input appEspera type="text" [(ngModel)]="admin.filtro"
                     (ngModelChange)="admin.setFiltro($event)"
                     [placeholder]="admin.activeTab() === 'usuarios' ? 'Buscar por nombre o cédula...' : 'Buscar registros...'"
                     class="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:border-[#39A900] focus:bg-white transition-all text-gray-900 placeholder:text-gray-400" />
                   @if (admin.filtro()) {
-                    <button (click)="admin.setFiltro('')"
+                    <button aria-label="Limpiar búsqueda" (click)="admin.setFiltro('')"
                       class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -199,17 +187,9 @@ import { PermisosPanelComponent } from '../permisos/permisos-panel.component';
                 </div>
 
                 <!-- Filas por página -->
-                <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
-                  <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filas</span>
-                  <select [ngModel]="admin.registrosPorPagina()"
-                    (ngModelChange)="admin.setRegistrosPorPagina($event)"
-                    class="text-sm font-semibold bg-transparent border-none focus:ring-0 text-gray-700 cursor-pointer">
-                    <option [ngValue]="10">10</option>
-                    <option [ngValue]="20">20</option>
-                    <option [ngValue]="50">50</option>
-                    <option [ngValue]="100">100</option>
-                  </select>
-                </div>
+                <app-page-size-select
+                  [value]="admin.registrosPorPagina()"
+                  (valueChange)="admin.setRegistrosPorPagina($event)" />
               </div>
 
               <!-- Botón Agregar -->
@@ -218,7 +198,7 @@ import { PermisosPanelComponent } from '../permisos/permisos-panel.component';
                   class="group flex items-center gap-2 px-5 py-2 text-white text-sm font-bold rounded-xl
                          shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
                   [style]="vista() === 'epsas'
-                    ? 'background: linear-gradient(135deg, #39A900 0%, #2d8500 100%)'
+                    ? 'background: linear-gradient(135deg, var(--accent-brand) 0%, var(--accent-brand-dark) 100%)'
                     : 'background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)'">
                   <svg class="w-4 h-4 group-hover:rotate-90 transition-transform duration-300"
                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -267,7 +247,7 @@ import { PermisosPanelComponent } from '../permisos/permisos-panel.component';
                 </span>
 
                 <div class="flex items-center gap-2">
-                  <button (click)="admin.paginaActual.update(p => p - 1)"
+                  <button aria-label="Página anterior" (click)="admin.paginaActual.update(p => p - 1)"
                     [disabled]="admin.paginaActual() === 1"
                     class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -280,7 +260,7 @@ import { PermisosPanelComponent } from '../permisos/permisos-panel.component';
                     {{ admin.paginaActual() }} / {{ admin.totalPaginas() }}
                   </span>
 
-                  <button (click)="admin.paginaActual.update(p => p + 1)"
+                  <button aria-label="Página siguiente" (click)="admin.paginaActual.update(p => p + 1)"
                     [disabled]="admin.paginaActual() >= admin.totalPaginas()"
                     class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -515,7 +495,7 @@ export class AdminPanelComponent implements OnInit {
 
   constructor(
     public admin: AdminService,
-    private msg: MessageService,
+    private msg: ToastService,
     public auth: AuthService,
     private api: ApiService,
     private route: ActivatedRoute,

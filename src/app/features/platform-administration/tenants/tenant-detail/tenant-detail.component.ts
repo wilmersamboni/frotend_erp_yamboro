@@ -2,6 +2,11 @@ import { Component, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TenantAdminService } from '../../../../core/services/admin/tenant-admin.service';
+import { TenantSaludService } from '../../../../core/services/admin/tenant-salud.service';
+import { DominioAdminService } from '../../../../core/services/admin/dominio-admin.service';
+import { Dominio, DOMINIO_ESTADO_COLORES } from '../../../../shared/models/admin/dominio.model';
+import { AdminCopiarComponent } from '../../../../shared/components/admin/copiar.component';
+import { AdminConexionComponent } from '../../../../shared/components/admin/conexion.component';
 import { AuditLogAdminService } from '../../../../core/services/admin/audit-log-admin.service';
 import { AdminToastService } from '../../../../core/admin-auth/admin-toast.service';
 import { Tenant, TenantCredenciales } from '../../../../shared/models/admin/tenant.model';
@@ -14,7 +19,7 @@ import { AdminConfirmDialogComponent } from '../../../../shared/components/admin
 @Component({
   selector: 'app-tenant-detail',
   standalone: true,
-  imports: [RouterLink, DatePipe, AdminBadgeEstadoComponent, AdminLoadingSpinnerComponent, AdminCredencialesModalComponent, AdminConfirmDialogComponent],
+  imports: [RouterLink, DatePipe, AdminCopiarComponent, AdminConexionComponent, AdminBadgeEstadoComponent, AdminLoadingSpinnerComponent, AdminCredencialesModalComponent, AdminConfirmDialogComponent],
   template: `
     <div class="mb-6">
       <nav class="flex items-center gap-1.5 text-xs text-gray-400 mb-2">
@@ -31,8 +36,13 @@ import { AdminConfirmDialogComponent } from '../../../../shared/components/admin
         <div class="flex items-center gap-3">
           <h1 class="text-2xl font-bold text-gray-900 tracking-tight">{{ t.nombre }}</h1>
           <app-admin-badge-estado [estado]="t.estado" />
+          <app-admin-conexion [estado]="salud.estado(t.id)" [inactivo]="t.estado === 'inactivo'" />
         </div>
         <div class="flex items-center gap-2">
+          <button type="button" (click)="verificar()" [disabled]="salud.estado(t.id) === 'verificando' || t.estado === 'inactivo'"
+            class="text-sm font-semibold px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
+            Verificar conexión
+          </button>
           <button type="button" (click)="toggleEstado()" [disabled]="actualizandoEstado()"
             class="text-sm font-semibold px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50">
             {{ t.estado === 'activo' ? 'Desactivar' : 'Activar' }}
@@ -43,7 +53,7 @@ import { AdminConfirmDialogComponent } from '../../../../shared/components/admin
           </button>
           <button type="button" (click)="editar()"
             class="text-sm font-semibold px-4 py-2.5 rounded-xl text-white transition-opacity hover:opacity-90"
-            style="background:#39A900;">
+            style="background:var(--accent-brand);">
             Editar
           </button>
         </div>
@@ -56,10 +66,11 @@ import { AdminConfirmDialogComponent } from '../../../../shared/components/admin
             <div>
               <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Slug</p>
               <code class="text-xs px-2 py-0.5 rounded-md bg-gray-100 text-gray-600">{{ t.slug }}</code>
+              <app-admin-copiar [valor]="t.slug" etiqueta="el identificador" />
             </div>
             <div>
               <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Dominio</p>
-              <p class="text-gray-700">{{ t.dominio }}</p>
+              <p class="text-gray-700">{{ t.dominio }} <app-admin-copiar [valor]="t.dominio" etiqueta="el dominio" /></p>
             </div>
             <div>
               <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Creado</p>
@@ -92,11 +103,38 @@ import { AdminConfirmDialogComponent } from '../../../../shared/components/admin
       <app-admin-confirm-dialog
         [visible]="confirmandoReinicializar()"
         titulo="Reinicializar centro"
-        [mensaje]="'¿Deseas reinicializar &quot;' + t.nombre + '&quot;? Esto invalida la contraseña actual del usuario root y genera una nueva — no se puede deshacer.'"
+        [mensaje]="'Esto invalida la contraseña actual del usuario root de &quot;' + t.nombre + '&quot; y genera una nueva. No se puede deshacer.'"
+        [textoAEscribir]="t.nombre"
         textoConfirmar="Reinicializar"
         variante="danger"
         (confirmar)="confirmarReinicializar()"
         (cancelar)="confirmandoReinicializar.set(false)" />
+
+      <!-- Dominios del centro -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mt-4">
+        <div class="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
+          <span class="font-semibold text-sm text-gray-800">Dominios</span>
+          <a routerLink="/dominios/nuevo" class="text-xs font-semibold hover:underline" style="color:var(--accent-text);">Agregar dominio</a>
+        </div>
+        @if (dominios().length === 0) {
+          <div class="flex flex-col items-center justify-center py-8 text-gray-400">
+            <p class="text-sm">Este centro no tiene dominios registrados.</p>
+          </div>
+        } @else {
+          <ul class="divide-y divide-gray-50">
+            @for (d of dominios(); track d.id) {
+              <li class="px-5 py-3 flex items-center justify-between gap-3 text-sm">
+                <code class="text-xs text-gray-700">{{ d.subdominio }}</code>
+                <div class="flex items-center gap-3">
+                  <span class="text-xs text-gray-400">{{ d.ssl ? 'SSL activo' : 'Sin SSL' }}</span>
+                  <span class="text-xs font-semibold px-2.5 py-1 rounded-full" [class]="estadoColores[d.estado]">{{ d.estado }}</span>
+                  <a [routerLink]="['/dominios', d.id, 'editar']" class="text-xs font-semibold hover:underline" style="color:var(--accent-text);">Editar</a>
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      </div>
 
       <!-- Logs -->
       <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mt-4">
@@ -109,7 +147,7 @@ import { AdminConfirmDialogComponent } from '../../../../shared/components/admin
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
               <thead>
-                <tr class="text-left text-gray-500 border-b border-gray-100" style="background:#fafbfc;">
+                <tr class="text-left text-gray-500 border-b border-gray-100" style="background:var(--surface2);">
                   <th class="px-5 py-2.5 font-semibold">Fecha</th>
                   <th class="px-5 py-2.5 font-semibold">Usuario</th>
                   <th class="px-5 py-2.5 font-semibold">Acción</th>
@@ -141,10 +179,14 @@ export class TenantDetailComponent {
   private readonly tenantService   = inject(TenantAdminService);
   private readonly auditLogService = inject(AuditLogAdminService);
   private readonly toast           = inject(AdminToastService);
+  private readonly dominioService  = inject(DominioAdminService);
+  readonly salud                   = inject(TenantSaludService);
   private readonly route           = inject(ActivatedRoute);
   private readonly router          = inject(Router);
 
   readonly accionColores       = ACCION_COLORES;
+  readonly estadoColores       = DOMINIO_ESTADO_COLORES;
+  readonly dominios            = signal<Dominio[]>([]);
   readonly cargando            = signal(true);
   readonly tenant              = signal<Tenant | null>(null);
   readonly logs                = signal<AuditLog[]>([]);
@@ -167,8 +209,11 @@ export class TenantDetailComponent {
         this.auditLogService.obtenerLogs({ tenantId: id }).subscribe({
           next: (logs) => this.logs.set(logs.slice(0, 10)),
         });
+        this.dominioService.obtenerTodos().subscribe({
+          next: (lista) => this.dominios.set(lista.filter(d => d.tenantId === id)),
+        });
       },
-      error: () => { this.cargando.set(false); this.toast.error('No se pudo cargar el centro.'); this.router.navigate(['/tenants']); },
+      error: (err) => { this.cargando.set(false); this.toast.httpError(err, 'No se pudo cargar el centro.'); this.router.navigate(['/tenants']); },
     });
   }
 
@@ -199,9 +244,9 @@ export class TenantDetailComponent {
       next: (actualizado) => {
         this.tenant.set(actualizado);
         this.actualizandoEstado.set(false);
-        this.toast.success(`Tenant ${nuevoEstado === 'activo' ? 'activado' : 'desactivado'} correctamente.`);
+        this.toast.success(`Centro ${nuevoEstado === 'activo' ? 'activado' : 'desactivado'} correctamente.`);
       },
-      error: () => { this.actualizandoEstado.set(false); this.toast.error('No se pudo cambiar el estado del tenant.'); },
+      error: (err) => { this.actualizandoEstado.set(false); this.toast.httpError(err, 'No se pudo cambiar el estado del centro.'); },
     });
   }
 
@@ -222,11 +267,19 @@ export class TenantDetailComponent {
           this.credencialesActuales.set(respuesta.credencialesDefecto);
           this.mostrarCredenciales.set(true);
         } else {
-          this.toast.error('Tenant reinicializado, pero no se pudieron obtener las credenciales.');
+          this.toast.error('Centro reinicializado, pero no se pudieron obtener las credenciales.');
         }
       },
-      error: () => { this.reinicializando.set(false); this.toast.error('No se pudo reinicializar el tenant.'); },
+      error: (err) => { this.reinicializando.set(false); this.toast.httpError(err, 'No se pudo reinicializar el centro.'); },
     });
+  }
+
+  verificar(): void {
+    const t = this.tenant();
+    if (!t) return;
+    this.salud.verificar([t.id], (ok) => ok
+      ? this.toast.success('La base de datos del centro responde.')
+      : this.toast.error('No hay conexión con la base de datos del centro.'));
   }
 
   editar(): void {

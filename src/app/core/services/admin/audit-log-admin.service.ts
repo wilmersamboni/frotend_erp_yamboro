@@ -15,6 +15,7 @@ export class AuditLogAdminService {
     if (filtros.desde)    params = params.set('desde', filtros.desde);
     if (filtros.hasta)    params = params.set('hasta', filtros.hasta);
     if (filtros.accion)   params = params.set('accion', filtros.accion);
+    if (filtros.limite)   params = params.set('limite', filtros.limite);
 
     return this.http.get<AuditLog[]>(this.baseUrl, { params });
   }

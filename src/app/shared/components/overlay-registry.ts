@@ -19,3 +19,8 @@ export function openOverlay(close: CloseFn): void {
 export function releaseOverlay(close: CloseFn): void {
   if (current === close) current = null;
 }
+
+/** ¿Hay un select/calendario abierto? Lo usa DialogDirective para que Escape cierre primero ese. */
+export function hayOverlayAbierto(): boolean {
+  return current !== null;
+}

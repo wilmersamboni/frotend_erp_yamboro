@@ -14,18 +14,19 @@ import { ToastService } from '../../../core/services/toast.service';
 import { EtapaPracticaItem, ResultadoConsulta } from '../../../shared/models/estudiante.model';
 import { HistorialBuscadorComponent } from './components/historial-buscador.component';
 import { EtapaPracticaCardComponent } from './components/etapa-practica-card.component';
+import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 
 type Estado = 'idle' | 'loading' | 'success' | 'error';
 
 @Component({
   selector: 'app-historial',
   standalone: true,
-  imports: [CommonModule, HistorialBuscadorComponent, EtapaPracticaCardComponent],
+  imports: [LoadingSkeletonComponent, CommonModule, HistorialBuscadorComponent, EtapaPracticaCardComponent],
   template: `
     <div class="p-6 max-w-4xl mx-auto">
 
       <div class="text-center mb-7">
-        <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2d8000] mb-1">Consulta académica</p>
+        <p class="text-xs font-bold uppercase tracking-[0.14em] text-[#2d8000] mb-1">Consulta académica</p>
         <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Historial del aprendiz</h1>
         <p class="text-sm text-gray-400 mt-1 max-w-md mx-auto">
           Buscá por cédula para ver en un solo lugar sus matrículas, etapa práctica, bitácoras y observaciones.
@@ -60,11 +61,7 @@ type Estado = 'idle' | 'loading' | 'success' | 'error';
         }
 
         @if (estado === 'loading') {
-          <div class="flex flex-col items-center gap-3 py-16 px-6">
-            <div class="w-8 h-8 border-4 border-[#39A900]/20 border-t-[#39A900]
-                        rounded-full animate-spin"></div>
-            <p class="text-gray-400 text-sm animate-pulse">Cargando historial...</p>
-          </div>
+          <div class="px-6 py-6"><app-loading-skeleton variant="detail" [rows]="4" label="Cargando historial" /></div>
         }
 
         @if (estado === 'error') {
@@ -355,7 +352,7 @@ export class HistorialComponent implements OnInit {
         // (personasCargadas sigue en false y el servicio no cachea el fallo).
         console.error('[historial] carga de personas falló', err?.status ?? err);
         this.cargandoPersonas.set(false);
-        this.toast.error('Error', 'No se pudo cargar la lista de aprendices. Intenta de nuevo.');
+        this.toast.httpError(err, 'No se pudo cargar la lista de aprendices. Intenta de nuevo.');
       },
     });
   }
@@ -420,7 +417,7 @@ export class HistorialComponent implements OnInit {
       // quedaba vacío en silencio, sin avisar — mismo patrón que
       // cargarPersonasLazy() en este mismo componente.
       console.error('[historial] carga de documentos falló', err?.status ?? err);
-      this.toast.error('Error', 'No se pudieron cargar los documentos de las prácticas.');
+      this.toast.httpError(err, 'No se pudieron cargar los documentos de las prácticas.');
     } finally {
       this.cargandoDocs.set(false);
     }

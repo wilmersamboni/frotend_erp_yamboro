@@ -40,7 +40,7 @@ import { CommonModule } from '@angular/common';
           <div class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2
                       border-[#39A900]/30 border-t-[#39A900] rounded-full animate-spin"></div>
         } @else if (query()) {
-          <button (click)="limpiarQuery()"
+          <button aria-label="Limpiar búsqueda" (click)="limpiarQuery()"
             class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center">
             x
           </button>

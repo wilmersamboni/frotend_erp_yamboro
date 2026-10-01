@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { Item, MaterialesApiService } from "../data-access/materiales-api.service";
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 
 interface LineaParaElegir{
@@ -14,14 +15,14 @@ interface LineaParaElegir{
 @Component({
     selector:'app-elegir-placas-asignacion-modal',
     standalone:true,
-    imports: [FormsModule],
+    imports: [DialogDirective, FormsModule],
     template: `
         @if(abierto) {
-            <div class= "fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)= "cancelar()">
+            <div appDialog class= "fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)= "cancelar()">
                 <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
                     <div class="flex items-center justify-between mb-5">
                         <h2 class="text-lg font-bold text-gray-800"> Elegir placas a asignar</h2>
-                        <button (click)="cancelar()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">x</button>
+                        <button aria-label="Cerrar" (click)="cancelar()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">x</button>
                     </div>
 
                     @if(loading){
@@ -70,7 +71,7 @@ interface LineaParaElegir{
                                                 (change)="toggleItem(linea, item.id_item)"
                                                 />
 
-                                                <span class="font-mono truncate">{{item.placa_sena || item.codigo_sku || item.id_item.slice(0,8)}} </span>
+                                                <span class="font-mono truncate">{{item.placa_sena || item.codigo_sku || 'Sin placa'}} </span>
                                                 
                                                 </label>
                                                 }
@@ -85,7 +86,7 @@ interface LineaParaElegir{
                         <div class=" flex justify-end gap-2 mt-6">
                             <button (click)="cancelar()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"> Cancelar </button>
 
-                            <button (click)="confirmar()" [disabled]="modo === 'manual' && !manualCompleto" class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors" style="background-color: #39A900"> Confirmar </button>
+                            <button (click)="confirmar()" [disabled]="modo === 'manual' && !manualCompleto" class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors" style="background-color: var(--accent-brand)"> Confirmar </button>
                     </div>
                     }
 

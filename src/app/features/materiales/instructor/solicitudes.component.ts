@@ -1,10 +1,9 @@
-import { Component, DestroyRef, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, signal, inject, effect, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { MaterialesLiveService } from '../data-access/materiales-live.service';
 import { FormsModule } from '@angular/forms';
-import { ToastService } from '../../../core/services/toast.service';
-import { PermisosService } from '../../../core/services/permisos.service';
+import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge.component';
 import { DateInputComponent } from '../../../shared/components/date-input.component';
@@ -18,7 +17,22 @@ import { ApiService, CursoLiderado } from '../../../core/services/api.service';
 import { NetworkStatusService } from '../../../core/offline/network-status.service';
 import { SyncQueueService } from '../../../core/offline/sync-queue.service';
 import { OfflineSnapshotService } from '../../../core/offline/offline-snapshot.service';
-import { prepararSnapshotEntregaOffline } from '../ui/solicitud-entrega-offline.util';
+import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
+import {
+  guardarListaSolicitudes,
+  leerListaSolicitudes,
+  lineasDevolutivasDeSolicitud,
+  prepararSnapshotEntregaOffline,
+  prepararTodasEntregaOffline,
+} from '../ui/solicitud-entrega-offline.util';
+import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
+import { ConfirmService } from '../../../core/services/confirm.service';
+import { FormularioVigilado, UnsavedChangesService, avisarCambiosSinGuardar } from '../../../core/services/unsaved-changes.service';
+import { AlertComponent } from '../../../shared/ui/alert.component';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
+import { EsperaDirective } from '../../../shared/directives/espera.directive';
+import { PageSizeSelectComponent } from '../../../shared/components/page-size-select.component';
+import { TableFilterComponent } from '../../../shared/components/table-filter.component';
 
 /** Línea del modal "Nueva solicitud" — `p:<id>` producto devolutivo, `l:<id>` lote consumible. */
 interface LineaForm {
@@ -43,35 +57,51 @@ interface LineaForm {
  * devolución solo si aplica — ver docblock de la versión admin.
  */
 @Component({
-  selector: 'app-instructor-materiales-solicitudes',
+  selector: 'app-materiales-solicitudes-usuario',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent],
+  imports: [EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent, TableFilterComponent],
   template: `
-    <div class="p-6">
-      <div class="flex items-center justify-between mb-5">
-        <h1 class="text-xl font-bold text-gray-800">Solicitudes</h1>
+    <div class="p-4 sm:p-6">
+      <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
+        <span>Materiales</span><span aria-hidden="true">/</span><span>Operación</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Solicitudes</span>
+      </nav>
+      <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
+        <h1 class="text-xl font-bold text-gray-800">{{ esInstructor || esAdmin ? 'Solicitudes' : 'Mis solicitudes' }}</h1>
         <button (click)="nuevo()"
           class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-          style="background-color: #39A900">
+          style="background-color: var(--accent-brand)">
           + Nueva solicitud
         </button>
       </div>
 
       @if (bodegasInactivas().length > 0) {
-        <div class="mb-4 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-start gap-2">
-          <span>⚠️</span>
-          <span>
-            {{ bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas' }}:
-            <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
-            — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
-          </span>
+        <app-alert class="mb-4" variante="advertencia" [titulo]="bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas'">
+          <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
+          — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
+        </app-alert>
+      }
+
+      @if (datosGuardadosDe) {
+        <app-alert class="mb-4" variante="advertencia" titulo="Sin conexión">
+          Mostrando las solicitudes guardadas a las <strong>{{ datosGuardadosDe | date: 'shortTime' }}</strong>.
+          Las entregas que marques se enviarán cuando vuelva la señal.
+        </app-alert>
+      }
+
+      @if (red.alcanzable() && solicitudesPreparables().length > 0) {
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm">
+          <span class="text-gray-600">¿Vas a entregar en un lugar sin señal? Descarga las placas de tus {{ solicitudesPreparables().length }} solicitudes aprobadas.</span>
+          <button (click)="prepararTodasOffline()" [disabled]="preparandoTodas"
+            class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 disabled:opacity-50 transition-colors">
+            {{ preparandoTodas ? 'Preparando…' : 'Preparar todas offline' }}
+          </button>
         </div>
       }
 
       @if (loading) {
         <app-loading-skeleton variant="table" [rows]="6" [columns]="6" [showToolbar]="false" label="Cargando solicitudes" />
       } @else if (solicitudes.length === 0) {
-        <p class="text-center text-gray-400 text-sm py-10">No hay solicitudes registradas</p>
+        <app-empty-state titulo="No hay solicitudes registradas" />
       } @else {
         <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
           <!-- Toolbar: búsqueda + filtro de estado + filas por página -->
@@ -82,110 +112,28 @@ interface LineaForm {
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                 </svg>
               </div>
-              <input type="text" [(ngModel)]="filtroTexto" (ngModelChange)="page = 0"
+              <input appEspera type="text" [(ngModel)]="filtroTexto" (ngModelChange)="page = 0"
                 placeholder="Buscar por producto o solicitante..."
                 class="w-full pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:border-[#39A900] focus:bg-white transition-all text-gray-900 placeholder:text-gray-400" />
               @if (filtroTexto) {
-                <button (click)="filtroTexto = ''; page = 0" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                <button aria-label="Limpiar búsqueda" (click)="filtroTexto = ''; page = 0" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                   </svg>
                 </button>
               }
             </div>
-            <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
-              <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</span>
-
-              <!-- Dropdown personalizado para estado -->
-              <div class="relative">
-                <button
-                  type="button"
-                  (click)="estadoDropdownOpen.update(v => !v)"
-                  class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer">
-                  <span>{{ filtroEstado || 'Todos' }}</span>
-                  <svg class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" [class.rotate-180]="estadoDropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                @if (estadoDropdownOpen()) {
-                  <!-- Backdrop para cerrar al hacer clic afuera -->
-                  <div class="fixed inset-0 z-10" (click)="estadoDropdownOpen.set(false)"></div>
-
-                  <!-- Menú flotante -->
-                  <div class="absolute left-0 top-full mt-2 z-20 w-40 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                    <div class="p-1 space-y-0.5 max-h-64 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                      <button
-                        type="button"
-                        (click)="seleccionarEstado('')"
-                        class="w-full px-3 py-1.5 text-sm text-left rounded-lg transition-colors font-medium"
-                        [class.bg-green-50]="filtroEstado === ''"
-                        [class.text-green-700]="filtroEstado === ''"
-                        [class.text-gray-600]="filtroEstado !== ''"
-                        [class.hover:bg-gray-50]="filtroEstado !== ''">
-                        Todos
-                      </button>
-                      @for (e of estadosSolicitud; track e) {
-                        <button
-                          type="button"
-                          (click)="seleccionarEstado(e)"
-                          class="w-full px-3 py-1.5 text-sm text-left rounded-lg transition-colors font-medium"
-                          [class.bg-green-50]="filtroEstado === e"
-                          [class.text-green-700]="filtroEstado === e"
-                          [class.text-gray-600]="filtroEstado !== e"
-                          [class.hover:bg-gray-50]="filtroEstado !== e">
-                          {{ e }}
-                        </button>
-                      }
-                    </div>
-                  </div>
-                }
-              </div>
-            </div>
+            <app-table-filter label="Estado" [options]="opcionesEstadoFiltro" [value]="filtroEstado" (valueChange)="seleccionarEstado($event)" />
             <!-- Filas por página -->
-            <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
-              <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filas</span>
-              <div class="relative">
-                <button
-                  type="button"
-                  (click)="pageSizeDropdownOpen.update(v => !v)"
-                  class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer">
-                  <span>{{ pageSize() }}</span>
-                  <svg class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" [class.rotate-180]="pageSizeDropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                @if (pageSizeDropdownOpen()) {
-                  <div class="fixed inset-0 z-10" (click)="pageSizeDropdownOpen.set(false)"></div>
-
-                  <div class="absolute left-0 top-full mt-2 z-20 w-20 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                    <div class="p-1 space-y-0.5">
-                      @for (size of [10, 20, 50, 100]; track size) {
-                        <button
-                          type="button"
-                          (click)="seleccionarPageSize(size)"
-                          class="w-full px-3 py-1.5 text-sm text-center rounded-lg transition-colors font-medium"
-                          [class.bg-green-50]="pageSize() === size"
-                          [class.text-green-700]="pageSize() === size"
-                          [class.text-gray-600]="pageSize() !== size"
-                          [class.hover:bg-gray-50]="pageSize() !== size">
-                          {{ size }}
-                        </button>
-                      }
-                    </div>
-                  </div>
-                }
-              </div>
-            </div>
+            <app-page-size-select [value]="pageSize()" (valueChange)="seleccionarPageSize($event)" />
           </div>
 
           @if (solicitudesFiltradas.length === 0) {
-            <p class="text-center text-gray-400 text-sm py-10">Sin resultados para estos filtros</p>
+            <app-empty-state titulo="Sin resultados para estos filtros" variante="busqueda" />
           } @else {
           <div class="overflow-x-auto">
           <table class="w-full text-sm">
-            <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
+            <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
               <tr>
                 <th class="px-4 py-3 text-left font-semibold">Producto</th>
                 <th class="px-4 py-3 text-left font-semibold">Solicitó</th>
@@ -211,7 +159,7 @@ interface LineaForm {
                         {{ st.disponibles }} / {{ st.total }}
                       </span>
                       @if (st.disponibles < s.cantidad) {
-                        <span class="block text-[11px] text-red-500">faltan {{ s.cantidad - st.disponibles }}</span>
+                        <span class="block text-xs text-red-500">faltan {{ s.cantidad - st.disponibles }}</span>
                       }
                     } @else {
                       <span class="text-xs text-gray-300">—</span>
@@ -222,7 +170,7 @@ interface LineaForm {
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ s.fecha | date: 'short' }}</td>
                   <td class="px-4 py-3">
                     @if (bodegaInactiva(s) && (s.estado === 'PENDIENTE' || s.estado === 'APROBADA')) {
-                      <div class="mb-1.5 flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
+                      <div class="mb-1.5 flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
                         ⚠️ Bodega inactiva — {{ s.estado === 'PENDIENTE' ? 'no se puede aprobar' : 'no se puede entregar' }}
                       </div>
                     }
@@ -232,24 +180,27 @@ interface LineaForm {
                         <button (click)="aprobar(s)" [disabled]="bodegaInactiva(s)"
                           [title]="bodegaInactiva(s) ? 'Bodega inactiva — no se puede aprobar. Rechazá o cancelá en su lugar.' : ''"
                           [style.opacity]="bodegaInactiva(s) ? 0.45 : 1" [style.cursor]="bodegaInactiva(s) ? 'not-allowed' : 'pointer'"
-                          [style.backgroundColor]="bodegaInactiva(s) ? '#f3f4f6' : '#fff'" [style.color]="bodegaInactiva(s) ? '#9ca3af' : '#16a34a'" [style.borderColor]="bodegaInactiva(s) ? '#e5e7eb' : '#bbf7d0'"
+                          [style.backgroundColor]="bodegaInactiva(s) ? 'var(--surface3)' : 'var(--surface)'" [style.color]="bodegaInactiva(s) ? 'var(--text-faint)' : 'var(--ok-text)'" [style.borderColor]="bodegaInactiva(s) ? 'var(--border)' : 'var(--ok-border)'"
                           class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors">Aprobar</button>
                       }
                       @if (s.estado === 'PENDIENTE' && puedeRechazar && puedeGestionar(s)) {
                         <button (click)="rechazar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-red-400 hover:text-red-600 transition-colors">Rechazar</button>
                       }
-                      @if (s.estado === 'APROBADA' && puedeEntregar && puedeGestionar(s)) {
+                      @if (s.estado === 'APROBADA' && entregaPendiente(s)) {
+                            <span class="px-3 py-1.5 rounded-full text-xs font-semibold border border-amber-200 bg-amber-50 text-amber-700" title="La entrega quedó guardada en este dispositivo y se enviará cuando haya señal">Entrega pendiente de enviar</span>
+                          }
+                          @if (s.estado === 'APROBADA' && !entregaPendiente(s) && puedeEntregar && puedeGestionar(s)) {
                         <button (click)="abrirEntregar(s)" [disabled]="bodegaInactiva(s)"
                           [title]="bodegaInactiva(s) ? 'Bodega inactiva — no se puede entregar. Cancelá la solicitud en su lugar.' : ''"
                           [style.opacity]="bodegaInactiva(s) ? 0.45 : 1" [style.cursor]="bodegaInactiva(s) ? 'not-allowed' : 'pointer'"
-                          [style.backgroundColor]="bodegaInactiva(s) ? '#f3f4f6' : '#fff'" [style.color]="bodegaInactiva(s) ? '#9ca3af' : '#2563eb'" [style.borderColor]="bodegaInactiva(s) ? '#e5e7eb' : '#bfdbfe'"
+                          [style.backgroundColor]="bodegaInactiva(s) ? 'var(--surface3)' : 'var(--surface)'" [style.color]="bodegaInactiva(s) ? 'var(--text-faint)' : 'var(--info-text)'" [style.borderColor]="bodegaInactiva(s) ? 'var(--border)' : 'var(--info-border)'"
                           class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors">Marcar en entrega</button>
                         @if (red.alcanzable()) {
                           <button (click)="prepararEntregaOffline(s)" title="Descarga las placas disponibles de esta solicitud para poder entregarla sin conexión"
                             class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-500 bg-white hover:border-gray-400 transition-colors">Preparar offline</button>
                         }
                       }
-                      @if (s.estado === 'APROBADA' && puedeRechazar && puedeGestionar(s)) {
+                      @if (s.estado === 'APROBADA' && !entregaPendiente(s) && puedeRechazar && puedeGestionar(s)) {
                         <button (click)="cancelar(s)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">Cancelar</button>
                       }
                       @if (s.estado === 'EN_ENTREGA' && esSolicitantePropio(s)) {
@@ -270,12 +221,12 @@ interface LineaForm {
                 de <strong class="text-gray-800">{{ solicitudesFiltradas.length }}</strong> registros
               </span>
               <div class="flex items-center gap-2">
-                <button (click)="page = page - 1" [disabled]="page === 0"
+                <button aria-label="Página anterior" (click)="page = page - 1" [disabled]="page === 0"
                   class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                 </button>
                 <span class="px-4 py-1.5 text-sm font-semibold text-[#39A900] bg-[#39A900]/10 rounded-lg border border-[#39A900]/20">{{ page + 1 }} / {{ totalPaginas }}</span>
-                <button (click)="page = page + 1" [disabled]="page + 1 >= totalPaginas"
+                <button aria-label="Página siguiente" (click)="page = page + 1" [disabled]="page + 1 >= totalPaginas"
                   class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </button>
@@ -288,15 +239,15 @@ interface LineaForm {
     </div>
 
     @if (modalOpen) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarModal()">
+      <div appDialog [dialogGuard]="false" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarModal()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-5">
             <h2 class="text-lg font-bold text-gray-800">Nueva solicitud</h2>
-            <button (click)="cerrarModal()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="cerrarModal()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 
           <div class="space-y-4">
-            @if (fichasLideradas.length > 0) {
+            @if (esInstructor && fichasLideradas.length > 0) {
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Destino</label>
                 <div class="flex gap-2">
@@ -305,8 +256,8 @@ interface LineaForm {
                     [class.text-white]="tipoDestino === 'personal'"
                     [class.text-gray-600]="tipoDestino !== 'personal'"
                     [class.border-gray-200]="tipoDestino !== 'personal'"
-                    [style.backgroundColor]="tipoDestino === 'personal' ? '#39A900' : '#fff'"
-                    [style.borderColor]="tipoDestino === 'personal' ? '#39A900' : null">
+                    [style.backgroundColor]="tipoDestino === 'personal' ? 'var(--accent-brand)' : 'var(--surface)'"
+                    [style.borderColor]="tipoDestino === 'personal' ? 'var(--accent-brand)' : null">
                     Para mí
                   </button>
                   <button type="button" (click)="tipoDestino = 'ficha'"
@@ -314,8 +265,8 @@ interface LineaForm {
                     [class.text-white]="tipoDestino === 'ficha'"
                     [class.text-gray-600]="tipoDestino !== 'ficha'"
                     [class.border-gray-200]="tipoDestino !== 'ficha'"
-                    [style.backgroundColor]="tipoDestino === 'ficha' ? '#39A900' : '#fff'"
-                    [style.borderColor]="tipoDestino === 'ficha' ? '#39A900' : null">
+                    [style.backgroundColor]="tipoDestino === 'ficha' ? 'var(--accent-brand)' : 'var(--surface)'"
+                    [style.borderColor]="tipoDestino === 'ficha' ? 'var(--accent-brand)' : null">
                     Para una ficha (asignación)
                   </button>
                 </div>
@@ -323,7 +274,7 @@ interface LineaForm {
                   <div class="mt-2">
                     <app-ss [options]="opcionesFicha" placeholder="— Selecciona la ficha —"
                       [(ngModel)]="idCursoSeleccionado"></app-ss>
-                    <p class="text-[11px] text-gray-400 mt-1">Al entregarse, el material queda asignado a esta ficha (no a vos) — se devuelve desde Asignaciones, no desde Devoluciones.</p>
+                    <p class="text-xs text-gray-400 mt-1">Al entregarse, el material queda asignado a esta ficha (no a vos) — se devuelve desde Asignaciones, no desde Devoluciones.</p>
                   </div>
                 }
               </div>
@@ -334,7 +285,7 @@ interface LineaForm {
                 <label class="block text-xs font-medium text-gray-600 mb-1">Bodega</label>
                 <app-ss [options]="opcionesSitio" placeholder="— Selecciona una bodega —"
                   [(ngModel)]="idSitioSeleccionado" (ngModelChange)="onSitioChange($event)"></app-ss>
-                <p class="text-[11px] text-gray-400 mt-1">Todas las líneas de una solicitud tienen que ser de la misma bodega.</p>
+                <p class="text-xs text-gray-400 mt-1">Todas las líneas de una solicitud tienen que ser de la misma bodega.</p>
               </div>
             }
 
@@ -364,7 +315,7 @@ interface LineaForm {
                         <app-ss [options]="opcionesLinea(linea)" placeholder="— Selecciona producto o lote —"
                           [(ngModel)]="linea.ref" (ngModelChange)="onRefChange(linea)"></app-ss>
                         @if (linea.ref) {
-                          <p class="text-[11px] mt-0.5"
+                          <p class="text-xs mt-0.5"
                             [class.text-red-500]="disponibleDe(linea) < linea.cantidad"
                             [class.text-gray-400]="disponibleDe(linea) >= linea.cantidad">
                             {{ disponibleDe(linea) }} disponible(s){{ disponibleDe(linea) < linea.cantidad ? ' — cantidad excede el stock' : '' }}
@@ -373,7 +324,7 @@ interface LineaForm {
                       </div>
                       <input type="number" [(ngModel)]="linea.cantidad" min="1"
                         class="w-20 px-2 py-2 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
-                      <button type="button" (click)="quitarLinea($index)"
+                      <button aria-label="Quitar" type="button" (click)="quitarLinea($index)"
                         class="p-2 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 text-lg leading-none">×</button>
                     </div>
                   }
@@ -386,7 +337,7 @@ interface LineaForm {
                   <app-date-input placeholder="DD/MM/AAAA" [min]="hoyTuiDay"
                     [ngModel]="cacheFechaDevolucion.get(fechaDevolucion)"
                     (ngModelChange)="fechaDevolucion = tuiDayToIso($event)"></app-date-input>
-                  <p class="text-[11px] text-gray-400 mt-1">Alguna línea es de un material devolutivo.</p>
+                  <p class="text-xs text-gray-400 mt-1">Alguna línea es de un material devolutivo.</p>
                 </div>
               }
 
@@ -396,7 +347,7 @@ interface LineaForm {
                   placeholder="¿Para qué y en qué ambiente se usará el material? (mín. 10 caracteres)"
                   class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]"></textarea>
                 @if (observacion.trim().length > 0 && observacion.trim().length < 10) {
-                  <p class="text-[11px] text-amber-600 mt-0.5">Faltan {{ 10 - observacion.trim().length }} caracteres.</p>
+                  <p class="text-xs text-amber-600 mt-0.5">Faltan {{ 10 - observacion.trim().length }} caracteres.</p>
                 }
               </div>
             }
@@ -410,7 +361,7 @@ interface LineaForm {
             <button (click)="cerrarModal()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
             <button (click)="guardar()" [disabled]="saving || !puedeGuardar()"
               class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
-              style="background-color: #39A900">
+              style="background-color: var(--accent-brand)">
               {{ saving ? 'Guardando...' : 'Guardar' }}
             </button>
           </div>
@@ -419,11 +370,11 @@ interface LineaForm {
     }
 
     @if (detalleAbierto && detalle) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="detalleAbierto = false">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="detalleAbierto = false">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-5">
             <h2 class="text-lg font-bold text-gray-800">Detalle de la solicitud</h2>
-            <button (click)="detalleAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="detalleAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
           <dl class="space-y-2.5 text-sm">
             <div class="flex justify-between gap-4"><dt class="text-gray-500">Estado</dt><dd class="text-gray-800 text-right">{{ detalle.estado }}</dd></div>
@@ -441,7 +392,7 @@ interface LineaForm {
                       <li class="px-3 py-2 flex justify-between gap-3">
                         <span class="text-gray-700">
                           {{ l.producto_nombre ?? l.lote_codigo ?? '—' }}
-                          @if (l.id_lote) { <span class="text-[11px] text-gray-400">(lote)</span> }
+                          @if (l.id_lote) { <span class="text-xs text-gray-400">(lote)</span> }
                         </span>
                         <span class="text-gray-500 text-xs">{{ l.cantidad_entregada }}/{{ l.cantidad }}</span>
                       </li>
@@ -458,10 +409,10 @@ interface LineaForm {
               <div class="flex justify-between gap-4"><dt class="text-gray-500">Fecha de devolución</dt><dd class="text-gray-800 text-right">{{ detalle.fecha_devolucion | date: 'mediumDate' }}</dd></div>
             }
             @if (detalle.id_usuario_aprueba || detalle.fecha_aprobacion) {
-              <div class="flex justify-between gap-4"><dt class="text-gray-500">Aprobó</dt><dd class="text-gray-800 text-right">{{ detalle.usuario_aprueba_nombre || '—' }}<span class="block text-[11px] text-gray-400">{{ detalle.fecha_aprobacion | date: 'short' }}</span></dd></div>
+              <div class="flex justify-between gap-4"><dt class="text-gray-500">Aprobó</dt><dd class="text-gray-800 text-right">{{ detalle.usuario_aprueba_nombre || '—' }}<span class="block text-xs text-gray-400">{{ detalle.fecha_aprobacion | date: 'short' }}</span></dd></div>
             }
             @if (detalle.id_usuario_entrega || detalle.fecha_entrega) {
-              <div class="flex justify-between gap-4"><dt class="text-gray-500">Entregó</dt><dd class="text-gray-800 text-right">{{ detalle.usuario_entrega_nombre || '—' }}<span class="block text-[11px] text-gray-400">{{ detalle.fecha_entrega | date: 'short' }}</span></dd></div>
+              <div class="flex justify-between gap-4"><dt class="text-gray-500">Entregó</dt><dd class="text-gray-800 text-right">{{ detalle.usuario_entrega_nombre || '—' }}<span class="block text-xs text-gray-400">{{ detalle.fecha_entrega | date: 'short' }}</span></dd></div>
             }
             @if (detalle.estado === 'RECHAZADA' && detalle.motivo_rechazo) {
               <div class="rounded-lg bg-red-50 border border-red-100 p-3">
@@ -478,11 +429,11 @@ interface LineaForm {
     }
 
     @if (rechazoAbierto && rechazoSolicitud) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarRechazo()">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarRechazo()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-bold text-gray-800">Rechazar solicitud</h2>
-            <button (click)="cerrarRechazo()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="cerrarRechazo()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
           <p class="text-sm text-gray-500 mb-3">
             Se le informará al solicitante de
@@ -492,7 +443,7 @@ interface LineaForm {
           <textarea [(ngModel)]="motivoRechazo" rows="3" maxlength="500"
             placeholder="Ej: No hay stock disponible para la fecha solicitada."
             class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400/30 focus:border-red-400 resize-none"></textarea>
-          <div class="text-right text-[11px] text-gray-400 mt-1">{{ motivoRechazo.length }}/500</div>
+          <div class="text-right text-xs text-gray-400 mt-1">{{ motivoRechazo.length }}/500</div>
           <div class="flex justify-end gap-2 mt-4">
             <button (click)="cerrarRechazo()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
             <button (click)="confirmarRechazo()" [disabled]="!motivoRechazo.trim() || rechazando"
@@ -505,11 +456,11 @@ interface LineaForm {
     }
 
     @if (aprobarAbierto && aprobarRef) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarAprobar()">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarAprobar()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-bold text-gray-800">Aprobar solicitud</h2>
-            <button (click)="cerrarAprobar()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="cerrarAprobar()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
           <p class="text-sm text-gray-500 mb-3">
             "<span class="font-medium text-gray-700">{{ aprobarRef.producto?.nombre ?? 'este material' }}</span>"
@@ -520,13 +471,13 @@ interface LineaForm {
             <app-date-input placeholder="DD/MM/AAAA" [min]="hoyTuiDay"
               [ngModel]="cacheFechaDevAprobar.get(fechaDevAprobar)"
               (ngModelChange)="fechaDevAprobar = tuiDayToIso($event)"></app-date-input>
-            <p class="text-[11px] text-gray-400 mt-1">Podés ajustar la fecha que puso el solicitante. Se le avisa si cambia.</p>
+            <p class="text-xs text-gray-400 mt-1">Podés ajustar la fecha que puso el solicitante. Se le avisa si cambia.</p>
           }
           <div class="flex justify-end gap-2 mt-4">
             <button (click)="cerrarAprobar()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
             <button (click)="confirmarAprobar()" [disabled]="aprobando"
               class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
-              style="background-color: #39A900">
+              style="background-color: var(--accent-brand)">
               {{ aprobando ? 'Aprobando...' : 'Aprobar' }}
             </button>
           </div>
@@ -540,7 +491,12 @@ interface LineaForm {
     }
   `,
 })
-export class InstructorMaterialesSolicitudesComponent implements OnInit {
+export class MaterialesSolicitudesUsuarioComponent implements OnInit {
+  private readonly confirmDlg = inject(ConfirmService);
+  private readonly avisos = inject(UnsavedChangesService);
+  /** Compara con el estado al abrir el modal: cerrar por error (fondo, ×) ya no tira lo escrito sin preguntar. */
+  private readonly cambios = new FormularioVigilado(() => JSON.stringify([this.idSitioSeleccionado, this.lineas, this.observacion, this.fechaDevolucion, this.tipoDestino, this.idCursoSeleccionado]));
+  private readonly _avisoCambios = avisarCambiosSinGuardar(() => this.modalOpen && this.cambios.sucio);
   solicitudes: Solicitud[] = [];
   productos: Producto[] = [];
   lotes: Lote[] = [];
@@ -559,22 +515,19 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
   filtroTexto = '';
   filtroEstado: EstadoSolicitud | '' = '';
   pageSize = signal(20);
-  pageSizeDropdownOpen = signal(false);
-  estadoDropdownOpen = signal(false);
   page = 0;
   readonly estadosSolicitud: EstadoSolicitud[] =
-    ['PENDIENTE', 'APROBADA', 'EN_ENTREGA', 'ENTREGADA', 'DEVUELTA', 'RECHAZADA', 'CANCELADA'];
+    ['PENDIENTE', 'APROBADA', 'EN_ENTREGA', 'ENTREGADA', 'DEVUELTA', 'CONSUMIDA', 'RECHAZADA', 'CANCELADA'];
+  readonly opcionesEstadoFiltro = [{ value: '', label: 'Todos' }, ...this.estadosSolicitud.map((value) => ({ value, label: value }))];
 
   seleccionarPageSize(size: number): void {
     this.pageSize.set(size);
     this.page = 0;
-    this.pageSizeDropdownOpen.set(false);
   }
 
-  seleccionarEstado(valor: EstadoSolicitud | ''): void {
-    this.filtroEstado = valor;
+  seleccionarEstado(valor: string): void {
+    this.filtroEstado = valor as EstadoSolicitud | '';
     this.page = 0;
-    this.estadoDropdownOpen.set(false);
   }
 
   /**
@@ -669,14 +622,69 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
     private api: MaterialesApiService,
     private erpApi: ApiService,
     private toast: ToastService,
-    private permisos: PermisosService,
     private auth: AuthService,
+    private policy: MaterialesScreenPolicy,
     private live: MaterialesLiveService,
     private destroyRef: DestroyRef,
     public red: NetworkStatusService,
     private syncQueue: SyncQueueService,
     private offlineSnapshot: OfflineSnapshotService,
-  ) {}
+  ) {
+    // Al volver la señal (o cuando una entrega guardada termina de enviarse) la
+    // lista se refresca sola: si no, seguiría mostrando datos guardados o la
+    // solicitud como "Aprobada" hasta que alguien recargue.
+    effect(() => {
+      const enCola = this.syncQueue.entregasPendientes().size;
+      const conectado = this.red.alcanzable();
+      untracked(() => {
+        if (conectado && (this.datosGuardadosDe || enCola < this.entregasEnColaAntes)) void this.cargar();
+        this.entregasEnColaAntes = enCola;
+      });
+    });
+  }
+
+  /** Hora (ms) de la copia guardada que se está mostrando; `null` si son datos en vivo. */
+  datosGuardadosDe: number | null = null;
+  preparandoTodas = false;
+  private entregasEnColaAntes = 0;
+
+  /** APROBADAS que este usuario puede entregar y tienen ítems puntuales que descargar. */
+  solicitudesPreparables(): Solicitud[] {
+    return this.solicitudes.filter(
+      (s) =>
+        s.estado === 'APROBADA' &&
+        this.puedeEntregar &&
+        this.puedeGestionar(s) &&
+        !this.bodegaInactiva(s) &&
+        !this.entregaPendiente(s) &&
+        lineasDevolutivasDeSolicitud(s).length > 0,
+    );
+  }
+
+  async prepararTodasOffline(): Promise<void> {
+    this.preparandoTodas = true;
+    try {
+      const lista = this.solicitudesPreparables();
+      const listas = await prepararTodasEntregaOffline(lista, this.api, this.offlineSnapshot);
+      if (listas === lista.length) this.toast.ok(`${listas} solicitud(es) preparadas para entregar sin conexión`);
+      else this.toast.warn('Preparación incompleta', `Se prepararon ${listas} de ${lista.length}. Reintenta con señal.`);
+    } finally {
+      this.preparandoTodas = false;
+    }
+  }
+
+  private async cargarListaGuardada(): Promise<boolean> {
+    const snap = await leerListaSolicitudes(this.offlineSnapshot);
+    if (!snap) return false;
+    this.solicitudes = snap.data;
+    this.datosGuardadosDe = snap.fetchedAt;
+    return true;
+  }
+
+  /** La entrega de esta solicitud está guardada en el dispositivo, aún sin enviar. */
+  entregaPendiente(s: Solicitud): boolean {
+    return this.syncQueue.entregasPendientes().has(s.id_solicitud);
+  }
 
   async prepararEntregaOffline(s: Solicitud): Promise<void> {
     const preparo = await prepararSnapshotEntregaOffline(s, this.api, this.offlineSnapshot);
@@ -684,13 +692,13 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
   }
 
   get puedeAprobar(): boolean {
-    return this.permisos.tieneServicio('materiales.solicitudes.aprobar');
+    return this.policy.puedeAprobarSolicitud();
   }
   get puedeRechazar(): boolean {
-    return this.permisos.tieneServicio('materiales.solicitudes.rechazar');
+    return this.policy.puedeRechazarSolicitud();
   }
   get puedeEntregar(): boolean {
-    return this.permisos.tieneServicio('materiales.solicitudes.entregar');
+    return this.policy.puedeEntregarSolicitud();
   }
 
   /** Solo el propio solicitante puede confirmar recepción — el backend lo bloquea si no. */
@@ -738,8 +746,16 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
     return this.sitios.filter((s) => !s.estado);
   }
 
+  /** El único flujo exclusivo del instructor es pedir material para una ficha liderada. */
+  get esInstructor(): boolean {
+    return this.auth.cargo() === 'instructor';
+  }
+
+  get esAdmin(): boolean {
+    return this.auth.isAdmin();
+  }
+
   ngOnInit(): void {
-    this.permisos.cargar();
     this.cargar();
     this.live.eventos()
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -777,7 +793,7 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
    */
   private productosDeBodega(): Producto[] {
     if (!this.pasoBodega) {
-      return this.productos.filter((p) => p.tipo_material === 'DEVOLUTIVO');
+      return this.productos.filter((p) => p.tipo_material === 'DEVOLUTIVO' && !!p.id_sitio);
     }
     if (!this.idSitioSeleccionado) return [];
     const idsConStockAqui = new Set(
@@ -786,7 +802,16 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
         .map((i) => i.id_producto),
     );
     return this.productos.filter(
-      (p) => p.tipo_material === 'DEVOLUTIVO' && idsConStockAqui.has(p.id_producto),
+      (p) => p.tipo_material === 'DEVOLUTIVO' && !!p.id_sitio && idsConStockAqui.has(p.id_producto),
+    );
+  }
+
+  /** Un lote puede heredar la bodega del producto; si ninguno la tiene, el
+   * backend también lo rechaza y no debe llegar al selector. */
+  private loteTieneBodega(lote: Lote): boolean {
+    return !!(
+      lote.id_sitio ??
+      this.productos.find((producto) => producto.id_producto === lote.id_producto)?.id_sitio
     );
   }
 
@@ -795,6 +820,7 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
       (l) =>
         l.estado === 'ACTIVO' &&
         l.cantidad_disponible > 0 &&
+        this.loteTieneBodega(l) &&
         (!this.pasoBodega || !this.idSitioSeleccionado || l.id_sitio === this.idSitioSeleccionado),
     );
   }
@@ -913,6 +939,7 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
   private async cargar(): Promise<void> {
     this.loading = true;
     try {
+      if (!this.red.alcanzable() && (await this.cargarListaGuardada())) return;
       // M9 — solo `listarSolicitudes()` es crítico; si una secundaria da 403
       // (excepción personal) no debe tumbar la tabla entera. `GET /sitios`
       // exige `materiales.sitios.ver` O `materiales.traslados.crear`
@@ -922,19 +949,27 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
       // que ni se pide si no aplica ninguno de los dos: el paso "Bodega" del
       // modal se salta solo (ver `pasoBodega`), no bloquea crear la solicitud.
       const verSitios =
+        this.auth.isAdmin() ||
         this.auth.tieneServicio('materiales.sitios.ver') ||
         this.auth.tieneServicio('materiales.traslados.crear');
-      const personaId = this.auth.user()?.personaId;
+      const personaId = this.esInstructor ? this.auth.user()?.personaId : undefined;
+      // Mismos servicios que acepta el backend en GET /items y GET /lotes: pedir lo que el
+      // rol no puede ver dispara un 403 y el aviso global "Sin permiso" aunque se ignore.
+      const tiene = (...servicios: string[]) => servicios.some((x) => this.auth.tieneServicio(x));
+      const verItems = this.auth.isAdmin() || tiene('materiales.items.ver', 'materiales.novedades.crear', 'materiales.traslados.crear');
+      const verLotes = this.auth.isAdmin() || tiene('materiales.lotes.ver', 'materiales.solicitudes.crear');
       const [solicitudes, productos, lotes, items, sitios, fichas, sitiosACargo] = await Promise.all([
         this.api.listarSolicitudes(),
         this.api.listarProductos().catch(() => [] as Producto[]),
-        this.api.listarLotes().catch(() => [] as Lote[]),
-        this.api.listarItems().catch(() => [] as Item[]),
+        verLotes ? this.api.listarLotes().catch(() => [] as Lote[]) : Promise.resolve([] as Lote[]),
+        verItems ? this.api.listarItems().catch(() => [] as Item[]) : Promise.resolve([] as Item[]),
         verSitios ? this.api.listarSitios().catch(() => [] as Sitio[]) : Promise.resolve([] as Sitio[]),
         personaId ? this.erpApi.obtenerCursosLiderados(personaId).catch(() => [] as CursoLiderado[]) : Promise.resolve([] as CursoLiderado[]),
         this.api.sitiosACargo().catch(() => [] as Sitio[]),
       ]);
       this.solicitudes = solicitudes;
+      this.datosGuardadosDe = null;
+      void guardarListaSolicitudes(solicitudes, this.offlineSnapshot);
       this.productos = productos;
       this.lotes = lotes;
       this.items = items;
@@ -943,6 +978,7 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
       this.misSitiosACargoIds = new Set(sitiosACargo.map((s) => s.id_sitio));
       await this.cargarStocks();
     } catch (e) {
+      if ((e as { status?: number })?.status === 0 && (await this.cargarListaGuardada())) return;
       this.toast.httpError(e, 'No se pudieron cargar las solicitudes.');
     } finally {
       this.loading = false;
@@ -1033,9 +1069,12 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
     this.idCursoSeleccionado = null;
     this.error = null;
     this.modalOpen = true;
+    this.cambios.iniciar();
   }
 
-  cerrarModal(): void {
+  async cerrarModal(): Promise<void> {
+    if (this.cambios.sucio && !(await this.avisos.confirmarDescartar())) return;
+    this.cambios.terminar();
     this.modalOpen = false;
   }
 
@@ -1083,10 +1122,11 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
         id_curso: this.tipoDestino === 'ficha' ? this.idCursoSeleccionado! : undefined,
       });
       this.toast.ok('Solicitud creada');
+      this.cambios.terminar();
       this.modalOpen = false;
       await this.cargar();
     } catch (e: any) {
-      this.error = e?.error?.message ?? 'No se pudo crear la solicitud.';
+      this.error = mensajeDeError(e, 'No se pudo crear la solicitud.');
     } finally {
       this.saving = false;
     }
@@ -1097,10 +1137,9 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
     // igual quedará bloqueada por M8 hasta que haya unidades.
     const st = this.stockDe(s);
     if (st && st.disponibles < s.cantidad) {
-      const ok = confirm(
-        `Estás aprobando ${s.cantidad} unidad(es) de "${s.producto?.nombre ?? 'este producto'}" ` +
-        `pero solo hay ${st.disponibles} disponible(s) ahora.\n\n` +
-        `La solicitud quedará APROBADA y se podrá entregar cuando haya stock. ¿Continuar?`,
+      const ok = await this.confirmDlg.ask(
+        `Estás aprobando ${s.cantidad} unidad(es) de "${s.producto?.nombre ?? 'este producto'}" pero solo hay ${st.disponibles} disponible(s) ahora. La solicitud quedará APROBADA y se podrá entregar cuando haya stock. ¿Continuar?`,
+        { header: 'Aprobar sin stock suficiente', acceptLabel: 'Aprobar de todas formas', rejectLabel: 'Volver', danger: false },
       );
       if (!ok) return;
     }
@@ -1132,10 +1171,10 @@ export class InstructorMaterialesSolicitudesComponent implements OnInit {
   }
 
   async cancelar(s: Solicitud): Promise<void> {
-    if (!confirm(
-      `¿Cancelar esta solicitud aprobada de "${s.producto?.nombre ?? 'este producto'}"?\n\n` +
-      `El solicitante será notificado y no se entregará. No afecta el inventario.`,
-    )) return;
+    if (!(await this.confirmDlg.ask(
+      `¿Cancelar esta solicitud aprobada de "${s.producto?.nombre ?? 'este producto'}"? El solicitante será notificado y no se entregará. No afecta el inventario.`,
+      { header: 'Cancelar solicitud', acceptLabel: 'Sí, cancelar', rejectLabel: 'Volver' },
+    ))) return;
     try {
       await this.api.cancelarSolicitud(s.id_solicitud);
       this.toast.ok('Solicitud cancelada');

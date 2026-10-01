@@ -7,6 +7,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 import { Categoria, Item, MaterialesApiService, Producto, Sitio } from './data-access/materiales-api.service';
+import { AlertComponent } from '../../shared/ui/alert.component';
 
 /**
  * CRUD de Productos. Crear un producto DEVOLUTIVO genera automáticamente
@@ -33,9 +34,12 @@ import { Categoria, Item, MaterialesApiService, Producto, Sitio } from './data-a
 @Component({
   selector: 'app-materiales-productos',
   standalone: true,
-  imports: [FormsModule, RouterLink, AdminTableComponent, ProductoFormModalComponent],
+  imports: [AlertComponent, FormsModule, RouterLink, AdminTableComponent, ProductoFormModalComponent],
   template: `
     <div class="p-6">
+      <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
+        <span>Materiales</span><span aria-hidden="true">/</span><span>Catálogo</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Productos</span>
+      </nav>
       <div class="flex items-center justify-between mb-5">
         <h1 class="text-xl font-bold text-gray-800">Productos</h1>
         @if (puedeCrear()) {
@@ -50,14 +54,10 @@ import { Categoria, Item, MaterialesApiService, Producto, Sitio } from './data-a
       </div>
 
       @if (bodegasInactivas().length > 0) {
-        <div class="mb-4 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-start gap-2">
-          <span>⚠️</span>
-          <span>
-            {{ bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas' }}:
-            <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
-            — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
-          </span>
-        </div>
+        <app-alert class="mb-4" variante="advertencia" [titulo]="bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas'">
+          <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
+          — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
+        </app-alert>
       }
 
       <app-admin-table

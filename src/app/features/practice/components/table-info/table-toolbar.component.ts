@@ -6,11 +6,13 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { COLUMNS, Column } from './table-info.types';
+import { PageSizeSelectComponent } from '../../../../shared/components/page-size-select.component';
+import { EsperaDirective } from '../../../../shared/directives/espera.directive';
 
 @Component({
   selector: 'app-table-toolbar',
   standalone: true,
-  imports: [FormsModule],
+  imports: [EsperaDirective, FormsModule, PageSizeSelectComponent],
   template: `
     <div class="px-6 pb-4 flex flex-col gap-4">
 
@@ -19,14 +21,14 @@ import { COLUMNS, Column } from './table-info.types';
 
         <!-- Búsqueda -->
         <div class="relative w-full sm:max-w-md">
-          <input
+          <input appEspera
             type="text"
             [ngModel]="filter()"
             (ngModelChange)="filterChange.emit($event)"
             placeholder="🔍︎ Buscar por nombre o identificación..."
             class="w-full pl-3 pr-8 py-2 border-2 border-gray-200 rounded-xl text-sm hover:border-[#39A900]/50 focus:outline-none focus:border-[#39A900] transition-colors"/>
           @if (filter()) {
-            <button (click)="filterChange.emit('')"
+            <button aria-label="Limpiar búsqueda" (click)="filterChange.emit('')"
               class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg leading-none">
               ×
             </button>
@@ -47,7 +49,7 @@ import { COLUMNS, Column } from './table-info.types';
           @if (showColMenu) {
             <div class="absolute right-0 top-10 z-20 bg-white border border-gray-200 rounded-xl shadow-lg p-3 min-w-[200px]"
               (click)="$event.stopPropagation()">
-              <p class="text-[10px] text-gray-400 font-medium uppercase tracking-wide mb-2">
+              <p class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-2">
                 Columnas visibles
               </p>
               @for (col of allColumns; track col.uid) {
@@ -69,18 +71,10 @@ import { COLUMNS, Column } from './table-info.types';
       <!-- Sub-toolbar: total + filas por página -->
       <div class="flex justify-between items-center">
         <span class="text-sm text-gray-400">Total {{ total() }} aprendices</span>
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-gray-400">Filas por página:</span>
-          <select
-            [ngModel]="rowsPerPage()"
-            (ngModelChange)="rowsPerPageChange.emit(+$event)"
-            class="border border-gray-200 rounded-lg text-xs text-gray-600 py-1.5 px-2 focus:outline-none focus:border-[#39A900] hover:border-[#39A900]/50">
-            <option [value]="5">5</option>
-            <option [value]="10">10</option>
-            <option [value]="15">15</option>
-            <option [value]="20">20</option>
-          </select>
-        </div>
+        <app-page-size-select
+          [value]="rowsPerPage()"
+          [sizes]="[5, 10, 15, 20]"
+          (valueChange)="rowsPerPageChange.emit($event)" />
       </div>
 
     </div>

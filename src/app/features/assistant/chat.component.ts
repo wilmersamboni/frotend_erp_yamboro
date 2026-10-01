@@ -97,7 +97,7 @@ interface Message { role: 'user' | 'assistant'; content: string; }
               placeholder="Escribe tu mensaje..."
               class="flex-1 bg-gray-50 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 disabled:opacity-50 border border-gray-100"
             />
-            <button
+            <button aria-label="Enviar mensaje"
               (click)="handleSubmit()"
               [disabled]="isLoading() || !input.trim()"
               class="bg-[#39A900] text-white rounded-xl px-4 py-2.5 disabled:opacity-50

@@ -19,7 +19,7 @@ type Cargo = 'instructor' | 'aprendiz' | 'administrador';
 
       <!-- ── Personas ── -->
       <div>
-        <p class="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Personas</p>
+        <p class="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">Personas</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
           <!-- Registrar persona: pregunta el rol en un popover anclado, sin cambiar de pantalla -->
@@ -79,7 +79,7 @@ type Cargo = 'instructor' | 'aprendiz' | 'administrador';
 
       <!-- ── Académico ── -->
       <div>
-        <p class="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Académico</p>
+        <p class="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">Académico</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
           <button (click)="crear.emit('matriculas')"
@@ -126,7 +126,7 @@ type Cargo = 'instructor' | 'aprendiz' | 'administrador';
       <!-- ── Seguimiento de práctica ── -->
       @if (vePractica) {
         <div>
-          <p class="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Seguimiento de práctica</p>
+          <p class="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">Seguimiento de práctica</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
             <button (click)="crear.emit('etapas')"

@@ -6,11 +6,10 @@ import { HorariosApiService } from '../data-access/horarios-api.service';
 import { ErpCatalogoService } from '../data-access/erp-catalogo.service';
 import {
   DIAS_SEMANA, DIAS_LABELS, fechaInicioDelDia, fechaFinDelDia,
-  to12h as to12hUtil, getDiaLabel,
+  to12h as to12hUtil, getDiaLabel, nombreCompleto,
+  estadoCompetencias, tituloCompetencia, formatFechaCorta,
 } from '../../../core/utils/horarios.util';
 import { LucideAngularModule } from 'lucide-angular';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { ConfirmationService } from 'primeng/api';
 import { ToastService } from '../../../core/services/toast.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { descargarReporteDia } from './reporte-dia.util';
@@ -18,6 +17,8 @@ import { HistorialCompetenciasModalComponent } from './historial-competencias-mo
 import { DisponibilidadAmbientesComponent } from './disponibilidad-ambientes.component';
 import { NuevoHorarioWizardComponent } from './nuevo-horario-wizard.component';
 import { CompetenciaTooltipComponent } from '../../../shared/components/competencia-tooltip.component';
+import { EditarHorarioModalComponent } from './editar-horario-modal.component';
+import { ConfirmService } from '../../../core/services/confirm.service';
 
 /**
  * Portado de ChronoGest; pertenece al dominio Horarios.
@@ -69,10 +70,8 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
 @Component({
   selector: 'app-admin-horarios',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, LucideAngularModule, ConfirmDialogModule, HistorialCompetenciasModalComponent, DisponibilidadAmbientesComponent, NuevoHorarioWizardComponent, CompetenciaTooltipComponent],
-  providers: [ConfirmationService],
+  imports: [FormsModule, LucideAngularModule, HistorialCompetenciasModalComponent, DisponibilidadAmbientesComponent, NuevoHorarioWizardComponent, CompetenciaTooltipComponent, EditarHorarioModalComponent],
   template: `
-    <p-confirmdialog />
 
     <div class="page-header" style="display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:16px;">
       <div>
@@ -151,14 +150,27 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
         }
 
         <!-- DATA ROWS -->
-        @if (filteredRows().length === 0) {
+        @if (cargando()) {
+          @for (i of [1, 2, 3]; track i) {
+            <div class="matrix-row-item sticky-col"><div class="skeleton" style="height:14px;width:80%;"></div></div>
+            @for (d of dias; track d) {
+              <div class="matrix-cell day-col" [class.day-col-selected]="d === selectedDiaMobile()"><div class="skeleton" style="height:120px;width:100%;"></div></div>
+            }
+          }
+        } @else if (errorCarga()) {
+          <div class="matrix-empty">
+            <p>No se pudieron cargar los horarios.</p>
+            <button class="retry-btn" (click)="loadAll()"><lucide-icon name="refresh-cw" [size]="14"></lucide-icon> Reintentar</button>
+          </div>
+        } @else if (filteredRows().length === 0) {
         <div class="matrix-empty">Sin horarios registrados</div>
         }
 
+        @if (!cargando() && !errorCarga()) {
         @for (row of filteredRows(); track row.entity.id) {
         <div class="matrix-row-item sticky-col">
           <div style="font-weight:700;color:var(--text);font-size:14px">
-            {{ row.entity.nombre ?? row.entity.codigo }}
+            {{ rowTitle(row.entity) }}
           </div>
           @if (row.entity.programa) {
           <div class="text-xs text-muted" style="margin-top:2px;">{{ row.entity.programa }}</div>
@@ -192,7 +204,7 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
                         }
                       </div>
                       @if (slots.length > 1) {
-                        <button class="slot-arrow-btn" (click)="nextSlot(row.entity.id, d, slots.length)" title="Ver siguiente jornada">
+                        <button aria-label="Ver siguiente jornada" class="slot-arrow-btn" (click)="nextSlot(row.entity.id, d, slots.length)" title="Ver siguiente jornada">
                           <lucide-icon name="chevron-right" [size]="13"></lucide-icon>
                         </button>
                       }
@@ -205,8 +217,8 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
                       <span class="info-val">
                         @if (h.ubicacionTransversalNombre && h.ambiente?.nombre) {
                           <span class="amb-temp-wrap">
-                            <span style="color:#d97706;font-weight:700;">{{ h.ubicacionTransversalNombre }}</span>
-                            <lucide-icon name="info" [size]="10" style="color:#d97706;flex-shrink:0;"></lucide-icon>
+                            <span style="color:var(--warn-text);font-weight:700;">{{ h.ubicacionTransversalNombre }}</span>
+                            <lucide-icon name="info" [size]="10" style="color:var(--warn-text);flex-shrink:0;"></lucide-icon>
                             <span class="amb-temp-tooltip">
                               <span class="amb-temp-row">
                                 <span class="amb-temp-lbl">Temporal</span>
@@ -234,42 +246,56 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
                     }
                   </div>
 
+                  <!-- Estado de la clase: solo en la columna de HOY. Antes cualquier
+                       otro día mostraba "inactivo", que se leía como "horario deshabilitado". -->
+                  @let estado = estadoHoy(h);
+                  @if (estado) {
                   <div class="card-bottom">
-                    @if (h.minutosRetraso > 0 && isDiaHoy(h.diaSemana)) {
-                      <div class="retraso-chip">
-                        <lucide-icon name="clock" [size]="10"></lucide-icon>
-                        Retraso: {{ h.minutosRetraso }} min
-                      </div>
-                    }
-                    @if (h.activo && isDiaHoy(h.diaSemana)) {
-                      <div class="progress-bar" style="margin-top:6px;">
-                        <div class="progress-fill" [style.width.%]="calcProgress(h)"></div>
-                      </div>
-                      <div style="font-size:10px;color:var(--text-muted);text-align:right;margin-top:2px;">En curso · {{ calcProgress(h) }}%</div>
-                    }
-                    @if (isActive(h)) {
-                      <span class="bg-green-100 text-green-700 rounded-full lowercase font-bold" style="font-size:10px;padding:2px 8px;margin-top:6px;display:inline-block;">activo</span>
-                    } @else if (isFinalizadoHoy(h)) {
-                      <div class="status-pill status-finalizado" style="margin-top:6px;">
-                        <lucide-icon name="check-circle" [size]="9"></lucide-icon> Horario finalizado
-                      </div>
-                    } @else {
-                      <span class="bg-gray-100 text-gray-500 rounded-full lowercase font-bold" style="font-size:10px;padding:2px 8px;margin-top:6px;display:inline-block;">inactivo</span>
+                    @switch (estado) {
+                      @case ('en-curso') {
+                        <div class="progress-bar"><div class="progress-fill" [style.width.%]="calcProgress(h)"></div></div>
+                        <span class="estado-pill estado-en-curso">
+                          <lucide-icon name="play" [size]="9"></lucide-icon> Clase iniciada · {{ calcProgress(h) }}%
+                        </span>
+                      }
+                      @case ('finalizada') {
+                        <span class="estado-pill estado-finalizada">
+                          <lucide-icon name="check-circle" [size]="9"></lucide-icon> Clase finalizada
+                        </span>
+                      }
+                      @case ('proxima') {
+                        <span class="estado-pill estado-proxima">
+                          <lucide-icon name="clock" [size]="9"></lucide-icon> Empieza a las {{ to12h(h.horaInicio) }}
+                        </span>
+                      }
+                      @case ('sin-iniciar') {
+                        <span class="estado-pill estado-sin-iniciar">
+                          <lucide-icon name="alert-triangle" [size]="9"></lucide-icon> No se ha iniciado{{ h.minutosRetraso > 0 ? ' · ' + h.minutosRetraso + ' min de retraso' : '' }}
+                        </span>
+                      }
+                      @case ('no-iniciada') {
+                        <span class="estado-pill estado-no-iniciada">
+                          <lucide-icon name="x-circle" [size]="9"></lucide-icon> No se inició la clase
+                        </span>
+                      }
                     }
                   </div>
+                  }
                 </div>
 
                 <!-- ── Columna derecha: iconos interactivos ── -->
                 <div class="card-actions-col">
-                  <div class="card-help-btn"
+                  <!-- Libro de competencia: el color resume el estado sin abrirlo (ver compTitulo) -->
+                  <div [class]="'card-help-btn comp-' + h.compEstado.estado"
                        [class.card-help-active]="compTooltip.state()?.h?.id === h.id"
-                       (click)="compTooltip.abrir(h, h.compVigente, $event)">
-                    <lucide-icon name="help-circle" [size]="15"></lucide-icon>
+                       [title]="compTitulo(h.compEstado)"
+                       (click)="compTooltip.abrir(h, h.compEstado.comp, $event)">
+                    <lucide-icon name="book-open" [size]="15"></lucide-icon>
                   </div>
                   @if (fichaEvs?.length && isDiaHoy(h.diaSemana)) {
                     @for (ev of fichaEvs; track ev.id) {
                       @if (!isEventoPasado(ev, now())) {
-                        <button [class]="'ev-notif-btn ev-notif-' + ev.tipo"
+                        <button [class]="'ev-notif-btn ev-notif-' + ev.tipo" [attr.aria-label]="'Evento: ' + ev.nombre"
                                 (mouseenter)="showEventoTooltip(ev, $event)"
                                 (mouseleave)="hideEventoTooltip()">
                           <lucide-icon name="bell" [size]="9"></lucide-icon>
@@ -277,9 +303,14 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
                       }
                     }
                   }
-                  <button class="w-[26px] h-[26px] inline-flex items-center justify-center rounded-md hover:bg-red-50 text-red-600 transition-colors" style="margin-top:auto;" title="Eliminar" (click)="deleteHorario(h.id)">
-                    <lucide-icon name="trash-2" [size]="14"></lucide-icon>
-                  </button>
+                  <div style="margin-top:auto; display:flex; flex-direction:column; gap:2px;">
+                    <button aria-label="Editar" class="w-[26px] h-[26px] inline-flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-500 hover:text-[#39A900] transition-colors" title="Editar" (click)="editarHorario(h)">
+                      <lucide-icon name="pencil" [size]="14"></lucide-icon>
+                    </button>
+                    <button aria-label="Eliminar" class="w-[26px] h-[26px] inline-flex items-center justify-center rounded-md hover:bg-red-50 text-red-600 transition-colors" title="Eliminar" (click)="deleteHorario(h.id)">
+                      <lucide-icon name="trash-2" [size]="14"></lucide-icon>
+                    </button>
+                  </div>
                 </div>
 
               </div>
@@ -289,6 +320,7 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
           <span style="color:var(--border);font-size:12px">—</span>
           }
         </div>
+        }
         }
         }
       </div>
@@ -305,15 +337,15 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
            [style.left.px]="eventoTooltip()!.x"
            [style.top.px]="eventoTooltip()!.y">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px;">
-          <p style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.8;margin:0;">
+          <p style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;opacity:.8;margin:0;">
             {{ tipoLabelEvento(eventoTooltip()!.ev.tipo) }}
           </p>
           @if (eventoTooltip()!.pasado) {
-            <span style="background:rgba(0,0,0,.12);border-radius:6px;padding:2px 7px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;opacity:.85;">
+            <span style="background:rgba(0,0,0,.12);border-radius:6px;padding:2px 7px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;opacity:.85;">
               Terminado
             </span>
           } @else if (eventoTooltip()!.noIniciado) {
-            <span style="background:rgba(0,0,0,.10);border-radius:6px;padding:2px 7px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;opacity:.85;">
+            <span style="background:rgba(0,0,0,.10);border-radius:6px;padding:2px 7px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;opacity:.85;">
               No iniciado
             </span>
           }
@@ -347,12 +379,23 @@ import { CompetenciaTooltipComponent } from '../../../shared/components/competen
     <app-nuevo-horario-wizard #wiz
       [fichas]="fichas()" [ambientes]="ambientes()" [instructores]="instructores()" [horarios]="horarios()"
       (guardado)="loadAll()" />
+
+    <!-- Modal "Editar Horario" — se abre con el lápiz de cada tarjeta -->
+    <app-editar-horario-modal #editar
+      [fichas]="fichas()" [ambientes]="ambientes()" [instructores]="instructores()" [horarios]="enrichedHorarios()"
+      (guardado)="loadAll()" />
   `,
   styleUrls: ['./horarios.component.css'],
 })
 export class AdminHorariosComponent implements OnInit, OnDestroy {
   @ViewChild('wiz') private wizRef!: NuevoHorarioWizardComponent;
   @ViewChild('compTooltip') private compTooltipRef!: CompetenciaTooltipComponent;
+  @ViewChild('editar') private editarRef!: EditarHorarioModalComponent;
+
+  /** true solo durante la primera carga — evita mostrar "sin horarios" antes de tener datos. */
+  cargando = signal(true);
+  /** GET /horarios falló — se muestra un aviso con "Reintentar" en vez de una matriz vacía engañosa. */
+  errorCarga = signal(false);
 
   readonly LABELS = DIAS_LABELS;
   readonly getDiaLabel = getDiaLabel;
@@ -465,7 +508,7 @@ export class AdminHorariosComponent implements OnInit, OnDestroy {
    * GET /horarios devuelve fichaId/instructorId/ambienteId como UUIDs planos;
    * aquí los cruzamos con los signals ya cargados (fichas, instructores, ambientes).
    */
-  private enrichedHorarios = computed(() => {
+  enrichedHorarios = computed(() => {
     const instMap  = new Map<string, any>(this.instructores().map((i: any) => [String(i.id), i]));
     const fichaMap = new Map<string, any>(this.fichas().map((f: any)       => [String(f.id), f]));
     const ambMap   = new Map<string, any>(this.ambientes().map((a: any)    => [String(a.id), a]));
@@ -517,7 +560,7 @@ export class AdminHorariosComponent implements OnInit, OnDestroy {
   });
 
   private toast   = inject(ToastService);
-  private confirm = inject(ConfirmationService);
+  private confirm = inject(ConfirmService);
   private auth    = inject(AuthService);
 
   constructor(
@@ -576,14 +619,16 @@ export class AdminHorariosComponent implements OnInit, OnDestroy {
     // Limpiar overrides manuales al recargar la vista completa
     this.manualOverrides.clear();
 
-    const horariosP = this.horariosApi.getHorarios().catch(() => []);
+    this.errorCarga.set(false);
+    let horariosFallo = false;
+    const horariosP = this.horariosApi.getHorarios().catch(() => { horariosFallo = true; return []; });
     const fichasP = this.erpCatalogo.getFichas().catch(() => []);
-    const ambientesP = this.erpCatalogo.getAmbientes().catch(() => {
-      this.toast.error('Sin datos', 'No se pudieron cargar los ambientes. Verifica tu sesión.');
+    const ambientesP = this.erpCatalogo.getAmbientes().catch((e) => {
+      this.toast.httpError(e, 'No se pudieron cargar los ambientes. Verifica tu sesión.', 'Sin datos');
       return [];
     });
-    const instructoresP = this.erpCatalogo.getInstructores().catch(() => {
-      this.toast.error('Sin datos', 'No se pudieron cargar los instructores. Verifica tu sesión.');
+    const instructoresP = this.erpCatalogo.getInstructores().catch((e) => {
+      this.toast.httpError(e, 'No se pudieron cargar los instructores. Verifica tu sesión.', 'Sin datos');
       return [];
     });
     const eventosP = this.horariosApi.getEventos().catch(() => []);
@@ -597,6 +642,8 @@ export class AdminHorariosComponent implements OnInit, OnDestroy {
     this.ambientes.set(ambientes ?? []);
     this.instructores.set(instructores ?? []);
     this.eventos.set(eventos ?? []);
+    this.errorCarga.set(horariosFallo);
+    this.cargando.set(false);
     this.cdr.markForCheck();
   }
 
@@ -611,6 +658,7 @@ export class AdminHorariosComponent implements OnInit, OnDestroy {
       if (!entity) return;
 
       h.compVigente = this.getCompetencia(h);
+      h.compEstado = estadoCompetencias(h.competencias);
 
       if (!map.has(entity.id)) {
         map.set(entity.id, { entity, horariosByDay: {} });
@@ -844,6 +892,36 @@ export class AdminHorariosComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  editarHorario(h: any): void {
+    this.compTooltipRef.hide();
+    this.hideEventoTooltip();
+    this.editarRef.abrir(h);
+  }
+
+  /**
+   * Estado de la clase HOY; null para cualquier otro día (no se muestra
+   * etiqueta). `h.activo` no significa "habilitado": es que el instructor le
+   * dio play hoy y la clase no ha terminado (ver isActive()).
+   */
+  estadoHoy(h: any): 'en-curso' | 'finalizada' | 'proxima' | 'sin-iniciar' | 'no-iniciada' | null {
+    if (!this.isDiaHoy(h.diaSemana)) return null;
+    if (this.isActive(h)) return 'en-curso';
+    if (this.isFinalizadoHoy(h)) return 'finalizada';
+    if (!h.horaInicio || !h.horaFin) return null;
+    const curr = this.now();
+    const nowMin = curr.getHours() * 60 + curr.getMinutes();
+    const [sh, sm] = h.horaInicio.split(':').map(Number);
+    const [eh, em] = h.horaFin.split(':').map(Number);
+    if (nowMin < sh * 60 + sm) return 'proxima';
+    if (nowMin <= eh * 60 + em) return 'sin-iniciar';
+    return 'no-iniciada';
+  }
+
+  /** Texto al pasar el mouse sobre el libro — explica el color. */
+  compTitulo(e: ReturnType<typeof estadoCompetencias>): string {
+    return tituloCompetencia(e);
+  }
+
   deleteHorario(id: string): void {
     this.confirm.confirm({
       message: '¿Eliminar este horario? Esta acción no se puede deshacer.',
@@ -857,11 +935,17 @@ export class AdminHorariosComponent implements OnInit, OnDestroy {
           this.horarios.update(list => list.filter(h => h.id !== id));
           this.toast.ok('Horario eliminado', 'El horario fue eliminado correctamente.');
         } catch (e: any) {
-          this.toast.error('Error al eliminar', e?.error?.message ?? 'No se pudo eliminar el horario.');
+          this.toast.httpError(e, 'No se pudo eliminar el horario.', 'Error al eliminar');
         }
         this.cdr.markForCheck();
       },
     });
+  }
+
+  /** Título de la fila: nombre completo del instructor (antes solo el nombre), código de ficha o nombre de ambiente. */
+  rowTitle(entity: any): string {
+    if (this.activeTab() === 'instructor') return nombreCompleto(entity) || '—';
+    return entity.nombre ?? entity.codigo ?? '—';
   }
 
 }

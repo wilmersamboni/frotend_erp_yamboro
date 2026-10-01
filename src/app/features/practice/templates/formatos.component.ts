@@ -1,7 +1,4 @@
-import { Component, OnInit, signal, computed, inject } from '@angular/core';
-import { ToastModule } from 'primeng/toast';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { MessageService, ConfirmationService } from 'primeng/api';
+import { Component, OnInit, signal, computed, inject, viewChild } from '@angular/core';
 
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -11,6 +8,8 @@ import { NotificacionService } from '../../../core/services/notificacion.service
 
 import { FormatoCardComponent } from './components/formato-card.component';
 import { SubirFormatoModalComponent } from './components/subir-formato-modal.component';
+import { ConfirmService } from '../../../core/services/confirm.service';
+import { UnsavedChangesService, avisarCambiosSinGuardar } from '../../../core/services/unsaved-changes.service';
 
 const TIPOS = [
   { value: 'bitacora',         label: 'Bitácora',        icon: '📋' },
@@ -21,15 +20,12 @@ const TIPOS = [
 @Component({
   selector: 'app-formatos',
   standalone: true,
-  imports: [ToastModule, ConfirmDialogModule, FormatoCardComponent, SubirFormatoModalComponent],
-  providers: [MessageService, ConfirmationService],
+  imports: [FormatoCardComponent, SubirFormatoModalComponent],
   styles: [`
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner { animation: spin 0.8s linear infinite; }
   `],
   template: `
-    <p-toast position="top-right" [baseZIndex]="9999" />
-    <p-confirmdialog />
 
     <section class="min-h-screen bg-gray-50 px-4 py-10">
       <div class="max-w-6xl mx-auto space-y-8">
@@ -46,7 +42,7 @@ const TIPOS = [
 
           @if (puedeGestionar()) {
             <button
-              (click)="mostrarForm.set(!mostrarForm())"
+              (click)="alternarForm()"
               class="inline-flex items-center gap-2 px-4 py-2 bg-[#39A900] hover:bg-[#2d8400]
                      text-white text-sm font-semibold rounded-xl transition-all duration-200
                      shadow-sm hover:shadow-md active:scale-95">
@@ -136,14 +132,24 @@ export class FormatosComponent implements OnInit {
   private auth            = inject(AuthService);
   private api             = inject(ApiService);
   private toast           = inject(ToastService);
-  private confirm         = inject(ConfirmationService);
+  private confirm         = inject(ConfirmService);
   private notificacionSvc = inject(NotificacionService);
+  private avisos          = inject(UnsavedChangesService);
 
   readonly tipos = TIPOS;
 
   formatos    = signal<Formato[]>([]);
   loading     = signal(false);
   mostrarForm = signal(false);
+  /** El formulario "Nuevo formato" (no es un modal: vive dentro de la página). */
+  private formulario = viewChild(SubirFormatoModalComponent);
+  private readonly _aviso = avisarCambiosSinGuardar(() => this.mostrarForm() && !!this.formulario()?.haySinGuardar);
+
+  /** "Subir formato" / "Cancelar": al cancelar con datos escritos, pregunta antes de descartarlos. */
+  async alternarForm(): Promise<void> {
+    if (this.mostrarForm() && this.formulario()?.haySinGuardar && !(await this.avisos.confirmarDescartar())) return;
+    this.mostrarForm.set(!this.mostrarForm());
+  }
   filtroTipo  = signal('');
 
   /**

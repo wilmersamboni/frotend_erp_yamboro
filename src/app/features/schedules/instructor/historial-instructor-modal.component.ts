@@ -9,12 +9,13 @@ import {
   normalizarResultados, estadoResultado, to12h, diaPluralLabel,
   formatFechaCorta, getDiaLabel, durHorarioMin, jornadaLabel, Resultado,
 } from '../../../core/utils/horarios.util';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 const RESULTADO_ESTADO_INFO: Record<string, { label: string; bg: string; text: string }> = {
-  'sin-fecha':  { label: 'Sin fecha',  bg: '#f3f4f6', text: '#6b7280' },
-  'pendiente':  { label: 'Pendiente',  bg: '#fef3c7', text: '#92400e' },
-  'en-curso':   { label: 'En curso',   bg: '#dbeafe', text: '#1d4ed8' },
-  'completado': { label: 'Completado', bg: '#dcfce7', text: '#166534' },
+  'sin-fecha':  { label: 'Sin fecha',  bg: 'var(--surface3)', text: 'var(--text-muted)' },
+  'pendiente':  { label: 'Pendiente',  bg: 'var(--warn-bg)', text: 'var(--warn-text)' },
+  'en-curso':   { label: 'En curso',   bg: 'var(--info-bg)', text: 'var(--info-text)' },
+  'completado': { label: 'Completado', bg: 'var(--ok-bg)', text: 'var(--ok-text)' },
 };
 
 /**
@@ -25,17 +26,17 @@ const RESULTADO_ESTADO_INFO: Record<string, { label: string; bg: string; text: s
 @Component({
   selector: 'app-historial-instructor-modal',
   standalone: true,
-  imports: [FormsModule, DatePipe, LucideAngularModule, SearchableSelectComponent],
+  imports: [DialogDirective, FormsModule, DatePipe, LucideAngularModule, SearchableSelectComponent],
   template: `
     @if (open()) {
-    <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+    <div appDialog class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl shadow-xl hist-modal" (click)="$event.stopPropagation()">
         <div class="px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-3 flex-shrink-0">
           <div>
             <h3 style="margin:0">Historial de Competencias</h3>
             <p style="font-size:12px;color:var(--text-muted);margin:2px 0 0">Todas las competencias registradas en tus horarios</p>
           </div>
-          <button class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" (click)="cerrar()"><lucide-icon name="x" [size]="18"></lucide-icon></button>
+          <button aria-label="Cerrar" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" (click)="cerrar()"><lucide-icon name="x" [size]="18"></lucide-icon></button>
         </div>
 
         <div style="padding:12px 0 8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
@@ -51,7 +52,7 @@ const RESULTADO_ESTADO_INFO: Record<string, { label: string; bg: string; text: s
               <app-ss [options]="histFichaOptions()" placeholder="Todas las fichas"
                       [ngModel]="histFichaFilter()" (ngModelChange)="histFichaFilter.set($event)"></app-ss>
               @if (histFichaFilter()) {
-                <button class="hist-ficha-clear" (click)="histFichaFilter.set('')" title="Limpiar">
+                <button aria-label="Limpiar" class="hist-ficha-clear" (click)="histFichaFilter.set('')" title="Limpiar">
                   <lucide-icon name="x" [size]="10"></lucide-icon>
                 </button>
               }
@@ -74,7 +75,7 @@ const RESULTADO_ESTADO_INFO: Record<string, { label: string; bg: string; text: s
               <div class="hist-month-header">
                 <lucide-icon name="calendar" [size]="14" style="flex-shrink:0;opacity:.7;"></lucide-icon>
                 <span style="font-weight:700;font-size:13px;text-transform:capitalize;">{{ group.label }}</span>
-                <span style="font-size:11px;color:var(--text-muted);margin-left:6px;">
+                <span style="font-size:12px;color:var(--text-muted);margin-left:6px;">
                   {{ group.items.length }} competencia{{ group.items.length !== 1 ? 's' : '' }}
                 </span>
               </div>
@@ -95,8 +96,8 @@ const RESULTADO_ESTADO_INFO: Record<string, { label: string; bg: string; text: s
                   <tbody>
                     @for (c of group.items; track c.id; let i = $index) {
                     <tr>
-                      <td style="font-size:11px;color:var(--text-muted);text-align:center;font-weight:700;">{{ i + 1 }}</td>
-                      <td style="font-size:11px;white-space:nowrap;">
+                      <td style="font-size:12px;color:var(--text-muted);text-align:center;font-weight:700;">{{ i + 1 }}</td>
+                      <td style="font-size:12px;white-space:nowrap;">
                         <span style="font-weight:600;color:var(--text);">{{ c.createdAt | date:'dd/MM/yyyy' }}</span>
                       </td>
                       <td>
@@ -105,7 +106,7 @@ const RESULTADO_ESTADO_INFO: Record<string, { label: string; bg: string; text: s
                       </td>
                       <td style="font-size:12px;">
                         <strong>{{ c.ficha?.codigo || '—' }}</strong><br>
-                        <span style="color:var(--text-muted);font-size:11px;">{{ c.ficha?.programa || '' }}</span>
+                        <span style="color:var(--text-muted);font-size:12px;">{{ c.ficha?.programa || '' }}</span>
                       </td>
                       <td style="font-weight:600;font-size:13px;max-width:200px;">{{ c.nombre }}</td>
                       <td style="text-align:center;vertical-align:middle;">
@@ -118,10 +119,10 @@ const RESULTADO_ESTADO_INFO: Record<string, { label: string; bg: string; text: s
                             <span>{{ rs.length }} resultado{{ rs.length !== 1 ? 's' : '' }}</span>
                           </button>
                         } @else {
-                          <span style="font-size:11px;color:var(--text-muted);">—</span>
+                          <span style="font-size:12px;color:var(--text-muted);">—</span>
                         }
                       </td>
-                      <td style="font-size:11px;white-space:nowrap;">
+                      <td style="font-size:12px;white-space:nowrap;">
                         @if (c.fechaInicio) {
                           <span>{{ c.fechaInicio | date:'dd/MM/yy' }} — {{ c.fechaFin | date:'dd/MM/yy' }}</span>
                         } @else { <span>—</span> }
@@ -135,7 +136,7 @@ const RESULTADO_ESTADO_INFO: Record<string, { label: string; bg: string; text: s
                             <span>{{ calcHorasCompetencia(c, c.horario) }}h</span>
                           </button>
                         } @else {
-                          <span style="font-size:11px;color:var(--text-muted);">—</span>
+                          <span style="font-size:12px;color:var(--text-muted);">—</span>
                         }
                       </td>
                     </tr>
@@ -182,7 +183,7 @@ const RESULTADO_ESTADO_INFO: Record<string, { label: string; bg: string; text: s
         @for (r of resultadosDe(histResultadosPopover()!.c); track $index) {
           <div class="tt-form-row">
             <span class="tt-form-dia" style="white-space:normal;min-width:0;">{{ r.texto }}</span>
-            <span style="padding:1px 6px;border-radius:8px;font-weight:700;font-size:9px;white-space:nowrap;flex-shrink:0;"
+            <span style="padding:1px 6px;border-radius:8px;font-weight:700;font-size:12px;white-space:nowrap;flex-shrink:0;"
                   [style.background]="estadoResultadoInfo(r).bg" [style.color]="estadoResultadoInfo(r).text">
               {{ estadoResultadoInfo(r).label }}
             </span>
@@ -197,39 +198,39 @@ const RESULTADO_ESTADO_INFO: Record<string, { label: string; bg: string; text: s
     .hist-month-header {
       display: flex; align-items: center; gap: 8px;
       padding: 10px 16px; background: var(--surface2);
-      border-left: 4px solid #39A900;
+      border-left: 4px solid var(--accent-brand);
       margin-top: 8px; border-radius: 0 6px 0 0;
       color: var(--text); font-size: 13px;
     }
     .hist-table-wrap { overflow-x: auto; }
     .hist-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .hist-table thead tr { background: #f9fafb; position: sticky; top: 0; z-index: 2; border-bottom: 2px solid var(--border); }
-    .hist-table th { padding: 10px 14px; color: #374151; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; text-align: left; white-space: nowrap; }
+    .hist-table thead tr { background: var(--surface2); position: sticky; top: 0; z-index: 2; border-bottom: 2px solid var(--border); }
+    .hist-table th { padding: 10px 14px; color: var(--text-2); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; text-align: left; white-space: nowrap; }
     .hist-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
     .hist-table tbody tr:hover td { background: var(--surface2); }
-    .hist-dia-badge { display:inline-block; background:rgba(57,169,0,.15); color:#2d8500; border-radius:4px; padding:2px 7px; font-size:11px; font-weight:700; text-transform:capitalize; margin-right:4px; }
-    .hist-jorn-badge { display:inline-block; background:var(--surface2); color:var(--text-muted); border-radius:4px; padding:2px 7px; font-size:10px; font-weight:600; }
+    .hist-dia-badge { display:inline-block; background:color-mix(in srgb, var(--accent-brand) 15%, transparent); color:var(--accent-text); border-radius:4px; padding:2px 7px; font-size:12px; font-weight:700; text-transform:capitalize; margin-right:4px; }
+    .hist-jorn-badge { display:inline-block; background:var(--surface2); color:var(--text-muted); border-radius:4px; padding:2px 7px; font-size:12px; font-weight:600; }
 
     .hist-ficha-sel {
       height: 28px; padding: 0 8px; font-size: 12px; font-weight: 600;
-      border: 1px solid #bbf7d0; border-radius: 6px;
-      background: #fff; color: #15803d; cursor: pointer; outline: none; max-width: 140px;
+      border: 1px solid var(--ok-border); border-radius: 6px;
+      background: var(--surface); color: var(--ok-text); cursor: pointer; outline: none; max-width: 140px;
     }
-    .hist-ficha-sel:focus { border-color: #39A900; box-shadow: 0 0 0 2px rgba(57,169,0,.15); }
+    .hist-ficha-sel:focus { border-color: var(--accent-brand); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-brand) 15%, transparent); }
     .hist-ficha-clear {
       display: flex; align-items: center; justify-content: center;
       width: 20px; height: 20px; border-radius: 50%;
-      border: 1px solid #bbf7d0; background: #f0fdf4; color: #15803d;
+      border: 1px solid var(--ok-border); background: var(--ok-bg); color: var(--ok-text);
       cursor: pointer; flex-shrink: 0; transition: all .15s;
     }
-    .hist-ficha-clear:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+    .hist-ficha-clear:hover { background: var(--err-bg); color: var(--err-text); border-color: var(--err-border); }
     .hist-horas-btn {
       display: inline-flex; align-items: center; gap: 4px;
-      padding: 4px 8px; border: 1px solid #bbf7d0; border-radius: 6px;
-      background: #f0fdf4; color: #15803d; cursor: default;
-      font-size: 11px; font-weight: 700; transition: all .15s;
+      padding: 4px 8px; border: 1px solid var(--ok-border); border-radius: 6px;
+      background: var(--ok-bg); color: var(--ok-text); cursor: default;
+      font-size: 12px; font-weight: 700; transition: all .15s;
     }
-    .hist-horas-btn:hover { background: #39A900; color: #fff; border-color: #39A900; }
+    .hist-horas-btn:hover { background: var(--accent-brand); color: #fff; border-color: var(--accent-brand); }
 
     .hist-dias-popover {
       position: fixed; z-index: 10000;
@@ -241,23 +242,23 @@ const RESULTADO_ESTADO_INFO: Record<string, { label: string; bg: string; text: s
     }
     .tt-form-header-row {
       display: flex; align-items: center; justify-content: space-between; gap: 6px;
-      padding: 5px 9px; background: #dcfce7; border-bottom: 1px solid #bbf7d0;
+      padding: 5px 9px; background: var(--ok-bg); border-bottom: 1px solid var(--ok-border);
     }
     .tt-form-lbl {
-      font-size: 10px; font-weight: 700; color: #15803d;
+      font-size: 12px; font-weight: 700; color: var(--ok-text);
       text-transform: uppercase; letter-spacing: .04em; white-space: nowrap;
     }
-    .tt-form-lbl strong { color: #14532d; font-weight: 800; }
+    .tt-form-lbl strong { color: var(--ok-text); font-weight: 800; }
     .tt-form-row {
       display: flex; align-items: center; justify-content: space-between; gap: 8px;
-      padding: 4px 9px; border-top: 1px solid #dcfce7; background: var(--surface);
+      padding: 4px 9px; border-top: 1px solid var(--ok-border); background: var(--surface);
     }
-    .tt-form-dia { font-size: 11px; font-weight: 700; color: var(--text); min-width: 95px; white-space: nowrap; }
+    .tt-form-dia { font-size: 12px; font-weight: 700; color: var(--text); min-width: 95px; white-space: nowrap; }
     .tt-horario-compact { display: flex; flex-direction: column; gap: 3px; margin: 2px 0 0; font-size: 12px; color: var(--text); }
     .tt-horario-row { display: flex; align-items: center; gap: 6px; }
     .tt-horario-row lucide-icon { color: var(--text-muted); flex-shrink: 0; }
     .tt-clases-chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 0; }
-    .tt-clase-chip { font-size: 10px; font-weight: 600; color: #15803d; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 5px; padding: 2px 6px; }
+    .tt-clase-chip { font-size: 12px; font-weight: 600; color: var(--ok-text); background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: 5px; padding: 2px 6px; }
 
   `],
 })

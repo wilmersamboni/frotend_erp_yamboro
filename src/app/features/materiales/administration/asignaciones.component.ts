@@ -2,7 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
-import { ToastService } from '../../../core/services/toast.service';
+import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { ErpCatalogoService } from '../../schedules/data-access/erp-catalogo.service';
 import { HorariosApiService } from '../../schedules/data-access/horarios-api.service';
@@ -14,6 +14,11 @@ import type { TuiDay } from '@taiga-ui/cdk';
 import { Asignacion, CreateAsignacionDto, EstadoAsignacion, MaterialesApiService, Producto, Sitio } from '../data-access/materiales-api.service';
 import { ElegirPlacasAsignacionModalComponent } from '../ui/elegir-placas-asignacion-modal.component';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
+import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
+import { AlertComponent } from '../../../shared/ui/alert.component';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
+import { EsperaDirective } from '../../../shared/directives/espera.directive';
+import { PageSizeSelectComponent } from '../../../shared/components/page-size-select.component';
 
 interface LineaAsignacionForm{
   id_producto:string;
@@ -40,33 +45,32 @@ interface Ficha {
 @Component({
   selector: 'app-materiales-asignaciones',
   standalone: true,
-  imports: [FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, ElegirPlacasAsignacionModalComponent, LoadingSkeletonComponent],
+  imports: [EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, ElegirPlacasAsignacionModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent],
   template: `
     <div class="p-6">
+      <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
+        <span>Materiales</span><span aria-hidden="true">/</span><span>Operación</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Asignaciones</span>
+      </nav>
       <div class="flex items-center justify-between mb-5">
         <h1 class="text-xl font-bold text-gray-800">Asignaciones</h1>
         <button (click)="nuevo()"
           class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-          style="background-color: #39A900">
+          style="background-color: var(--accent-brand)">
           + Nueva asignación
         </button>
       </div>
 
       @if (bodegasInactivas().length > 0) {
-        <div class="mb-4 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-start gap-2">
-          <span>⚠️</span>
-          <span>
-            {{ bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas' }}:
-            <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
-            — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
-          </span>
-        </div>
+        <app-alert class="mb-4" variante="advertencia" [titulo]="bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas'">
+          <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
+          — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
+        </app-alert>
       }
 
       @if (loading) {
         <app-loading-skeleton variant="table" [rows]="6" [columns]="5" [showToolbar]="false" label="Cargando asignaciones" />
       } @else if (asignaciones.length === 0) {
-        <p class="text-center text-gray-400 text-sm py-10">No hay asignaciones registradas</p>
+        <app-empty-state titulo="No hay asignaciones registradas" />
       } @else {
         <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
           <!-- Toolbar: búsqueda + filtro de estado + filas por página -->
@@ -77,22 +81,23 @@ interface Ficha {
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                 </svg>
               </div>
-              <input type="text" [(ngModel)]="filtroTexto" (ngModelChange)="page = 0"
+              <input appEspera type="text" [(ngModel)]="filtroTexto" (ngModelChange)="page = 0"
                 placeholder="Buscar por ficha o producto..."
                 class="w-full pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:border-[#39A900] focus:bg-white transition-all text-gray-900 placeholder:text-gray-400" />
               @if (filtroTexto) {
-                <button (click)="filtroTexto = ''; page = 0" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                <button aria-label="Limpiar búsqueda" (click)="filtroTexto = ''; page = 0" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                   </svg>
                 </button>
               }
             </div>
-            <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
-              <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</span>
+            <div class="relative flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200" [class.z-40]="estadoDropdownOpen()">
+              <button type="button" (click)="estadoDropdownOpen.update(v => !v)" class="absolute inset-0 z-0 rounded-xl cursor-pointer" aria-label="Estado de asignación"></button>
+              <span class="pointer-events-none relative z-10 text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</span>
 
               <!-- Dropdown personalizado para estado -->
-              <div class="relative">
+              <div class="relative z-20 pointer-events-none">
                 <button
                   type="button"
                   (click)="estadoDropdownOpen.update(v => !v)"
@@ -108,7 +113,7 @@ interface Ficha {
                   <div class="fixed inset-0 z-10" (click)="estadoDropdownOpen.set(false)"></div>
 
                   <!-- Menú flotante -->
-                  <div class="absolute left-0 top-full mt-2 z-20 w-40 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <div class="absolute left-0 top-full mt-2 z-20 w-40 pointer-events-auto rounded-xl border shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100" style="background-color: var(--surface); border-color: var(--border);">
                     <div class="p-1 space-y-0.5 max-h-64 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                       <button
                         type="button"
@@ -138,49 +143,15 @@ interface Ficha {
               </div>
             </div>
             <!-- Filas por página -->
-            <div class="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200">
-              <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filas</span>
-              <div class="relative">
-                <button
-                  type="button"
-                  (click)="pageSizeDropdownOpen.update(v => !v)"
-                  class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer">
-                  <span>{{ pageSize() }}</span>
-                  <svg class="w-3.5 h-3.5 text-gray-400 transition-transform duration-200" [class.rotate-180]="pageSizeDropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                @if (pageSizeDropdownOpen()) {
-                  <div class="fixed inset-0 z-10" (click)="pageSizeDropdownOpen.set(false)"></div>
-
-                  <div class="absolute left-0 top-full mt-2 z-20 w-20 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                    <div class="p-1 space-y-0.5">
-                      @for (size of [10, 20, 50, 100]; track size) {
-                        <button
-                          type="button"
-                          (click)="seleccionarPageSize(size)"
-                          class="w-full px-3 py-1.5 text-sm text-center rounded-lg transition-colors font-medium"
-                          [class.bg-green-50]="pageSize() === size"
-                          [class.text-green-700]="pageSize() === size"
-                          [class.text-gray-600]="pageSize() !== size"
-                          [class.hover:bg-gray-50]="pageSize() !== size">
-                          {{ size }}
-                        </button>
-                      }
-                    </div>
-                  </div>
-                }
-              </div>
-            </div>
+            <app-page-size-select [value]="pageSize()" (valueChange)="seleccionarPageSize($event)" />
           </div>
 
           @if (asignacionesFiltradas.length === 0) {
-            <p class="text-center text-gray-400 text-sm py-10">Sin resultados para estos filtros</p>
+            <app-empty-state titulo="Sin resultados para estos filtros" variante="busqueda" />
           } @else {
           <div class="overflow-x-auto">
           <table class="w-full text-sm">
-            <thead class="bg-gray-50/80 text-gray-500 text-[11px] uppercase tracking-wide">
+            <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
               <tr>
                 <th class="px-4 py-3 text-left font-semibold">Ficha</th>
                 <th class="px-4 py-3 text-left font-semibold">Producto</th>
@@ -200,7 +171,7 @@ interface Ficha {
                   <td class="px-4 py-3"><app-status-badge [value]="a.estado" /></td>
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ a.fecha_asignacion | date: 'short' }}</td>
                   <td class="px-4 py-3 text-center">
-                    <button (click)="toggleUbicacion(a)" title="Ver ambiente de la ficha"
+                    <button aria-label="Ver ambiente de la ficha" (click)="toggleUbicacion(a)" title="Ver ambiente de la ficha"
                       class="inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors"
                       [class.bg-green-50]="filaAbierta === a.id_asignacion"
                       [class.text-green-700]="filaAbierta === a.id_asignacion"
@@ -233,7 +204,7 @@ interface Ficha {
                       } @else {
                         @for (nombre of ubicacionesFicha.get(a.id_curso); track nombre) {
                           <span class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full mr-1.5"
-                            style="background-color: rgba(57,169,0,0.1); color: #2d7d00;">
+                            style="background-color: color-mix(in srgb, var(--accent-brand) 10%, transparent); color: var(--accent-text);">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z"/>
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -257,12 +228,12 @@ interface Ficha {
                 de <strong class="text-gray-800">{{ asignacionesFiltradas.length }}</strong> registros
               </span>
               <div class="flex items-center gap-2">
-                <button (click)="page = page - 1" [disabled]="page === 0"
+                <button aria-label="Página anterior" (click)="page = page - 1" [disabled]="page === 0"
                   class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                 </button>
                 <span class="px-4 py-1.5 text-sm font-semibold text-[#39A900] bg-[#39A900]/10 rounded-lg border border-[#39A900]/20">{{ page + 1 }} / {{ totalPaginas }}</span>
-                <button (click)="page = page + 1" [disabled]="page + 1 >= totalPaginas"
+                <button aria-label="Página siguiente" (click)="page = page + 1" [disabled]="page + 1 >= totalPaginas"
                   class="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </button>
@@ -275,11 +246,11 @@ interface Ficha {
     </div>
 
     @if (modalOpen) {
-      <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarModal()">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarModal()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-5">
             <h2 class="text-lg font-bold text-gray-800">Nueva asignación</h2>
-            <button (click)="cerrarModal()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="cerrarModal()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 
           <div class="space-y-3">
@@ -291,7 +262,7 @@ interface Ficha {
             <div>
   <div class="flex items-center justify-between mb-1.5">
     <label class="block text-xs font-medium text-gray-600">Productos a asignar</label>
-    <button type="button" (click)="agregarLineas()"
+    <button type="button" data-dirty (click)="agregarLineas()"
       class="text-xs font-medium text-[#39A900] hover:underline">
       + Agregar línea
     </button>
@@ -304,7 +275,7 @@ interface Ficha {
           <app-ss [options]="opcionesProductoLinea(linea)" placeholder="— Selecciona un producto —"
             [(ngModel)]="linea.id_producto" (ngModelChange)="onProductoLineaChange(linea)"></app-ss>
           @if (linea.id_producto) {
-            <p class="text-[11px] mt-0.5"
+            <p class="text-xs mt-0.5"
               [class.text-red-500]="disponibleDe(linea) < linea.cantidad"
               [class.text-gray-400]="disponibleDe(linea) >= linea.cantidad">
               {{ disponibleDe(linea) }} disponible(s){{ disponibleDe(linea) < linea.cantidad ? ' — cantidad excede el stock' : '' }}
@@ -313,7 +284,7 @@ interface Ficha {
         </div>
         <input type="number" [(ngModel)]="linea.cantidad" min="1"
           class="w-20 px-2 py-2 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
-        <button type="button" (click)="quitarLineas($index)"
+        <button aria-label="Quitar" type="button" data-dirty (click)="quitarLineas($index)"
           class="p-2 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 text-lg leading-none">×</button>
       </div>
     }
@@ -349,7 +320,7 @@ interface Ficha {
               [style.opacity]="(saving || !puedeGuardar()) ? 0.6 : 1"
               [style.cursor]="(saving || !puedeGuardar()) ? 'not-allowed' : 'pointer'"
               class="px-5 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-              style="background-color: #39A900">
+              style="background-color: var(--accent-brand)">
               {{ saving ? 'Guardando...' : 'Guardar' }}
             </button>
           </div>
@@ -393,15 +364,13 @@ export class MaterialesAsignacionesComponent implements OnInit {
   filtroTexto = '';
   filtroEstado: EstadoAsignacion | '' = '';
   pageSize = signal(20);
-  pageSizeDropdownOpen = signal(false);
   estadoDropdownOpen = signal(false);
   page = 0;
-  readonly estadosAsignacion: EstadoAsignacion[] = ['ACTIVA', 'ANULADA'];
+  readonly estadosAsignacion: EstadoAsignacion[] = ['ACTIVA', 'DEVUELTA', 'ANULADA'];
 
   seleccionarPageSize(size: number): void {
     this.pageSize.set(size);
     this.page = 0;
-    this.pageSizeDropdownOpen.set(false);
   }
 
   seleccionarEstado(valor: EstadoAsignacion | ''): void {
@@ -548,7 +517,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
   nombreFicha(a: { id_curso: string; ficha_codigo?: string | null; ficha_programa?: string | null }): string {
     if (a.ficha_codigo) return `${a.ficha_codigo}${a.ficha_programa ? ' — ' + a.ficha_programa : ''}`;
     const f = this.fichas.find((x) => x.idCurso === a.id_curso);
-    return f ? `${f.codigo}${f.programa ? ' — ' + f.programa : ''}` : a.id_curso.slice(0, 8) + '…';
+    return f ? `${f.codigo}${f.programa ? ' — ' + f.programa : ''}` : 'Ficha no disponible';
   }
 
   descripcionLineas(a: Asignacion): string {
@@ -556,6 +525,17 @@ export class MaterialesAsignacionesComponent implements OnInit {
       return a.lineas.map((l)=>`${l.producto_nombre ?? 'Producto'} (x${l.cantidad})`).join(', ')
     }
     return a.producto?.nombre ?? '-'
+  }
+
+  /** Resumen corto para diálogos: los primeros `max` productos y "y N más". */
+  resumenLineas(a: Asignacion, max = 2): string {
+    const ls = a.lineas ?? [];
+    if (ls.length === 0) return a.producto?.nombre ?? 'sin productos';
+    const vistos = ls
+      .slice(0, max)
+      .map((l) => `${l.producto_nombre ?? 'Producto'} (x${l.cantidad})`)
+      .join(', ');
+    return ls.length > max ? `${vistos} y ${ls.length - max} más` : vistos;
   }
 
   /**
@@ -582,7 +562,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
       for (const h of horarios ?? []) {
         if (!h.ambienteId) continue;
         const ambiente = this.ambientes.find((amb) => amb.id === h.ambienteId);
-        nombres.add(ambiente?.nombre ?? `Ambiente ${String(h.ambienteId).slice(0, 8)}…`);
+        nombres.add(ambiente?.nombre ?? 'Ambiente no disponible');
       }
       this.ubicacionesFicha.set(a.id_curso, [...nombres]);
     } catch (e) {
@@ -676,7 +656,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
     this.modalOpen = false;
     await this.cargar();
   } catch (e: any) {
-    this.error = e?.error?.message ?? 'No se pudo crear la asignación.';
+    this.error = mensajeDeError(e, 'No se pudo crear la asignación.');
   } finally {
     this.saving = false;
   }
@@ -684,7 +664,8 @@ export class MaterialesAsignacionesComponent implements OnInit {
   
 
   async anular(a: Asignacion): Promise<void> {
-    if (!(await this.confirm.ask(`¿Anular la asignación #${a.id_asignacion}? El stock de los ítems prestados se restaurará.`))) return;
+    const msg = `¿Anular la asignación de ${this.resumenLineas(a)} a la ficha ${this.nombreFicha(a)}? Los ítems que sigan prestados volverán al inventario.`;
+    if (!(await this.confirm.ask(msg))) return;
     try {
       await this.api.anularAsignacion(a.id_asignacion);
       this.toast.ok('Asignación anulada');

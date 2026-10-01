@@ -1,9 +1,9 @@
 import { Injectable, inject } from '@angular/core';
-import { MessageService } from 'primeng/api';
+import { ToastService, erroresYaAvisados, mensajeDeError } from '../services/toast.service';
 
 @Injectable({ providedIn: 'root' })
 export class AdminToastService {
-  private readonly msg = inject(MessageService);
+  private readonly msg = inject(ToastService);
 
   success(text: string): void {
     this.msg.add({ severity: 'success', summary: 'Éxito', detail: text, life: 4000 });
@@ -11,6 +11,12 @@ export class AdminToastService {
 
   error(text: string): void {
     this.msg.add({ severity: 'error', summary: 'Error', detail: text, life: 5000 });
+  }
+
+  /** Aviso rojo con el mensaje del backend (traducido) o, si no lo hay, `fallback`. */
+  httpError(e: unknown, fallback: string): void {
+    if (e && typeof e === 'object' && erroresYaAvisados.has(e)) return;   // ya lo avisó el interceptor
+    this.error(mensajeDeError(e, fallback));
   }
 
   info(text: string): void {

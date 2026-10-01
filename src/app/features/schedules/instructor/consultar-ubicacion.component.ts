@@ -171,7 +171,7 @@ import { to12h, jornadaLabel } from '../../../core/utils/horarios.util';
 
         @if (ubicOcupados.length) {
           <div class="amb-group mt-4">
-            <div class="amb-group-header" style="color:#dc2626;">
+            <div class="amb-group-header" style="color:var(--err-text);">
               <lucide-icon name="calendar-x" [size]="13"></lucide-icon>
               Ocupadas por evento ({{ ubicOcupados.length }})
             </div>
@@ -230,15 +230,15 @@ import { to12h, jornadaLabel } from '../../../core/utils/horarios.util';
       color: var(--text); outline: none; transition: border-color .15s;
       box-sizing: border-box;
     }
-    .amb-search-input:focus { border-color: #39A900; }
+    .amb-search-input:focus { border-color: var(--accent-brand); }
 
     .amb-group-header {
       display: flex; align-items: center; gap: 6px;
-      font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
+      font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
       margin-bottom: 10px;
     }
-    .amb-group-libre    { color: #166534; }
-    .amb-group-conflicto { color: #b45309; }
+    .amb-group-libre    { color: var(--ok-text); }
+    .amb-group-conflicto { color: var(--warn-text); }
 
     .amb-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
 
@@ -252,33 +252,33 @@ import { to12h, jornadaLabel } from '../../../core/utils/horarios.util';
     .amb-card-top-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
     .amb-card-nombre { font-size: 13px; font-weight: 700; }
 
-    .amb-card-libre { background: #f0fdf4; border-color: #86efac; color: #166534; }
-    .amb-card-libre:hover { background: #dcfce7; border-color: #4ade80; }
-    .amb-card-libre-hint { font-size: 10px; opacity: .75; display:flex; align-items:center; gap:3px; }
+    .amb-card-libre { background: var(--ok-bg); border-color: var(--ok-border); color: var(--ok-text); }
+    .amb-card-libre:hover { background: var(--ok-bg); border-color: #4ade80; }
+    .amb-card-libre-hint { font-size: 12px; opacity: .75; display:flex; align-items:center; gap:3px; }
 
-    .amb-card-conflicto { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
-    .amb-card-ocupado { background: #fef2f2; border-color: #fca5a5; color: #991b1b; opacity: .85; cursor: not-allowed; }
-    .amb-area-tag-red { background: #fee2e2; color: #991b1b; }
+    .amb-card-conflicto { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
+    .amb-card-ocupado { background: var(--err-bg); border-color: var(--err-border); color: var(--err-text); opacity: .85; cursor: not-allowed; }
+    .amb-area-tag-red { background: var(--err-bg); color: var(--err-text); }
 
     .amb-cc-details { display: flex; flex-direction: column; gap: 4px; }
-    .amb-cc-row { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 500; }
+    .amb-cc-row { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; }
     .amb-retraso-tag {
-      background: #fee2e2; color: #991b1b; border-radius: 6px;
-      padding: 1px 5px; font-size: 10px; font-weight: 700; margin-left: 4px;
+      background: var(--err-bg); color: var(--err-text); border-radius: 6px;
+      padding: 1px 5px; font-size: 12px; font-weight: 700; margin-left: 4px;
     }
     .amb-cc-select-btn {
       margin-top: 4px; display: flex; align-items: center; gap: 5px; justify-content: center;
-      background: #fef3c7; border: 1px solid #fcd34d; border-radius: 7px;
-      padding: 5px 10px; font-size: 11px; font-weight: 700; color: #92400e;
+      background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: 7px;
+      padding: 5px 10px; font-size: 12px; font-weight: 700; color: var(--warn-text);
       cursor: pointer; transition: background .15s;
     }
     .amb-cc-select-btn:hover { background: #f59e0b; color: #fff; border-color: #f59e0b; }
 
     .amb-area-tag {
-      background: #e0f2fe; color: #0369a1; border-radius: 6px;
-      padding: 2px 6px; font-size: 10px; font-weight: 700; white-space: nowrap;
+      background: var(--info-bg); color: var(--info-text); border-radius: 6px;
+      padding: 2px 6px; font-size: 12px; font-weight: 700; white-space: nowrap;
     }
-    .amb-area-tag-amber { background: #fef3c7; color: #92400e; }
+    .amb-area-tag-amber { background: var(--warn-bg); color: var(--warn-text); }
 
     .amb-loading-center {
       display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -296,10 +296,10 @@ import { to12h, jornadaLabel } from '../../../core/utils/horarios.util';
       cursor: pointer; transition: background .15s, color .15s;
       position: relative; bottom: -2px;
     }
-    .ubi-tab:hover { background: #f0fdf4; color: #39A900; border-color: #bbf7d0; }
+    .ubi-tab:hover { background: var(--ok-bg); color: var(--accent-text); border-color: var(--ok-border); }
     .ubi-tab-active {
-      background: var(--surface); color: #39A900;
-      border-color: #39A900; border-bottom-color: var(--surface);
+      background: var(--surface); color: var(--accent-text);
+      border-color: var(--accent-brand); border-bottom-color: var(--surface);
       font-weight: 800;
     }
 
