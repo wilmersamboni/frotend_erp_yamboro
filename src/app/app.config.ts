@@ -11,7 +11,6 @@ import { errorInterceptor } from './core/interceptors/error.interceptor';
 import { debugInterceptor } from './core/interceptors/debug.interceptor';
 import { environment } from '../environments/environment';
 import { provideLottieOptions } from 'ngx-lottie';
-import player from 'lottie-web';
 import { provideTaiga } from '@taiga-ui/core';
 import { tuiAssetsPathProvider } from '@taiga-ui/core/tokens';
 import { registerLocaleData } from '@angular/common';
@@ -194,7 +193,9 @@ export const appConfig: ApplicationConfig = {
     },
     ...provideTaiga({ scrollbars: 'native' }),
     tuiAssetsPathProvider('assets/taiga-ui/icons'),
-    provideLottieOptions({ player: () => player }),
+    // `import()`: lottie-web (~300 kB) sale del bundle inicial y se descarga
+    // cuando se pinta la primera animación.
+    provideLottieOptions({ player: () => import('lottie-web') }),
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000',

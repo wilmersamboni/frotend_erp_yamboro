@@ -1,9 +1,12 @@
 import { Injectable } from '@angular/core';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as ExcelJS from 'exceljs';
+// Solo tipos: exceljs (~920 kB) y jspdf (~430 kB) se cargan recién al exportar
+// (`import()` dentro de cada método). Importados acá viajaban con la pantalla
+// de Inicio, que es la primera que abre todo el mundo.
+import type { jsPDF } from 'jspdf';
+import type * as ExcelJS from 'exceljs';
 import { Stats, DonaStats, categorizarEstado } from './stats.service';
 import { ResultadoConsulta } from '../../shared/models/estudiante.model';
+import { log } from '../utils/log';
 
 /** Charts ya renderizados + datos para gráficos nativos de Excel. */
 export interface GraficosExport {
@@ -186,6 +189,7 @@ export class ExportService {
     practicas: any[],
     graficos?: GraficosExport
   ): Promise<void> {
+    const [{ jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
     const doc = new jsPDF();
     const pw  = doc.internal.pageSize.getWidth();
     const ph  = doc.internal.pageSize.getHeight();
@@ -548,6 +552,7 @@ export class ExportService {
     practicas: any[],
     graficos?: GraficosExport
   ): Promise<void> {
+    const ExcelJS = await import('exceljs');
     const wb = new ExcelJS.Workbook();
     wb.creator = 'Panel de Control SENA';
     wb.created = new Date();
@@ -886,7 +891,7 @@ export class ExportService {
         },
       } as any);
     } catch (err) {
-      console.warn('No se pudieron insertar gráficos nativos de Excel, se usan imágenes:', err);
+      log.warn('No se pudieron insertar gráficos nativos de Excel, se usan imágenes:', err);
       // Fallback: insertar imágenes
       if (graficos?.imgEstados) {
         const boxE = this.fitBox(await this.getImageDims(graficos.imgEstados), 480, 280);
@@ -1015,8 +1020,9 @@ export class ExportService {
     return map.get(id) ?? 'Instructor no encontrado';
   }
 
-  exportarHistorialPDF(resultado: ResultadoConsulta, personasMap: Map<string, string>): void {
+  async exportarHistorialPDF(resultado: ResultadoConsulta, personasMap: Map<string, string>): Promise<void> {
     const { estudiante, historial, practicas } = resultado;
+    const [{ jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
     const doc = new jsPDF();
     const pw = doc.internal.pageSize.getWidth();
     const ph = doc.internal.pageSize.getHeight();
@@ -1230,6 +1236,7 @@ export class ExportService {
   // ══════════════════════════════════════════════════════════════════════════
   async exportarHistorialExcel(resultado: ResultadoConsulta, personasMap: Map<string, string>): Promise<void> {
     const { estudiante, historial, practicas } = resultado;
+    const ExcelJS = await import('exceljs');
     const wb = new ExcelJS.Workbook();
     wb.creator = 'EPSAS';
     wb.created = new Date();
