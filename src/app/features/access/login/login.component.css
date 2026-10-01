@@ -365,6 +365,73 @@
   text-decoration: none;
 }
 
+/* El enlace ahora es un <button>: sin el aspecto de botón del navegador. */
+button.forgot-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+button.forgot-link:hover { text-decoration: underline; }
+
+/* ── Recuperación de contraseña ──────────────────────────────────────── */
+.info-box {
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  background: #f0fdf4;
+  border: 1.5px solid #bbf7d0;
+  color: #166534;
+}
+
+.form-input-sinicono { padding-left: 16px; }
+
+.form-input-codigo {
+  padding-left: 16px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: .5em;
+}
+
+.rec-nota { font-size: 12px; margin: 6px 0 0; }
+.rec-nota-err { color: #dc2626; }
+
+.link-btn {
+  align-self: center;
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #39A900;
+  cursor: pointer;
+}
+.link-btn:hover:not(:disabled) { text-decoration: underline; }
+.link-btn:disabled { color: #8fa896; cursor: default; }
+
+/* Elegir usuario cuando la persona tiene varios */
+.cuentas { display: flex; flex-direction: column; gap: 8px; }
+.cuenta-opcion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 1.5px solid #e2e8f0;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.cuenta-opcion:hover { border-color: #b7dfa0; }
+.cuenta-opcion input { accent-color: #39A900; margin: 0; }
+.cuenta-activa { border-color: #39A900; background: #f0fdf4; }
+.cuenta-unica { cursor: default; }
+.cuenta-nombre { font-size: 14px; font-weight: 600; color: #1e293b; word-break: break-all; }
+
 .submit-btn {
   width: 100%;
   padding: 16px;
@@ -444,3 +511,23 @@
   .form-input { padding: 14px 14px 14px 42px; font-size: 14px; }
   .submit-btn { padding: 14px; font-size: 14px; }
 }
+
+/* ── El login es siempre claro, también con el modo oscuro activo ──────
+   dark-theme.css pone `color-scheme: dark` y `input { color: var(--text) }`
+   (texto casi blanco) para toda la app: aquí eso dejaba el texto invisible
+   sobre los campos claros y el autocompletado de Chrome en gris azulado.
+   `:host` sube la especificidad por encima de `:root[data-theme="dark"] input`. */
+:host { color-scheme: light; }
+
+:host .form-input { color: #071a0a; }
+:host .form-input::placeholder { color: #8fa896; }
+
+:host .form-input:-webkit-autofill,
+:host .form-input:-webkit-autofill:hover,
+:host .form-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #071a0a;
+  caret-color: #071a0a;
+  box-shadow: 0 0 0 1000px #f5faf6 inset;
+  transition: background-color 9999s ease-out 0s;
+}
+:host .form-input:-webkit-autofill:focus { box-shadow: 0 0 0 1000px #fff inset; }

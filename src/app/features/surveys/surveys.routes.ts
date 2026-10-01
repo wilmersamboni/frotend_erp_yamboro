@@ -12,7 +12,7 @@ export const SURVEY_ROUTES: Routes = [
   },
   {
     path: 'encuestas/preguntas',
-    title: 'Preguntas de encuesta | ERP',
+    title: 'Preguntas de encuestas | ERP',
     canActivate: [roleGuard],
     data: { roles: ['administrador', 'administrador_erp'], servicios: ['encuestas.gestionar'] },
     loadComponent: () => import('./management/preguntas.component').then((m) => m.PreguntasComponent),

@@ -3,10 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { AdminAuthService } from '../../../core/admin-auth/admin-auth.service';
 import { AdminToastService } from '../../../core/admin-auth/admin-toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
+import { CorreoAdminService, ConfiguracionCorreo } from '../../../core/services/admin/correo-admin.service';
+import { DatePipe } from '@angular/common';
 import { ThemeService, TEMAS, MODOS, ModoTema } from '../../../core/services/theme.service';
 import { avisarCambiosSinGuardar } from '../../../core/services/unsaved-changes.service';
 
-type Tab = 'perfil' | 'password' | 'apariencia' | 'sistema';
+type Tab = 'perfil' | 'password' | 'apariencia' | 'correo' | 'sistema';
 
 /**
  * Configuración del panel de plataforma. Misma estructura y mismos estilos que
@@ -16,7 +18,7 @@ type Tab = 'perfil' | 'password' | 'apariencia' | 'sistema';
 @Component({
   selector: 'app-admin-settings',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, DatePipe],
   styleUrl: '../../preferences/settings.component.css',
   template: `
     <div class="settings-wrap">
@@ -49,6 +51,12 @@ type Tab = 'perfil' | 'password' | 'apariencia' | 'sistema';
               <path d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
             Apariencia
+          </button>
+          <button type="button" (click)="abrirCorreo()" [class.active]="tab() === 'correo'">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Correo
           </button>
           <button type="button" (click)="tab.set('sistema')" [class.active]="tab() === 'sistema'">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -190,6 +198,86 @@ type Tab = 'perfil' | 'password' | 'apariencia' | 'sistema';
             </div>
           }
 
+          @if (tab() === 'correo') {
+            <div class="panel-section">
+              <h2 class="panel-title">Correo saliente</h2>
+              <p class="panel-sub">
+                Con esto la plataforma envía correos, como el código para que los usuarios de cada centro recuperen su contraseña.
+                Se usa <strong>Brevo</strong>: crea la clave de API en brevo.com (SMTP &amp; API, API Keys) y verifica ahí el correo remitente.
+              </p>
+
+              @if (cargandoCorreo()) {
+                <div class="spinner-wrap"><div class="spinner"></div></div>
+              } @else {
+                <div class="pref-row" style="margin-bottom:18px">
+                  <div>
+                    <p class="pref-label">Envío de correos</p>
+                    <p class="pref-desc">
+                      @if (correo.activo) { Activo: los usuarios pueden recuperar su contraseña por correo. }
+                      @else { Desactivado: el login les indica que contacten al administrador de su centro. }
+                    </p>
+                  </div>
+                  <button type="button" class="switch" [class.on]="correo.activo" role="switch" [attr.aria-checked]="correo.activo"
+                    aria-label="Activar el envío de correos" (click)="correo.activo = !correo.activo">
+                    <span class="switch-thumb"></span>
+                  </button>
+                </div>
+
+                <div class="form-grid">
+                  <div class="form-field" style="grid-column:1/-1">
+                    <label for="co-key">Clave de API de Brevo</label>
+                    <div class="input-eye">
+                      <input id="co-key" [type]="verClave ? 'text' : 'password'" [(ngModel)]="correo.apiKey" name="apiKey" autocomplete="off"
+                        [placeholder]="correoCfg()?.claveGuardada ? 'Guardada (termina en ' + correoCfg()?.claveFinal + '). Escribe otra solo para cambiarla' : 'xkeysib-...'" />
+                      <button type="button" (click)="verClave = !verClave" [attr.aria-label]="verClave ? 'Ocultar clave' : 'Mostrar clave'">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                        </svg>
+                      </button>
+                    </div>
+                    <p class="pref-desc" style="margin-top:6px">Se guarda cifrada y nunca se vuelve a mostrar.</p>
+                  </div>
+                  <div class="form-field">
+                    <label for="co-rem">Correo remitente</label>
+                    <input id="co-rem" type="email" [(ngModel)]="correo.remitenteCorreo" name="remitente" placeholder="notificaciones@tucentro.com" />
+                  </div>
+                  <div class="form-field">
+                    <label for="co-nom">Nombre del remitente</label>
+                    <input id="co-nom" type="text" [(ngModel)]="correo.remitenteNombre" name="remitenteNombre" placeholder="EPSAS" />
+                  </div>
+                </div>
+
+                @if (correoCfg()?.actualizadoEn) {
+                  <p class="pref-desc" style="margin-top:10px">
+                    Última modificación: {{ correoCfg()?.actualizadoEn | date: 'medium' }}@if (correoCfg()?.actualizadoPor) { por {{ correoCfg()?.actualizadoPor }} }
+                  </p>
+                }
+
+                <div class="panel-footer">
+                  <button type="button" class="btn-primary" (click)="guardarCorreo()" [disabled]="guardandoCorreo()">
+                    {{ guardandoCorreo() ? 'Guardando…' : 'Guardar' }}
+                  </button>
+                </div>
+
+                <hr class="divider" />
+
+                <p class="pref-label">Enviar un correo de prueba</p>
+                <p class="pref-desc" style="margin-bottom:12px">Usa lo que está guardado, aunque el envío esté desactivado. Guarda primero si cambiaste algo.</p>
+                <div class="flex flex-wrap gap-2 items-center">
+                  <div class="form-field" style="flex:1;min-width:14rem">
+                    <input type="email" [(ngModel)]="destinoPrueba" name="destinoPrueba" placeholder="tu-correo@ejemplo.com" aria-label="Correo de destino para la prueba" />
+                  </div>
+                  <button type="button" class="btn-secundario" (click)="probarCorreo()" [disabled]="probandoCorreo() || !destinoPrueba || !correoCfg()?.claveGuardada">
+                    {{ probandoCorreo() ? 'Enviando…' : 'Enviar prueba' }}
+                  </button>
+                </div>
+                @if (resultadoPrueba(); as rp) {
+                  <p class="msg" [class.msg-ok]="rp.ok" [class.msg-err]="!rp.ok">{{ rp.texto }}</p>
+                }
+              }
+            </div>
+          }
+
           @if (tab() === 'sistema') {
             <div class="panel-section">
               <h2 class="panel-title">Sistema</h2>
@@ -214,9 +302,20 @@ export class AdminSettingsComponent {
   private readonly toast   = inject(AdminToastService);
   private readonly confirm = inject(ConfirmService);
   private readonly theme   = inject(ThemeService);
+  private readonly correoApi = inject(CorreoAdminService);
   private readonly _avisoCambios = avisarCambiosSinGuardar(() => !!(this.pwd.actual || this.pwd.nueva || this.pwd.confirma));
 
   readonly tab = signal<Tab>('perfil');
+
+  // ── Correo saliente (Brevo) ──
+  readonly correoCfg = signal<ConfiguracionCorreo | null>(null);
+  readonly cargandoCorreo = signal(false);
+  readonly guardandoCorreo = signal(false);
+  readonly probandoCorreo = signal(false);
+  readonly resultadoPrueba = signal<{ ok: boolean; texto: string } | null>(null);
+  correo = { apiKey: '', remitenteCorreo: '', remitenteNombre: '', activo: false };
+  verClave = false;
+  destinoPrueba = '';
   readonly guardando = signal(false);
 
   readonly temas = TEMAS;
@@ -232,6 +331,52 @@ export class AdminSettingsComponent {
   ];
   pwd = { actual: '', nueva: '', confirma: '' };
   ver: Record<string, boolean> = { actual: false, nueva: false, confirma: false };
+
+  async abrirCorreo(): Promise<void> {
+    this.tab.set('correo');
+    if (this.correoCfg()) return;
+    this.cargandoCorreo.set(true);
+    try {
+      this.aplicarCorreo(await this.correoApi.obtener());
+      this.destinoPrueba = this.authService.currentUser()?.correo ?? '';
+    } catch (e) {
+      this.toast.httpError(e, 'No se pudo cargar la configuración de correo.');
+    } finally {
+      this.cargandoCorreo.set(false);
+    }
+  }
+
+  private aplicarCorreo(c: ConfiguracionCorreo): void {
+    this.correoCfg.set(c);
+    this.correo = { apiKey: '', remitenteCorreo: c.remitenteCorreo ?? '', remitenteNombre: c.remitenteNombre ?? '', activo: c.activo };
+  }
+
+  async guardarCorreo(): Promise<void> {
+    this.guardandoCorreo.set(true);
+    try {
+      const { apiKey, ...resto } = this.correo;
+      this.aplicarCorreo(await this.correoApi.guardar(apiKey.trim() ? { apiKey: apiKey.trim(), ...resto } : resto));
+      this.toast.success('Configuración de correo guardada.');
+    } catch (e) {
+      this.toast.httpError(e, 'No se pudo guardar la configuración de correo.');
+    } finally {
+      this.guardandoCorreo.set(false);
+    }
+  }
+
+  async probarCorreo(): Promise<void> {
+    this.probandoCorreo.set(true);
+    this.resultadoPrueba.set(null);
+    try {
+      const r = await this.correoApi.probar(this.destinoPrueba.trim());
+      this.resultadoPrueba.set({ ok: true, texto: r.mensaje + ' Revisa la bandeja de entrada y la carpeta de spam.' });
+    } catch (e: any) {
+      const m = e?.error?.message;
+      this.resultadoPrueba.set({ ok: false, texto: (Array.isArray(m) ? m.join('. ') : m) || 'No se pudo enviar el correo de prueba.' });
+    } finally {
+      this.probandoCorreo.set(false);
+    }
+  }
 
   nombre(): string {
     return (this.authService.currentUser()?.correo ?? 'Administrador').split('@')[0];

@@ -51,8 +51,20 @@
     <!-- ══════════════ PANEL DERECHO — formulario ══════════════ -->
     <div class="login-right">
 
-      <h1 class="right-title">Hola de nuevo</h1>
-      <p class="right-sub">Ingresa tus credenciales para continuar</p>
+      @if (recuperar() === 'no') {
+        <h1 class="right-title">Hola de nuevo</h1>
+        <p class="right-sub">Ingresa tus credenciales para continuar</p>
+      } @else {
+        <h1 class="right-title">Recuperar contraseña</h1>
+        <p class="right-sub">
+          @switch (recuperar()) {
+            @case ('solicitar') { Escribe el correo que tienes registrado en el centro y te enviaremos un código. }
+            @case ('codigo') { Escribe el código de 6 dígitos que te llegó al correo. }
+            @case ('nueva') { Elige tu nueva contraseña. }
+            @default { Listo, ya puedes entrar con tu nueva contraseña. }
+          }
+        </p>
+      }
 
       <!-- Error -->
       @if (error()) {
@@ -78,7 +90,119 @@
         </div>
       }
 
-      @if (slugFromUrl) {
+      @if (slugFromUrl && recuperar() !== 'no') {
+        <div class="login-form">
+          @if (aviso() && recuperar() !== 'solicitar') {
+            <div class="info-box">{{ aviso() }}</div>
+          }
+
+          @if (recuperar() === 'solicitar') {
+            @if (recuperacionDisponible() === false) {
+              <div class="info-box">
+                La recuperación por correo no está habilitada. Para restablecer tu contraseña, contacta al administrador de tu centro.
+              </div>
+            } @else {
+              <form (ngSubmit)="enviarCodigo()" class="login-form">
+                <div class="form-group">
+                  <label class="form-label" for="rec-correo">Correo electrónico</label>
+                  <div class="input-wrap">
+                    <span class="input-icon">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/>
+                      </svg>
+                    </span>
+                    <input id="rec-correo" type="email" [(ngModel)]="rec.correo" name="recCorreo" autocomplete="email" autocapitalize="none"
+                      autocorrect="off" spellcheck="false" placeholder="tucorreo@ejemplo.com" required class="form-input" />
+                  </div>
+                </div>
+                <button type="submit" class="submit-btn" [disabled]="enviando() || recuperacionDisponible() === null" [class.is-loading]="enviando()">
+                  {{ enviando() ? 'Enviando…' : 'Enviar código' }}
+                </button>
+              </form>
+            }
+          }
+
+          @if (recuperar() === 'codigo') {
+            <form (ngSubmit)="verificarCodigo()" class="login-form">
+              <div class="form-group">
+                <label class="form-label" for="rec-codigo">Código de 6 dígitos</label>
+                <div class="input-wrap">
+                  <!-- Sin maxlength: al pegar "0 2 9 1 2 3" (el correo muestra cada dígito en su cuadro) cortaba en
+                       el 6.º carácter contando espacios. soloDigitosCodigo() deja únicamente los 6 dígitos. -->
+                  <input #codigoInput id="rec-codigo" type="text" inputmode="numeric" autocomplete="one-time-code"
+                    [value]="rec.codigo" (input)="soloDigitosCodigo(codigoInput)" name="recCodigo" placeholder="000000"
+                    required class="form-input form-input-codigo" />
+                </div>
+              </div>
+              <button type="submit" class="submit-btn" [disabled]="enviando()" [class.is-loading]="enviando()">
+                {{ enviando() ? 'Verificando…' : 'Verificar código' }}
+              </button>
+              <button type="button" class="link-btn" (click)="enviarCodigo()" [disabled]="esperaReenvio() > 0 || enviando()">
+                {{ esperaReenvio() > 0 ? 'Reenviar código en ' + esperaReenvio() + ' s' : 'Reenviar código' }}
+              </button>
+            </form>
+          }
+
+          @if (recuperar() === 'nueva') {
+            <form (ngSubmit)="cambiarContrasena()" class="login-form">
+              <div class="form-group">
+                @if (usuariosRec().length > 1) {
+                  <span class="form-label">¿A cuál usuario le cambias la contraseña?</span>
+                  <div class="cuentas" role="radiogroup" aria-label="Usuario">
+                    @for (u of usuariosRec(); track u) {
+                      <label class="cuenta-opcion" [class.cuenta-activa]="rec.login === u">
+                        <input type="radio" name="recLogin" [value]="u" [(ngModel)]="rec.login" />
+                        <span class="cuenta-nombre">{{ u }}</span>
+                      </label>
+                    }
+                  </div>
+                } @else {
+                  <span class="form-label">Usuario</span>
+                  <div class="cuenta-opcion cuenta-activa cuenta-unica">
+                    <span class="cuenta-nombre">{{ rec.login }}</span>
+                  </div>
+                }
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="rec-nueva">Nueva contraseña</label>
+                <div class="input-wrap">
+                  <input id="rec-nueva" [type]="showPassword() ? 'text' : 'password'" autocomplete="new-password"
+                    [(ngModel)]="rec.nueva" name="recNueva" placeholder="Mínimo 8 caracteres" required class="form-input form-input-sinicono form-input-pw" />
+                  <button type="button" (click)="showPassword.set(!showPassword())" class="toggle-pw"
+                    [attr.aria-label]="showPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="rec-confirma">Confirmar contraseña</label>
+                <div class="input-wrap">
+                  <input id="rec-confirma" [type]="showPassword() ? 'text' : 'password'" autocomplete="new-password"
+                    [(ngModel)]="rec.confirma" name="recConfirma" placeholder="Repite la contraseña" required class="form-input form-input-sinicono" />
+                </div>
+                @if (rec.confirma && !contrasenasCoinciden) {
+                  <p class="rec-nota rec-nota-err">Las contraseñas no coinciden</p>
+                }
+              </div>
+              <button type="submit" class="submit-btn" [disabled]="enviando() || !rec.login" [class.is-loading]="enviando()">
+                {{ enviando() ? 'Guardando…' : 'Cambiar contraseña' }}
+              </button>
+            </form>
+          }
+
+          @if (recuperar() === 'listo') {
+            <button type="button" class="submit-btn" (click)="volverAlLogin()">Iniciar sesión</button>
+          }
+
+          @if (recuperar() !== 'listo') {
+            <button type="button" class="link-btn" (click)="volverAlLogin()">← Volver al inicio de sesión</button>
+          }
+        </div>
+      }
+
+      @if (slugFromUrl && recuperar() === 'no') {
         <form (ngSubmit)="onSubmit()" class="login-form">
 
           <!-- Usuario -->
@@ -127,8 +251,9 @@
           </div>
 
           <!-- Olvidé contraseña -->
-          <!-- <div class="forgot-row">
-          </div> -->
+          <div class="forgot-row">
+            <button type="button" class="forgot-link" (click)="abrirRecuperacion()">¿Olvidaste tu contraseña?</button>
+          </div>
 
           <!-- Botón ingresar -->
           <button type="submit" [disabled]="loading()" class="submit-btn"

@@ -8,7 +8,7 @@ import { Component, input, output, computed } from '@angular/core';
   standalone: true,
   template: `
     @if (pages() > 0) {
-      <div class="py-3 px-6 flex justify-center gap-1 border-t border-gray-50">
+      <div class="py-3.5 px-6 flex justify-center gap-1 border-t" style="border-color: var(--border);">
 
         <button aria-label="Página anterior" (click)="page() > 1 && pageChange.emit(page() - 1)"
           [disabled]="page() === 1"

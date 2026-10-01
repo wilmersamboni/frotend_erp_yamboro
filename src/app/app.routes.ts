@@ -73,7 +73,7 @@ const RUTAS: Routes = [
           // 2026-09-15: "un instructor... solo debería poder acceder a este
           // de igual manera con la gestión de formatos, solo si le conceden
           // el permiso").
-          { path: 'docs', title: 'Historial del aprendiz | ERP', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['practica.historial.ver'] }, loadComponent: () => import('./features/practice/history/historial.component').then((m) => m.HistorialComponent) },
+          { path: 'docs', title: 'Historial | ERP', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['practica.historial.ver'] }, loadComponent: () => import('./features/practice/history/historial.component').then((m) => m.HistorialComponent) },
           // Formatos: accesible a cualquiera con `practica.formatos.ver`
           // (aprendiz lo trae por defecto) — ya NO exige tener una etapa
           // práctica activa (corregido 2026-09-16, pedido explícito: "el
@@ -96,7 +96,7 @@ const RUTAS: Routes = [
           // revocara 'permisos.gestionar' explícitamente. Ver plan "Ronda 3"
           // (continuación, Fase 10/11).
           { path: 'admin', title: 'Administración | ERP', canActivate: [roleGuard], data: { servicios: SERVICIOS_ADMIN_PANEL }, loadComponent: () => import('./features/tenant-administration/admin-panel/admin-panel.component').then((m) => m.AdminPanelComponent) },
-          { path: 'settings', title: 'Configuración | ERP', loadComponent: () => import('./features/preferences/settings.component').then((m) => m.SettingsComponent) },
+          { path: 'settings', title: 'Ajustes | ERP', loadComponent: () => import('./features/preferences/settings.component').then((m) => m.SettingsComponent) },
           // OJO: 'servicios' (OR), no 'serviciosRequeridos' (AND) — roles=admin
           // y "instructor con practica.migracion otorgado" son POBLACIONES
           // DISTINTAS (misma lección de Fase 3.2: AND es solo para cuando
@@ -171,12 +171,12 @@ const RUTAS: Routes = [
       // /responder/:token como público (@Public(), sin personaId en la
       // respuesta), así que el link/QR se responde de forma anónima, sin
       // loguearse ni pasar por ninguna página de "Mis Encuestas".
-      { path: 'responder/:token', loadComponent: () => import('./features/surveys/public-response/responder-encuesta.component').then((m) => m.ResponderEncuestaComponent) },
+      { path: 'responder/:token', title: 'Responder encuesta | ERP', loadComponent: () => import('./features/surveys/public-response/responder-encuesta.component').then((m) => m.ResponderEncuestaComponent) },
       // Link/QR único por grupo (una ficha, varios instructores) — también
       // público: sin personaId no se puede resolver "el siguiente pendiente",
       // así que el componente lista todos los instructores del grupo y el
       // aprendiz anónimo elige a cuál responder (ver GrupoPublicoController).
-      { path: 'responder-grupo/:grupoId', loadComponent: () => import('./features/surveys/public-group/responder-grupo.component').then((m) => m.ResponderGrupoComponent) },
+      { path: 'responder-grupo/:grupoId', title: 'Responder encuesta | ERP', loadComponent: () => import('./features/surveys/public-group/responder-grupo.component').then((m) => m.ResponderGrupoComponent) },
       { path: '**', redirectTo: '404' },
     ],
   },

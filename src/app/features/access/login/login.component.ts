@@ -2,6 +2,7 @@ import { Component, signal, OnInit, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+import { RecuperacionService } from '../../../core/services/recuperacion.service';
 import { environment } from '../../../../environments/environment';
 
 // Direcciones IPv4 (ej: 192.168.50.108) — no son subdominios de tenant.
@@ -55,7 +56,24 @@ export class LoginComponent implements OnInit, OnDestroy {
 
   private carouselTimer: ReturnType<typeof setInterval> | null = null;
 
-  constructor(private auth: AuthService, private router: Router, private route: ActivatedRoute) {}
+  // ── Recuperación de contraseña por código al correo ──
+  /** 'no' = formulario de ingreso normal. */
+  readonly recuperar = signal<'no' | 'solicitar' | 'codigo' | 'nueva' | 'listo'>('no');
+  readonly recuperacionDisponible = signal<boolean | null>(null);
+  readonly enviando = signal(false);
+  readonly aviso = signal<string | null>(null);
+  readonly esperaReenvio = signal(0);
+  /** Usuarios de la persona, conocidos solo después de verificar el código. */
+  readonly usuariosRec = signal<string[]>([]);
+  rec = { correo: '', codigo: '', login: '', nueva: '', confirma: '' };
+  private reenvioTimer: ReturnType<typeof setInterval> | null = null;
+
+  constructor(
+    private auth: AuthService,
+    private router: Router,
+    private route: ActivatedRoute,
+    private recuperacion: RecuperacionService,
+  ) {}
 
   private resolveSlugFromUrl(): string | null {
     const hostname = window.location.hostname;
@@ -78,6 +96,7 @@ export class LoginComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     if (this.carouselTimer) clearInterval(this.carouselTimer);
+    if (this.reenvioTimer) clearInterval(this.reenvioTimer);
   }
 
   private iniciarCarrusel(): void {
@@ -112,6 +131,103 @@ export class LoginComponent implements OnInit, OnDestroy {
   onFlechaAnterior(): void {
     this.anteriorSlide();
     this.reiniciarTemporizador();
+  }
+
+  // ── Recuperación ──────────────────────────────────────────────────────────
+  async abrirRecuperacion(): Promise<void> {
+    this.error.set(null);
+    this.aviso.set(null);
+    this.rec = { correo: '', codigo: '', login: '', nueva: '', confirma: '' };
+    this.usuariosRec.set([]);
+    this.recuperar.set('solicitar');
+    if (this.slugFromUrl) localStorage.setItem('tenantSlug', this.slugFromUrl);
+    this.recuperacionDisponible.set(await this.recuperacion.disponible());
+  }
+
+  volverAlLogin(): void {
+    this.error.set(null);
+    this.aviso.set(null);
+    this.recuperar.set('no');
+  }
+
+  async enviarCodigo(): Promise<void> {
+    const correo = this.rec.correo.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) { this.error.set('Escribe un correo válido.'); return; }
+    this.error.set(null);
+    this.enviando.set(true);
+    try {
+      const r = await this.recuperacion.solicitar(correo);
+      this.aviso.set(r.mensaje);
+      this.recuperar.set('codigo');
+      this.iniciarEsperaReenvio();
+    } catch (e: any) {
+      this.error.set(this.mensajeError(e, 'No se pudo enviar el código. Inténtalo de nuevo.'));
+    } finally {
+      this.enviando.set(false);
+    }
+  }
+
+  get contrasenasCoinciden(): boolean {
+    return !!this.rec.confirma && this.rec.nueva === this.rec.confirma;
+  }
+
+  /** Deja solo los dígitos (máx. 6) de lo que se escriba o pegue: el código copiado del correo trae espacios entre cuadros. */
+  soloDigitosCodigo(input: HTMLInputElement): void {
+    const limpio = input.value.replace(/\D/g, '').slice(0, 6);
+    if (input.value !== limpio) input.value = limpio;
+    this.rec.codigo = limpio;
+  }
+
+  async verificarCodigo(): Promise<void> {
+    if (!/^\d{6}$/.test(this.rec.codigo.trim())) { this.error.set('El código tiene 6 dígitos.'); return; }
+    this.error.set(null);
+    this.enviando.set(true);
+    try {
+      const { usuarios } = await this.recuperacion.verificar(this.rec.correo.trim(), this.rec.codigo.trim());
+      this.usuariosRec.set(usuarios);
+      // Con un solo usuario no hay nada que elegir.
+      this.rec.login = usuarios.length === 1 ? usuarios[0] : '';
+      this.aviso.set(null);
+      this.recuperar.set('nueva');
+    } catch (e: any) {
+      this.error.set(this.mensajeError(e, 'No se pudo verificar el código.'));
+    } finally {
+      this.enviando.set(false);
+    }
+  }
+
+  async cambiarContrasena(): Promise<void> {
+    if (!this.rec.login) { this.error.set('Elige el usuario al que le vas a cambiar la contraseña.'); return; }
+    if (this.rec.nueva.length < 8) { this.error.set('La nueva contraseña debe tener al menos 8 caracteres.'); return; }
+    if (!this.contrasenasCoinciden) { this.error.set('Las contraseñas no coinciden.'); return; }
+    this.error.set(null);
+    this.enviando.set(true);
+    try {
+      const r = await this.recuperacion.restablecer(this.rec.correo.trim(), this.rec.codigo.trim(), this.rec.login, this.rec.nueva);
+      this.aviso.set(r.mensaje);
+      // Ya sabe cuál es su usuario: queda escrito para entrar.
+      this.credentials = { login: r.usuario, password: '' };
+      this.recuperar.set('listo');
+    } catch (e: any) {
+      this.error.set(this.mensajeError(e, 'No se pudo cambiar la contraseña.'));
+    } finally {
+      this.enviando.set(false);
+    }
+  }
+
+  private iniciarEsperaReenvio(): void {
+    this.esperaReenvio.set(60);
+    if (this.reenvioTimer) clearInterval(this.reenvioTimer);
+    this.reenvioTimer = setInterval(() => {
+      this.esperaReenvio.update(s => Math.max(0, s - 1));
+      if (this.esperaReenvio() === 0 && this.reenvioTimer) clearInterval(this.reenvioTimer);
+    }, 1000);
+  }
+
+  private mensajeError(e: any, respaldo: string): string {
+    if (e?.status === 429) return 'Demasiados intentos seguidos. Espera un minuto e inténtalo de nuevo.';
+    const m = e?.error?.message;
+    return (Array.isArray(m) ? m.join('. ') : m) || respaldo;
   }
 
   async onSubmit(): Promise<void> {
