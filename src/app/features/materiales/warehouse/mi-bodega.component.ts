@@ -459,6 +459,23 @@ export class MiBodegaComponent implements OnInit {
       return;
     }
 
+    // ¿Fue un error de registro? Sin historia se puede borrar de verdad, con lo
+    // que generó; si no, solo desactivar (mismo flujo que Productos).
+    if (await this.confirm.ask(
+      `¿"${nombre}" se registró por error (bodega equivocada, cantidad mal digitada)? Se puede eliminar por completo, junto con las unidades y lotes que generó, solo si todavía no tiene placas, préstamos, traslados, novedades ni movimientos. Si eliges "Solo desactivar" se conserva el histórico.`,
+      { header: 'Registro por error', acceptLabel: 'Eliminar definitivamente', rejectLabel: 'Solo desactivar' },
+    )) {
+      if (!(await this.confirm.ask(`Esto borra "${nombre}" y todo lo que se generó con él, y no se puede deshacer. ¿Continuar?`, { acceptLabel: 'Sí, eliminar' }))) return;
+      try {
+        await this.api.eliminarProductoDefinitivo(fila.id_producto);
+        this.toast.ok('Producto eliminado definitivamente');
+        await this.cargar();
+      } catch (e) {
+        this.toast.httpError(e, 'No se pudo eliminar el producto.');
+      }
+      return;
+    }
+
     if (!(await this.confirm.ask(
       `¿Desactivar el producto "${nombre}"? Sale de las listas y los selects; su histórico (kardex, préstamos, lotes) queda intacto y podés reactivarlo.`,
       { acceptLabel: 'Desactivar' },
