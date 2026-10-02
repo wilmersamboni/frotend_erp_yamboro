@@ -814,7 +814,8 @@ export class MaterialesApiService {
   crearLote(dto: CreateLoteDto) {
     return this.unwrap(this.http.post<Envelope<Lote>>(`${BASE}/lotes`, dto));
   }
-  actualizarLote(id: string, dto: Partial<CreateLoteDto> & { cantidad_disponible?: number; estado?: EstadoLote }) {
+  /** `fecha_vencimiento: null` borra la fecha del lote (omitirla la deja como está). */
+  actualizarLote(id: string, dto: Omit<Partial<CreateLoteDto>, 'fecha_vencimiento'> & { fecha_vencimiento?: string | null; cantidad_disponible?: number; estado?: EstadoLote }) {
     return this.unwrap(this.http.patch<Envelope<Lote>>(`${BASE}/lotes/${id}`, dto));
   }
   eliminarLote(id: string) {
@@ -884,6 +885,10 @@ export class MaterialesApiService {
         ...(estadoItem ? { estado_item: estadoItem } : {}),
       }),
     );
+  }
+  /** Corrige tipo/descripción/ítem de una novedad PENDIENTE (`id_item: null` = quitar el ítem). */
+  corregirNovedad(id: string, dto: { tipo?: TipoNovedad; descripcion?: string; id_item?: string | null }) {
+    return this.unwrap(this.http.patch<Envelope<Novedad>>(`${BASE}/novedades/${id}/datos`, dto));
   }
   eliminarNovedad(id: string) {
     return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/novedades/${id}`));
