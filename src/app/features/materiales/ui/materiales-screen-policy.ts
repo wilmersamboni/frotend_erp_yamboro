@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { AuthService } from '../../../core/services/auth.service';
+import { ListaMateriales, puedeListarMateriales } from '../materiales-acceso';
 
 /**
  * Fuente única de capacidades de las pantallas que antes se copiaban por rol.
@@ -9,6 +10,11 @@ import { AuthService } from '../../../core/services/auth.service';
 @Injectable({ providedIn: 'root' })
 export class MaterialesScreenPolicy {
   constructor(private readonly auth: AuthService) {}
+
+  /** ¿El backend le dejaría leer esa lista? Si no, la pantalla ni la pide (ver `LECTURA_LISTA`). */
+  puedeListar(lista: ListaMateriales): boolean {
+    return puedeListarMateriales(lista, (nombre) => this.auth.tieneServicio(nombre));
+  }
 
   puedeCrearSolicitud(): boolean {
     return this.auth.tieneServicio('materiales.solicitudes.crear');

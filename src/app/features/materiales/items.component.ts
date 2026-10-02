@@ -1,4 +1,4 @@
-import { Component, OnInit, computed } from '@angular/core';
+import { Component, OnInit, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AdminTableComponent, TableRowLink } from '../../shared/components/admin-table.component';
 import { AdminModalComponent } from '../tenant-administration/ui/admin-modal.component';
@@ -14,6 +14,9 @@ import { NetworkStatusService } from '../../core/offline/network-status.service'
 import { AlertComponent } from '../../shared/ui/alert.component';
 import { SearchableSelectComponent, SSOption } from '../../shared/components/searchable-select.component';
 import { DialogDirective } from '../../shared/directives/dialog.directive';
+import { CargasSecundarias } from './data-access/cargas-secundarias';
+import { AvisoCargasComponent } from './ui/aviso-cargas.component';
+import { MaterialesScreenPolicy } from './ui/materiales-screen-policy';
 
 const OPCIONES_ESTADO: OpcionSelect[] = [
   { label: 'Disponible', value: 'DISPONIBLE' },
@@ -56,7 +59,7 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
 @Component({
   selector: 'app-materiales-items',
   standalone: true,
-  imports: [DialogDirective, AlertComponent, SearchableSelectComponent, FormsModule, AdminTableComponent, AdminModalComponent, BarcodeScannerComponent],
+  imports: [AvisoCargasComponent, DialogDirective, AlertComponent, SearchableSelectComponent, FormsModule, AdminTableComponent, AdminModalComponent, BarcodeScannerComponent],
   template: `
     <div class="p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
@@ -79,6 +82,8 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
           </div>
         }
       </div>
+
+      <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
 
       @if (bodegasInactivas().length > 0) {
         <app-alert class="mb-4" variante="advertencia" [titulo]="bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas'">
@@ -200,6 +205,10 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
   `,
 })
 export class MaterialesItemsComponent implements OnInit {
+  /** Catálogos auxiliares de la pantalla: si uno falla se avisa, no se muestra vacío. */
+  readonly secundarias = new CargasSecundarias();
+  readonly recargar = (): void => void this.cargar();
+  private readonly acceso = inject(MaterialesScreenPolicy);
   items: Item[] = [];
   sitios: Sitio[] = [];
   productos: Producto[] = [];
@@ -239,14 +248,11 @@ export class MaterialesItemsComponent implements OnInit {
 
   puedeEditar = computed(() => this.auth.tieneServicio('materiales.items.editar'));
   puedeCrear = computed(() => this.auth.tieneServicio('materiales.items.crear'));
-  // `GET /sitios` (backend) ya acepta `materiales.sitios.ver` O
-  // `materiales.traslados.crear` (ver SitiosController) — antes acá solo se
-  // chequeaba el primero, más estricto de lo que el backend permite, así
-  // que alguien con solo `traslados.crear` no cargaba bodegas ni veía el
-  // aviso de bodega inactiva (2026-09-18), aunque sí lo viera en Solicitudes.
-  puedeVerSitios = computed(() =>
-    this.auth.tieneServicio('materiales.sitios.ver') || this.auth.tieneServicio('materiales.traslados.crear'),
-  );
+  // Misma regla que `GET /sitios` del backend (`LECTURA_LISTA.sitios`) — acá
+  // se chequeaba solo `sitios.ver`, más estricto de lo que el backend permite,
+  // y alguien con solo `traslados.crear` no cargaba bodegas ni veía el aviso de
+  // bodega inactiva (2026-09-18), aunque sí lo viera en Solicitudes.
+  puedeVerSitios = computed(() => this.acceso.puedeListar('sitios'));
 
   /**
    * Navegación cruzada (ítem 4): desde un ítem, ir directo a su historial de
@@ -402,14 +408,14 @@ export class MaterialesItemsComponent implements OnInit {
 
   private async cargar(): Promise<void> {
     this.loading = true;
+    this.secundarias.reiniciar();
     try {
-      // Sin `materiales.sitios.ver` no se pide /sitios — antes un 403 ahí
-      // tumbaba toda la carga de Ítems.
-      const verSitios = this.puedeVerSitios();
+      // Sin permiso para leer /sitios no se pide — antes un 403 ahí tumbaba
+      // toda la carga de Ítems.
       const [items, sitios, productos] = await Promise.all([
         this.api.listarItems(),
-        verSitios ? this.api.listarSitios().catch(() => [] as Sitio[]) : Promise.resolve([] as Sitio[]),
-        this.api.listarProductos().catch(() => [] as Producto[]),
+        this.secundarias.cargar('bodegas', () => this.api.listarSitios(), this.puedeVerSitios()),
+        this.secundarias.cargar('productos', () => this.api.listarProductos(), this.acceso.puedeListar('productos')),
       ]);
       this.items = items;
       this.sitios = sitios;

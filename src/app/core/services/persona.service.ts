@@ -83,7 +83,12 @@ export class PersonaService {
    * el form aunque el backend sí los soportaba.
    */
   async listarResponsablesBodega(): Promise<any[]> {
-    const todos = await this.listarUsuarios();
+    // Endpoint propio (datos mínimos) gateado por `materiales.sitios.editar`:
+    // `GET /usuarios` exige `usuarios.gestionar`, que un líder de área no tiene.
+    const resp: any = await firstValueFrom(
+      this.http.get(`${BASE}/usuarios/responsables-bodega`, { withCredentials: true }),
+    );
+    const todos: any[] = Array.isArray(resp) ? resp : (resp?.data ?? []);
     const cargosPermitidos = ['administrador', 'administrador_erp', 'instructor', 'aprendiz'];
     return todos.filter((u: any) =>
       cargosPermitidos.includes(u.persona?.cargo) && u.persona?.estado !== 'inactivo'

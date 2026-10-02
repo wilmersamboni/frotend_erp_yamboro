@@ -260,18 +260,40 @@ const ESQUEMAS: Record<Cargo, Esquema> = {
                 <!-- Password + Confirmar -->
                 <div>
                   <label class="block text-xs font-semibold text-gray-600 mb-1">Contraseña *</label>
-                  <input type="password" [(ngModel)]="s2.password" name="password" placeholder="Mínimo 5 caracteres"
-                    class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all"
+                  <div class="relative">
+                    <input [type]="verPassword() ? 'text' : 'password'" [(ngModel)]="s2.password" name="password" placeholder="Mínimo 5 caracteres"
+                    class="w-full pl-3 pr-10 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all"
                     [class]="errorCampo('password') ? 'border-red-300 focus:ring-red-200' : 'border-gray-200 focus:ring-[#39A900]/20 focus:border-[#39A900]'" />
+                    <button type="button" (click)="verPassword.set(!verPassword())" tabindex="-1"
+                      class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600"
+                      [attr.aria-label]="verPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'">
+                      @if (verPassword()) {
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22"/></svg>
+                      } @else {
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      }
+                    </button>
+                  </div>
                   @if (errorCampo('password')) {
                     <p class="text-red-500 text-xs mt-0.5">La contraseña debe tener al menos 5 caracteres</p>
                   }
                 </div>
                 <div>
                   <label class="block text-xs font-semibold text-gray-600 mb-1">Confirmar contraseña *</label>
-                  <input type="password" [(ngModel)]="s2.confirmar" name="confirmar" placeholder="Repite la contraseña"
-                    class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all"
+                  <div class="relative">
+                    <input [type]="verPassword() ? 'text' : 'password'" [(ngModel)]="s2.confirmar" name="confirmar" placeholder="Repite la contraseña"
+                    class="w-full pl-3 pr-10 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all"
                     [class]="errorCampo('confirmar') ? 'border-red-300 focus:ring-red-200' : 'border-gray-200 focus:ring-[#39A900]/20 focus:border-[#39A900]'" />
+                    <button type="button" (click)="verPassword.set(!verPassword())" tabindex="-1"
+                      class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600"
+                      [attr.aria-label]="verPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'">
+                      @if (verPassword()) {
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22"/></svg>
+                      } @else {
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      }
+                    </button>
+                  </div>
                   @if (errorCampo('confirmar')) {
                     <p class="text-red-500 text-xs mt-0.5">Las contraseñas no coinciden</p>
                   }
@@ -400,6 +422,7 @@ export class RegistroRapidoModalComponent implements OnChanges {
   }
 
   // ── Estado ────────────────────────────────────────────────────
+  verPassword = signal(false);
   paso     = signal(1);
   cargando = signal(false);
   guardando= signal(false);

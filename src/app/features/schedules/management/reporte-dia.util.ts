@@ -16,13 +16,15 @@ const tipoLabel:    Record<string, string> = { formativo: 'Formativo', instituci
  * Limitación conocida (no resuelta acá): la fecha/hora usada es la del
  * navegador del usuario, no la del servidor.
  */
-export function descargarReporteDia(
+export async function descargarReporteDia(
   horariosEnriquecidos: any[],
   todosLosEventos: any[],
   totalAmbientes: number,
   institucion: string,
   generadoPor: string,
-): void {
+): Promise<void> {
+  // jspdf (~430 kB) solo se descarga cuando alguien pide el reporte.
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
   const hoy = new Date();
   // Fecha LOCAL: con toISOString() (UTC), después de las 7 p. m. en Colombia ya era "mañana"
   // y los eventos del día se filtraban con la fecha equivocada.

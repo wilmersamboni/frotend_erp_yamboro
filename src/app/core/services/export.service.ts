@@ -825,6 +825,7 @@ export class ExportService {
    */
   async exportarHistorialExcel(resultado: ResultadoConsulta, personasMap: Map<string, string>): Promise<void> {
     const { estudiante, historial, practicas } = resultado;
+    const ExcelJS = await import('exceljs');
     const wb = new ExcelJS.Workbook();
     wb.creator = 'EPSAS';
     wb.created = new Date();

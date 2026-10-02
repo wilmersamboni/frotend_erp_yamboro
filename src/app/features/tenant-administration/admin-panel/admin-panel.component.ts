@@ -17,6 +17,7 @@ import { PermisosPanelComponent } from '../permisos/permisos-panel.component';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { EsperaDirective } from '../../../shared/directives/espera.directive';
+import { log } from '../../../core/utils/log';
 
 @Component({
   selector: 'app-admin-panel',
@@ -552,7 +553,7 @@ export class AdminPanelComponent implements OnInit {
     try {
       this.aprendicesParaEtapa.set(await this.api.listarAprendicesConPractica());
     } catch (e) {
-      console.error('[AdminPanel] Error cargando aprendices para etapas:', e);
+      log.error('[AdminPanel] Error cargando aprendices para etapas:', e);
     }
   }
 

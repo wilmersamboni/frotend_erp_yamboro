@@ -10,6 +10,7 @@ import { PracticaService, SeguimientoService } from '../../../core/services';
 import { NotificacionService } from '../../../core/services/notificacion.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
+import { log } from '../../../core/utils/log';
 
 /**
  * Equivalente a ModalBitacoras.tsx + BitacorasCard.tsx de React.
@@ -559,10 +560,9 @@ toggleDropdown(item: any, event: MouseEvent): void {
     this.bitacoraSvc.actualizarAvancePractica(this.practicaId)
       .then((res: any) => {
         const avance = res?.avance ?? 0;
-        console.log(`[Avance] backend calculó → ${avance}%`);
         this.avanceActualizado.emit(avance);
       })
-      .catch(e => console.error('[Avance] Error al actualizar en backend:', e));
+      .catch(e => log.error('[Avance] Error al actualizar en backend:', e));
   }
 
   cambiarEstadoById(id: string, estado: string): void {

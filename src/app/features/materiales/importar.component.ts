@@ -295,7 +295,54 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
 
           <!-- tabla -->
           <div data-anim="seccion" class="card overflow-hidden shadow-sm">
-            <div class="tabla-scroll">
+            <!-- En teléfono se revisa una fila por tarjeta; la tabla completa se conserva en escritorio. -->
+            <div class="p-3 space-y-3 md:hidden">
+              <div class="flex rounded-lg bg-gray-100 p-1 text-xs font-semibold">
+                <button type="button" (click)="seleccionarVistaMovil('pendientes')"
+                  class="flex-1 rounded-md px-3 py-2 transition-colors"
+                  [class.bg-white]="vistaMovil() === 'pendientes'" [class.text-green-700]="vistaMovil() === 'pendientes'">
+                  Pendientes ({{ pendientes }})
+                </button>
+                <button type="button" (click)="seleccionarVistaMovil('listas')"
+                  class="flex-1 rounded-md px-3 py-2 transition-colors"
+                  [class.bg-white]="vistaMovil() === 'listas'" [class.text-green-700]="vistaMovil() === 'listas'">
+                  Listas ({{ listas }})
+                </button>
+              </div>
+
+              @if (filasMoviles().length === 0) {
+                <p class="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500">
+                  {{ vistaMovil() === 'pendientes' ? 'No hay filas pendientes.' : 'Todavia no hay filas listas.' }}
+                </p>
+              }
+
+              @for (f of filasMoviles(); track f.fila) {
+                <article class="rounded-xl border p-3" [class.border-amber-300]="!f.tipo_material || !f.id_categoria" [class.border-gray-200]="f.tipo_material && f.id_categoria">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0"><p class="font-semibold text-gray-800">#{{ f.fila }} · {{ f.nombre }}</p><p class="mt-1 truncate text-xs text-gray-500">{{ f.codigo_unspsc || 'Sin UNSPSC' }} · {{ f.unidad_medida }} · Cant. {{ f.cantidad }}</p></div>
+                    @if (f.advertencias.length) { <span class="shrink-0 rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700" [title]="f.advertencias.join('\n')">Aviso</span> }
+                  </div>
+                  @if (f.descripcion) { <p class="mt-2 text-xs text-gray-500">{{ f.descripcion }}</p> }
+                  <div class="mt-3 grid grid-cols-1 gap-3">
+                    <label class="flex flex-col gap-1.5"><span class="label">Cantidad</span><input type="number" min="0" [(ngModel)]="f.cantidad" class="field w-full" /></label>
+                    <label class="flex flex-col gap-1.5"><span class="label">Tipo *</span><span [class.ss-warn]="!f.tipo_material"><app-ss [options]="opcionesTipo" placeholder="-Elegir-" [(ngModel)]="f.tipo_material"></app-ss></span></label>
+                    <label class="flex flex-col gap-1.5"><span class="label">Bodega</span><app-ss [options]="opcionesSitio" placeholder="-Sin bodega-" [(ngModel)]="f.id_sitio"></app-ss></label>
+                    <label class="flex flex-col gap-1.5"><span class="label">Categoria *</span><span [class.ss-warn]="!f.id_categoria"><app-ss [options]="opcionesCategoria" placeholder="-Elegir-" [(ngModel)]="f.id_categoria"></app-ss></span></label>
+                    <label class="flex flex-col gap-1.5"><span class="label">SKU</span><input type="text" [(ngModel)]="f.sku" class="field w-full font-mono text-xs" /></label>
+                  </div>
+                </article>
+              }
+
+              @if (totalPaginasMoviles() > 1) {
+                <div class="flex items-center justify-between gap-3 border-t border-gray-100 pt-3 text-xs">
+                  <button type="button" (click)="cambiarPaginaMovil(-1)" [disabled]="paginaMovil() === 0" class="btn-ghost px-3 py-2 disabled:opacity-40">Anterior</button>
+                  <span class="font-semibold text-gray-600">{{ paginaMovil() + 1 }} / {{ totalPaginasMoviles() }}</span>
+                  <button type="button" (click)="cambiarPaginaMovil(1)" [disabled]="paginaMovil() + 1 >= totalPaginasMoviles()" class="btn-ghost px-3 py-2 disabled:opacity-40">Siguiente</button>
+                </div>
+              }
+            </div>
+
+            <div class="hidden md:block"><div class="tabla-scroll">
               <table class="w-full text-sm min-w-[1280px] border-collapse">
                 <thead class="text-xs uppercase tracking-wide text-gray-500 text-left">
                   <tr>
@@ -354,7 +401,7 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
                   }
                 </tbody>
               </table>
-            </div>
+            </div></div>
           </div>
 
           <!-- barra de acción -->
@@ -474,6 +521,9 @@ export class MaterialesImportarComponent implements OnInit {
 
   prev: ResultadoPrevisualizacion | null = null;
   filas: FilaRevision[] = [];
+  /** En móvil se priorizan las filas incompletas y se cargan por bloques. */
+  vistaMovil = signal<'pendientes' | 'listas'>('pendientes');
+  paginaMovil = signal(0);
   resultado: ResultadoImportacion | null = null;
 
   bulkTipo: '' | TipoMaterial = '';
@@ -568,6 +618,34 @@ export class MaterialesImportarComponent implements OnInit {
   }
   get listas(): number {
     return this.filas.length - this.pendientes;
+  }
+
+  seleccionarVistaMovil(vista: 'pendientes' | 'listas'): void {
+    this.vistaMovil.set(vista);
+    this.paginaMovil.set(0);
+  }
+
+  filasMoviles(): FilaRevision[] {
+    const inicio = this.paginaMovil() * 20;
+    return this.filasMovilesFiltradas().slice(inicio, inicio + 20);
+  }
+
+  totalFilasMoviles(): number {
+    const pendientes = this.vistaMovil() === 'pendientes';
+    return this.filas.filter((fila) => pendientes ? !fila.tipo_material || !fila.id_categoria : !!fila.tipo_material && !!fila.id_categoria).length;
+  }
+
+  totalPaginasMoviles(): number {
+    return Math.max(1, Math.ceil(this.totalFilasMoviles() / 20));
+  }
+
+  cambiarPaginaMovil(delta: number): void {
+    this.paginaMovil.update((pagina) => Math.max(0, Math.min(this.totalPaginasMoviles() - 1, pagina + delta)));
+  }
+
+  private filasMovilesFiltradas(): FilaRevision[] {
+    const pendientes = this.vistaMovil() === 'pendientes';
+    return this.filas.filter((fila) => pendientes ? !fila.tipo_material || !fila.id_categoria : !!fila.tipo_material && !!fila.id_categoria);
   }
   get conAviso(): number {
     return this.filas.filter((f) => f.advertencias.length > 0).length;

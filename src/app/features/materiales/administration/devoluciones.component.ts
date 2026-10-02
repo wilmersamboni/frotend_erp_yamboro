@@ -28,6 +28,9 @@ import {
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
 import { EsperaDirective } from '../../../shared/directives/espera.directive';
 import { PageSizeSelectComponent } from '../../../shared/components/page-size-select.component';
+import { TableFilterComponent } from '../../../shared/components/table-filter.component';
+import { CargasSecundarias } from '../data-access/cargas-secundarias';
+import { AvisoCargasComponent } from '../ui/aviso-cargas.component';
 
 const ESTADOS_DEVOLUCION: { value: EstadoDevolucion; label: string; desc: string }[] = [
   { value: 'BUENO', label: 'Bueno', desc: 'Sin daños visibles' },
@@ -56,7 +59,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
 @Component({
   selector: 'app-materiales-devoluciones',
   standalone: true,
-  imports: [EsperaDirective, DialogDirective, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, LoadingSkeletonComponent, PageSizeSelectComponent],
+  imports: [AvisoCargasComponent, EsperaDirective, DialogDirective, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, SearchableSelectComponent, LoadingSkeletonComponent, PageSizeSelectComponent, TableFilterComponent],
   template: `
     <div class="p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
@@ -72,6 +75,8 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
           </button>
         }
       </div>
+
+      <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
 
       @if (loading) {
         <app-loading-skeleton variant="table" [rows]="6" [columns]="5" [showToolbar]="false" label="Cargando devoluciones" />
@@ -98,6 +103,9 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
                 </button>
               }
             </div>
+            <app-table-filter label="Estado" [options]="opcionesEstadoFiltro" [value]="filtroEstado"
+              (valueChange)="seleccionarEstado($event)" />
+            @if (false) {
             <div class="relative flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200" [class.z-40]="estadoDropdownOpen()">
               <button type="button" (click)="estadoDropdownOpen.update(v => !v)" class="absolute inset-0 z-0 rounded-xl cursor-pointer" aria-label="Estado de devolución"></button>
               <span class="pointer-events-none relative z-10 text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</span>
@@ -149,6 +157,7 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
               </div>
             </div>
             <!-- Filas por página -->
+            }
             <app-page-size-select [value]="pageSize()" (valueChange)="seleccionarPageSize($event)" />
           </div>
 
@@ -363,6 +372,9 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
   `,
 })
 export class MaterialesDevolucionesComponent implements OnInit {
+  /** Catálogos auxiliares de la pantalla: si uno falla se avisa, no se muestra vacío. */
+  readonly secundarias = new CargasSecundarias();
+  readonly recargar = (): void => void this.cargar();
   devoluciones: Devolucion[] = [];
   solicitudes: Solicitud[] = [];
   items: Item[] = [];
@@ -383,10 +395,14 @@ export class MaterialesDevolucionesComponent implements OnInit {
   filtroEstado: EstadoDevolucion | '' = '';
   pageSize = signal(20);
   estadoDropdownOpen = signal(false);
+  readonly opcionesEstadoFiltro = [
+    { value: '', label: 'Todos' },
+    ...ESTADOS_DEVOLUCION.map((estado) => ({ value: estado.value, label: estado.label })),
+  ];
   page = 0;
 
-  seleccionarEstado(valor: EstadoDevolucion | ''): void {
-    this.filtroEstado = valor;
+  seleccionarEstado(valor: string): void {
+    this.filtroEstado = valor as EstadoDevolucion | '';
     this.page = 0;
     this.estadoDropdownOpen.set(false);
   }
@@ -537,20 +553,21 @@ export class MaterialesDevolucionesComponent implements OnInit {
 
   private async cargar(): Promise<void> {
     this.loading = true;
+    this.secundarias.reiniciar();
     try {
-      // M9 — solo `listarDevoluciones()` es crítico; si una secundaria da 403
-      // (excepción personal) no debe tumbar la tabla entera.
+      // M9 — solo `listarDevoluciones()` es crítico; una secundaria que falle
+      // no debe tumbar la tabla entera (pero tampoco pasar por "no hay datos").
       // Evita pedir catálogos que el rol no puede leer: el interceptor muestra
       // el 403 antes de que un catch local pueda descartarlo.
       const puedeVerChequeos = this.auth.isAdmin() || this.auth.tieneServicio('materiales.chequeos.ver');
       const puedeVerItemsChequeo = this.auth.isAdmin() || this.auth.tieneServicio('materiales.items-chequeo.ver');
       const [devoluciones, solicitudes, items, lotes, chequeo, item_chequeo] = await Promise.all([
         this.api.listarDevoluciones(),
-        this.api.listarSolicitudes().catch(() => [] as Solicitud[]),
-        this.auth.tieneServicio('materiales.items.ver') ? this.api.listarItems().catch(() => [] as Item[]) : Promise.resolve([] as Item[]),
-        this.auth.tieneServicio('materiales.lotes.ver') ? this.api.listarLotes().catch(() => [] as Lote[]) : Promise.resolve([] as Lote[]),
-        puedeVerChequeos ? this.api.listarChequeos().catch(() => [] as Chequeo[]) : Promise.resolve([] as Chequeo[]),
-        puedeVerItemsChequeo ? this.api.listarItemsChequeo().catch(() => [] as ItemChequeo[]) : Promise.resolve([] as ItemChequeo[]),
+        this.secundarias.cargar('solicitudes', () => this.api.listarSolicitudes(), this.policy.puedeListar('solicitudes')),
+        this.secundarias.cargar('ítems', () => this.api.listarItems(), this.policy.puedeListar('items')),
+        this.secundarias.cargar('lotes', () => this.api.listarLotes(), this.policy.puedeListar('lotes')),
+        this.secundarias.cargar('chequeos', () => this.api.listarChequeos(), puedeVerChequeos),
+        this.secundarias.cargar('detalle de chequeos', () => this.api.listarItemsChequeo(), puedeVerItemsChequeo),
       ]);
       this.devoluciones = devoluciones;
       this.solicitudes = solicitudes;
@@ -601,7 +618,12 @@ export class MaterialesDevolucionesComponent implements OnInit {
     try {
       const [pendientes, consumibles] = await Promise.all([
         this.api.itemsPendientesDevolucion(this.idSolicitud),
-        this.api.lineasConsumiblesPendientes(this.idSolicitud).catch(() => [] as LineaConsumiblePendiente[]),
+        // El sobrante es opcional: si no se puede consultar, se avisa y el
+        // registro por unidad sigue disponible.
+        this.api.lineasConsumiblesPendientes(this.idSolicitud).catch((e) => {
+          this.toast.httpError(e, 'No se pudo consultar el sobrante de consumibles de este préstamo.');
+          return [] as LineaConsumiblePendiente[];
+        }),
       ]);
       this.filas = pendientes.map((p) => ({ ...p, estadoDev: this.estadoGeneral, volvio: true }));
       this.lineasConsumibles = consumibles;

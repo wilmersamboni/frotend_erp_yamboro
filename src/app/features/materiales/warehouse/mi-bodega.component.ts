@@ -11,6 +11,9 @@ import { ConfirmService } from '../../../core/services/confirm.service';
 import {
   Categoria, Item, Lote, MaterialesApiService, Producto, Sitio,
 } from '../data-access/materiales-api.service';
+import { CargasSecundarias } from '../data-access/cargas-secundarias';
+import { AvisoCargasComponent } from '../ui/aviso-cargas.component';
+import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
 
 type Tab = 'productos' | 'items';
 
@@ -48,9 +51,10 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
 @Component({
   selector: 'app-mi-bodega',
   standalone: true,
-  imports: [FormsModule, RouterLink, AdminTableComponent, AdminModalComponent, ProductoFormModalComponent],
+  imports: [AvisoCargasComponent, FormsModule, RouterLink, AdminTableComponent, AdminModalComponent, ProductoFormModalComponent],
   template: `
     <div class="p-6 space-y-5">
+      <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
       <div class="flex flex-wrap items-center gap-3">
         <h1 class="text-xl font-bold text-gray-800">{{ todasLasBodegas ? 'Bodegas' : 'Mi Bodega' }}</h1>
         @if (bodegas().length > 1) {
@@ -197,6 +201,10 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
   `,
 })
 export class MiBodegaComponent implements OnInit {
+  /** Catálogos auxiliares de la pantalla: si uno falla se avisa, no se muestra vacío. */
+  readonly secundarias = new CargasSecundarias();
+  readonly recargar = (): void => void this.cargar();
+  private readonly acceso = inject(MaterialesScreenPolicy);
   private readonly api = inject(MaterialesApiService);
   private readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
@@ -374,6 +382,7 @@ export class MiBodegaComponent implements OnInit {
 
   private async cargar(): Promise<void> {
     this.loading.set(true);
+    this.secundarias.reiniciar();
     try {
       const bodegas = this.todasLasBodegas
         ? await this.api.listarSitios()
@@ -386,10 +395,10 @@ export class MiBodegaComponent implements OnInit {
       // el comportamiento se mantiene igual que siempre: solo activos.
       const incluirInactivos = this.puedeEliminar() && this.estadoFiltro !== 'activos';
       const [prod, items, lotes, cats] = await Promise.all([
-        this.api.listarProductos(incluirInactivos).catch(() => []),
-        this.api.listarItems().catch(() => []),
-        this.api.listarLotes().catch(() => []),
-        this.api.listarCategorias().catch(() => []),
+        this.secundarias.cargar('productos', () => this.api.listarProductos(incluirInactivos), this.acceso.puedeListar('productos')),
+        this.secundarias.cargar('ítems', () => this.api.listarItems(), this.acceso.puedeListar('items')),
+        this.secundarias.cargar('lotes', () => this.api.listarLotes(), this.acceso.puedeListar('lotes')),
+        this.secundarias.cargar('categorías', () => this.api.listarCategorias(), this.acceso.puedeListar('categorias')),
       ]);
       // `listarProductos(true)` trae activos + desactivados; en modo
       // "Desactivados" nos quedamos solo con los que están dados de baja, en

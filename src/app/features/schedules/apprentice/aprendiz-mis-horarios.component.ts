@@ -9,6 +9,7 @@ import {
 } from '../../../core/utils/horarios.util';
 import { LucideAngularModule } from 'lucide-angular';
 import { CompetenciaTooltipComponent } from '../../../shared/components/competencia-tooltip.component';
+import { log } from '../../../core/utils/log';
 
 /**
  * Portado de ChronoGest; variante de aprendiz del dominio Horarios.
@@ -310,7 +311,7 @@ export class AprendizMisHorariosComponent implements OnInit, OnDestroy {
       await this.cargarDatos(fichaId);
       this.eventos.set(await this.eventosDeFicha(fichaId));
     } catch (err: any) {
-      console.error('[mis-horarios] carga inicial falló', err?.status ?? err);
+      log.error('[mis-horarios] carga inicial falló', err?.status ?? err);
       this.errorCarga.set('No se pudieron cargar tus horarios. Verifica tu conexión e intenta de nuevo.');
       return;
     }
@@ -334,7 +335,7 @@ export class AprendizMisHorariosComponent implements OnInit, OnDestroy {
    *  lista vacía, pero el error queda logueado con contexto. */
   private eventosDeFicha(fichaId: string): Promise<any[]> {
     return this.horariosApi.getEventosByFicha(fichaId).catch((err: any) => {
-      console.error(`[mis-horarios] GET eventos de ficha ${fichaId} falló`, err?.status ?? err);
+      log.error(`[mis-horarios] GET eventos de ficha ${fichaId} falló`, err?.status ?? err);
       return [];
     });
   }
@@ -405,7 +406,7 @@ export class AprendizMisHorariosComponent implements OnInit, OnDestroy {
   }
 
   private catalogoFallido(nombre: string, err: any): any[] {
-    console.error(`[mis-horarios] GET catálogo de ${nombre} falló`, err?.status ?? err);
+    log.error(`[mis-horarios] GET catálogo de ${nombre} falló`, err?.status ?? err);
     return [];
   }
 

@@ -42,16 +42,23 @@ import { DialogDirective } from '../../../shared/directives/dialog.directive';
               @if (!parCoordenadas || col !== parCoordenadas.lng) {
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">
-                  {{ parCoordenadas && col === parCoordenadas.lat ? 'Ubicación' : (columnLabels[col] ?? formatLabel(col)) }}
+                  {{ parCoordenadas && col === parCoordenadas.lat ? 'Ubicación' : (columnLabels[col] || formatLabel(col)) }}
                 </label>
 
                 @if (parCoordenadas && col === parCoordenadas.lat) {
-                  <!-- MAPA: selector de ubicación (lat + lng juntos) -->
-                  <app-coordenadas-map
-                    [lat]="form[parCoordenadas.lat]"
-                    [lng]="form[parCoordenadas.lng]"
-                    (latChange)="form[parCoordenadas!.lat] = $event"
-                    (lngChange)="form[parCoordenadas!.lng] = $event" />
+                  <!-- MAPA: selector de ubicación (lat + lng juntos). Dentro de
+                       @defer: leaflet (~150 kB) solo se descarga cuando un
+                       formulario realmente muestra el mapa — este modal lo usan
+                       muchas pantallas que nunca piden coordenadas. -->
+                  @defer (on immediate) {
+                    <app-coordenadas-map
+                      [lat]="form[parCoordenadas.lat]"
+                      [lng]="form[parCoordenadas.lng]"
+                      (latChange)="form[parCoordenadas!.lat] = $event"
+                      (lngChange)="form[parCoordenadas!.lng] = $event" />
+                  } @placeholder {
+                    <div class="w-full h-56 rounded-lg border border-gray-200 bg-gray-50 animate-pulse" aria-hidden="true"></div>
+                  }
 
                 } @else if (opciones[col]?.length) {
                   <!-- SELECT con búsqueda incorporada (app-ss). Sirve igual para
@@ -106,7 +113,7 @@ import { DialogDirective } from '../../../shared/directives/dialog.directive';
                     [type]="tiposCampo[col]"
                     [(ngModel)]="form[col]"
                     [name]="col"
-                    [placeholder]="placeholders[col] ?? ''"
+                    [placeholder]="placeholders[col]"
                     class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
                 }
               </div>

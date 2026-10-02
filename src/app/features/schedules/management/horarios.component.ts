@@ -866,7 +866,7 @@ export class AdminHorariosComponent implements OnInit, OnDestroy {
 
   // ── Descarga reporte del día en PDF (100% cliente, sin llamada HTTP) ────
   descargarReporte() {
-    descargarReporteDia(
+    void descargarReporteDia(
       this.enrichedHorarios(),
       this.eventos(),
       this.ambientes().length,
