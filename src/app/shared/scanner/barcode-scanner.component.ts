@@ -96,6 +96,11 @@ export class BarcodeScannerComponent implements OnChanges, OnDestroy {
   /** Ventana mínima entre dos emisiones del mismo código — evita que un
    *  código quieto frente a la cámara dispare el mismo scan en cada frame. */
   @Input() debounceMs = 1500;
+  /** `'placa'` = lectura estricta para placas SENA: solo los formatos que
+   *  usan las placas (sin ITF/EAN-8/UPC-E/QR, cortos y con poca verificación,
+   *  que con TRY_HARDER "leen" códigos fantasma sobre empaques o texturas) y
+   *  un código solo se acepta si la cámara lo lee DOS veces seguidas igual. */
+  @Input() perfil: 'general' | 'placa' = 'general';
   /** `false` para pantallas que ya tienen su propia entrada manual (ej. la
    *  grilla de "Asignar placas SENA") — oculta el toggle y el input de texto
    *  propio, deja solo la cámara (con su botón para activarla). */
@@ -157,7 +162,7 @@ export class BarcodeScannerComponent implements OnChanges, OnDestroy {
       return;
     }
     try {
-      const [{ BrowserMultiFormatReader }, { DecodeHintType }, { FORMATOS_ESCANEO_DEFECTO }] = await Promise.all([
+      const [{ BrowserMultiFormatReader }, { DecodeHintType }, { FORMATOS_ESCANEO_DEFECTO, FORMATOS_PLACA_SENA }] = await Promise.all([
         import('@zxing/browser'),
         import('@zxing/library'),
         import('./barcode-scanner.types'),
@@ -165,7 +170,10 @@ export class BarcodeScannerComponent implements OnChanges, OnDestroy {
       // Mientras bajaba la librería pudieron cerrar el modal o pasar a manual.
       if (this.modo() !== 'camara') return;
       const hints = new Map<DecodeHintType, unknown>();
-      hints.set(DecodeHintType.POSSIBLE_FORMATS, this.formatos ?? FORMATOS_ESCANEO_DEFECTO);
+      hints.set(
+        DecodeHintType.POSSIBLE_FORMATS,
+        this.formatos ?? (this.perfil === 'placa' ? FORMATOS_PLACA_SENA : FORMATOS_ESCANEO_DEFECTO),
+      );
       // TRY_HARDER: hace que ZXing pruebe más variantes de rotación/lectura
       // por frame (más lento por intento, pero lee bastante más códigos
       // chicos/borrosos/en mal ángulo) — vale la pena porque además bajamos
@@ -256,8 +264,20 @@ export class BarcodeScannerComponent implements OnChanges, OnDestroy {
     }
   }
 
+  private candidato: string | null = null;
+  private candidatoTs = 0;
+
   private onLectura(texto: string): void {
     const ahora = Date.now();
+    if (this.perfil === 'placa') {
+      // Confirmación por doble lectura: una lectura distinta (ruido) solo
+      // reemplaza al candidato, nunca se emite sola.
+      const confirmado = texto === this.candidato && ahora - this.candidatoTs < 5000;
+      this.candidato = texto;
+      this.candidatoTs = ahora;
+      if (!confirmado) return;
+      this.candidato = null;
+    }
     if (texto === this.ultimoCodigo && ahora - this.ultimoTimestamp < this.debounceMs) return;
     this.ultimoCodigo = texto;
     this.ultimoTimestamp = ahora;
