@@ -164,7 +164,7 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
             </div>
 
             @if (filasPlacas.length > 0) {
-              <app-barcode-scanner [activo]="asignarPlacasOpen" [modoManual]="false" (scanned)="onCodigoEscaneado($event)"></app-barcode-scanner>
+              <app-barcode-scanner perfil="placa" [activo]="asignarPlacasOpen" [modoManual]="false" (scanned)="onCodigoEscaneado($event)"></app-barcode-scanner>
 
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Pegar lista (una placa por línea)</label>

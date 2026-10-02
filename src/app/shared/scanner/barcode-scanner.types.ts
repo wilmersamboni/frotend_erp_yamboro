@@ -21,3 +21,16 @@ export const FORMATOS_ESCANEO_DEFECTO: BarcodeFormat[] = [
   BarcodeFormat.EAN_8,
   BarcodeFormat.QR_CODE,
 ];
+
+/**
+ * Perfil estricto para placas SENA (`perfil="placa"` del escáner): UPC-A (placa
+ * de fábrica), Code 128/Code 39 (etiquetas de inventario) y EAN-13. Se dejan
+ * fuera ITF, EAN-8, UPC-E y QR: son cortos o casi sin verificación y producen
+ * lecturas falsas sobre empaques/estampados.
+ */
+export const FORMATOS_PLACA_SENA: BarcodeFormat[] = [
+  BarcodeFormat.CODE_128,
+  BarcodeFormat.CODE_39,
+  BarcodeFormat.UPC_A,
+  BarcodeFormat.EAN_13,
+];

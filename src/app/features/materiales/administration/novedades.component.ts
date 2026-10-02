@@ -226,7 +226,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
       (closed)="cerrarModal()"
       (saved)="guardar($event)">
       <div campoExtra class="mt-3">
-        <app-barcode-scanner [modoManual]="false" [activo]="modalOpen" (scanned)="onPlacaEscaneada($event)"></app-barcode-scanner>
+        <app-barcode-scanner perfil="placa" [modoManual]="false" [activo]="modalOpen" (scanned)="onPlacaEscaneada($event)"></app-barcode-scanner>
         @if (escaneo) {
           <p class="mt-2 text-xs" [class.text-green-700]="escaneo.ok" [class.text-red-500]="!escaneo.ok">{{ escaneo.texto }}</p>
         }
