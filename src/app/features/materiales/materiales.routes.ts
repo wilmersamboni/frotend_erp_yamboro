@@ -1,5 +1,6 @@
 import { Route, Routes } from '@angular/router';
 import { miBodegaGuard } from '../../core/guards/mi-bodega.guard';
+import { gestorMaterialesGuard } from '../../core/guards/gestor-materiales.guard';
 import { productosGuard } from '../../core/guards/productos.guard';
 import { roleGuard } from '../../core/guards/role.guard';
 import { datosRutaMateriales, pantallaMateriales } from './materiales-acceso';
@@ -32,6 +33,7 @@ export const MATERIALS_ROUTES: Routes = [
   ruta('sitios', () => import('./sitios.component').then((m) => m.MaterialesSitiosComponent)),
   ruta('productos', () => import('./productos.component').then((m) => m.MaterialesProductosComponent), { canActivate: [roleGuard, productosGuard] }),
   ruta('existencias', () => import('./existencias.component').then((m) => m.MaterialesExistenciasComponent)),
+  ruta('reporte', () => import('./reporte/reporte-materiales.component').then((m) => m.ReporteMaterialesComponent), { canActivate: [roleGuard, gestorMaterialesGuard] }),
   ruta('items', () => import('./items.component').then((m) => m.MaterialesItemsComponent)),
   ruta('vencimientos', () => import('./vencimientos.component').then((m) => m.MaterialesVencimientosComponent)),
   ruta('importar', () => import('./importar.component').then((m) => m.MaterialesImportarComponent)),

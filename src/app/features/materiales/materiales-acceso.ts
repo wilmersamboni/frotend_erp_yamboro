@@ -26,12 +26,16 @@ export type SeccionMateriales = 'Operación' | 'Inventario' | 'Catálogo' | 'Act
  * - `admin-o-servicio`: cargo administrador, o cualquiera con el servicio.
  * - `responsable-bodega`: ser `id_responsable` de ≥1 bodega y no ser admin
  *   (lo resuelve `miBodegaGuard`, no `roleGuard`).
+ * - `gestor`: el servicio, y además gestionar Materiales: admin, encargado de
+ *   ≥1 bodega o líder de área (`gestorMaterialesGuard`). Para pantallas con
+ *   datos personales de terceros, como el Reporte de materiales.
  */
 export type AccesoPantalla =
   | { tipo: 'servicio'; servicio: string }
   | { tipo: 'admin' }
   | { tipo: 'admin-o-servicio'; servicio: string }
-  | { tipo: 'responsable-bodega' };
+  | { tipo: 'responsable-bodega' }
+  | { tipo: 'gestor'; servicio: string };
 
 export interface PantallaMateriales {
   id: string;
@@ -56,6 +60,9 @@ export const PANTALLAS_MATERIALES: PantallaMateriales[] = [
   // Préstamos vencidos / por vencer; la pestaña de perecederos se suma con `materiales.lotes.ver`.
   { id: 'vencimientos', label: 'Vencimientos', path: 'materiales/vencimientos', seccion: 'Inventario', acceso: servicio('materiales.solicitudes.ver') },
   { id: 'existencias', label: 'Existencias', path: 'materiales/existencias', seccion: 'Inventario', acceso: servicio('materiales.existencias.ver') },
+  // Qué hay, dónde, en qué estado y quién responde por cada material (2026-10-02).
+  // Trae nombres y cédulas de quien tiene cada material: solo para quienes gestionan.
+  { id: 'reporte', label: 'Reporte de materiales', path: 'materiales/reporte', seccion: 'Inventario', acceso: { tipo: 'gestor', servicio: 'materiales.existencias.ver' } },
   { id: 'items', label: 'Ítems', path: 'materiales/items', seccion: 'Inventario', acceso: servicio('materiales.items.ver') },
   { id: 'lotes', label: 'Lotes', path: 'materiales/lotes', seccion: 'Inventario', acceso: servicio('materiales.lotes.ver') },
   { id: 'productos', label: 'Productos', path: 'materiales/productos', seccion: 'Catálogo', acceso: servicio('materiales.productos.ver'), cubiertaPorMiBodega: true },
@@ -93,6 +100,8 @@ export function datosRutaMateriales(id: string): {
       return { roles: CARGOS_ADMIN, servicios: [acceso.servicio] };
     case 'responsable-bodega':
       return {};
+    case 'gestor':
+      return { serviciosRequeridos: [acceso.servicio] };
   }
 }
 

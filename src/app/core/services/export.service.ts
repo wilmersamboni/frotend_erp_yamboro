@@ -40,7 +40,7 @@ const COLOR_ESTADO_XL: Record<string, string> = {
 const fuenteXl = (o: Partial<ExcelJS.Font> = {}): Partial<ExcelJS.Font> => ({ name: 'Calibri', size: 10, color: { argb: XL.TX }, ...o });
 
 /** Fecha como fecha de Excel. AAAA-MM-DD se toma tal cual: ExcelJS escribe en UTC y una fecha local se correría un día. */
-function fechaXl(v?: string | null): Date | string {
+export function fechaXl(v?: string | null): Date | string {
   if (!v) return '—';
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v);
   if (m) return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
@@ -48,7 +48,7 @@ function fechaXl(v?: string | null): Date | string {
   return isNaN(d.getTime()) ? '—' : new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
 }
 
-type ColXl = { titulo: string; ancho: number; tipo?: 'fecha' | 'numero' | 'estado' | 'negrita' | 'porcentaje' };
+export type ColXl = { titulo: string; ancho: number; tipo?: 'fecha' | 'numero' | 'estado' | 'negrita' | 'porcentaje' };
 
 /** "activo" → "Activo", "en_curso" → "En curso". */
 function etiquetaEstado(e?: string | null): string {
@@ -610,7 +610,7 @@ export class ExportService {
    * subtítulo (2), encabezado gris con filtros (4, inmovilizado) y datos desde
    * la 5. Estados en texto de color, fechas reales y lista para imprimir.
    */
-  private hojaExcel(wb: ExcelJS.Workbook, titulo: string, subtitulo: string, pie: string, cols: ColXl[], filas: any[][], vacio = 'Sin registros.'): ExcelJS.Worksheet {
+  hojaExcel(wb: ExcelJS.Workbook, titulo: string, subtitulo: string, pie: string, cols: ColXl[], filas: any[][], vacio = 'Sin registros.'): ExcelJS.Worksheet {
     const { TX, GRIS, TENUE, LINEA, LINEA_F, SUAVE, ACENTO } = XL;
     const ws = wb.addWorksheet(titulo, {
       views: [{ state: 'frozen', ySplit: 4, showGridLines: false }],
@@ -675,7 +675,7 @@ export class ExportService {
     return ws;
   }
 
-  private async descargarExcel(wb: ExcelJS.Workbook, nombre: string): Promise<void> {
+  async descargarExcel(wb: ExcelJS.Workbook, nombre: string): Promise<void> {
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);

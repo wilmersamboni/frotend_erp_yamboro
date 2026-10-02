@@ -4,6 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AdminTableComponent, TableRowLink } from '../../../shared/components/admin-table.component';
 import { AdminModalComponent } from '../../tenant-administration/ui/admin-modal.component';
 import { ProductoFormModalComponent } from '../ui/producto-form-modal.component';
+import { AgregarExistenciasModalComponent } from '../ui/agregar-existencias-modal.component';
 import { OpcionSelect } from '../../tenant-administration/services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
@@ -51,7 +52,7 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
 @Component({
   selector: 'app-mi-bodega',
   standalone: true,
-  imports: [AvisoCargasComponent, FormsModule, RouterLink, AdminTableComponent, AdminModalComponent, ProductoFormModalComponent],
+  imports: [AvisoCargasComponent, FormsModule, RouterLink, AdminTableComponent, AdminModalComponent, ProductoFormModalComponent, AgregarExistenciasModalComponent],
   template: `
     <div class="p-6 space-y-5">
       <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
@@ -105,9 +106,19 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
           <span class="text-sm text-gray-500">— {{ bodegaActual()!.nombre }}</span>
         }
 
-        @if (tab() === 'productos' && puedeCrear()) {
+        @if (tab() === 'productos' && puedeCrear() && puedeAgregar()) {
+          <button type="button" (click)="nuevoProd()"
+            class="sm:ml-auto inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-3.5 py-2 border border-gray-200 text-gray-600 bg-white shadow-sm hover:bg-gray-50 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Nueva ficha
+          </button>
+        }
+        @if (tab() === 'productos' && puedeImportar()) {
           <a routerLink="/materiales/importar"
-            class="sm:ml-auto group inline-flex items-center gap-1.5 text-xs font-semibold rounded-full pl-2.5 pr-3.5 py-2 border border-[#39A900]/25 text-[#2d8000] bg-[#39A900]/[0.07] shadow-sm hover:bg-[#39A900]/15 hover:border-[#39A900]/45 transition-colors">
+            [class.sm:ml-auto]="!(puedeCrear() && puedeAgregar())"
+            class="group inline-flex items-center gap-1.5 text-xs font-semibold rounded-full pl-2.5 pr-3.5 py-2 border border-[#39A900]/25 text-[#2d8000] bg-[#39A900]/[0.07] shadow-sm hover:bg-[#39A900]/15 hover:border-[#39A900]/45 transition-colors">
             <svg class="w-4 h-4 transition-transform group-hover:translate-y-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
             </svg>
@@ -137,8 +148,8 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
 
         @if (tab() === 'productos') {
           <app-admin-table
-            [addLabel]="puedeCrear() ? 'Nuevo producto' : null"
-            (add)="nuevoProd()"
+            [addLabel]="puedeAgregar() ? 'Agregar al inventario' : (puedeCrear() ? 'Nueva ficha' : null)"
+            (add)="puedeAgregar() ? abrirAgregar(null) : nuevoProd()"
             [rows]="filasProd()"
             [searchable]="true"
             [searchPlaceholder]="'Buscar por nombre, SKU, categoría, tipo…'"
@@ -181,9 +192,20 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
       [editando]="editandoProducto()"
       [categorias]="categorias()"
       [productosExistentes]="productos()"
-      [sitioFijo]="bodegaSel()"
       (closed)="modalOpen.set(false)"
-      (guardado)="onProductoGuardado()" />
+      (guardado)="onProductoGuardado($event)"
+      (usarExistente)="abrirAgregar($event)" />
+
+    <!-- Catálogo único: la bodega elige la ficha y digita cuántas unidades tiene. -->
+    <app-agregar-existencias-modal
+      [open]="agregarOpen()"
+      [sitios]="bodegas()"
+      [sitioFijo]="bodegaSel()"
+      [productoInicial]="fichaParaAgregar()"
+      [puedeCrearFicha]="puedeCrear()"
+      (closed)="agregarOpen.set(false)"
+      (guardado)="onExistenciasAgregadas()"
+      (crearFicha)="crearFichaDesdeAgregar()" />
 
     <!-- Ítem: sigue en el modal genérico (placa SENA + estado, nada que unificar). -->
     <app-admin-modal
@@ -214,23 +236,26 @@ export class MiBodegaComponent implements OnInit {
   /** `true` en `/materiales/bodegas` (admin, todos los sitios); `false` en `/mi-bodega` (solo los propios). */
   readonly todasLasBodegas: boolean = this.route.snapshot.data['todasLasBodegas'] === true;
 
-  puedeCrear = computed(() => this.auth.tieneServicio('materiales.productos.crear'));
-  puedeEditar = computed(() => this.auth.tieneServicio('materiales.productos.editar'));
-  puedeEliminar = computed(() => this.auth.tieneServicio('materiales.productos.eliminar'));
-
   /**
-   * Desactivar/Activar un producto afecta TODAS sus unidades en TODAS las
-   * bodegas — el backend solo lo permite a quien administra la bodega DE
-   * CASA del producto (`producto.id_sitio`), no a quien solo tiene algunas
-   * unidades en la bodega que está viendo acá (para eso está el desactivar
-   * POR ÍTEM en la pestaña "Ítems"). En Mi Bodega ya se navega con UNA
-   * bodega elegida (`bodegaSel`, siempre una de las que el usuario
-   * administra) — "puedo gestionar este producto" se reduce a "su bodega de
-   * casa ES la que tengo seleccionada".
+   * Crear / editar / desactivar fichas del catálogo único: solo
+   * administrador_erp y líderes de área (2026-10-02, lo resuelve el backend
+   * en `GET /productos/catalogo/gestion`). El encargado de bodega trae
+   * `materiales.productos.*` en su bundle, pero solo agrega existencias.
    */
+  gestionaCatalogo = signal(false);
+  puedeCrear = computed(() => this.gestionaCatalogo());
+  puedeEditar = computed(() => this.gestionaCatalogo());
+  puedeEliminar = computed(() => this.gestionaCatalogo());
+  /** La importación también suma stock a fichas existentes; sigue con su servicio. */
+  puedeImportar = computed(() => this.auth.tieneServicio('materiales.productos.crear'));
+  /** "Agregar al inventario" genera ítems (devolutivo) o un lote (consumo/perecedero). */
+  puedeAgregar = computed(() =>
+    this.auth.tieneServicio('materiales.items.crear') || this.auth.tieneServicio('materiales.lotes.crear'),
+  );
+
+  /** Desactivar/Activar afecta la ficha en TODAS las bodegas (para una unidad: desactivar POR ÍTEM en "Ítems"). */
   puedeGestionarActivoProd = (row: any): boolean =>
-    this.puedeEliminar() && this.estadoFiltro !== 'todos' &&
-    (this.auth.isAdmin() || row.id_sitio === this.bodegaSel());
+    this.puedeEliminar() && this.estadoFiltro !== 'todos' && !!row;
   /** Ítems tiene su propio servicio de edición, distinto del de Productos. */
   puedeEditarItem = computed(() => this.auth.tieneServicio('materiales.items.editar'));
 
@@ -384,6 +409,8 @@ export class MiBodegaComponent implements OnInit {
     this.loading.set(true);
     this.secundarias.reiniciar();
     try {
+      // Primero: de esto depende si se piden también los desactivados.
+      this.gestionaCatalogo.set(await this.api.puedeGestionarCatalogo().catch(() => false));
       const bodegas = this.todasLasBodegas
         ? await this.api.listarSitios()
         : await this.api.sitiosACargo();
@@ -436,8 +463,31 @@ export class MiBodegaComponent implements OnInit {
     this.modalOpen.set(true);
   }
 
-  async onProductoGuardado(): Promise<void> {
+  /** Ficha recién creada → se sigue de una con "Agregar al inventario" en esta bodega. */
+  async onProductoGuardado(creado: Producto | null): Promise<void> {
     this.modalOpen.set(false);
+    if (creado && this.puedeAgregar()) this.abrirAgregar(creado);
+    await this.cargar();
+  }
+
+  // ── Agregar al inventario (catálogo único) ──
+  agregarOpen = signal(false);
+  fichaParaAgregar = signal<Producto | null>(null);
+
+  abrirAgregar(ficha: Producto | null): void {
+    if (!this.puedeAgregar()) return;
+    this.modalOpen.set(false);
+    this.fichaParaAgregar.set(ficha);
+    this.agregarOpen.set(true);
+  }
+
+  crearFichaDesdeAgregar(): void {
+    this.agregarOpen.set(false);
+    this.nuevoProd();
+  }
+
+  async onExistenciasAgregadas(): Promise<void> {
+    this.agregarOpen.set(false);
     await this.cargar();
   }
 

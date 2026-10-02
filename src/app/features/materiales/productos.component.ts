@@ -1,8 +1,9 @@
-import { Component, OnInit, computed, inject } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AdminTableComponent, TableRowLink } from '../../shared/components/admin-table.component';
 import { ProductoFormModalComponent } from './ui/producto-form-modal.component';
+import { AgregarExistenciasModalComponent } from './ui/agregar-existencias-modal.component';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
@@ -13,9 +14,10 @@ import { AvisoCargasComponent } from './ui/aviso-cargas.component';
 import { MaterialesScreenPolicy } from './ui/materiales-screen-policy';
 
 /**
- * CRUD de Productos. Crear un producto DEVOLUTIVO genera automáticamente
- * `cantidad` Items; en CONSUMO/PERECEDERO el stock se carga aparte como
- * lote(s) en el módulo de Lotes — ver `MaterialesApiService.crearProducto`.
+ * Catálogo de Productos — único por centro (2026-10-02). Crear un producto es
+ * crear su FICHA (sin bodega ni cantidad); cada bodega le agrega sus unidades
+ * con "Agregar al inventario" (`<app-agregar-existencias-modal>`): ítems si es
+ * DEVOLUTIVO, un lote si es CONSUMO/PERECEDERO.
  *
  * El formulario de crear/editar vive en `<app-producto-form-modal>`
  * (`shared/components/producto-form-modal.component.ts`) — antes era un
@@ -28,7 +30,7 @@ import { MaterialesScreenPolicy } from './ui/materiales-screen-policy';
  * Componente único para admin/instructor/aprendiz (plan de unificación) —
  * antes vivía triplicado en `features/{admin,instructor,aprendiz}/materiales/`,
  * con el catálogo UNSPSC (100+ líneas) copiado 1:1 en cada copia. El gating
- * por servicio (`puedeCrear/Editar/Eliminar`) reemplaza al gate por cargo:
+ * por servicio reemplaza al gate por cargo (salvo las fichas: ver `gestionaCatalogo`):
  * admin trae todos los servicios de Materiales por su bundle de rol.
  *
  * Navegación cruzada (rowLinks): desde un producto, ir directo a sus
@@ -37,15 +39,29 @@ import { MaterialesScreenPolicy } from './ui/materiales-screen-policy';
 @Component({
   selector: 'app-materiales-productos',
   standalone: true,
-  imports: [AvisoCargasComponent, AlertComponent, FormsModule, RouterLink, AdminTableComponent, ProductoFormModalComponent],
+  imports: [AvisoCargasComponent, AlertComponent, FormsModule, RouterLink, AdminTableComponent, ProductoFormModalComponent, AgregarExistenciasModalComponent],
   template: `
     <div class="p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
         <span>Materiales</span><span aria-hidden="true">/</span><span>Catálogo</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Productos</span>
       </nav>
       <div class="flex items-center justify-between mb-5">
-        <h1 class="text-xl font-bold text-gray-800">Productos</h1>
-        @if (puedeCrear()) {
+        <div>
+          <h1 class="text-xl font-bold text-gray-800">Productos</h1>
+          <p class="text-xs text-gray-400 mt-0.5">Catálogo único del centro. Cada bodega agrega aquí sus unidades, sin crear el producto otra vez.</p>
+        </div>
+        <div class="flex items-center gap-2">
+        @if (puedeAgregar() && bodegasGestionables.length) {
+          <button type="button" (click)="abrirAgregar(null)"
+            class="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-3.5 py-2 text-white shadow-sm transition-colors"
+            style="background-color: var(--accent-brand)">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Agregar al inventario
+          </button>
+        }
+        @if (puedeImportar()) {
           <a routerLink="/materiales/importar"
             class="group inline-flex items-center gap-1.5 text-xs font-semibold rounded-full pl-2.5 pr-3.5 py-2 border border-[#39A900]/25 text-[#2d8000] bg-[#39A900]/[0.07] shadow-sm hover:bg-[#39A900]/15 hover:border-[#39A900]/45 transition-colors">
             <svg class="w-4 h-4 transition-transform group-hover:translate-y-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -54,6 +70,7 @@ import { MaterialesScreenPolicy } from './ui/materiales-screen-policy';
             Importar
           </a>
         }
+        </div>
       </div>
 
       <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
@@ -66,7 +83,7 @@ import { MaterialesScreenPolicy } from './ui/materiales-screen-policy';
       }
 
       <app-admin-table
-        [addLabel]="puedeCrear() ? 'Nuevo producto' : null"
+        [addLabel]="puedeCrear() ? 'Nueva ficha' : null"
         (add)="nuevo()"
         [rows]="filas"
         [searchable]="true"
@@ -90,10 +107,19 @@ import { MaterialesScreenPolicy } from './ui/materiales-screen-policy';
       [open]="modalOpen"
       [editando]="editando"
       [categorias]="categorias"
-      [sitios]="sitios"
       [productosExistentes]="productos"
       (closed)="cerrarModal()"
-      (guardado)="onProductoGuardado()" />
+      (guardado)="onProductoGuardado($event)"
+      (usarExistente)="abrirAgregar($event)" />
+
+    <app-agregar-existencias-modal
+      [open]="agregarOpen"
+      [sitios]="bodegasGestionables"
+      [productoInicial]="fichaParaAgregar"
+      [puedeCrearFicha]="puedeCrear()"
+      (closed)="agregarOpen = false"
+      (guardado)="onExistenciasAgregadas()"
+      (crearFicha)="agregarOpen = false; nuevo()" />
   `,
 })
 export class MaterialesProductosComponent implements OnInit {
@@ -114,29 +140,23 @@ export class MaterialesProductosComponent implements OnInit {
     return this.sitios.filter((s) => !s.estado);
   }
 
-  puedeCrear = computed(() => this.auth.tieneServicio('materiales.productos.crear'));
-  puedeEditar = computed(() => this.auth.tieneServicio('materiales.productos.editar'));
-  puedeEliminar = computed(() => this.auth.tieneServicio('materiales.productos.eliminar'));
-
   /**
-   * Desactivar/Activar un producto afecta TODAS sus unidades, en TODAS las
-   * bodegas donde tenga stock — el backend (`ProductosService
-   * .eliminarProducto`/`activarProducto`) solo lo permite a quien administra
-   * la bodega DE CASA del producto (`producto.id_sitio`), no a quien
-   * simplemente tiene algunas de sus unidades en la suya propia (2026-09-18,
-   * pedido explícito: para eso está el desactivar POR ÍTEM en la pantalla de
-   * Ítems). Se oculta el botón acá para no ofrecer una acción que el backend
-   * va a rechazar con 403 — antes el usuario lo veía, lo intentaba y recién
-   * ahí se enteraba.
+   * Crear / editar / desactivar fichas del catálogo único: solo
+   * administrador_erp y líderes de área (2026-10-02). Lo decide el backend
+   * por quién es el usuario (`GET /productos/catalogo/gestion`), no por el
+   * servicio `materiales.productos.*` — los encargados de bodega lo traen en
+   * su bundle pero solo agregan existencias.
    */
-  private esResponsableDeSitio(idSitio: string | null | undefined): boolean {
-    if (this.auth.isAdmin()) return true;
-    if (!idSitio) return false;
-    const sitio = this.sitios.find((s) => s.id_sitio === idSitio);
-    return !!sitio?.id_responsable && sitio.id_responsable === this.auth.user()?.id;
-  }
+  gestionaCatalogo = signal(false);
+  puedeCrear = computed(() => this.gestionaCatalogo());
+  puedeEditar = computed(() => this.gestionaCatalogo());
+  puedeEliminar = computed(() => this.gestionaCatalogo());
+  /** La importación también suma stock a fichas existentes; sigue con su servicio. */
+  puedeImportar = computed(() => this.auth.tieneServicio('materiales.productos.crear'));
+
+  /** Desactivar/Activar afecta la ficha en TODAS las bodegas (para una unidad: desactivar POR ÍTEM). */
   puedeGestionarActivo = (row: any): boolean =>
-    this.puedeEliminar() && this.estadoFiltro !== 'todos' && this.esResponsableDeSitio(row.id_sitio);
+    this.puedeEliminar() && this.estadoFiltro !== 'todos' && !!row;
   // Misma regla que `GET /sitios` del backend (`LECTURA_LISTA.sitios`) — acá
   // se chequeaba solo `sitios.ver`, más estricto de lo que el backend permite,
   // y alguien con solo `traslados.crear` no cargaba bodegas ni veía el aviso de
@@ -225,6 +245,8 @@ export class MaterialesProductosComponent implements OnInit {
     this.loading = true;
     this.secundarias.reiniciar();
     try {
+      // Primero: de esto depende si se piden también los desactivados.
+      this.gestionaCatalogo.set(await this.api.puedeGestionarCatalogo().catch(() => false));
       // Un aprendiz o instructor comunes ya NO traen por defecto
       // `materiales.sitios.ver`/`materiales.categorias.ver`/`materiales.items.ver`
       // — ninguna de las tres se pide siquiera si no se tiene el servicio (no
@@ -238,12 +260,17 @@ export class MaterialesProductosComponent implements OnInit {
       // Quien no puede desactivar tampoco ve el filtro (línea 61) — para esa
       // audiencia el comportamiento se mantiene igual que siempre: solo activos.
       const incluirInactivos = this.puedeEliminar() && this.estadoFiltro !== 'activos';
-      const [productos, categorias, sitios, items] = await Promise.all([
+      const [productos, categorias, sitios, items, aCargo] = await Promise.all([
         this.api.listarProductos(incluirInactivos),
         this.secundarias.cargar('categorías', () => this.api.listarCategorias(), verCategorias),
         this.secundarias.cargar('bodegas', () => this.api.listarSitios(), verSitios),
         this.secundarias.cargar('ítems', () => this.api.listarItems(), verItems),
+        // Admin agrega en cualquier bodega (usa `sitios`); un encargado, solo en las suyas.
+        this.puedeAgregar() && !this.auth.isAdmin()
+          ? this.api.sitiosACargo().catch(() => [] as Sitio[])
+          : Promise.resolve([] as Sitio[]),
       ]);
+      this.bodegasGestionables = this.auth.isAdmin() ? sitios : aCargo;
       // `listarProductos(true)` trae activos + desactivados; en modo
       // "Desactivados" nos quedamos solo con los que están dados de baja, en
       // "Todos" se muestran ambos tal cual llegan.
@@ -281,8 +308,31 @@ export class MaterialesProductosComponent implements OnInit {
     this.modalOpen = false;
   }
 
-  async onProductoGuardado(): Promise<void> {
+  /** Ficha recién creada → se ofrece de una agregarle existencias en una bodega. */
+  async onProductoGuardado(creado: Producto | null): Promise<void> {
     this.modalOpen = false;
+    if (creado && this.puedeAgregar() && this.bodegasGestionables.length) this.abrirAgregar(creado);
+    await this.cargar();
+  }
+
+  // ── Agregar al inventario (catálogo único, 2026-10-02) ──
+  puedeAgregar = computed(() =>
+    this.auth.tieneServicio('materiales.items.crear') || this.auth.tieneServicio('materiales.lotes.crear'),
+  );
+  agregarOpen = false;
+  fichaParaAgregar: Producto | null = null;
+  /** Bodegas donde el usuario puede agregar: todas para admin, las suyas para un encargado. */
+  bodegasGestionables: Sitio[] = [];
+
+  abrirAgregar(ficha: Producto | null): void {
+    if (!this.puedeAgregar()) return;
+    this.modalOpen = false;
+    this.fichaParaAgregar = ficha;
+    this.agregarOpen = true;
+  }
+
+  async onExistenciasAgregadas(): Promise<void> {
+    this.agregarOpen = false;
     await this.cargar();
   }
 

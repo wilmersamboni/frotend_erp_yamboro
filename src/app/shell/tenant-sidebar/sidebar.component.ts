@@ -27,6 +27,9 @@ interface NavLink  {
    * viendo normal — mismo motivo por el que se repuso el link el 2026-09-16.
    */
   ocultarSiResponsableBodega?: boolean;
+  /** Solo para quien gestiona Materiales: admin, encargado de ≥1 bodega o
+   * líder de área (mismo criterio que `gestorMaterialesGuard`). */
+  soloGestorMateriales?: boolean;
   /** Servicio del sistema de permisos dinámico que también habilita este link,
    * aunque el cargo no esté en `roles` (ver AuthService.tieneServicio). OR con
    * `roles` — pensado para poblaciones DISTINTAS (ej. `roles` = admin,
@@ -56,6 +59,7 @@ interface NavSection { label: string; links: NavLink[]; }
 
 /** Ícono de cada pantalla de Materiales, por `PantallaMateriales.id`. */
 const ICONOS_MATERIALES: Record<string, string> = {
+  'reporte': `<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`,
   'mi-bodega': `<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/></svg>`,
   'solicitudes': `<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-5 8l2 2 4-4"/></svg>`,
   'devoluciones': `<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l-4-4m0 0l4-4m-4 4h11a4 4 0 010 8h-1"/></svg>`,
@@ -278,12 +282,18 @@ const ICONOS_MATERIALES: Record<string, string> = {
 export class SidebarComponent implements OnChanges, OnInit {
   /** ¿El usuario es responsable de ≥1 bodega? Gate del link "Mi Bodega". */
   esResponsableBodega = signal(false);
+  /** ¿Puede alimentar el catálogo (administrador_erp o líder de área)? Gate del Reporte de materiales. */
+  esGestorCatalogo = signal(false);
 
   ngOnInit(): void {
     this.materialesApi
       .sitiosACargo()
       .then((bodegas) => this.esResponsableBodega.set(bodegas.length > 0))
       .catch(() => this.esResponsableBodega.set(false));
+    this.materialesApi
+      .puedeGestionarCatalogo?.()
+      .then((puede) => this.esGestorCatalogo.set(puede))
+      .catch(() => this.esGestorCatalogo.set(false));
   }
 
   @Input() open = false;
@@ -515,6 +525,8 @@ export class SidebarComponent implements OnChanges, OnInit {
         // `id_responsable` de ≥1 bodega (cualquier cargo). `miBodegaGuard`
         // hace el mismo chequeo al navegar.
         return { ...base, soloResponsableBodega: true };
+      case 'gestor':
+        return { ...base, servicios: [p.acceso.servicio], soloGestorMateriales: true };
     }
   }
 
@@ -581,6 +593,7 @@ export class SidebarComponent implements OnChanges, OnInit {
           if (esAprendiz && l.soloAprendizSinEtapa && tieneEtapa !== false) return false;
           if (l.soloResponsableBodega && (this.auth.isAdmin() || !this.esResponsableBodega())) return false;
           if (l.ocultarSiResponsableBodega && !this.auth.isAdmin() && this.esResponsableBodega()) return false;
+          if (l.soloGestorMateriales && !this.auth.isAdmin() && !this.esResponsableBodega() && !this.esGestorCatalogo()) return false;
           return true;
         }),
       }))

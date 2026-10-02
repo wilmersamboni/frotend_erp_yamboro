@@ -3,8 +3,18 @@ import { FormsModule } from '@angular/forms';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
 import { OpcionSelect } from '../../tenant-administration/services/admin.service';
 import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
-import { Categoria, MaterialesApiService, Producto, Sitio } from '../data-access/materiales-api.service';
+import { Categoria, MaterialesApiService, Producto } from '../data-access/materiales-api.service';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
+
+/** Minúsculas, sin tildes ni signos — mismo criterio que `normalizarFicha` del backend. */
+export function normalizarFicha(valor: string | null | undefined): string {
+  return (valor ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
 
 const OPCIONES_TIPO_MATERIAL = [
   { value: 'CONSUMO', label: 'Consumo', clases: 'border-green-300 bg-green-50 text-green-700' },
@@ -103,11 +113,12 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
  * formulario, sin UNSPSC/marca/modelo/placa SENA/SKU automático). Ambos
  * ahora instancian este mismo componente.
  *
- * `sitioFijo`: cuando se pasa (Mi Bodega, ya con una bodega elegida), oculta
- * el selector "Bodega por defecto" y precarga ese valor al crear — evitar que
- * el encargado le asigne el producto nuevo a una bodega que no administra.
- * Al editar, la bodega ya guardada del producto no se toca (mismo criterio
- * que tenía Mi Bodega antes: su edición nunca mandaba `id_sitio`).
+ * Catálogo único por centro (2026-10-02): el formulario edita la FICHA del
+ * producto (nombre, UNSPSC obligatorio, unidad, categoría…), que no tiene
+ * bodega ni cantidad. Las unidades las agrega cada bodega después con
+ * `<app-agregar-existencias-modal>`. Antes acá se elegía una "bodega por
+ * defecto" y la cantidad de ítems, y cada bodega terminaba creando su propia
+ * copia del mismo producto.
  */
 @Component({
   selector: 'app-producto-form-modal',
@@ -118,7 +129,10 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
       <div appDialog class="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 overflow-y-auto p-2 sm:p-4" (click)="closed.emit()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg my-auto max-h-[calc(100dvh-1rem)] sm:max-h-[90vh] flex flex-col overflow-hidden" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between shrink-0 px-4 pt-4 pb-3 sm:px-6 sm:pt-6">
-            <h2 class="text-lg font-bold text-gray-800">{{ editando ? 'Editar producto' : 'Nuevo producto' }}</h2>
+            <div>
+              <h2 class="text-lg font-bold text-gray-800">{{ editando ? 'Editar ficha del producto' : 'Nueva ficha de producto' }}</h2>
+              <p class="text-xs text-gray-400 mt-0.5">Catálogo único del centro: la misma ficha la usan todas las bodegas.</p>
+            </div>
             <button aria-label="Cerrar" (click)="closed.emit()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 
@@ -147,6 +161,25 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
               <label class="block text-xs font-medium text-gray-600 mb-1">Nombre <span class="text-red-500">*</span></label>
               <input type="text" [(ngModel)]="form['nombre']" placeholder="Ej: Taladro percutor, Guantes de nitrilo…"
                 class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+              <!-- Antes de crear otra ficha: ¿ya existe en el catálogo? -->
+              @if (!editando && similares().length) {
+                <div class="mt-2 rounded-lg border border-amber-200 bg-amber-50/70 p-2.5">
+                  <p class="text-xs font-medium text-amber-800 mb-1.5">Ya hay fichas parecidas en el catálogo. Si es la misma, usala en vez de crear otra:</p>
+                  <ul class="space-y-1">
+                    @for (p of similares(); track p.id_producto) {
+                      <li class="flex items-center justify-between gap-2 rounded-md bg-white/80 px-2 py-1.5">
+                        <span class="min-w-0 text-xs text-gray-700">
+                          <span class="font-medium">{{ p.nombre }}</span>
+                          @if (p.marca) { <span class="text-gray-400"> · {{ p.marca }}</span> }
+                          <span class="text-gray-400"> · {{ p.codigo_unspsc || 'sin UNSPSC' }} · {{ p.unidad_medida }}</span>
+                        </span>
+                        <button type="button" (click)="usarExistente.emit(p)"
+                          class="shrink-0 text-xs font-semibold text-[#2d8000] hover:underline">Usar esta</button>
+                      </li>
+                    }
+                  </ul>
+                </div>
+              }
             </div>
 
             <div>
@@ -171,8 +204,9 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
             </div>
 
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Código UNSPSC</label>
-              <app-ss [loadOptions]="buscarUnspsc" placeholder="Buscar código o nombre…" [(ngModel)]="form['codigo_unspsc']"></app-ss>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Código UNSPSC <span class="text-red-500">*</span></label>
+              <app-ss [loadOptions]="buscarUnspsc" placeholder="Buscar código o nombre (ej: martillo, 27111602)…" [(ngModel)]="form['codigo_unspsc']"></app-ss>
+              <p class="text-xs text-gray-400 mt-1">Clasificación oficial de Colombia Compra Eficiente. Agrupa las fichas para los reportes y la trazabilidad.</p>
             </div>
 
             @if (form['tipo_material'] === 'DEVOLUTIVO') {
@@ -205,32 +239,16 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
               </div>
             </div>
 
-            <div [class]="sitioFijo ? '' : 'grid grid-cols-1 sm:grid-cols-2 gap-3'">
-              @if (!sitioFijo) {
-                <div>
-                  <label class="block text-xs font-medium text-gray-600 mb-1">Bodega por defecto</label>
-                  <app-ss [options]="opcionesSitio" placeholder="— Sin bodega —" [(ngModel)]="form['id_sitio']"></app-ss>
-                  <p class="text-xs text-gray-400 mt-1">Opcional. Prellena el form de lotes; el stock se ubica por lote o por ítem.</p>
-                </div>
-              }
-              <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Stock mínimo</label>
-                <input type="number" min="0" [(ngModel)]="form['stock_minimo']" placeholder="Ej: 5"
-                  class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
-              </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Stock mínimo</label>
+              <input type="number" min="0" [(ngModel)]="form['stock_minimo']" placeholder="Ej: 5"
+                class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
             </div>
 
-            @if (!editando && form['tipo_material'] === 'DEVOLUTIVO') {
-              <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Cantidad de ítems a generar</label>
-                <input type="number" min="1" [(ngModel)]="form['cantidad']" placeholder="Ej: 10"
-                  class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
-              </div>
-            }
-
-            @if (!editando && form['tipo_material'] !== 'DEVOLUTIVO') {
-              <p class="text-xs text-gray-400 bg-gray-50 rounded-lg p-2.5">
-                El stock (cantidad y fecha de vencimiento) se registra después como lote(s) en el módulo de <span class="font-medium text-gray-500">Lotes</span>.
+            @if (!editando) {
+              <p class="text-xs text-gray-500 bg-gray-50 rounded-lg p-2.5">
+                La ficha no pertenece a ninguna bodega. Después de crearla, cada bodega que tenga este producto
+                lo agrega con <span class="font-medium text-gray-700">Agregar al inventario</span> y digita cuántas unidades tiene.
               </p>
             }
 
@@ -249,22 +267,25 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
             }
           </div>
 
-          @if (bodegaSeleccionadaInactiva) {
-            <p class="text-amber-600 text-xs mt-3 p-2 bg-amber-50 rounded-lg">Esa bodega está inactiva — no se puede guardar mientras esté así.</p>
-          }
           @if (error) {
-            <p class="text-red-500 text-xs mt-3 p-2 bg-red-50 rounded-lg">{{ error }}</p>
+            <div class="text-red-600 text-xs mt-3 p-2 bg-red-50 rounded-lg flex items-center justify-between gap-2">
+              <span>{{ error }}</span>
+              @if (duplicado && duplicado.activo !== false) {
+                <button type="button" (click)="usarExistente.emit(duplicado)"
+                  class="shrink-0 font-semibold text-[#2d8000] hover:underline">Usar esa ficha</button>
+              }
+            </div>
           }
           </div>
 
           <div class="shrink-0 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 border-t border-gray-100 px-4 py-4 sm:px-6">
             <button (click)="closed.emit()" class="w-full sm:w-auto px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
-            <button (click)="guardar()" [disabled]="saving || bodegaSeleccionadaInactiva"
-              [style.opacity]="(saving || bodegaSeleccionadaInactiva) ? 0.6 : 1"
-              [style.cursor]="(saving || bodegaSeleccionadaInactiva) ? 'not-allowed' : 'pointer'"
+            <button (click)="guardar()" [disabled]="saving"
+              [style.opacity]="saving ? 0.6 : 1"
+              [style.cursor]="saving ? 'not-allowed' : 'pointer'"
               class="w-full sm:w-auto px-5 py-2 text-white text-sm font-medium rounded-lg transition-colors"
               style="background-color: var(--accent-brand)">
-              {{ saving ? 'Guardando...' : (editando ? 'Guardar' : 'Crear producto') }}
+              {{ saving ? 'Guardando...' : (editando ? 'Guardar' : 'Crear ficha') }}
             </button>
           </div>
         </div>
@@ -289,18 +310,39 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
   @Input() open = false;
   @Input() editando: Producto | null = null;
   @Input() categorias: Categoria[] = [];
-  @Input() sitios: Sitio[] = [];
   @Input() productosExistentes: Producto[] = [];
-  /** Bodega ya elegida por el llamador (Mi Bodega) — oculta el selector y se usa como `id_sitio` al crear. */
-  @Input() sitioFijo: string | null = null;
 
   @Output() closed = new EventEmitter<void>();
-  /** Se emite tras guardar con éxito — el padre cierra y recarga su lista. */
-  @Output() guardado = new EventEmitter<void>();
+  /**
+   * Se emite tras guardar con éxito — el padre cierra y recarga su lista. Al
+   * crear trae la ficha nueva, para que el padre ofrezca agregarle existencias.
+   */
+  @Output() guardado = new EventEmitter<Producto | null>();
+  /** "Usar esta": la ficha ya existía; el padre abre "Agregar al inventario" con ella. */
+  @Output() usarExistente = new EventEmitter<Producto>();
 
   saving = false;
   error: string | null = null;
   form: Record<string, any> = {};
+  /** Fichas de TODO el catálogo (sin recorte por bodega), para avisar de parecidas al crear. */
+  private catalogo: Producto[] = [];
+  /** Ficha que el backend reportó como duplicada (409), para ofrecer usarla. */
+  duplicado: Producto | null = null;
+
+  /**
+   * Hasta 3 fichas del catálogo cuyo nombre contiene lo escrito (o al revés),
+   * sin tildes ni mayúsculas. Desde 3 letras, para no sugerir de todo.
+   */
+  similares(): Producto[] {
+    const q = normalizarFicha(this.form['nombre']);
+    if (q.length < 3) return [];
+    return this.catalogo
+      .filter((p) => {
+        const n = normalizarFicha(p.nombre);
+        return n.includes(q) || q.includes(n);
+      })
+      .slice(0, 3);
+  }
 
   opcionesTipoMaterial = OPCIONES_TIPO_MATERIAL;
   opcionesUnidadPeso = OPCIONES_UNIDAD_PESO;
@@ -333,25 +375,6 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
 
   get opcionesCategoria(): OpcionSelect[] {
     return this.categorias.map((c) => ({ label: c.nombre, value: c.id_categoria }));
-  }
-
-  get opcionesSitio(): OpcionSelect[] {
-    // Una bodega inactiva no acepta productos/ítems nuevos (ver plan
-    // 2026-09-18) — se excluye del selector, salvo que sea la bodega YA
-    // guardada del producto que se está editando (si no, el selector
-    // quedaría en blanco al abrir el modal).
-    const actual: string | undefined = this.form['id_sitio'];
-    const activos = this.sitios.filter((s) => s.estado || s.id_sitio === actual);
-    return activos.map((s) => ({ label: s.nombre, value: s.id_sitio }));
-  }
-
-  /** La bodega elegida (nueva o ya guardada) está inactiva — el backend
-   *  rechazaría el guardado igual, así que se deshabilita acá directo (ver
-   *  plan 2026-09-18). */
-  get bodegaSeleccionadaInactiva(): boolean {
-    const id: string | undefined = this.form['id_sitio'];
-    if (!id) return false;
-    return this.sitios.find((s) => s.id_sitio === id)?.estado === false;
   }
 
   /**
@@ -438,6 +461,8 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
     if (!changes['open'] && !changes['editando']) return;
     if (!this.open) return;
     this.error = null;
+    this.duplicado = null;
+    if (!this.editando) void this.cargarCatalogo();
     this.skuEsAuto = true;
     this.ultimoNombreVisto = '';
     this.ultimaMarcaVista = '';
@@ -459,7 +484,6 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
         unidad_peso_bulto: p.unidad_peso_bulto ?? '',
         peso_por_bulto: p.peso_por_bulto ?? '',
         id_categoria: p.id_categoria,
-        id_sitio: p.id_sitio ?? '',
         stock_minimo: p.stock_minimo,
       };
     } else {
@@ -468,11 +492,17 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
         tipo_material: 'CONSUMO', unidad_medida: '', usa_placa_sena: true,
         unidad_peso_bulto: '', peso_por_bulto: '',
         id_categoria: this.categorias[0]?.id_categoria ?? '',
-        // Bodega por defecto: fija si el llamador ya trabaja en una sola (Mi
-        // Bodega); si no, opcional y arranca vacía.
-        id_sitio: this.sitioFijo ?? '',
-        cantidad: 1, stock_minimo: 1,
+        stock_minimo: 1,
       };
+    }
+  }
+
+  /** Best-effort: si falla, simplemente no hay sugerencias (el backend igual rechaza el duplicado). */
+  private async cargarCatalogo(): Promise<void> {
+    try {
+      this.catalogo = await this.api.catalogoProductos();
+    } catch {
+      this.catalogo = this.productosExistentes;
     }
   }
 
@@ -480,6 +510,12 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
     const form = this.form;
     if (!form['nombre']?.trim()) {
       this.error = 'El nombre es obligatorio.';
+      return;
+    }
+    // Obligatorio al crear; al editar una ficha vieja sin código se permite
+    // guardar igual (el backend solo valida el código si cambia).
+    if (!this.editando && !form['codigo_unspsc']?.trim()) {
+      this.error = 'El código UNSPSC es obligatorio.';
       return;
     }
     if (!form['unidad_medida']?.trim()) {
@@ -492,18 +528,11 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
       this.error = 'El stock mínimo debe ser un número entero de 0 en adelante.';
       return;
     }
-    if (!this.editando && form['tipo_material'] === 'DEVOLUTIVO') {
-      const cantidad = Number(form['cantidad']);
-      if (!Number.isInteger(cantidad) || cantidad < 1) {
-        this.error = 'La cantidad de ítems a generar debe ser un entero de 1 en adelante.';
-        return;
-      }
-    }
     this.saving = true;
     this.error = null;
-    const esDevolutivo = form['tipo_material'] === 'DEVOLUTIVO';
+    this.duplicado = null;
     // Solo se mandan si el campo aplica y está visible — mismo criterio que SKU con gastronomía.
-    // `fecha_vencimiento` ya NO se pide acá: vive en cada lote (módulo de Lotes).
+    // `fecha_vencimiento` ya NO se pide acá: vive en cada lote.
     const camposCondicionales = {
       unidad_peso_bulto: this.esBulto() ? (form['unidad_peso_bulto'] || undefined) : undefined,
       peso_por_bulto: this.esBulto() && form['peso_por_bulto'] ? Number(form['peso_por_bulto']) : undefined,
@@ -528,13 +557,15 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
           unidad_medida: form['unidad_medida'],
           es_psd: esPsd,
           id_categoria: form['id_categoria'],
-          id_sitio: form['id_sitio'] || undefined,
           stock_minimo: Number(form['stock_minimo']),
           ...camposCondicionales,
         });
-        this.toast.ok('Producto actualizado');
+        this.toast.ok('Ficha actualizada');
+        this.guardado.emit(null);
       } else {
-        const { items_generados } = await this.api.crearProducto({
+        // La ficha nace sin bodega y sin stock: las unidades se agregan
+        // después desde la bodega ("Agregar al inventario").
+        const { producto } = await this.api.crearProducto({
           nombre: form['nombre'],
           descripcion: form['descripcion'] || undefined,
           codigo_unspsc: form['codigo_unspsc'] || undefined,
@@ -546,34 +577,22 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
           unidad_medida: form['unidad_medida'],
           es_psd: esPsd,
           id_categoria: form['id_categoria'],
-          id_sitio: form['id_sitio'] || undefined,
-          // Solo DEVOLUTIVO genera ítems; en CONSUMO/PERECEDERO el stock se carga aparte en Lotes.
-          cantidad: esDevolutivo ? (Number(form['cantidad']) || 1) : 0,
+          cantidad: 0,
           stock_minimo: Number(form['stock_minimo']),
           ...camposCondicionales,
         });
-        if (esDevolutivo) {
-          this.toast.ok('Producto creado', `Se generaron ${items_generados.length} ítem(s).`);
-          // El SKU queda en el producto; cada unidad física necesita su placa.
-          if (usaPlacaSena && items_generados.length > 0) {
-            this.toast.warn(
-              'Falta la placa SENA',
-              `Recordá agregar la placa SENA a los ${items_generados.length} ítem(s) de "${form['nombre']}" en el módulo de Ítems.`,
-              7000,
-            );
-          }
-        } else {
-          this.toast.ok('Producto creado');
-          this.toast.warn(
-            'Falta el stock',
-            `Registrá el stock inicial de "${form['nombre']}" como lote en el módulo de Lotes.`,
-            7000,
-          );
-        }
+        this.toast.ok('Ficha creada en el catálogo');
+        this.guardado.emit(producto);
       }
-      this.guardado.emit();
     } catch (e: any) {
       this.error = mensajeDeError(e, 'No se pudo guardar el producto.');
+      // 409 = ya existe una ficha igual: el backend la devuelve para ofrecer usarla.
+      const data = e?.status === 409 ? e?.error?.data : null;
+      if (data?.id_producto) {
+        this.duplicado =
+          this.catalogo.find((p) => p.id_producto === data.id_producto) ??
+          ({ id_producto: data.id_producto, nombre: data.nombre, activo: data.activo } as Producto);
+      }
     } finally {
       this.saving = false;
     }

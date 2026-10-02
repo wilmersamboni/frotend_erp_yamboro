@@ -41,6 +41,7 @@ function menuMateriales(opciones: {
 
 describe('Sidebar: menú de Materiales según permisos efectivos', () => {
   it('instructor común: solo las pantallas de los servicios que trae de fábrica', () => {
+    // Sin "Reporte de materiales": tiene existencias.ver pero no gestiona ninguna bodega ni área.
     expect(menuMateriales({ cargo: 'instructor', servicios: BASE_INSTRUCTOR })).toEqual([
       'Solicitudes', 'Devoluciones', 'Vencimientos', 'Existencias', 'Productos', 'Actas',
     ]);
@@ -54,6 +55,8 @@ describe('Sidebar: menú de Materiales según permisos efectivos', () => {
     });
 
     expect(menu).toEqual(expect.arrayContaining(['Mi Bodega', 'Traslados', 'Novedades', 'Kardex', 'Categorías', 'Asignaciones', 'Ítems', 'Lotes']));
+    // El reporte (nombres y cédulas de terceros) es para quien gestiona: el encargado sí lo ve.
+    expect(menu).toContain('Reporte de materiales');
     // "Mi Bodega" ya cubre el catálogo de productos; "Bodegas" es la consola del administrador.
     expect(menu).not.toContain('Productos');
     expect(menu).not.toContain('Bodegas');

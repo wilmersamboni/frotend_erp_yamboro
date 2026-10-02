@@ -185,9 +185,80 @@ export interface FilaConfirmada {
   fila_origen?: number;
 }
 
+/** De dónde sale el responsable actual de un material — ver `GET /existencias/reporte`. */
+export type OrigenResponsable = 'PRESTAMO' | 'ASIGNACION' | 'SITIO' | 'SIN_RESPONSABLE';
+
+export interface ResponsableMaterial {
+  origen: OrigenResponsable;
+  nombre: string | null;
+  documento: string | null;
+  /** AAAA-MM-DD */
+  desde: string | null;
+  /** AAAA-MM-DD — fecha pactada de devolución */
+  hasta: string | null;
+  referencia: string | null;
+  id_solicitud: string | null;
+}
+
+interface UbicacionReporte {
+  id_sitio: string | null;
+  sitio: string | null;
+  sitio_tipo: string | null;
+  /** Responsable del sitio, aunque el material esté prestado a otra persona. */
+  sitio_responsable: string | null;
+  responsable: ResponsableMaterial;
+}
+
+export interface ReporteUnidad extends UbicacionReporte {
+  id_item: string;
+  placa_sena: string | null;
+  codigo_sku: string | null;
+  estado: string;
+  id_producto: string;
+  producto: string;
+  codigo_unspsc: string | null;
+  marca: string | null;
+  modelo: string | null;
+  categoria: string | null;
+}
+
+export interface ReporteLote extends UbicacionReporte {
+  id_lote: string;
+  codigo_lote: string | null;
+  id_producto: string;
+  producto: string;
+  codigo_unspsc: string | null;
+  tipo_material: string;
+  unidad_medida: string;
+  categoria: string | null;
+  cantidad_disponible: number;
+  cantidad_inicial: number;
+  cantidad_reservada: number;
+  fecha_ingreso: string | null;
+  fecha_vencimiento: string | null;
+}
+
+export interface ReporteMateriales {
+  generado: string;
+  unidades: ReporteUnidad[];
+  lotes: ReporteLote[];
+}
+
+export interface AgregarExistenciasDto {
+  id_sitio: string;
+  cantidad: number;
+  /** Solo DEVOLUTIVO, por posición; los ítems sin placa quedan listos para asignársela. */
+  placas_sena?: string[];
+  /** Solo CONSUMO/PERECEDERO. */
+  codigo_lote?: string;
+  /** AAAA-MM-DD, obligatoria para PERECEDERO. */
+  fecha_vencimiento?: string;
+}
+
 export interface CreateProductoDto {
   nombre: string;
   descripcion?: string;
+  /** Obligatorio al crear (catálogo amarrado a UNSPSC, 2026-10-02). */
   codigo_unspsc?: string;
   SKU?: string;
   marca?: string;
@@ -654,6 +725,33 @@ export class MaterialesApiService {
   }
   actualizarProducto(id: string, dto: Partial<CreateProductoDto>) {
     return this.unwrap(this.http.patch<Envelope<Producto>>(`${BASE}/productos/${id}`, dto));
+  }
+  /**
+   * Catálogo único del centro (2026-10-02): todas las fichas activas, sin
+   * recorte por bodega — de acá se elige al "agregar al inventario".
+   */
+  catalogoProductos() {
+    return this.unwrap(this.http.get<Envelope<Producto[]>>(`${BASE}/productos/catalogo`));
+  }
+  /** Reporte global: cada unidad y lote con ubicación, estado y responsable actual (recortado por scope). */
+  reporteMateriales() {
+    return this.unwrap(this.http.get<Envelope<ReporteMateriales>>(`${BASE}/existencias/reporte`));
+  }
+  /** ¿Puedo crear/editar fichas del catálogo? Solo administrador_erp y líderes de área. */
+  async puedeGestionarCatalogo(): Promise<boolean> {
+    const r = await this.unwrap(
+      this.http.get<Envelope<{ puede_gestionar: boolean }>>(`${BASE}/productos/catalogo/gestion`),
+    );
+    return !!r?.puede_gestionar;
+  }
+  /** La bodega declara cuántas unidades tiene de una ficha: DEVOLUTIVO → ítems, CONSUMO/PERECEDERO → lote. */
+  agregarExistencias(idProducto: string, dto: AgregarExistenciasDto) {
+    return this.unwrap(
+      this.http.post<Envelope<{ producto: Producto; items_generados: Item[]; lote_generado: Lote | null }>>(
+        `${BASE}/productos/${idProducto}/existencias`,
+        dto,
+      ),
+    );
   }
   /** #5 — descarga la plantilla .xlsx (blob, sin envelope). */
   descargarPlantillaProductos(): Promise<Blob> {
