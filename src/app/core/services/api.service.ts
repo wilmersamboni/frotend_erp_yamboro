@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { Area, Curso, Formato, Persona } from '../../shared/models';
 import { environment } from '../../../environments/environment';
 import { SILENCIAR_TOAST_ERROR } from '../interceptors/error.interceptor';
+import { log } from '../utils/log';
 
 const BASE  = environment.apiUrl;          // → http://localhost:3000 vía proxy
 const BASE2 = environment.apiPracticaUrl;  // → http://localhost:3001 vía proxy
@@ -141,7 +142,7 @@ export class ApiService {
       if (resp?.matriculas && Array.isArray(resp.matriculas)) return resp.matriculas;
       return [];
     } catch (error) {
-      console.error('Error listando todas las matrículas:', error);
+      log.error('Error listando todas las matrículas:', error);
       return [];
     }
   }
@@ -500,7 +501,7 @@ async subirEvidenciaObservacion(file: File): Promise<string> {
     try {
       await firstValueFrom(this.http.post(`${BASE}/notificaciones`, payload));
     } catch (e) {
-      console.warn('[ApiService] Error creando notificación:', e);
+      log.warn('[ApiService] Error creando notificación:', e);
     }
   }
 

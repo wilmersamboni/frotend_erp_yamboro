@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { CONFIG, Modulo } from '../config/admin.config';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { log } from '../../../core/utils/log';
 
 export interface OpcionSelect {
   label: string;
@@ -293,18 +294,12 @@ export class AdminService {
             municipios = Array.isArray(r) ? r : r?.data ?? [];
             this.rawData.update(d => ({ ...d, municipios }));
           } catch (err) {
-            console.error('[Admin] No se pudo cargar municipios para empresas:', err);
+            log.error('[Admin] No se pudo cargar municipios para empresas:', err);
           }
         }
 
-        // Debug: muestra qué claves tiene el primer municipio para detectar el nombre real del PK
-        if (municipios.length > 0) {
-          console.log('[Admin] municipios[0] keys:', Object.keys(municipios[0]));
-          console.log('[Admin] municipios sample:', municipios.slice(0, 3).map((m: any) => ({
-            idMunicipio: m.idMunicipio, id_municipio: m.id_municipio, nombre: m.nombre,
-          })));
-        } else {
-          console.warn('[Admin] rawData[municipios] está vacío — no se podrá resolver municipio en empresas');
+        if (municipios.length === 0) {
+          log.warn('[Admin] rawData[municipios] está vacío — no se podrá resolver municipio en empresas');
         }
 
         // Primera pasada: resolver con la lista en memoria
@@ -345,7 +340,7 @@ export class AdminService {
                 this.rawData.update(d => ({ ...d, municipios: [...(d['municipios'] ?? []), { idMunicipio: uuid, nombre }] }));
               }
             } else {
-              console.warn(`[Admin] municipio UUID "${unresolved[i].uuid}" no encontrado en backend-epsas`);
+              log.warn(`[Admin] municipio UUID "${unresolved[i].uuid}" no encontrado en backend-epsas`);
             }
           });
         }
@@ -361,7 +356,7 @@ export class AdminService {
     } catch (e: any) {
       const status = e?.status ?? '?';
       const detail = e?.error?.message ?? e?.error?.mensaje ?? e?.message ?? 'Error desconocido';
-      console.error(`[Admin] Error cargando ${mod} (${status}):`, detail);
+      log.error(`[Admin] Error cargando ${mod} (${status}):`, detail);
       this.msg.add({
         severity: 'warn',
         summary: `No se pudo cargar ${CONFIG[mod].label}`,

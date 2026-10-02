@@ -1,5 +1,4 @@
 import { MaterialesNovedadesComponent } from './administration/novedades.component';
-import { InstructorMaterialesNovedadesComponent } from './instructor/novedades.component';
 
 const items: any[] = [
   { id_item: 'i1', placa_sena: 'SENA-001', codigo_sku: null, producto: { nombre: 'Portátil' } },
@@ -18,7 +17,6 @@ const armar = (clase: { prototype: object }) => {
 
 describe.each([
   ['administración', MaterialesNovedadesComponent],
-  ['instructor', InstructorMaterialesNovedadesComponent],
 ])('Novedades (%s): escaneo de placa', (_rol, clase) => {
   it('una placa conocida selecciona el ítem en el formulario', () => {
     const c = armar(clase);

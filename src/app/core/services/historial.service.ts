@@ -24,6 +24,7 @@ import {
   AsignacionItem,
 } from '../../shared/models/estudiante.model';
 import { environment } from '../../../environments/environment';
+import { log } from '../utils/log';
 
 // Backend-epsas (personas, matrículas, cursos, programas)
 const BASE = environment.apiUrl;
@@ -58,7 +59,7 @@ export class HistorialService {
   private vacioSolo404<T>(endpoint: string, vacio: T): OperatorFunction<T, T> {
     return catchError((err: HttpErrorResponse) => {
       if (err.status === 404) return of(vacio);
-      console.error(`[historial] GET ${endpoint} → ${err.status}`, err);
+      log.error(`[historial] GET ${endpoint} → ${err.status}`, err);
       return throwError(() => err);
     });
   }
@@ -87,7 +88,7 @@ export class HistorialService {
       this.activos$ = this.http.get<any>(`${BASE}/personas`).pipe(
         map((resp) => this.extractArray(resp, 'personas')),
         catchError((err: HttpErrorResponse) => {
-          console.error(`[historial] GET ${BASE}/personas → ${err.status}`, err);
+          log.error(`[historial] GET ${BASE}/personas → ${err.status}`, err);
           // No cachear el fallo: el próximo suscriptor vuelve a intentar el HTTP
           this.activos$ = null;
           return throwError(() => err);

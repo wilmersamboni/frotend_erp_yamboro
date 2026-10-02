@@ -93,7 +93,15 @@ import { EsperaDirective } from '../../shared/directives/espera.directive';
           <app-empty-state titulo="Sin existencias para mostrar" />
         } @else {
           <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
-            <div class="overflow-x-auto">
+            <div class="space-y-3 p-3 md:hidden">
+              @for (r of paginadas(); track r.id_producto + '·' + r.id_sitio) {
+                <article class="rounded-xl border border-gray-200 p-3 text-sm">
+                  <strong class="text-gray-800">{{ r.nombre }}</strong><p class="mt-1 text-xs text-gray-500">{{ r.sitio_nombre || 'Sin bodega' }} · {{ r.sku || 'Sin SKU' }}</p>
+                  <dl class="mt-3 grid grid-cols-2 gap-2 text-xs"><div><dt class="text-gray-500">Disponible</dt><dd class="font-semibold text-green-700">{{ dispEfectiva(r) }}</dd></div><div><dt class="text-gray-500">Total</dt><dd class="font-semibold text-gray-700">{{ totalEfectivo(r) }}</dd></div>@if (esDevolutivo(r)) { <div><dt class="text-gray-500">Prestado</dt><dd>{{ r.prestados }}</dd></div><div><dt class="text-gray-500">Danado / perdido</dt><dd>{{ r.danados + r.perdidos }}</dd></div> }</dl>
+                </article>
+              }
+            </div>
+            <div class="hidden overflow-x-auto md:block">
             <table class="w-full text-sm">
               <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
                 <tr>
@@ -262,7 +270,7 @@ export class MaterialesExistenciasComponent implements OnInit {
   ];
 
   exportarExcel(): void { void this.exporter.excel('existencias', 'Existencias', this.exportColumns, this.filtradas()); }
-  exportarPdf(): void { this.exporter.pdf('existencias', 'Existencias', this.exportColumns, this.filtradas()); }
+  exportarPdf(): void { void this.exporter.pdf('existencias', 'Existencias', this.exportColumns, this.filtradas()); }
 
   private async cargar(): Promise<void> {
     this.loading = true;

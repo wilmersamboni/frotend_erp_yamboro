@@ -9,6 +9,9 @@ import { ToastService, mensajeDeError } from '../../../core/services/toast.servi
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { CreateLoteDto, Lote, MaterialesApiService, Producto, Sitio } from '../data-access/materiales-api.service';
 import { ExportColumn, TableExportService } from '../../../shared/services/table-export.service';
+import { CargasSecundarias } from '../data-access/cargas-secundarias';
+import { AvisoCargasComponent } from '../ui/aviso-cargas.component';
+import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
 
 const OPCIONES_ESTADO: OpcionSelect[] = [
   { label: 'Activo', value: 'ACTIVO' },
@@ -32,7 +35,7 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
 @Component({
   selector: 'app-materiales-lotes',
   standalone: true,
-  imports: [FormsModule, AdminTableComponent, AdminModalComponent],
+  imports: [AvisoCargasComponent, FormsModule, AdminTableComponent, AdminModalComponent],
   template: `
     <div class="p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
@@ -53,6 +56,8 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
           <button type="button" (click)="exportarPdf()" class="px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:border-[#39A900] hover:text-[#267700]" aria-label="Exportar lotes a PDF">PDF</button>
         </div>
       </div>
+
+      <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
 
       <app-admin-table
         [addLabel]="puedeCrear() ? 'Nuevo lote' : null"
@@ -89,6 +94,10 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
   `,
 })
 export class MaterialesLotesComponent implements OnInit {
+  /** Catálogos auxiliares de la pantalla: si uno falla se avisa, no se muestra vacío. */
+  readonly secundarias = new CargasSecundarias();
+  readonly recargar = (): void => void this.cargar();
+  private readonly acceso = inject(MaterialesScreenPolicy);
   private readonly confirm = inject(ConfirmService);
 
   lotes: Lote[] = [];
@@ -223,22 +232,22 @@ export class MaterialesLotesComponent implements OnInit {
   ];
 
   exportarExcel(): void { void this.exporter.excel('lotes', 'Lotes', this.exportColumns, this.filas); }
-  exportarPdf(): void { this.exporter.pdf('lotes', 'Lotes', this.exportColumns, this.filas); }
+  exportarPdf(): void { void this.exporter.pdf('lotes', 'Lotes', this.exportColumns, this.filas); }
 
   private async cargar(): Promise<void> {
     this.loading = true;
+    this.secundarias.reiniciar();
     try {
-      // Sin `materiales.sitios.ver` (caso típico de aprendiz) ni se pide
-      // /sitios ni se deja que un 403 ahí muestre el toast global — mismo
-      // criterio que Items/Productos.
-      const verSitios = this.auth.tieneServicio('materiales.sitios.ver');
+      // Lo que el usuario no puede leer (caso típico: /sitios para un
+      // aprendiz) ni se pide — mismo criterio que Items/Productos.
+      const verSitios = this.acceso.puedeListar('sitios');
       const [lotes, productos, sitios, sitiosGestionables] = await Promise.all([
         this.api.listarLotes(),
-        this.api.listarProductos().catch(() => []),
-        verSitios ? this.api.listarSitios().catch(() => []) : Promise.resolve([]),
+        this.secundarias.cargar('productos', () => this.api.listarProductos(), this.acceso.puedeListar('productos')),
+        this.secundarias.cargar('bodegas', () => this.api.listarSitios(), verSitios),
         this.auth.isAdmin()
-          ? (verSitios ? this.api.listarSitios().catch(() => []) : Promise.resolve([]))
-          : this.api.sitiosACargo().catch(() => []),
+          ? this.secundarias.cargar('bodegas', () => this.api.listarSitios(), verSitios)
+          : this.secundarias.cargar('bodegas a tu cargo', () => this.api.sitiosACargo()),
       ]);
       this.lotes = lotes;
       this.productos = productos;

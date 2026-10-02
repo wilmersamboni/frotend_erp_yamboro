@@ -8,6 +8,7 @@ import { ToastService } from '../../../core/services/toast.service';
 import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
+import { log } from '../../../core/utils/log';
 
 @Component({
   selector: 'app-seguimientos-modal',
@@ -169,15 +170,19 @@ import { DialogDirective } from '../../../shared/directives/dialog.directive';
       }
     }
 
-    <!-- Modal Bitácoras -->
-    <app-bitacoras-modal
-      [isOpen]="bitacorasOpen()"
-      [alumno]="alumno"
-      [seguimiento]="seguimientoSeleccionado()"
-      [practicaId]="alumno?.id_practica"
-      (closed)="bitacorasOpen.set(false); reopened.emit()"
-      (avanceActualizado)="onAvanceActualizado($event)"
-    />
+    <!-- Modal Bitácoras. Dentro de @defer: trae el visor de PDF (pdf.js,
+         ~480 kB), que solo hace falta si alguien abre unas bitácoras. Se
+         descarga la primera vez que se abre y queda montado después. -->
+    @defer (when bitacorasOpen()) {
+      <app-bitacoras-modal
+        [isOpen]="bitacorasOpen()"
+        [alumno]="alumno"
+        [seguimiento]="seguimientoSeleccionado()"
+        [practicaId]="alumno?.id_practica"
+        (closed)="bitacorasOpen.set(false); reopened.emit()"
+        (avanceActualizado)="onAvanceActualizado($event)"
+      />
+    }
   `,
 })
 export class SeguimientosModalComponent implements OnChanges {
@@ -245,7 +250,7 @@ export class SeguimientosModalComponent implements OnChanges {
         ? await this.seguimientoSvc.obtenerSeguimientosPorEtapa(etapaId)
         : await this.seguimientoSvc.obtenerSeguimientos(this.alumno.id);
       this.seguimientos.set(data);
-    } catch (e) { console.error(e); }
+    } catch (e) { log.error(e); }
     finally { this.loading.set(false); }
   }
 

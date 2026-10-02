@@ -13,6 +13,7 @@ import { ExportService } from '../../core/services/export.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { HorariosHomeComponent } from './horarios-home.component';
+import { log } from '../../core/utils/log';
 
 @Component({
   selector: 'app-home',
@@ -370,7 +371,7 @@ export class HomeComponent implements OnInit {
       }
 
     }).catch((err) => {
-      console.error('Error cargando datos para home:', err);
+      log.error('Error cargando datos para home:', err);
       if (this.esAprendiz()) {
         // Para el aprendiz, no poder determinar su etapa no es un error
         // visible — simplemente se le muestra el home de Horarios.

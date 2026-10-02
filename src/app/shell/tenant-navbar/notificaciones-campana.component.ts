@@ -27,6 +27,7 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { ApiService }   from '../../core/services/api.service';
 import { NotificacionesRealtimeService } from '../../core/services/realtime/notificaciones-realtime.service';
+import { log } from '../../core/utils/log';
 
 // Fuente única: tabla `notificaciones` de backend-erp (id uuid, PATCH
 // /notificaciones/:id/leer). Hasta la Fase 2 del plan de fusión de
@@ -789,7 +790,7 @@ export class NotificacionesCampanaComponent implements OnInit, OnDestroy {
       this.notificaciones.set(lista);
       this.error.set(false);
     } catch (err) {
-      console.error('[NotificacionesCampana] No se pudo cargar la lista:', err);
+      log.error('[NotificacionesCampana] No se pudo cargar la lista:', err);
       this.error.set(true);
     } finally {
       this.cargando.set(false);
@@ -812,7 +813,7 @@ export class NotificacionesCampanaComponent implements OnInit, OnDestroy {
       try {
         await this.api.marcarNotificacionLeida(n.id);
       } catch (err) {
-        console.error('[NotificacionesCampana] No se pudo marcar como leída:', err);
+        log.error('[NotificacionesCampana] No se pudo marcar como leída:', err);
       }
       this.notificaciones.update(list =>
         list.map(x => x.id === n.id ? { ...x, leida: true } : x)
@@ -829,7 +830,7 @@ export class NotificacionesCampanaComponent implements OnInit, OnDestroy {
   marcarLeidaRapido(n: Notificacion): void {
     if (n.leida) return;
     this.api.marcarNotificacionLeida(n.id).catch(err =>
-      console.error('[NotificacionesCampana] No se pudo marcar como leída:', err)
+      log.error('[NotificacionesCampana] No se pudo marcar como leída:', err)
     );
     this.notificaciones.update(list =>
       list.map(x => x.id === n.id ? { ...x, leida: true } : x)
@@ -843,7 +844,7 @@ export class NotificacionesCampanaComponent implements OnInit, OnDestroy {
     try {
       await this.api.eliminarNotificacion(n.id);
     } catch (err) {
-      console.error('[NotificacionesCampana] No se pudo descartar:', err);
+      log.error('[NotificacionesCampana] No se pudo descartar:', err);
       await this.cargar();
     }
   }

@@ -1,7 +1,4 @@
 import { Injectable } from '@angular/core';
-import { Workbook } from 'exceljs';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 export interface ExportColumn<T> {
   label: string;
@@ -9,10 +6,15 @@ export interface ExportColumn<T> {
 }
 
 /** Exporta exactamente las filas que el usuario está viendo, sin depender de
- * endpoints adicionales ni duplicar la conversión Excel/PDF en cada pantalla. */
+ * endpoints adicionales ni duplicar la conversión Excel/PDF en cada pantalla.
+ *
+ * exceljs (~920 kB) y jspdf (~430 kB) se cargan recién al exportar: importados
+ * arriba del archivo viajaban con CADA pantalla que inyecta este servicio,
+ * aunque nadie tocara el botón. */
 @Injectable({ providedIn: 'root' })
 export class TableExportService {
   async excel<T>(fileName: string, sheetName: string, columns: ExportColumn<T>[], rows: T[]): Promise<void> {
+    const { Workbook } = await import('exceljs');
     const workbook = new Workbook();
     const sheet = workbook.addWorksheet(sheetName);
     sheet.columns = columns.map((column) => ({ header: column.label, key: column.label, width: Math.max(14, column.label.length + 4) }));
@@ -24,7 +26,8 @@ export class TableExportService {
     this.download(blob, `${fileName}.xlsx`);
   }
 
-  pdf<T>(fileName: string, title: string, columns: ExportColumn<T>[], rows: T[]): void {
+  async pdf<T>(fileName: string, title: string, columns: ExportColumn<T>[], rows: T[]): Promise<void> {
+    const [{ jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
     const pdf = new jsPDF({ orientation: columns.length > 5 ? 'landscape' : 'portrait' });
     pdf.setFontSize(14);
     pdf.text(title, 14, 16);
@@ -35,7 +38,12 @@ export class TableExportService {
       styles: { fontSize: 8 },
       headStyles: { fillColor: [57, 169, 0] },
     });
-    pdf.save(`${fileName}.pdf`);
+    this.savePdf(pdf, `${fileName}.pdf`);
+  }
+
+  /** Aparte para poder comprobar en las pruebas qué documento se generó. */
+  private savePdf(pdf: { save(name: string): unknown }, name: string): void {
+    pdf.save(name);
   }
 
   private value(value: string | number | null | undefined): string | number {

@@ -13,6 +13,7 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
+import { log } from '../../../core/utils/log';
 
 interface AsignacionVM {
   id: string;
@@ -527,7 +528,7 @@ export class GestionarAsignacionesModalComponent implements OnChanges {
       this.toast.ok('Asignación actualizada', 'Los cambios fueron guardados correctamente.');
     } catch (e: any) {
       this.toast.httpError(e, 'Error al guardar la asignación.');
-      console.error('[GestionarAsignaciones] Error al editar:', e?.error);
+      log.error('[GestionarAsignaciones] Error al editar:', e?.error);
     } finally {
       this.guardando.set(false);
     }
@@ -585,7 +586,7 @@ export class GestionarAsignacionesModalComponent implements OnChanges {
       await this.cargar();
     } catch (e: any) {
       this.toast.httpError(e, 'No se pudo crear la asignación.');
-      console.error('[GestionarAsignaciones] Error al crear:', e?.error);
+      log.error('[GestionarAsignaciones] Error al crear:', e?.error);
     } finally {
       this.guardando.set(false);
     }

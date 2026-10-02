@@ -73,6 +73,8 @@ export interface Lote {
   id_producto: string;
   cantidad_inicial: number;
   cantidad_disponible: number;
+  cantidad_reservada?: number;
+  id_lote_origen?: string | null;
   estado: EstadoLote;
   codigo_lote?: string | null;
   unidad_medida?: string | null;
@@ -375,7 +377,7 @@ export interface ItemDetalleBusqueda {
 
 export interface Traslado {
   id_traslado: string;
-  id_item: string;
+  id_item: string | null;
   id_sitio_origen: string;
   id_sitio_destino: string;
   id_usuario_solicita: string;
@@ -391,6 +393,17 @@ export interface Traslado {
   /** Nombre del encargado de cada bodega, resuelto por el backend. */
   origen_responsable_nombre?: string | null;
   destino_responsable_nombre?: string | null;
+  lineas?: TrasladoLinea[];
+}
+
+export interface TrasladoLinea {
+  id_traslado_linea: string;
+  tipo: 'ITEM' | 'LOTE';
+  cantidad: number;
+  id_item: string | null;
+  id_lote: string | null;
+  item?: Item | null;
+  lote?: Lote | null;
 }
 
 export interface CreateTrasladoDto {
@@ -398,6 +411,8 @@ export interface CreateTrasladoDto {
   id_item?: string;
   /** Traslado masivo: varios ítems al mismo destino (un traslado por ítem). */
   id_items?: string[];
+  /** Operación unificada: ítems serializados y/o cantidades de lote. */
+  lineas?: ({ id_item: string } | { id_lote: string; cantidad: number })[];
   id_sitio_destino: string;
   /** Obligatoria (mín. 10 caracteres). */
   justificacion: string;

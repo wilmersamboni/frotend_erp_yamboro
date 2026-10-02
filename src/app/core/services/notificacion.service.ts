@@ -20,6 +20,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { log } from '../utils/log';
 
 const BASE = environment.apiUrl;
 
@@ -52,7 +53,7 @@ export class NotificacionService {
                 this.http.post(`${BASE}/notificaciones`, payload)
             );
         } catch (e) {
-            console.warn('[NotificacionService] No se pudo crear notificación:', e);
+            log.warn('[NotificacionService] No se pudo crear notificación:', e);
         }
     }
 
