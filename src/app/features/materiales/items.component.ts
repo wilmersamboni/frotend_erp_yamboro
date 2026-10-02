@@ -136,7 +136,7 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
       [open]="agregarOpen"
       [editando]="null"
       labelSingular="ítem al lote"
-      [columns]="['id_producto', 'placa_sena']"
+      [columns]="['id_producto', 'id_sitio', 'placa_sena']"
       [form]="agregarForm"
       [opciones]="opcionesAgregar"
       [columnLabels]="columnLabels"
@@ -393,8 +393,15 @@ export class MaterialesItemsComponent implements OnInit {
     return this.productos.filter((p) => p.tipo_material === 'DEVOLUTIVO');
   }
 
+  /** Bodegas donde puedo dejar la unidad nueva: todas las activas (admin) o las que gestiono. */
+  bodegasParaAgregar: Sitio[] = [];
+
   get opcionesAgregar(): Record<string, OpcionSelect[]> {
-    return { id_producto: this.productosDevolutivos.map((p) => ({ label: p.SKU ? `${p.nombre} (${p.SKU})` : p.nombre, value: p.id_producto })) };
+    return {
+      id_producto: this.productosDevolutivos.map((p) => ({ label: p.SKU ? `${p.nombre} (${p.SKU})` : p.nombre, value: p.id_producto })),
+      // Catálogo único: la ficha no tiene bodega "de casa", la unidad va a la elegida.
+      id_sitio: this.bodegasParaAgregar.filter((s) => s.estado).map((s) => ({ label: s.nombre, value: s.id_sitio })),
+    };
   }
 
   get filas(): any[] {
@@ -469,14 +476,20 @@ export class MaterialesItemsComponent implements OnInit {
     }
   }
 
-  abrirAgregar(): void {
+  async abrirAgregar(): Promise<void> {
     if (!this.puedeCrear()) return;
     const devolutivos = this.productosDevolutivos;
     if (devolutivos.length === 0) {
       this.toast.warn('Faltan datos', 'Solo los productos devolutivos se manejan por ítems. Para consumibles registrá un lote.');
       return;
     }
-    this.agregarForm = { id_producto: devolutivos[0].id_producto, placa_sena: '' };
+    this.bodegasParaAgregar = this.auth.isAdmin()
+      ? (this.sitios.length ? this.sitios : await this.api.listarSitios().catch(() => [] as Sitio[]))
+      : await this.api.sitiosACargo().catch(() => [] as Sitio[]);
+    const primera = devolutivos[0];
+    const activas = this.bodegasParaAgregar.filter((s) => s.estado);
+    const bodegaInicial = activas.find((s) => s.id_sitio === primera.id_sitio)?.id_sitio ?? (activas.length === 1 ? activas[0].id_sitio : '');
+    this.agregarForm = { id_producto: primera.id_producto, id_sitio: bodegaInicial, placa_sena: '' };
     this.agregarError = null;
     this.agregarOpen = true;
   }
@@ -491,10 +504,14 @@ export class MaterialesItemsComponent implements OnInit {
       this.agregarError = 'Elegí un producto.';
       return;
     }
+    if (!form['id_sitio']) {
+      this.agregarError = 'Elegí la bodega donde queda la unidad.';
+      return;
+    }
     this.agregarSaving = true;
     this.agregarError = null;
     try {
-      await this.api.agregarItemAProducto(form['id_producto'], form['placa_sena'] || undefined);
+      await this.api.agregarItemAProducto(form['id_producto'], form['placa_sena'] || undefined, form['id_sitio']);
       this.toast.ok('Ítem agregado al lote');
       this.agregarOpen = false;
       await this.cargar();

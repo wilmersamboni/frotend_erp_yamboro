@@ -64,8 +64,40 @@ function hoyLocal(): string {
                 <button type="button" (click)="crearFicha.emit()" class="mt-1.5 text-xs font-medium text-[#2d8000] hover:underline">
                   ¿No está en el catálogo? Crear ficha nueva
                 </button>
-              } @else {
-                <p class="mt-1.5 text-xs text-gray-400">¿No está en el catálogo? Pedile a tu líder de área que cree la ficha.</p>
+              } @else if (!pidiendo) {
+                <button type="button" (click)="abrirPedido()" class="mt-1.5 text-xs font-medium text-[#2d8000] hover:underline">
+                  ¿No está en el catálogo? Pedir ficha nueva al líder
+                </button>
+              }
+              @if (pidiendo) {
+                <!-- Pedir ficha al líder: solo líderes de área / administrador crean fichas. -->
+                <div class="mt-2 rounded-xl border border-gray-200 bg-gray-50/60 p-3 space-y-2.5">
+                  <p class="text-xs text-gray-500">Tu líder de área recibe una notificación con estos datos; cuando cree la ficha te avisamos y la agregas aquí.</p>
+                  <input type="text" [(ngModel)]="pedido.nombre" placeholder="Nombre del producto *"
+                    class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                  <div class="grid grid-cols-2 gap-2">
+                    <input type="text" [(ngModel)]="pedido.marca" placeholder="Marca"
+                      class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                    <input type="text" [(ngModel)]="pedido.unidad_medida" placeholder="Unidad (ej. UNIDAD, KILOGRAMO)"
+                      class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                  </div>
+                  <div class="grid grid-cols-3 gap-1.5">
+                    @for (t of tiposPedido; track t.value) {
+                      <button type="button" (click)="pedido.tipo_material = t.value"
+                        class="px-2 py-1.5 rounded-lg border text-xs font-medium"
+                        [class]="pedido.tipo_material === t.value ? 'border-[#39A900] bg-[#39A900]/10 text-[#2d8000]' : 'border-gray-200 bg-white text-gray-500'">{{ t.label }}</button>
+                    }
+                  </div>
+                  <textarea rows="2" [(ngModel)]="pedido.nota" placeholder="Nota para el líder (para qué es, cuántos llegaron…)"
+                    class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]"></textarea>
+                  <div class="flex justify-end gap-2">
+                    <button type="button" (click)="pidiendo = false" class="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700">Cancelar</button>
+                    <button type="button" (click)="enviarPedido()" [disabled]="enviandoPedido || pedido.nombre.trim().length < 2"
+                      class="px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50" style="background-color: var(--accent-brand)">
+                      {{ enviandoPedido ? 'Enviando…' : 'Enviar pedido' }}
+                    </button>
+                  </div>
+                </div>
               }
             </div>
 
@@ -98,6 +130,14 @@ function hoyLocal(): string {
                     class="w-full px-3 py-2 rounded-l-lg text-sm focus:outline-none" />
                   <span class="px-3 text-xs text-gray-400 whitespace-nowrap">{{ p.unidad_medida }}</span>
                 </div>
+              </div>
+
+              <!-- Stock mínimo POR BODEGA: la ficha es compartida y su mínimo no sirve igual para todas. -->
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Stock mínimo en esta bodega <span class="text-gray-400 font-normal">(opcional)</span></label>
+                <input type="number" min="0" [(ngModel)]="minimoBodega" [placeholder]="'Si lo dejas vacío se usa el de la ficha: ' + p.stock_minimo"
+                  class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                <p class="text-xs text-gray-400 mt-1">Cuando esta bodega quede por debajo, te avisamos «Stock bajo». Se cambia después en Mi Bodega → Mínimo.</p>
               </div>
 
               @if (esDevolutivo) {
@@ -178,10 +218,58 @@ export class AgregarExistenciasModalComponent implements OnChanges {
   error: string | null = null;
   readonly hoy = hoyLocal();
 
+  // ── Pedir ficha al líder (quien no puede crear fichas) ──
+  readonly tiposPedido = [
+    { value: 'DEVOLUTIVO', label: 'Devolutivo' },
+    { value: 'CONSUMO', label: 'Consumo' },
+    { value: 'PERECEDERO', label: 'Perecedero' },
+  ];
+  pidiendo = false;
+  enviandoPedido = false;
+  pedido = { nombre: '', marca: '', unidad_medida: '', tipo_material: 'DEVOLUTIVO', nota: '' };
+
+  abrirPedido(): void {
+    this.pedido = { nombre: '', marca: '', unidad_medida: '', tipo_material: 'DEVOLUTIVO', nota: '' };
+    this.pidiendo = true;
+  }
+
+  async enviarPedido(): Promise<void> {
+    const nombre = this.pedido.nombre.trim();
+    if (nombre.length < 2) return;
+    this.enviandoPedido = true;
+    this.error = null;
+    try {
+      await this.api.pedirFicha({
+        nombre,
+        marca: this.pedido.marca.trim() || undefined,
+        unidad_medida: this.pedido.unidad_medida.trim().toUpperCase() || undefined,
+        tipo_material: this.pedido.tipo_material,
+        nota: this.pedido.nota.trim() || undefined,
+        id_sitio: this.sitioFijo ?? (this.idSitio || undefined),
+      });
+      this.toast.ok('Pedido enviado', 'Tu líder de área recibió la notificación. Te avisamos cuando la ficha esté creada.');
+      this.pidiendo = false;
+    } catch (e: any) {
+      // 409: la ficha ya existe — se selecciona para que agregue sus unidades de una vez.
+      const data = e?.status === 409 ? e?.error?.data : null;
+      if (data?.id_producto && data.activo !== false) {
+        if (!this.catalogo.some((p) => p.id_producto === data.id_producto)) await this.cargarCatalogo();
+        this.elegirProducto(data.id_producto);
+        this.pidiendo = false;
+        this.toast.ok('Ya existe en el catálogo', `"${data.nombre}" ya estaba creada: quedó seleccionada.`);
+      } else {
+        this.error = mensajeDeError(e, 'No se pudo enviar el pedido.');
+      }
+    } finally {
+      this.enviandoPedido = false;
+    }
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['open'] && this.open) {
       this.idSitio = this.sitioFijo ?? (this.opcionesSitio.length === 1 ? this.opcionesSitio[0].value : '');
       this.idProducto = this.productoInicial?.id_producto ?? '';
+      this.pidiendo = false;
       this.limpiarCampos();
       void this.cargarCatalogo();
     } else if (changes['productoInicial'] && this.open && this.productoInicial) {
@@ -190,7 +278,11 @@ export class AgregarExistenciasModalComponent implements OnChanges {
     }
   }
 
+  /** Mínimo propio de la bodega para esta ficha (opcional; vacío = el de la ficha). */
+  minimoBodega: number | null = null;
+
   private limpiarCampos(): void {
+    this.minimoBodega = null;
     this.cantidad = null;
     this.placasTexto = '';
     this.codigoLote = '';
@@ -298,6 +390,11 @@ export class AgregarExistenciasModalComponent implements OnChanges {
         codigo_lote: !this.esDevolutivo && this.codigoLote.trim() ? this.codigoLote.trim() : undefined,
         fecha_vencimiento: p.tipo_material === 'PERECEDERO' ? this.fechaVencimiento : undefined,
       });
+      // Mínimo de esta bodega, si lo escribió (no frena el ingreso si falla).
+      if (this.minimoBodega !== null && `${this.minimoBodega}` !== '' && Number(this.minimoBodega) >= 0) {
+        await this.api.fijarMinimoBodega(p.id_producto, idSitio, Math.trunc(Number(this.minimoBodega)))
+          .catch(() => this.toast.warn('Mínimo no guardado', 'Las unidades se agregaron, pero no se pudo guardar el stock mínimo. Fíjalo en Mi Bodega → Mínimo.'));
+      }
       const destino = this.nombreSitio(idSitio);
       if (this.esDevolutivo) {
         this.toast.ok('Agregado al inventario', `${cantidad} ítem(s) de "${p.nombre}" en ${destino}.`);

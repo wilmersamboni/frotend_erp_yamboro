@@ -127,7 +127,13 @@ import { EsperaDirective } from '../../shared/directives/espera.directive';
                       </div>
                     </td>
                     <td class="px-4 py-3 text-gray-600">{{ r.sitio_nombre || '— sin bodega —' }}</td>
-                    <td class="px-3 py-3 text-right font-semibold" [class.text-green-700]="dispEfectiva(r) > 0" [class.text-gray-300]="dispEfectiva(r) === 0">{{ dispEfectiva(r) }}</td>
+                    <td class="px-3 py-3 text-right font-semibold" [class.text-green-700]="dispEfectiva(r) > 0" [class.text-gray-300]="dispEfectiva(r) === 0">
+                      {{ dispEfectiva(r) }}
+                      <!-- Mínimo de ESTA bodega (o el de la ficha si no fijó uno). -->
+                      @if ((r.stock_minimo ?? 0) > 0 && dispEfectiva(r) < (r.stock_minimo ?? 0)) {
+                        <span class="block text-[10px] font-semibold" style="color: var(--warn-text)" [title]="r.minimo_propio ? 'Mínimo de esta bodega' : 'Mínimo de la ficha'">bajo mín. {{ r.stock_minimo }}</span>
+                      }
+                    </td>
                     @if (esDevolutivo(r)) {
                       <td class="px-3 py-3 text-right" [class.text-blue-700]="r.prestados > 0" [class.text-gray-300]="r.prestados === 0">{{ r.prestados }}</td>
                       <td class="px-3 py-3 text-right" [class.text-amber-700]="r.mantenimiento > 0" [class.text-gray-300]="r.mantenimiento === 0">{{ r.mantenimiento }}</td>

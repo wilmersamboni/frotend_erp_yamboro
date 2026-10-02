@@ -601,7 +601,7 @@ export class ReporteMaterialesComponent implements OnInit {
         porUbicacion: this.porUbicacion(),
         filtros: describirFiltros(this.filtros(), nombreSitio),
       };
-      if (tipo === 'pdf') exportarReporteMaterialesPdf(datos);
+      if (tipo === 'pdf') await exportarReporteMaterialesPdf(datos);
       else await exportarReporteMaterialesExcel(datos, this.exportService);
       this.toast.ok(tipo === 'pdf' ? 'PDF generado' : 'Excel generado', 'El reporte se descargó con los filtros actuales.');
     } catch (e) {

@@ -5,12 +5,14 @@ import { AdminTableComponent, TableRowLink } from '../../../shared/components/ad
 import { AdminModalComponent } from '../../tenant-administration/ui/admin-modal.component';
 import { ProductoFormModalComponent } from '../ui/producto-form-modal.component';
 import { AgregarExistenciasModalComponent } from '../ui/agregar-existencias-modal.component';
+import { FichasPedidasPanelComponent, prefillDesdePedido } from '../ui/fichas-pedidas-panel.component';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 import { OpcionSelect } from '../../tenant-administration/services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import {
-  Categoria, Item, Lote, MaterialesApiService, Producto, Sitio,
+  Categoria, Item, Lote, MaterialesApiService, Producto, Sitio, SolicitudFicha,
 } from '../data-access/materiales-api.service';
 import { CargasSecundarias } from '../data-access/cargas-secundarias';
 import { AvisoCargasComponent } from '../ui/aviso-cargas.component';
@@ -52,7 +54,7 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
 @Component({
   selector: 'app-mi-bodega',
   standalone: true,
-  imports: [AvisoCargasComponent, FormsModule, RouterLink, AdminTableComponent, AdminModalComponent, ProductoFormModalComponent, AgregarExistenciasModalComponent],
+  imports: [AvisoCargasComponent, FormsModule, RouterLink, AdminTableComponent, AdminModalComponent, ProductoFormModalComponent, AgregarExistenciasModalComponent, FichasPedidasPanelComponent, DialogDirective],
   template: `
     <div class="p-6 space-y-5">
       <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
@@ -132,6 +134,9 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
           {{ todasLasBodegas ? 'No hay bodegas registradas.' : 'No sos responsable de ninguna bodega.' }}
         </div>
       } @else {
+        @if (pedidosPendientes().length) {
+          <app-fichas-pedidas-panel [pedidos]="pedidosPendientes()" (crear)="crearDesdePedido($event)" (cambiado)="recargar()" />
+        }
         <div class="flex gap-1 border-b">
           @for (t of tabs; track t.id) {
             <button
@@ -153,8 +158,8 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
             [rows]="filasProd()"
             [searchable]="true"
             [searchPlaceholder]="'Buscar por nombre, SKU, categoría, tipo…'"
-            [columns]="['nombre', 'categoria_nombre', 'tipo_material', 'unidad_medida', 'SKU', 'stock_minimo', 'stock_txt']"
-            [columnLabels]="{ categoria_nombre: 'Categoría', tipo_material: 'Tipo', unidad_medida: 'Unidad de medida', SKU: 'SKU', stock_minimo: 'Stock mínimo', stock_txt: 'Stock (disp./total)' }"
+            [columns]="['nombre', 'categoria_nombre', 'tipo_material', 'unidad_medida', 'SKU', 'minimo_txt', 'stock_txt']"
+            [columnLabels]="{ categoria_nombre: 'Categoría', tipo_material: 'Tipo', unidad_medida: 'Unidad de medida', SKU: 'SKU', minimo_txt: 'Stock mínimo (esta bodega)', stock_txt: 'Stock (disp./total)' }"
             [loading]="loading()"
             [filterOptions]="puedeEliminar() ? estadoOpciones : null"
             [filterValue]="estadoFiltro"
@@ -192,9 +197,35 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
       [editando]="editandoProducto()"
       [categorias]="categorias()"
       [productosExistentes]="productos()"
-      (closed)="modalOpen.set(false)"
+      [prefill]="prefillFicha()"
+      (closed)="cerrarFormFicha()"
       (guardado)="onProductoGuardado($event)"
-      (usarExistente)="abrirAgregar($event)" />
+      (usarExistente)="onUsarExistente($event)" />
+
+    <!-- Stock mínimo de un producto EN ESTA bodega (la ficha es compartida). -->
+    @if (minimoDe(); as m) {
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="minimoDe.set(null)">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-3" (click)="$event.stopPropagation()">
+          <div>
+            <h2 class="text-base font-bold text-gray-800">Stock mínimo en {{ bodegaActual()?.nombre }}</h2>
+            <p class="text-xs text-gray-500 mt-0.5">{{ m.nombre }} — debajo de este número te avisamos "Stock bajo".</p>
+          </div>
+          <input type="number" min="0" [(ngModel)]="minimoValor"
+            class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+          <p class="text-xs text-gray-400">El de la ficha (para todo el centro) es {{ m.stock_minimo }}.{{ m.propio ? '' : ' Hoy esta bodega usa ese.' }}</p>
+          <div class="flex flex-wrap justify-end gap-2 pt-1">
+            @if (m.propio) {
+              <button type="button" (click)="guardarMinimo(null)" [disabled]="guardandoMinimo" class="mr-auto text-xs font-medium text-gray-500 hover:underline">Usar el de la ficha</button>
+            }
+            <button type="button" (click)="minimoDe.set(null)" class="px-3 py-1.5 text-sm text-gray-500">Cancelar</button>
+            <button type="button" (click)="guardarMinimo(minimoValor)" [disabled]="guardandoMinimo || minimoValor === null || minimoValor < 0"
+              class="px-4 py-1.5 rounded-lg text-sm font-medium text-white disabled:opacity-50" style="background-color: var(--accent-brand)">
+              {{ guardandoMinimo ? 'Guardando…' : 'Guardar' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
 
     <!-- Catálogo único: la bodega elige la ficha y digita cuántas unidades tiene. -->
     <app-agregar-existencias-modal
@@ -309,6 +340,7 @@ export class MiBodegaComponent implements OnInit {
   /** Navegación cruzada, igual que en `/materiales/productos` — Lotes queda
    *  admin-only ahí también (nadie que entra por "Mi Bodega" es admin). */
   readonly rowLinksProducto: TableRowLink[] = [
+    { label: 'Mínimo', onClick: (r) => this.abrirMinimo(r), visible: () => this.puedeAgregar() },
     { label: 'Existencias', routerLink: () => ['/materiales/existencias'], queryParams: (r) => ({ id_producto: r.id_producto }) },
     {
       label: 'Kardex',
@@ -380,8 +412,99 @@ export class MiBodegaComponent implements OnInit {
         // Mismo dato que ya mostraba /materiales/productos — acá faltaba.
         categoria_nombre: p.categoria?.nombre ?? cats.find((c) => c.id_categoria === p.id_categoria)?.nombre ?? '—',
         stock_txt: this.stockEnBodega(p, sel),
+        minimo_txt: this.minimoTxt(p, sel),
       }));
   });
+
+  // ── Stock mínimo por bodega (2026-10-02) ──
+  /** `id_sitio → (id_producto → mínimo propio)`; sin entrada, rige el de la ficha. */
+  minimos = signal<Record<string, Record<string, number>>>({});
+  minimoDe = signal<{ id_producto: string; nombre: string; stock_minimo: number; propio: boolean } | null>(null);
+  minimoValor: number | null = null;
+  guardandoMinimo = false;
+
+  private minimoTxt(p: Producto, idSitio: string): string {
+    const propio = this.minimos()[idSitio]?.[p.id_producto];
+    return propio !== undefined ? String(propio) : `${p.stock_minimo} (de la ficha)`;
+  }
+
+  abrirMinimo(fila: any): void {
+    const p = this.productos().find((x) => x.id_producto === fila.id_producto);
+    if (!p) return;
+    const propio = this.minimos()[this.bodegaSel()]?.[p.id_producto];
+    this.minimoValor = propio ?? p.stock_minimo;
+    this.minimoDe.set({ id_producto: p.id_producto, nombre: p.nombre, stock_minimo: p.stock_minimo, propio: propio !== undefined });
+  }
+
+  async guardarMinimo(valor: number | null): Promise<void> {
+    const m = this.minimoDe();
+    const sitio = this.bodegaSel();
+    if (!m || !sitio) return;
+    if (valor !== null && (!Number.isInteger(Number(valor)) || Number(valor) < 0)) return;
+    this.guardandoMinimo = true;
+    try {
+      await this.api.fijarMinimoBodega(m.id_producto, sitio, valor === null ? null : Number(valor));
+      this.minimos.update((t) => {
+        const deBodega = { ...(t[sitio] ?? {}) };
+        if (valor === null) delete deBodega[m.id_producto];
+        else deBodega[m.id_producto] = Number(valor);
+        return { ...t, [sitio]: deBodega };
+      });
+      this.toast.ok('Stock mínimo actualizado', valor === null ? 'Esta bodega vuelve a usar el de la ficha.' : `Te avisamos cuando "${m.nombre}" baje de ${valor} en esta bodega.`);
+      this.minimoDe.set(null);
+    } catch (e) {
+      this.toast.httpError(e, 'No se pudo guardar el stock mínimo.');
+    } finally {
+      this.guardandoMinimo = false;
+    }
+  }
+
+  private async cargarMinimos(bodegas: Sitio[]): Promise<void> {
+    const pares = await Promise.all(
+      bodegas.map(async (b) => [b.id_sitio, await this.api.minimosBodega(b.id_sitio).catch(() => [])] as const),
+    );
+    this.minimos.set(Object.fromEntries(pares.map(([id, filas]) => [id, Object.fromEntries(filas.map((f) => [f.id_producto, f.stock_minimo]))])));
+  }
+
+  // ── Fichas pedidas por los encargados (solo quien gestiona el catálogo) ──
+  pedidosPendientes = signal<SolicitudFicha[]>([]);
+  private pedidoEnCurso: SolicitudFicha | null = null;
+  prefillFicha = signal<Record<string, string> | null>(null);
+
+  crearDesdePedido(pf: SolicitudFicha): void {
+    this.pedidoEnCurso = pf;
+    this.prefillFicha.set(prefillDesdePedido(pf));
+    this.modalKind.set('producto');
+    this.editando.set(null);
+    this.modalOpen.set(true);
+  }
+
+  cerrarFormFicha(): void {
+    this.modalOpen.set(false);
+    this.pedidoEnCurso = null;
+    this.prefillFicha.set(null);
+  }
+
+  private async atenderPedido(pf: SolicitudFicha, idProducto: string): Promise<void> {
+    try {
+      await this.api.atenderSolicitudFicha(pf.id_solicitud_ficha, idProducto);
+      this.toast.ok('Pedido atendido', `Se le avisó a ${pf.solicitante_nombre || 'quien la pidió'} que ya puede agregarla.`);
+    } catch (e) {
+      this.toast.httpError(e, 'La ficha quedó creada, pero no se pudo marcar el pedido como atendido.');
+    }
+  }
+
+  /** "Usar esta" en el formulario: si venía de un pedido, la ficha ya existía — se atiende con ella. */
+  async onUsarExistente(p: Producto): Promise<void> {
+    const pedido = this.pedidoEnCurso;
+    if (!pedido) {
+      this.abrirAgregar(p);
+      return;
+    }
+    this.cerrarFormFicha();
+    await this.atenderPedido(pedido, p.id_producto);
+    await this.cargar();
+  }
   filasItems = computed(() =>
     this.items()
       .filter((i) => i.id_sitio === this.bodegaSel())
@@ -435,6 +558,13 @@ export class MiBodegaComponent implements OnInit {
       this.items.set(items);
       this.lotes.set(lotes);
       this.categorias.set(cats);
+      await this.cargarMinimos(bodegas);
+      this.pedidosPendientes.set(
+        this.gestionaCatalogo()
+          ? (await this.api.listarSolicitudesFicha().catch(() => ({ puede_atender: false, solicitudes: [] as SolicitudFicha[] })))
+              .solicitudes.filter((x) => x.estado === 'PENDIENTE')
+          : [],
+      );
     } catch (e) {
       this.toast.httpError(e, this.todasLasBodegas ? 'No se pudieron cargar las bodegas.' : 'No se pudo cargar Mi Bodega.');
     } finally {
@@ -465,8 +595,10 @@ export class MiBodegaComponent implements OnInit {
 
   /** Ficha recién creada → se sigue de una con "Agregar al inventario" en esta bodega. */
   async onProductoGuardado(creado: Producto | null): Promise<void> {
-    this.modalOpen.set(false);
-    if (creado && this.puedeAgregar()) this.abrirAgregar(creado);
+    const pedido = this.pedidoEnCurso;
+    this.cerrarFormFicha();
+    if (creado && pedido) await this.atenderPedido(pedido, creado.id_producto);
+    else if (creado && this.puedeAgregar()) this.abrirAgregar(creado);
     await this.cargar();
   }
 
@@ -505,6 +637,23 @@ export class MiBodegaComponent implements OnInit {
         await this.cargar();
       } catch (e) {
         this.toast.httpError(e, 'No se pudo reactivar el producto.');
+      }
+      return;
+    }
+
+    // ¿Fue un error de registro? Sin historia se puede borrar de verdad, con lo
+    // que generó; si no, solo desactivar (mismo flujo que Productos).
+    if (await this.confirm.ask(
+      `¿"${nombre}" se registró por error (bodega equivocada, cantidad mal digitada)? Se puede eliminar por completo, junto con las unidades y lotes que generó, solo si todavía no tiene placas, préstamos, traslados, novedades ni movimientos. Si eliges "Solo desactivar" se conserva el histórico.`,
+      { header: 'Registro por error', acceptLabel: 'Eliminar definitivamente', rejectLabel: 'Solo desactivar' },
+    )) {
+      if (!(await this.confirm.ask(`Esto borra "${nombre}" y todo lo que se generó con él, y no se puede deshacer. ¿Continuar?`, { acceptLabel: 'Sí, eliminar' }))) return;
+      try {
+        await this.api.eliminarProductoDefinitivo(fila.id_producto);
+        this.toast.ok('Producto eliminado definitivamente');
+        await this.cargar();
+      } catch (e) {
+        this.toast.httpError(e, 'No se pudo eliminar el producto.');
       }
       return;
     }

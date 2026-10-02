@@ -311,6 +311,8 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
   @Input() editando: Producto | null = null;
   @Input() categorias: Categoria[] = [];
   @Input() productosExistentes: Producto[] = [];
+  /** Datos con los que arranca una ficha NUEVA (ej. lo que pidió un encargado en "Pedir ficha"). */
+  @Input() prefill: Partial<{ nombre: string; marca: string; modelo: string; tipo_material: string; unidad_medida: string; codigo_unspsc: string; descripcion: string }> | null = null;
 
   @Output() closed = new EventEmitter<void>();
   /**
@@ -494,6 +496,9 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
         id_categoria: this.categorias[0]?.id_categoria ?? '',
         stock_minimo: 1,
       };
+      for (const [k, v] of Object.entries(this.prefill ?? {})) {
+        if (v) this.form[k] = v;
+      }
     }
   }
 

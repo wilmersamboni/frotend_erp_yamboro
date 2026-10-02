@@ -1,8 +1,10 @@
 import { Injectable } from '@angular/core';
-import * as ExcelJS from 'exceljs';
+// Solo tipos: ExcelJS (~920 kB) se carga con `import()` dentro de cada
+// exportación — importado acá viajaba con Inicio, la primera pantalla de todos.
+import type * as ExcelJS from 'exceljs';
 import { Stats, DonaStats, categorizarEstado } from './stats.service';
 import { ResultadoConsulta } from '../../shared/models/estudiante.model';
-import { InformePdf, TINTA, RGB, fechaInforme, hoyLocal } from '../../shared/utils/informe-pdf';
+import { crearInformePdf, TINTA, RGB, fechaInforme, hoyLocal } from '../../shared/utils/informe-pdf';
 
 /**
  * Datos del panel de inicio para exportar. Las imágenes de los gráficos ya no
@@ -242,7 +244,7 @@ export class ExportService {
     graficos?: GraficosExport,
   ): Promise<void> {
     const r = this.resumenPanel(stats, practicas, graficos);
-    const inf = new InformePdf({ marca: 'Etapa productiva · SENA', tipo: 'Reporte estadístico' });
+    const inf = await crearInformePdf({ marca: 'Etapa productiva · SENA', tipo: 'Reporte estadístico' });
     const { mg, ancho } = inf;
     const hoy = new Date();
     const fechaLarga = hoy.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -412,7 +414,8 @@ export class ExportService {
   ): Promise<void> {
     const r = this.resumenPanel(stats, practicas, graficos);
     const { GRIS, TENUE, LINEA, LINEA_F, SUAVE, ACENTO } = XL;
-    const wb = new ExcelJS.Workbook();
+    const XLS = await import('exceljs');
+    const wb = new XLS.Workbook();
     wb.creator = 'EPSAS';
     wb.created = new Date();
     const subtitulo = 'Panel de control · Etapa productiva';
@@ -699,9 +702,9 @@ export class ExportService {
    * Rediseñado 2026-10-01: el anterior pintaba cada sección con un color
    * distinto y repartía bitácoras y observaciones en tablas sueltas.
    */
-  exportarHistorialPDF(resultado: ResultadoConsulta, personasMap: Map<string, string>): void {
+  async exportarHistorialPDF(resultado: ResultadoConsulta, personasMap: Map<string, string>): Promise<void> {
     const { estudiante, historial, practicas } = resultado;
-    const inf = new InformePdf({ marca: 'Plataforma académica · SENA', tipo: 'Historial del aprendiz' });
+    const inf = await crearInformePdf({ marca: 'Plataforma académica · SENA', tipo: 'Historial del aprendiz' });
     const f = fechaInforme;
     const rango = (a?: string, b?: string) => (a || b ? `${f(a)} – ${f(b)}` : '—');
 
@@ -825,8 +828,8 @@ export class ExportService {
    */
   async exportarHistorialExcel(resultado: ResultadoConsulta, personasMap: Map<string, string>): Promise<void> {
     const { estudiante, historial, practicas } = resultado;
-    const ExcelJS = await import('exceljs');
-    const wb = new ExcelJS.Workbook();
+    const XLS = await import('exceljs');
+    const wb = new XLS.Workbook();
     wb.creator = 'EPSAS';
     wb.created = new Date();
 

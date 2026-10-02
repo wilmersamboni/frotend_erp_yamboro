@@ -151,6 +151,8 @@ export interface FilaImportacion {
   id_sitio_sugerido: string | null;
   advertencias: string[];
   ya_existe_nombre: boolean;
+  /** Producto nuevo que quien importa no puede crear (solo líder de área / administrador). */
+  requiere_lider?: boolean;
 }
 
 /** #5 — resultado del PASO 1 (previsualizar): NADA se escribió todavía. */
@@ -159,6 +161,8 @@ export interface ResultadoPrevisualizacion {
   total: number;
   filas: FilaImportacion[];
   errores: { fila: number; error: string }[];
+  /** ¿Quien importa puede crear fichas nuevas? (administrador_erp o líder de área) */
+  puede_crear_fichas?: boolean;
   catalogos: {
     sitios: { id_sitio: string; nombre: string }[];
     categorias: { id_categoria: string; nombre: string }[];
@@ -183,6 +187,38 @@ export interface FilaConfirmada {
   fecha_vencimiento?: string | null;
   placas_sena?: string[];
   fila_origen?: number;
+}
+
+/** "Pedir ficha al líder" — pedido de un encargado para que el líder cree una ficha del catálogo. */
+export interface SolicitudFicha {
+  id_solicitud_ficha: string;
+  nombre: string;
+  marca: string | null;
+  modelo: string | null;
+  tipo_material: string | null;
+  unidad_medida: string | null;
+  codigo_unspsc: string | null;
+  nota: string | null;
+  id_usuario: string;
+  solicitante_nombre: string | null;
+  id_sitio: string | null;
+  sitio_nombre: string | null;
+  estado: 'PENDIENTE' | 'ATENDIDA' | 'RECHAZADA';
+  id_producto: string | null;
+  motivo_rechazo: string | null;
+  fecha: string;
+  fecha_atencion: string | null;
+}
+
+export interface PedirFichaDto {
+  nombre: string;
+  marca?: string;
+  modelo?: string;
+  tipo_material?: string;
+  unidad_medida?: string;
+  codigo_unspsc?: string;
+  nota?: string;
+  id_sitio?: string;
 }
 
 /** De dónde sale el responsable actual de un material — ver `GET /existencias/reporte`. */
@@ -300,6 +336,10 @@ export interface ResumenExistencias {
   /** Alta total de lotes (consumibles) — SUM(lote.cantidad_inicial). */
   lote_total: number;
   lotes_por_vencer: number;
+  /** Mínimo efectivo en esta bodega (el propio o, si no fijó uno, el de la ficha). */
+  stock_minimo?: number;
+  /** ¿La bodega fijó su propio mínimo? */
+  minimo_propio?: boolean;
 }
 
 export interface UpdateItemDto {
@@ -407,7 +447,21 @@ export interface SeguimientoVencimientos {
 export interface LineaSolicitudInput {
   id_producto?: string;
   id_lote?: string;
+  /** Línea de producto: bodega de la que sale (catálogo único — una ficha puede estar en varias). */
+  id_sitio?: string;
   cantidad: number;
+}
+
+/** Opción del selector de la nueva solicitud: un devolutivo en UNA bodega, con sus disponibles ahí. */
+export interface OpcionDevolutivo {
+  id_producto: string;
+  nombre: string;
+  marca: string | null;
+  modelo: string | null;
+  codigo_unspsc: string | null;
+  id_sitio: string;
+  sitio_nombre: string;
+  disponibles: number;
 }
 
 /** Selección manual de placas al entregar una línea devolutiva — ver `entregarSolicitud()`. */
@@ -634,6 +688,8 @@ export interface Asignacion {
 
 export interface CreateAsignacionDto {
   id_curso: string;
+  /** Bodega de la que salen las unidades (catálogo único). */
+  id_sitio?: string;
   lineas:{id_producto:string, cantidad:number, id_items?: string[]}[],
   observacion?: string;
   fecha_devolucion?: string;
@@ -733,6 +789,37 @@ export class MaterialesApiService {
   catalogoProductos() {
     return this.unwrap(this.http.get<Envelope<Producto[]>>(`${BASE}/productos/catalogo`));
   }
+  // ── Pedir ficha al líder (catálogo único) ──
+  pedirFicha(dto: PedirFichaDto) {
+    return this.unwrap(this.http.post<Envelope<SolicitudFicha>>(`${BASE}/materiales/solicitudes-ficha`, dto));
+  }
+  /** Gestor del catálogo: todos los pedidos; los demás: los suyos. */
+  listarSolicitudesFicha() {
+    return this.unwrap(
+      this.http.get<Envelope<{ puede_atender: boolean; solicitudes: SolicitudFicha[] }>>(`${BASE}/materiales/solicitudes-ficha`),
+    );
+  }
+  atenderSolicitudFicha(id: string, idProducto: string) {
+    return this.unwrap(this.http.patch<Envelope<SolicitudFicha>>(`${BASE}/materiales/solicitudes-ficha/${id}/atender`, { id_producto: idProducto }));
+  }
+  rechazarSolicitudFicha(id: string, motivo: string) {
+    return this.unwrap(this.http.patch<Envelope<SolicitudFicha>>(`${BASE}/materiales/solicitudes-ficha/${id}/rechazar`, { motivo }));
+  }
+
+  // ── Stock mínimo por bodega ──
+  /** Mínimos propios de una bodega (los productos sin fila usan el de la ficha). */
+  minimosBodega(idSitio: string) {
+    return this.unwrap(
+      this.http.get<Envelope<{ id_producto: string; stock_minimo: number }[]>>(`${BASE}/productos/minimos`, { params: { id_sitio: idSitio } }),
+    );
+  }
+  /** `stockMinimo = null` vuelve al mínimo de la ficha. */
+  fijarMinimoBodega(idProducto: string, idSitio: string, stockMinimo: number | null) {
+    return this.unwrap(
+      this.http.put<Envelope<null>>(`${BASE}/productos/${idProducto}/minimo`, { id_sitio: idSitio, stock_minimo: stockMinimo }),
+    );
+  }
+
   /** Reporte global: cada unidad y lote con ubicación, estado y responsable actual (recortado por scope). */
   reporteMateriales() {
     return this.unwrap(this.http.get<Envelope<ReporteMateriales>>(`${BASE}/existencias/reporte`));
@@ -794,15 +881,21 @@ export class MaterialesApiService {
   eliminarProducto(id: string) {
     return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/productos/${id}`));
   }
+  /** Borra un producto registrado por error y lo que generó; el backend lo rechaza (400) si ya tiene historia. */
+  eliminarProductoDefinitivo(id: string) {
+    return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/productos/${id}/definitivo`));
+  }
   /** B1 — reactiva un producto desactivado. */
   activarProducto(id: string) {
     return this.unwrap(this.http.patch<Envelope<Producto>>(`${BASE}/productos/${id}/activar`, {}));
   }
   /** Agrega un ítem suelto al lote de un producto existente (mismo SKU, estado DISPONIBLE). */
-  agregarItemAProducto(idProducto: string, placaSena?: string) {
+  /** `idSitio`: bodega donde queda la unidad — obligatoria para fichas del catálogo único (sin bodega "de casa"). */
+  agregarItemAProducto(idProducto: string, placaSena?: string, idSitio?: string) {
     return this.unwrap(
       this.http.post<Envelope<Item>>(`${BASE}/productos/${idProducto}/items`, {
         placa_sena: placaSena || undefined,
+        id_sitio: idSitio || undefined,
       }),
     );
   }
@@ -915,6 +1008,10 @@ export class MaterialesApiService {
   /** Trae una solicitud con sus `lineas[]` (multi-línea, Tier SigMat M4) — la lista no las incluye. */
   obtenerSolicitud(id: string) {
     return this.unwrap(this.http.get<Envelope<Solicitud>>(`${BASE}/solicitudes/${id}`));
+  }
+  /** "Producto — bodega — disponibles" de devolutivos que el usuario puede pedir (selector de nueva solicitud). */
+  opcionesDevolutivos() {
+    return this.unwrap(this.http.get<Envelope<OpcionDevolutivo[]>>(`${BASE}/solicitudes/opciones/devolutivos`));
   }
   crearSolicitud(dto: CreateSolicitudDto) {
     return this.unwrap(this.http.post<Envelope<Solicitud>>(`${BASE}/solicitudes`, dto));

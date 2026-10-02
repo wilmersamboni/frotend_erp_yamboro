@@ -4,10 +4,11 @@ import { RouterLink } from '@angular/router';
 import { AdminTableComponent, TableRowLink } from '../../shared/components/admin-table.component';
 import { ProductoFormModalComponent } from './ui/producto-form-modal.component';
 import { AgregarExistenciasModalComponent } from './ui/agregar-existencias-modal.component';
+import { FichasPedidasPanelComponent, prefillDesdePedido } from './ui/fichas-pedidas-panel.component';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
-import { Categoria, Item, MaterialesApiService, Producto, Sitio } from './data-access/materiales-api.service';
+import { Categoria, Item, MaterialesApiService, Producto, Sitio, SolicitudFicha } from './data-access/materiales-api.service';
 import { AlertComponent } from '../../shared/ui/alert.component';
 import { CargasSecundarias } from './data-access/cargas-secundarias';
 import { AvisoCargasComponent } from './ui/aviso-cargas.component';
@@ -39,7 +40,7 @@ import { MaterialesScreenPolicy } from './ui/materiales-screen-policy';
 @Component({
   selector: 'app-materiales-productos',
   standalone: true,
-  imports: [AvisoCargasComponent, AlertComponent, FormsModule, RouterLink, AdminTableComponent, ProductoFormModalComponent, AgregarExistenciasModalComponent],
+  imports: [AvisoCargasComponent, AlertComponent, FormsModule, RouterLink, AdminTableComponent, ProductoFormModalComponent, AgregarExistenciasModalComponent, FichasPedidasPanelComponent],
   template: `
     <div class="p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
@@ -75,6 +76,13 @@ import { MaterialesScreenPolicy } from './ui/materiales-screen-policy';
 
       <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
 
+      <!-- Pedir ficha al líder: lo que los encargados pidieron y todavía no está en el catálogo. -->
+      @if (pedidosPendientes.length) {
+        <div class="mb-5">
+          <app-fichas-pedidas-panel [pedidos]="pedidosPendientes" (crear)="crearDesdePedido($event)" (cambiado)="recargar()" />
+        </div>
+      }
+
       @if (bodegasInactivas().length > 0) {
         <app-alert class="mb-4" variante="advertencia" [titulo]="bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas'">
           <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
@@ -108,9 +116,10 @@ import { MaterialesScreenPolicy } from './ui/materiales-screen-policy';
       [editando]="editando"
       [categorias]="categorias"
       [productosExistentes]="productos"
+      [prefill]="prefillFicha"
       (closed)="cerrarModal()"
       (guardado)="onProductoGuardado($event)"
-      (usarExistente)="abrirAgregar($event)" />
+      (usarExistente)="onUsarExistente($event)" />
 
     <app-agregar-existencias-modal
       [open]="agregarOpen"
@@ -170,7 +179,8 @@ export class MaterialesProductosComponent implements OnInit {
     categoria_nombre: 'Categoría',
     tipo_material: 'Tipo de material',
     unidad_medida: 'Unidad de medida',
-    stock_minimo: 'Stock mínimo',
+    // El de la ficha (sugerido para todo el centro); cada bodega fija el suyo en Mi Bodega.
+    stock_minimo: 'Stock mínimo (ficha)',
   };
 
   constructor(
@@ -265,9 +275,10 @@ export class MaterialesProductosComponent implements OnInit {
         this.secundarias.cargar('categorías', () => this.api.listarCategorias(), verCategorias),
         this.secundarias.cargar('bodegas', () => this.api.listarSitios(), verSitios),
         this.secundarias.cargar('ítems', () => this.api.listarItems(), verItems),
-        // Admin agrega en cualquier bodega (usa `sitios`); un encargado, solo en las suyas.
+        // Bodegas a cargo (responsable o líder del área): ahí puede "Agregar al
+        // inventario". El admin agrega en cualquier bodega (usa `sitios`).
         this.puedeAgregar() && !this.auth.isAdmin()
-          ? this.api.sitiosACargo().catch(() => [] as Sitio[])
+          ? this.secundarias.cargar('bodegas a tu cargo', () => this.api.sitiosACargo())
           : Promise.resolve([] as Sitio[]),
       ]);
       this.bodegasGestionables = this.auth.isAdmin() ? sitios : aCargo;
@@ -280,6 +291,10 @@ export class MaterialesProductosComponent implements OnInit {
       this.categorias = categorias;
       this.sitios = sitios;
       this.items = items;
+      this.pedidosPendientes = this.gestionaCatalogo()
+        ? (await this.api.listarSolicitudesFicha().catch(() => ({ puede_atender: false, solicitudes: [] as SolicitudFicha[] })))
+            .solicitudes.filter((x) => x.estado === 'PENDIENTE')
+        : [];
     } catch (e) {
       this.toast.httpError(e, 'No se pudieron cargar los productos.');
     } finally {
@@ -306,14 +321,59 @@ export class MaterialesProductosComponent implements OnInit {
 
   cerrarModal(): void {
     this.modalOpen = false;
+    this.pedidoEnCurso = null;
+    this.prefillFicha = null;
   }
 
-  /** Ficha recién creada → se ofrece de una agregarle existencias en una bodega. */
+  /** Ficha recién creada → si venía de un pedido, se atiende; si no, se ofrece agregarle existencias. */
   async onProductoGuardado(creado: Producto | null): Promise<void> {
     this.modalOpen = false;
-    if (creado && this.puedeAgregar() && this.bodegasGestionables.length) this.abrirAgregar(creado);
+    const pedido = this.pedidoEnCurso;
+    this.pedidoEnCurso = null;
+    this.prefillFicha = null;
+    if (creado && pedido) {
+      await this.atenderPedido(pedido, creado.id_producto);
+    } else if (creado && this.puedeAgregar() && this.bodegasGestionables.length) {
+      this.abrirAgregar(creado);
+    }
     await this.cargar();
   }
+
+  /** "Usar esta" en el formulario: si venía de un pedido, la ficha ya existía — se atiende con ella. */
+  async onUsarExistente(p: Producto): Promise<void> {
+    const pedido = this.pedidoEnCurso;
+    if (!pedido) {
+      this.abrirAgregar(p);
+      return;
+    }
+    this.modalOpen = false;
+    this.pedidoEnCurso = null;
+    this.prefillFicha = null;
+    await this.atenderPedido(pedido, p.id_producto);
+    await this.cargar();
+  }
+
+  // ── Pedir ficha al líder: pedidos de los encargados (solo gestores del catálogo) ──
+  pedidosPendientes: SolicitudFicha[] = [];
+  pedidoEnCurso: SolicitudFicha | null = null;
+  prefillFicha: Record<string, string> | null = null;
+
+  crearDesdePedido(pf: SolicitudFicha): void {
+    this.pedidoEnCurso = pf;
+    this.prefillFicha = prefillDesdePedido(pf);
+    this.editando = null;
+    this.modalOpen = true;
+  }
+
+  private async atenderPedido(pf: SolicitudFicha, idProducto: string): Promise<void> {
+    try {
+      await this.api.atenderSolicitudFicha(pf.id_solicitud_ficha, idProducto);
+      this.toast.ok('Pedido atendido', `Se le avisó a ${pf.solicitante_nombre || 'quien la pidió'} que ya puede agregarla.`);
+    } catch (e) {
+      this.toast.httpError(e, 'La ficha quedó creada, pero no se pudo marcar el pedido como atendido.');
+    }
+  }
+
 
   // ── Agregar al inventario (catálogo único, 2026-10-02) ──
   puedeAgregar = computed(() =>
@@ -350,6 +410,23 @@ export class MaterialesProductosComponent implements OnInit {
         await this.cargar();
       } catch (e) {
         this.toast.httpError(e, 'No se pudo reactivar el producto.');
+      }
+      return;
+    }
+
+    // ¿Fue un error de registro (bodega equivocada, cantidad mal digitada)? Sin
+    // historia se puede borrar de verdad, con lo que generó; si no, solo desactivar.
+    if (await this.confirm.ask(
+      `¿"${nombre}" se registró por error (bodega equivocada, cantidad mal digitada)? Se puede eliminar por completo, junto con las unidades y lotes que generó, solo si todavía no tiene placas, préstamos, traslados, novedades ni movimientos. Si eliges "Solo desactivar" se conserva el histórico.`,
+      { header: 'Registro por error', acceptLabel: 'Eliminar definitivamente', rejectLabel: 'Solo desactivar' },
+    )) {
+      if (!(await this.confirm.ask(`Esto borra "${nombre}" y todo lo que se generó con él, y no se puede deshacer. ¿Continuar?`, { acceptLabel: 'Sí, eliminar' }))) return;
+      try {
+        await this.api.eliminarProductoDefinitivo(fila.id_producto);
+        this.toast.ok('Producto eliminado definitivamente');
+        await this.cargar();
+      } catch (e) {
+        this.toast.httpError(e, 'No se pudo eliminar el producto.');
       }
       return;
     }

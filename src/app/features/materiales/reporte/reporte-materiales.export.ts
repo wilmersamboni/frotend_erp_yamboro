@@ -1,4 +1,4 @@
-import { InformePdf, RGB, TINTA } from '../../../shared/utils/informe-pdf';
+import { crearInformePdf, RGB, TINTA } from '../../../shared/utils/informe-pdf';
 import { ColXl, ExportService, fechaXl } from '../../../core/services/export.service';
 import type { ReporteLote, ReporteUnidad } from '../data-access/materiales-api.service';
 import {
@@ -84,10 +84,10 @@ function generadoTexto(): string {
   return new Date().toLocaleString('es-CO', { day: 'numeric', month: 'long', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
-export function exportarReporteMaterialesPdf(d: DatosReporteMateriales): void {
+export async function exportarReporteMaterialesPdf(d: DatosReporteMateriales): Promise<void> {
   const { resumen: r } = d;
   const hoy = hoyIso();
-  const inf = new InformePdf({ marca: 'Materiales · SENA', tipo: 'Reporte de materiales' });
+  const inf = await crearInformePdf({ marca: 'Materiales · SENA', tipo: 'Reporte de materiales' });
   inf.encabezado(
     'Reporte de materiales',
     'Qué hay, dónde está, en qué estado y quién responde por cada material',

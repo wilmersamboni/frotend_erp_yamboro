@@ -12,7 +12,7 @@ import { EntregarSolicitudModalComponent } from '../ui/entregar-solicitud-modal.
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 import { TuiDayCache } from '../../../shared/utils/tui-day.util';
 import type { TuiDay } from '@taiga-ui/cdk';
-import { MaterialesApiService, Item, Lote, Producto, Sitio, Solicitud, EstadoSolicitud, ResumenExistencias, SeleccionLineaEntregaInput } from '../data-access/materiales-api.service';
+import { MaterialesApiService, Item, Lote, OpcionDevolutivo, Producto, Sitio, Solicitud, EstadoSolicitud, ResumenExistencias, SeleccionLineaEntregaInput } from '../data-access/materiales-api.service';
 import { ApiService, CursoLiderado } from '../../../core/services/api.service';
 import { NetworkStatusService } from '../../../core/offline/network-status.service';
 import { SyncQueueService } from '../../../core/offline/sync-queue.service';
@@ -36,7 +36,11 @@ import { TableFilterComponent } from '../../../shared/components/table-filter.co
 import { CargasSecundarias } from '../data-access/cargas-secundarias';
 import { AvisoCargasComponent } from '../ui/aviso-cargas.component';
 
-/** Línea del modal "Nueva solicitud" — `p:<id>` producto devolutivo, `l:<id>` lote consumible. */
+/**
+ * Línea del modal "Nueva solicitud" — `p:<id_producto>@<id_sitio>` producto
+ * devolutivo EN una bodega (catálogo único: una ficha puede estar en varias),
+ * `l:<id>` lote consumible (el lote ya trae su bodega).
+ */
 interface LineaForm {
   ref: string;
   cantidad: number;
@@ -591,8 +595,6 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
   observacion = '';
   fechaDevolucion = '';
   readonly cacheFechaDevolucion = new TuiDayCache();
-  /** Stock de productos devolutivos elegidos en el modal, cacheado por id. */
-  stockProd: Record<string, { disponibles: number; total: number }> = {};
 
   /** Fichas de las que el instructor logueado es líder (`GET /cursos/lider/:id`)
    *  — solo si lidera al menos una se ofrece "Para una ficha" en el modal. */
@@ -640,7 +642,10 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
   idSitioSeleccionado: string | null = null;
 
   /** Stock disponible por producto para las filas PENDIENTE / APROBADA de la tabla. */
-  stocksPorProducto: Record<string, { disponibles: number; total: number }> = {};
+  /** Stock para el aviso de Aprobar, por solicitud (en la bodega de ESA solicitud). */
+  stocksPorSolicitud: Record<string, { disponibles: number; total: number }> = {};
+  /** "Producto — bodega — disponibles" que el usuario puede pedir (`GET /solicitudes/opciones/devolutivos`). */
+  opcionesDev: OpcionDevolutivo[] = [];
 
   constructor(
     private api: MaterialesApiService,
@@ -807,27 +812,30 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
     return this.sitios.length > 0;
   }
 
-  /**
-   * Cuando hay paso de bodega, filtra por ÍTEMS REALES disponibles en la
-   * bodega elegida, no por `producto.id_sitio` (la bodega "de casa" del
-   * producto) — un ítem devolutivo trasladado a otra bodega cambia
-   * `item.id_sitio`, nunca `producto.id_sitio`. Filtrar por este último
-   * recreaba el mismo bug "Pollo" ya corregido para lotes/consumibles el
-   * 2026-09-11, pero nunca para devolutivos (auditoría 2026-09-16/21).
-   */
-  private productosDeBodega(): Producto[] {
-    if (!this.pasoBodega) {
-      return this.productos.filter((p) => p.tipo_material === 'DEVOLUTIVO' && !!p.id_sitio);
+  /** `p:<producto>@<bodega>` | `l:<lote>` → partes. */
+  private parseRef(ref: string): { tipo: 'p' | 'l'; id: string; sitio: string | null } {
+    const [tipo, resto] = ref.split(':');
+    if (tipo === 'l') {
+      const lote = this.lotes.find((l) => l.id_lote === resto);
+      const sitio = lote?.id_sitio ?? this.productos.find((p) => p.id_producto === lote?.id_producto)?.id_sitio ?? null;
+      return { tipo: 'l', id: resto, sitio };
     }
+    const [id, sitio] = (resto ?? '').split('@');
+    return { tipo: 'p', id, sitio: sitio || null };
+  }
+
+  /**
+   * Devolutivos por bodega, de `GET /solicitudes/opciones/devolutivos` (cuenta
+   * unidades DISPONIBLE reales por bodega y ya viene recortado a las bodegas
+   * a las que el usuario puede pedir). Catálogo único (2026-10-02): una ficha
+   * no tiene bodega "de casa" y puede estar en varias, así que se elige
+   * "producto — bodega". Antes se filtraba `!!p.id_sitio` y las fichas nuevas
+   * no aparecían.
+   */
+  private devolutivosDeBodega(): OpcionDevolutivo[] {
+    if (!this.pasoBodega) return this.opcionesDev;
     if (!this.idSitioSeleccionado) return [];
-    const idsConStockAqui = new Set(
-      this.items
-        .filter((i) => i.id_sitio === this.idSitioSeleccionado && i.estado === 'DISPONIBLE')
-        .map((i) => i.id_producto),
-    );
-    return this.productos.filter(
-      (p) => p.tipo_material === 'DEVOLUTIVO' && !!p.id_sitio && idsConStockAqui.has(p.id_producto),
-    );
+    return this.opcionesDev.filter((o) => o.id_sitio === this.idSitioSeleccionado);
   }
 
   /** Un lote puede heredar la bodega del producto; si ninguno la tiene, el
@@ -849,13 +857,16 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
     );
   }
 
-  opciones(): { ref: string; label: string }[] {
-    const prods = this.productosDeBodega().map((p) => ({
-      ref: `p:${p.id_producto}`,
-      label: `${p.nombre}${p.marca ? ' · ' + p.marca : ''}`,
+  opciones(): { ref: string; label: string; sitio: string | null }[] {
+    const prods = this.devolutivosDeBodega().map((o) => ({
+      ref: `p:${o.id_producto}@${o.id_sitio}`,
+      sitio: o.id_sitio,
+      // Con paso "Bodega" la bodega ya está elegida arriba; sin él, va en el label.
+      label: `${o.nombre}${o.marca ? ' · ' + o.marca : ''}${this.pasoBodega ? '' : ' — ' + o.sitio_nombre} (${o.disponibles} disp.)`,
     }));
     const lotes = this.lotesDeBodega().map((l) => ({
       ref: `l:${l.id_lote}`,
+      sitio: this.parseRef(`l:${l.id_lote}`).sitio,
       // La cantidad SIEMPRE con su unidad — un "250" pelado no dice si son
       // kg, litros o unidades (reporte QA 2026-09-11).
       label: `${l.producto?.nombre ?? 'Lote'}${l.codigo_lote ? ' · ' + l.codigo_lote : ''} (lote, ${l.cantidad_disponible} ${(l.producto?.unidad_medida ?? l.unidad_medida ?? '').toLowerCase() || 'und'})`,
@@ -869,10 +880,12 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
   }
 
   opcionesParaLinea(linea: LineaForm): { ref: string; label: string }[] {
-    const usadasEnOtras = new Set(
-      this.lineas.filter((l) => l !== linea).map((l) => l.ref).filter(Boolean),
-    );
-    return this.opciones().filter((o) => !usadasEnOtras.has(o.ref));
+    const otras = this.lineas.filter((l) => l !== linea && l.ref);
+    const usadasEnOtras = new Set(otras.map((l) => l.ref));
+    // Todas las líneas de una solicitud salen de la MISMA bodega: sin paso
+    // "Bodega", la primera línea elegida fija la bodega de las demás.
+    const bodega = this.pasoBodega ? null : otras.map((l) => this.parseRef(l.ref).sitio).find((x) => !!x) ?? null;
+    return this.opciones().filter((o) => !usadasEnOtras.has(o.ref) && (!bodega || o.sitio === bodega));
   }
 
   /** <app-ss> espera {value,label} — mismo filtrado que opcionesParaLinea, solo mapeado. */
@@ -888,22 +901,13 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
 
   disponibleDe(linea: LineaForm): number {
     if (!linea.ref) return 0;
-    const [tipo, id] = linea.ref.split(':');
-    if (tipo === 'l') return this.lotes.find((l) => l.id_lote === id)?.cantidad_disponible ?? 0;
-    return this.stockProd[id]?.disponibles ?? 0;
+    const r = this.parseRef(linea.ref);
+    if (r.tipo === 'l') return this.lotes.find((l) => l.id_lote === r.id)?.cantidad_disponible ?? 0;
+    return this.opcionesDev.find((o) => o.id_producto === r.id && o.id_sitio === r.sitio)?.disponibles ?? 0;
   }
 
-  async onRefChange(linea: LineaForm): Promise<void> {
-    if (!linea.ref) return;
-    const [tipo, id] = linea.ref.split(':');
-    if (tipo === 'p' && !this.stockProd[id]) {
-      try {
-        this.stockProd[id] = await this.api.stockProducto(id);
-      } catch {
-        this.stockProd[id] = { disponibles: 0, total: 0 };
-      }
-    }
-  }
+  /** El disponible ya viene en la opción elegida; se conserva por el `(ngModelChange)` del template. */
+  onRefChange(_linea: LineaForm): void {}
 
   onSitioChange(idSitio: string | null): void {
     this.idSitioSeleccionado = idSitio;
@@ -922,12 +926,8 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
 
   /** ¿Alguna línea es de un producto devolutivo (no CONSUMO/PERECEDERO)? */
   requiereFechaDevolucion(): boolean {
-    return this.lineas.some((l) => {
-      if (!l.ref.startsWith('p:')) return false;
-      const p = this.productos.find((x) => x.id_producto === l.ref.slice(2));
-      const tipo = p?.tipo_material;
-      return !!tipo && tipo !== 'CONSUMO' && tipo !== 'PERECEDERO';
-    });
+    // Las opciones `p:` son siempre devolutivos (el endpoint solo trae esos).
+    return this.lineas.some((l) => l.ref.startsWith('p:'));
   }
 
   /**
@@ -1032,7 +1032,7 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
         .filter((id): id is string => !!id),
     );
     if (idsPendientes.size === 0) {
-      this.stocksPorProducto = {};
+      this.stocksPorSolicitud = {};
       return;
     }
     try {
@@ -1046,48 +1046,50 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
       const mapa: Record<string, { disponibles: number; total: number }> = {};
       for (const s of this.solicitudes) {
         const id = s.producto?.id_producto;
-        if (!id || mapa[id] || !idsPendientes.has(id)) continue;
+        if (!id || !idsPendientes.has(id)) continue;
         const filas = filasPorProducto.get(id) ?? [];
         if (s.producto?.tipo_material === 'DEVOLUTIVO') {
-          const idSitioProducto = s.producto?.id_sitio ?? null;
-          if (idSitioProducto) {
-            const fila = filas.find((f) => f.id_sitio === idSitioProducto);
-            mapa[id] = fila ? { disponibles: fila.disponibles, total: fila.total } : { disponibles: 0, total: 0 };
+          // La bodega de ESTA solicitud (guardada al pedirla); las viejas, la
+          // bodega "de casa" del producto; sin ninguna, todas.
+          const bodega = s.id_sitio ?? s.producto?.id_sitio ?? null;
+          if (bodega) {
+            const fila = filas.find((f) => f.id_sitio === bodega);
+            mapa[s.id_solicitud] = fila ? { disponibles: fila.disponibles, total: fila.total } : { disponibles: 0, total: 0 };
           } else {
-            mapa[id] = {
+            mapa[s.id_solicitud] = {
               disponibles: filas.reduce((a, f) => a + f.disponibles, 0),
               total: filas.reduce((a, f) => a + f.total, 0),
             };
           }
         } else {
-          mapa[id] = {
+          mapa[s.id_solicitud] = {
             disponibles: filas.reduce((a, f) => a + f.lote_disponible, 0),
             total: filas.reduce((a, f) => a + f.lote_total, 0),
           };
         }
       }
-      this.stocksPorProducto = mapa;
+      this.stocksPorSolicitud = mapa;
     } catch {
-      this.stocksPorProducto = {};
+      this.stocksPorSolicitud = {};
     }
   }
 
   /** Stock disponible del producto de una fila (o null si no se consultó). */
   stockDe(s: Solicitud): { disponibles: number; total: number } | null {
-    const id = s.producto?.id_producto;
-    return id ? this.stocksPorProducto[id] ?? null : null;
+    return this.stocksPorSolicitud[s.id_solicitud] ?? null;
   }
 
-  nuevo(): void {
-    if (this.productos.length === 0 && this.lotes.length === 0) {
-      this.toast.warn('Faltan datos', 'Necesitás al menos un producto o lote para crear una solicitud.');
+  async nuevo(): Promise<void> {
+    // Disponibilidad fresca por bodega al abrir (puede haber cambiado desde la carga).
+    this.opcionesDev = await this.api.opcionesDevolutivos().catch(() => [] as OpcionDevolutivo[]);
+    if (this.opcionesDev.length === 0 && this.lotes.length === 0) {
+      this.toast.warn('Sin material disponible', 'No hay productos ni lotes disponibles en las bodegas a las que podés pedir.');
       return;
     }
     this.idSitioSeleccionado = null;
     this.lineas = this.pasoBodega ? [] : [{ ref: '', cantidad: 1 }];
     this.observacion = '';
     this.fechaDevolucion = '';
-    this.stockProd = {};
     this.tipoDestino = 'personal';
     this.idCursoSeleccionado = null;
     this.error = null;
@@ -1132,10 +1134,10 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
       const lineas = this.lineas
         .filter((l) => l.ref && Number(l.cantidad) >= 1)
         .map((l) => {
-          const [tipo, id] = l.ref.split(':');
-          return tipo === 'l'
-            ? { id_lote: id, cantidad: Number(l.cantidad) }
-            : { id_producto: id, cantidad: Number(l.cantidad) };
+          const r = this.parseRef(l.ref);
+          return r.tipo === 'l'
+            ? { id_lote: r.id, cantidad: Number(l.cantidad) }
+            : { id_producto: r.id, id_sitio: r.sitio ?? undefined, cantidad: Number(l.cantidad) };
         });
       await this.api.crearSolicitud({
         tipo: 'PRESTAMO',

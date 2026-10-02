@@ -1,5 +1,8 @@
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+// Solo tipos: jsPDF (~430 kB) y autotable se cargan recién al generar el
+// informe (`crearInformePdf`), no con la pantalla que lo ofrece (Inicio,
+// Historial, Horarios…). Recupera la carga diferida que tenía JheisonDev.
+import type { jsPDF } from 'jspdf';
+import type autoTableFn from 'jspdf-autotable';
 
 /**
  * Estilo común de los informes PDF (historial del aprendiz, reporte del día de
@@ -8,7 +11,7 @@ import autoTable from 'jspdf-autotable';
  * las páginas 2+ y pie con paginación. Nada queda suelto al pie de una página:
  * títulos y cabeceras de tabla viajan con su contenido.
  *
- * Uso: `const inf = new InformePdf({ marca, tipo })`, ir llamando a
+ * Uso: `const inf = await crearInformePdf({ marca, tipo })`, ir llamando a
  * encabezado/cifras/seccion/tabla…, y al final `inf.terminar(pie)` + `inf.doc.save()`.
  */
 
@@ -50,19 +53,36 @@ export function hoyLocal(d = new Date()): string {
 
 interface OpcTexto { size?: number; bold?: boolean; italic?: boolean; color?: RGB; align?: 'left' | 'right' | 'center'; }
 
+/** Carga jsPDF + autotable bajo demanda y arma el informe. */
+export async function crearInformePdf(o: { marca: string; tipo: string }): Promise<InformePdf> {
+  const [{ jsPDF: JsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
+  return new InformePdf(o, { jsPDF: JsPDF, autoTable });
+}
+
 export class InformePdf {
-  readonly doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  readonly pw = this.doc.internal.pageSize.getWidth();
-  readonly ph = this.doc.internal.pageSize.getHeight();
+  readonly doc: jsPDF;
+  readonly pw: number;
+  readonly ph: number;
   readonly mg = 18;
-  readonly ancho = this.pw - this.mg * 2;
+  readonly ancho: number;
+  private readonly autoTable: typeof autoTableFn;
   /** Margen superior de las páginas 2+ (debajo del encabezado corto). */
   private readonly ARRIBA = 24;
   /** Espacio reservado para el pie. */
   private readonly ABAJO = 20;
   y = 0;
 
-  constructor(private readonly o: { marca: string; tipo: string }) {}
+  /** Usar `crearInformePdf()`: es quien carga las librerías. */
+  constructor(
+    private readonly o: { marca: string; tipo: string },
+    libs: { jsPDF: new (opts: { unit: 'mm'; format: 'a4' }) => jsPDF; autoTable: typeof autoTableFn },
+  ) {
+    this.doc = new libs.jsPDF({ unit: 'mm', format: 'a4' });
+    this.autoTable = libs.autoTable;
+    this.pw = this.doc.internal.pageSize.getWidth();
+    this.ph = this.doc.internal.pageSize.getHeight();
+    this.ancho = this.pw - this.mg * 2;
+  }
 
   // ── Primitivas ──────────────────────────────────────────────────────────
   texto(t: string | string[], x: number, y: number, o: OpcTexto = {}): void {
@@ -190,7 +210,7 @@ export class InformePdf {
   tabla(head: string[], body: (string | number)[][], extra: Record<string, any> = {}): void {
     // Cabecera + al menos una fila juntas: si no, la cabecera quedaba sola al pie de la página.
     this.asegurar(20);
-    autoTable(this.doc, {
+    this.autoTable(this.doc, {
       startY: this.y,
       head: [head.map((h) => h.toUpperCase())],
       body: body.map((r) => r.map(String)),

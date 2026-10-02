@@ -1,5 +1,5 @@
 import { to12h as to12hUtil } from '../../../core/utils/horarios.util';
-import { InformePdf, TINTA, RGB, hoyLocal } from '../../../shared/utils/informe-pdf';
+import { crearInformePdf, TINTA, RGB, hoyLocal } from '../../../shared/utils/informe-pdf';
 
 const jornadaLabel: Record<string, string> = { manana: 'Mañana', tarde: 'Tarde', noche: 'Noche' };
 const tipoLabel:    Record<string, string> = { formativo: 'Formativo', institucional: 'Institucional', evaluacion: 'Evaluación', festivo: 'Festivo' };
@@ -23,8 +23,6 @@ export async function descargarReporteDia(
   institucion: string,
   generadoPor: string,
 ): Promise<void> {
-  // jspdf (~430 kB) solo se descarga cuando alguien pide el reporte.
-  const [{ jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
   const hoy = new Date();
   // Fecha LOCAL: con toISOString() (UTC), después de las 7 p. m. en Colombia ya era "mañana"
   // y los eventos del día se filtraban con la fecha equivocada.
@@ -88,7 +86,8 @@ export async function descargarReporteDia(
     .filter(r => r.total > 0);
 
   // ── Documento ──────────────────────────────────────────────────────────
-  const inf = new InformePdf({ marca: `Horarios · ${institucion}`, tipo: 'Reporte diario de horarios' });
+  // jspdf (~430 kB) solo se descarga cuando alguien pide el reporte (crearInformePdf).
+  const inf = await crearInformePdf({ marca: `Horarios · ${institucion}`, tipo: 'Reporte diario de horarios' });
   const fechaCap = fechaLabel.charAt(0).toUpperCase() + fechaLabel.slice(1);
   inf.encabezado('Reporte del día', fechaCap, `Generado a las ${horaLabel} por ${generadoPor}`);
 

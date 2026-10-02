@@ -11,7 +11,7 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
 import { TuiDayCache } from '../../../shared/utils/tui-day.util';
 import type { TuiDay } from '@taiga-ui/cdk';
-import { Asignacion, CreateAsignacionDto, EstadoAsignacion, MaterialesApiService, Producto, Sitio } from '../data-access/materiales-api.service';
+import { OpcionDevolutivo, Asignacion, CreateAsignacionDto, EstadoAsignacion, MaterialesApiService, Producto, Sitio } from '../data-access/materiales-api.service';
 import { ElegirPlacasAsignacionModalComponent } from '../ui/elegir-placas-asignacion-modal.component';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
@@ -286,6 +286,16 @@ interface Ficha {
             </div>
 
             <div>
+  <!-- Catálogo único: una ficha puede tener unidades en varias bodegas; la
+       asignación sale de UNA, que tiene que ser de las que gestionás. -->
+  <div class="mb-3">
+    <label class="block text-xs font-medium text-gray-600 mb-1">Bodega de la que salen <span class="text-red-500">*</span></label>
+    <app-ss [options]="opcionesBodegaAsig" placeholder="— Selecciona la bodega —"
+      [(ngModel)]="idSitioAsig" (ngModelChange)="onBodegaAsigChange()"></app-ss>
+    @if (!opcionesBodegaAsig.length) {
+      <p class="text-xs text-gray-400 mt-1">No hay unidades disponibles en las bodegas que gestionás.</p>
+    }
+  </div>
   <div class="flex items-center justify-between mb-1.5">
     <label class="block text-xs font-medium text-gray-600">Productos a asignar</label>
     <button type="button" data-dirty (click)="agregarLineas()"
@@ -357,6 +367,7 @@ interface Ficha {
     <app-elegir-placas-asignacion-modal
   [abierto]="elegirPlacasOpen"
   [lineas]="lineasParaElegirPlacas"
+  [idSitio]="idSitioAsig || null"
   (cerrado)="elegirPlacasOpen = false"
   (confirmado)="confirmarCreacionAsignacion($event)">
 </app-elegir-placas-asignacion-modal>
@@ -456,7 +467,6 @@ export class MaterialesAsignacionesComponent implements OnInit {
 
   /** Stock del producto elegido — consultado en vivo, mismo endpoint que ya usa el módulo hermano SGM. */
   lineas:LineaAsignacionForm[]=[];
-  stockProd: Record<string, {disponibles:number, total:number}>= {}
   agregarLineas():void{
     this.lineas.push({id_producto: '', cantidad:1})
   }
@@ -466,27 +476,45 @@ export class MaterialesAsignacionesComponent implements OnInit {
   }
 
 
+  // ── Bodega de origen (catálogo único, 2026-10-02) ──
+  /** Devolutivos por bodega con sus disponibles (`GET /solicitudes/opciones/devolutivos`). */
+  opcionesDev: OpcionDevolutivo[] = [];
+  /** Bodegas que el usuario gestiona; `null` = todas (admin). */
+  private bodegasGestionadas: Set<string> | null = null;
+  idSitioAsig = '';
+
+  get opcionesBodegaAsig(): { value: string; label: string }[] {
+    const vistas = new Map<string, string>();
+    for (const o of this.opcionesDev) {
+      if (!this.bodegasGestionadas || this.bodegasGestionadas.has(o.id_sitio)) vistas.set(o.id_sitio, o.sitio_nombre);
+    }
+    return [...vistas.entries()].sort((a, b) => a[1].localeCompare(b[1])).map(([value, label]) => ({ value, label }));
+  }
+
+  onBodegaAsigChange(): void {
+    this.lineas = [{ id_producto: '', cantidad: 1 }];
+  }
+
+  private opcionDe(idProducto: string): OpcionDevolutivo | undefined {
+    return this.opcionesDev.find((o) => o.id_producto === idProducto && o.id_sitio === this.idSitioAsig);
+  }
+
   disponibleDe(linea:LineaAsignacionForm):number{
     if(!linea.id_producto) return 0
-    return this.stockProd[linea.id_producto]?.disponibles ?? 0;
+    return this.opcionDe(linea.id_producto)?.disponibles ?? 0;
   }
 
-  async onProductoLineaChange(linea:LineaAsignacionForm):Promise<void>{
-    if(!linea.id_producto || this.stockProd[linea.id_producto]) return;
-
-    try {
-      this.stockProd[linea.id_producto] = await this.api.stockProducto(linea.id_producto)
-    } catch (error) {
-      this.stockProd[linea.id_producto] = {disponibles:0, total:0}
-    }
-  }
+  /** El disponible ya viene en la opción de la bodega elegida. */
+  onProductoLineaChange(_linea:LineaAsignacionForm): void {}
 
   opcionesProductoLinea(linea:LineaAsignacionForm){
     const usados = new Set(
       this.lineas.filter((l)=> l !== linea).map((l)=> l.id_producto).filter(Boolean),
     )
-
-    return this.productosAsignables.filter((p)=> !usados.has(p.id_producto)).map((p)=> ({value:p.id_producto, label:p.nombre}))
+    if (!this.idSitioAsig) return [];
+    return this.opcionesDev
+      .filter((o) => o.id_sitio === this.idSitioAsig && !usados.has(o.id_producto))
+      .map((o) => ({ value: o.id_producto, label: `${o.nombre}${o.marca ? ' · ' + o.marca : ''} (${o.disponibles} disp.)` }));
   }
 
   
@@ -510,7 +538,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
 
 
   puedeGuardar(): boolean {
-    if (!this.form['id_curso'] || this.lineas.length === 0) return false;
+    if (!this.form['id_curso'] || !this.idSitioAsig || this.lineas.length === 0) return false;
     if (this.bodegaDelProductoInactiva()) return false;
 
     return this.lineas.every((l)=>{
@@ -529,16 +557,12 @@ export class MaterialesAsignacionesComponent implements OnInit {
     return this.sitios.filter((s) => !s.estado);
   }
 
+  /** Las opciones solo traen bodegas activas; esto cubre una bodega que se desactive con el modal abierto. */
   bodegaDelProductoInactiva(): boolean {
-    return this.lineas.some((l)=>{
-      
-      if (!l.id_producto) return false;
-      const idSitio = this.productos.find((p) => p.id_producto === l.id_producto)?.id_sitio;
-      if (!idSitio) return false;
-      return this.sitios.find((s) => s.id_sitio === idSitio)?.estado === false;
-    })
-    
+    if (!this.idSitioAsig) return false;
+    return this.sitios.find((s) => s.id_sitio === this.idSitioAsig)?.estado === false;
   }
+
 
   /**
    * Prefiere `a.ficha_codigo`/`ficha_programa` (resueltos por el backend vía
@@ -630,9 +654,27 @@ export class MaterialesAsignacionesComponent implements OnInit {
     }
   }
 
-  nuevo(): void {
-    if (this.productosAsignables.length === 0 || this.fichas.length === 0) {
-      this.toast.warn('Faltan datos', 'Necesitás al menos un producto devolutivo y una ficha para crear una asignación.');
+  async nuevo(): Promise<void> {
+    // Disponibilidad por bodega + bodegas que gestiono (admin: todas).
+    const [opciones, aCargo] = await Promise.all([
+      this.api.opcionesDevolutivos().catch(() => [] as OpcionDevolutivo[]),
+      this.auth.isAdmin() ? Promise.resolve(null) : this.api.sitiosACargo().catch(() => []),
+    ]);
+    this.opcionesDev = opciones;
+    this.bodegasGestionadas = aCargo ? new Set(aCargo.map((x) => x.id_sitio)) : null;
+    const bodegas = this.opcionesBodegaAsig;
+    this.idSitioAsig = bodegas.length === 1 ? bodegas[0].value : '';
+    // Dos motivos distintos, dos mensajes (antes uno solo que no decía cuál faltaba).
+    if (this.fichas.length === 0) {
+      this.toast.warn(
+        'No ves ninguna ficha',
+        'Solo puedes asignar material a las fichas que lideras o dictas. Para una ficha de otro instructor, que él haga una solicitud «para ficha» y tú la apruebas y entregas.',
+        8000,
+      );
+      return;
+    }
+    if (this.opcionesBodegaAsig.length === 0) {
+      this.toast.warn('Sin unidades disponibles', 'No hay unidades devolutivas disponibles en las bodegas que gestionas.');
       return;
     }
     this.form = {
@@ -665,7 +707,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
     this.error = null;
     this.lineasParaElegirPlacas = this.lineas.map((l)=>({
       id_producto: l.id_producto,
-      nombre: this.productosAsignables.find((p)=> p.id_producto === l.id_producto)?.nombre ?? 'Producto',
+      nombre: this.opcionDe(l.id_producto)?.nombre ?? 'Producto',
       cantidad:Number(l.cantidad) || 1
     }))
     this.elegirPlacasOpen = true
@@ -678,6 +720,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
   try {
     const dto: CreateAsignacionDto = {
       id_curso: this.form['id_curso'],
+      id_sitio: this.idSitioAsig,
       lineas: this.lineas.map((l) => ({
         id_producto: l.id_producto,
         cantidad: Number(l.cantidad) || 1,
