@@ -39,6 +39,9 @@ import { openOverlay, releaseOverlay } from './overlay-registry';
         </span>
         <lucide-icon name="calendar" [size]="15" class="di-icon"></lucide-icon>
       </button>
+      @if (clearable && _value() && !disabled) {
+        <button type="button" class="di-clear" aria-label="Quitar la fecha" title="Quitar la fecha" (click)="clear($event)">×</button>
+      }
 
       <!-- Panel — position:fixed para no quedar cortado por overflow del modal -->
       @if (_open() && _panelPos()) {
@@ -105,6 +108,23 @@ import { openOverlay, releaseOverlay } from './overlay-registry';
       flex-shrink: 0;
       color: var(--text-muted);
     }
+    /* Botón "×" sobre el trigger, a la izquierda del ícono de calendario. */
+    .di-clear {
+      position: absolute;
+      top: 50%;
+      right: 36px;
+      transform: translateY(-50%);
+      width: 22px;
+      height: 22px;
+      line-height: 20px;
+      border-radius: 9999px;
+      border: 0;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 18px;
+      cursor: pointer;
+    }
+    .di-clear:hover { color: var(--text); background: var(--border); }
 
     /* Panel */
     .di-panel {
@@ -129,6 +149,8 @@ export class DateInputComponent implements ControlValueAccessor, OnDestroy {
   @Input() placeholder = 'DD/MM/AAAA';
   @Input() min?: TuiDay | null;
   @Input() max?: TuiDay | null;
+  /** Muestra un "×" para vaciar la fecha (solo para campos opcionales). */
+  @Input() clearable = false;
 
   _value    = signal<TuiDay | null>(null);
   _open     = signal(false);
@@ -227,6 +249,13 @@ export class DateInputComponent implements ControlValueAccessor, OnDestroy {
     this._value.set(day);
     this.onChange(day);
     this.close();
+  }
+
+  clear(e: Event): void {
+    e.stopPropagation();
+    this._value.set(null);
+    this.onChange(null);
+    if (this._open()) this.close();
   }
 
   @HostListener('document:click', ['$event'])
