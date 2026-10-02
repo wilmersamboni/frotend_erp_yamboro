@@ -106,6 +106,8 @@ export class MaterialesProductosComponent implements OnInit {
   sitios: Sitio[] = [];
   /** Solo para que el buscador de la tabla alcance la placa SENA (vive en Item, no en Producto). */
   items: Item[] = [];
+  /** Ids de las bodegas que el usuario gestiona (responsable o líder del área). */
+  private sitiosACargo = new Set<string>();
   loading = false;
 
   /** Banner general de la pantalla — lista todas las bodegas inactivas del
@@ -132,6 +134,10 @@ export class MaterialesProductosComponent implements OnInit {
   private esResponsableDeSitio(idSitio: string | null | undefined): boolean {
     if (this.auth.isAdmin()) return true;
     if (!idSitio) return false;
+    // `GET /sitios/a-cargo` incluye también las bodegas del área que lidera
+    // (líder de área), que el backend sí deja gestionar aunque no sea el
+    // `id_responsable` puntual — antes el botón se ocultaba a esos usuarios.
+    if (this.sitiosACargo.has(idSitio)) return true;
     const sitio = this.sitios.find((s) => s.id_sitio === idSitio);
     return !!sitio?.id_responsable && sitio.id_responsable === this.auth.user()?.id;
   }
@@ -238,12 +244,14 @@ export class MaterialesProductosComponent implements OnInit {
       // Quien no puede desactivar tampoco ve el filtro (línea 61) — para esa
       // audiencia el comportamiento se mantiene igual que siempre: solo activos.
       const incluirInactivos = this.puedeEliminar() && this.estadoFiltro !== 'activos';
-      const [productos, categorias, sitios, items] = await Promise.all([
+      const [productos, categorias, sitios, items, aCargo] = await Promise.all([
         this.api.listarProductos(incluirInactivos),
         this.secundarias.cargar('categorías', () => this.api.listarCategorias(), verCategorias),
         this.secundarias.cargar('bodegas', () => this.api.listarSitios(), verSitios),
         this.secundarias.cargar('ítems', () => this.api.listarItems(), verItems),
+        this.auth.isAdmin() ? Promise.resolve([] as Sitio[]) : this.secundarias.cargar('bodegas a tu cargo', () => this.api.sitiosACargo()),
       ]);
+      this.sitiosACargo = new Set(aCargo.map((x) => x.id_sitio));
       // `listarProductos(true)` trae activos + desactivados; en modo
       // "Desactivados" nos quedamos solo con los que están dados de baja, en
       // "Todos" se muestran ambos tal cual llegan.
@@ -300,6 +308,23 @@ export class MaterialesProductosComponent implements OnInit {
         await this.cargar();
       } catch (e) {
         this.toast.httpError(e, 'No se pudo reactivar el producto.');
+      }
+      return;
+    }
+
+    // ¿Fue un error de registro (bodega equivocada, cantidad mal digitada)? Sin
+    // historia se puede borrar de verdad, con lo que generó; si no, solo desactivar.
+    if (await this.confirm.ask(
+      `¿"${nombre}" se registró por error (bodega equivocada, cantidad mal digitada)? Se puede eliminar por completo, junto con las unidades y lotes que generó, solo si todavía no tiene placas, préstamos, traslados, novedades ni movimientos. Si eliges "Solo desactivar" se conserva el histórico.`,
+      { header: 'Registro por error', acceptLabel: 'Eliminar definitivamente', rejectLabel: 'Solo desactivar' },
+    )) {
+      if (!(await this.confirm.ask(`Esto borra "${nombre}" y todo lo que se generó con él, y no se puede deshacer. ¿Continuar?`, { acceptLabel: 'Sí, eliminar' }))) return;
+      try {
+        await this.api.eliminarProductoDefinitivo(fila.id_producto);
+        this.toast.ok('Producto eliminado definitivamente');
+        await this.cargar();
+      } catch (e) {
+        this.toast.httpError(e, 'No se pudo eliminar el producto.');
       }
       return;
     }

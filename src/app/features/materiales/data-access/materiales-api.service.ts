@@ -696,6 +696,10 @@ export class MaterialesApiService {
   eliminarProducto(id: string) {
     return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/productos/${id}`));
   }
+  /** Borra un producto registrado por error y lo que generó; el backend lo rechaza (400) si ya tiene historia. */
+  eliminarProductoDefinitivo(id: string) {
+    return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/productos/${id}/definitivo`));
+  }
   /** B1 — reactiva un producto desactivado. */
   activarProducto(id: string) {
     return this.unwrap(this.http.patch<Envelope<Producto>>(`${BASE}/productos/${id}/activar`, {}));
