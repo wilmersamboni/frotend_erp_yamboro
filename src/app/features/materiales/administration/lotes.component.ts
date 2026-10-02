@@ -83,6 +83,7 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
       [opciones]="opciones"
       [tiposCampo]="tiposCampo"
       [minDateToday]="['fecha_vencimiento']"
+      [fechasLimpiables]="['fecha_vencimiento']"
       [minDateFields]="{ fecha_vencimiento: 'fecha_ingreso' }"
       [placeholders]="placeholders"
       [columnLabels]="columnLabels"
@@ -329,6 +330,9 @@ export class MaterialesLotesComponent implements OnInit {
     try {
       // Solo mandamos fecha de vencimiento si el producto la admite (PERECEDERO o CONSUMO) — siempre opcional.
       const fechaVenc = this.mostrarVencimiento ? (form['fecha_vencimiento'] || undefined) : undefined;
+      // Al editar, una fecha vaciada se manda como `null` para borrarla en el
+      // backend (con `undefined` el PATCH la dejaba como estaba).
+      const fechaVencEditar = this.mostrarVencimiento ? (form['fecha_vencimiento'] || null) : undefined;
       // El lote SIEMPRE hereda la unidad de medida de su producto — nunca se
       // pregunta aparte (evita que diverjan, ej. "kg" del lote vs "KILOGRAMO"
       // del producto). Al editar, esto también auto-corrige un lote viejo
@@ -338,7 +342,7 @@ export class MaterialesLotesComponent implements OnInit {
         await this.api.actualizarLote(this.editando.id_lote, {
           codigo_lote: form['codigo_lote'] || undefined,
           unidad_medida: unidadHeredada,
-          fecha_vencimiento: fechaVenc,
+          fecha_vencimiento: fechaVencEditar,
           id_sitio: form['id_sitio'] || undefined,
           cantidad_disponible: form['cantidad_disponible'] != null ? Number(form['cantidad_disponible']) : undefined,
           estado: form['estado'] || undefined,
