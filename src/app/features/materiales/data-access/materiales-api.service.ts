@@ -189,6 +189,44 @@ export interface FilaConfirmada {
   fila_origen?: number;
 }
 
+/** Cuentadante de devolutivos — un ingreso a bodega (las unidades que entraron juntas). */
+export interface IngresoDevolutivo {
+  id_ingreso: string;
+  fecha_ingreso: string;
+  id_producto: string;
+  producto_nombre: string;
+  unidades: number;
+  id_sitio: string | null;
+  sitio_nombre: string | null;
+  id_cuentadante: string | null;
+  cuentadante_nombre: string | null;
+  sin_asignar: number;
+}
+
+/** Ítem del que el usuario actual es cuentadante, esté donde esté. */
+export interface BienACargo {
+  id_item: string;
+  placa_sena: string | null;
+  codigo_sku: string | null;
+  estado: string;
+  id_producto: string;
+  producto_nombre: string;
+  id_sitio: string | null;
+  sitio_nombre: string | null;
+  fecha_ingreso: string | null;
+}
+
+export interface HistorialCuentadante {
+  id_historial: string;
+  id_item: string;
+  placa_sena: string | null;
+  cuentadante_anterior_nombre: string | null;
+  cuentadante_nuevo_nombre: string | null;
+  asigna_nombre: string | null;
+  motivo: string | null;
+  fecha: string;
+}
+
 /** "Pedir ficha al líder" — pedido de un encargado para que el líder cree una ficha del catálogo. */
 export interface SolicitudFicha {
   id_solicitud_ficha: string;
@@ -832,6 +870,28 @@ export class MaterialesApiService {
       this.http.get<Envelope<{ puede_gestionar: boolean }>>(`${BASE}/productos/catalogo/gestion`),
     );
     return !!r?.puede_gestionar;
+  }
+  /** Ingresos de devolutivos con su cuentadante. Solo administrador_erp y líderes de área (403 al resto). */
+  listarIngresosCuentadante() {
+    return this.unwrap(this.http.get<Envelope<IngresoDevolutivo[]>>(`${BASE}/materiales/cuentadante/ingresos`));
+  }
+  /** Asigna el cuentadante a todas las unidades de un ingreso. */
+  asignarCuentadante(idIngreso: string, idCuentadante: string, motivo?: string) {
+    return this.unwrap(
+      this.http.put<Envelope<{ actualizados: number }>>(`${BASE}/materiales/cuentadante/ingresos/${idIngreso}`, {
+        id_cuentadante: idCuentadante,
+        motivo: motivo?.trim() || undefined,
+      }),
+    );
+  }
+  historialCuentadante(idIngreso: string) {
+    return this.unwrap(
+      this.http.get<Envelope<HistorialCuentadante[]>>(`${BASE}/materiales/cuentadante/ingresos/${idIngreso}/historial`),
+    );
+  }
+  /** "Mis bienes a cargo": ítems de los que soy cuentadante. */
+  misBienesACargo() {
+    return this.unwrap(this.http.get<Envelope<BienACargo[]>>(`${BASE}/materiales/cuentadante/mis-bienes`));
   }
   /** La bodega declara cuántas unidades tiene de una ficha: DEVOLUTIVO → ítems, CONSUMO/PERECEDERO → lote. */
   agregarExistencias(idProducto: string, dto: AgregarExistenciasDto) {

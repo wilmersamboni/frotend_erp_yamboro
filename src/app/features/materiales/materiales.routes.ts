@@ -35,6 +35,7 @@ export const MATERIALS_ROUTES: Routes = [
   ruta('existencias', () => import('./existencias.component').then((m) => m.MaterialesExistenciasComponent)),
   ruta('reporte', () => import('./reporte/reporte-materiales.component').then((m) => m.ReporteMaterialesComponent), { canActivate: [roleGuard, gestorMaterialesGuard] }),
   ruta('items', () => import('./items.component').then((m) => m.MaterialesItemsComponent)),
+  ruta('cuentadante', () => import('./cuentadante.component').then((m) => m.MaterialesCuentadanteComponent)),
   ruta('vencimientos', () => import('./vencimientos.component').then((m) => m.MaterialesVencimientosComponent)),
   ruta('importar', () => import('./importar.component').then((m) => m.MaterialesImportarComponent)),
   ruta('lotes', () => import('./administration/lotes.component').then((m) => m.MaterialesLotesComponent)),
