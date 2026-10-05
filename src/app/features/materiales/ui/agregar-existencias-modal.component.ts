@@ -3,12 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
 import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
-import { MaterialesApiService, Producto, Sitio } from '../data-access/materiales-api.service';
+import { MaterialesApiService, Producto, Sitio, UnidadMedida } from '../data-access/materiales-api.service';
 
 const ETIQUETA_TIPO: Record<string, { texto: string; clases: string }> = {
-  CONSUMO: { texto: 'Consumo', clases: 'bg-green-50 text-green-700 border-green-200' },
-  DEVOLUTIVO: { texto: 'Devolutivo', clases: 'bg-blue-50 text-blue-700 border-blue-200' },
-  PERECEDERO: { texto: 'Perecedero', clases: 'bg-amber-50 text-amber-700 border-amber-200' },
+  CONSUMO: { texto: 'Consumo · se gasta', clases: 'bg-green-50 text-green-700 border-green-200' },
+  DEVOLUTIVO: { texto: 'Devolutivo · se presta', clases: 'bg-blue-50 text-blue-700 border-blue-200' },
+  PERECEDERO: { texto: 'Perecedero · se vence', clases: 'bg-amber-50 text-amber-700 border-amber-200' },
 };
 
 /** Hoy en hora local (AAAA-MM-DD) — `toISOString()` daría mañana después de las 7 pm en Colombia. */
@@ -78,8 +78,11 @@ function hoyLocal(): string {
                   <div class="grid grid-cols-2 gap-2">
                     <input type="text" [(ngModel)]="pedido.marca" placeholder="Marca"
                       class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
-                    <input type="text" [(ngModel)]="pedido.unidad_medida" placeholder="Unidad (ej. UNIDAD, KILOGRAMO)"
-                      class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                    <select [(ngModel)]="pedido.unidad_medida"
+                      class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
+                      <option value="">Unidad…</option>
+                      @for (u of unidades; track u.codigo) { <option [value]="u.codigo">{{ u.nombre }}</option> }
+                    </select>
                   </div>
                   <div class="grid grid-cols-3 gap-1.5">
                     @for (t of tiposPedido; track t.value) {
@@ -228,9 +231,15 @@ export class AgregarExistenciasModalComponent implements OnChanges {
   enviandoPedido = false;
   pedido = { nombre: '', marca: '', unidad_medida: '', tipo_material: 'DEVOLUTIVO', nota: '' };
 
+  /** Unidades de la lista de la base (el pedido guarda el código). */
+  unidades: UnidadMedida[] = [];
+
   abrirPedido(): void {
     this.pedido = { nombre: '', marca: '', unidad_medida: '', tipo_material: 'DEVOLUTIVO', nota: '' };
     this.pidiendo = true;
+    if (!this.unidades.length) {
+      void this.api.listarUnidadesMedida().then((u) => (this.unidades = u)).catch(() => (this.unidades = []));
+    }
   }
 
   async enviarPedido(): Promise<void> {
@@ -242,7 +251,7 @@ export class AgregarExistenciasModalComponent implements OnChanges {
       await this.api.pedirFicha({
         nombre,
         marca: this.pedido.marca.trim() || undefined,
-        unidad_medida: this.pedido.unidad_medida.trim().toUpperCase() || undefined,
+        unidad_medida: this.pedido.unidad_medida || undefined,
         tipo_material: this.pedido.tipo_material,
         nota: this.pedido.nota.trim() || undefined,
         id_sitio: this.sitioFijo ?? (this.idSitio || undefined),

@@ -66,7 +66,7 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
         <span>Materiales</span><span aria-hidden="true">/</span><span>Inventario</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Ítems</span>
       </nav>
       <div class="flex items-center justify-between mb-4">
-        <h1 class="text-xl font-bold text-gray-800">Ítems</h1>
+        <h1 class="text-xl font-bold text-gray-800">Equipos con placa<span class="block text-xs font-normal text-gray-400">antes «Ítems»</span></h1>
         @if (puedeEditar() && opcionesProductoPlacas.length > 0) {
           <div class="flex gap-2">
             @if (red.alcanzable() && productosConPlacasPendientes.length > 0) {
@@ -488,7 +488,7 @@ export class MaterialesItemsComponent implements OnInit {
       : await this.api.sitiosACargo().catch(() => [] as Sitio[]);
     const primera = devolutivos[0];
     const activas = this.bodegasParaAgregar.filter((s) => s.estado);
-    const bodegaInicial = activas.find((s) => s.id_sitio === primera.id_sitio)?.id_sitio ?? (activas.length === 1 ? activas[0].id_sitio : '');
+    const bodegaInicial = activas.length === 1 ? activas[0].id_sitio : '';
     this.agregarForm = { id_producto: primera.id_producto, id_sitio: bodegaInicial, placa_sena: '' };
     this.agregarError = null;
     this.agregarOpen = true;

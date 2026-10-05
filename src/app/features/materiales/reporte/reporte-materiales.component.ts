@@ -1,5 +1,9 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import {
+  ArrowRight, Boxes, ChevronDown, CircleCheck, Clock, Droplets, FileChartColumn, FileDown, Handshake, List,
+  LucideAngularModule, LucideIconData, MapPin, Package, RefreshCw, Search, Sheet, TriangleAlert, UserX, Users, Wrench,
+} from 'lucide-angular';
 import { TableFilterComponent, TableFilterOption } from '../../../shared/components/table-filter.component';
 import { ToastService } from '../../../core/services/toast.service';
 import { ExportService } from '../../../core/services/export.service';
@@ -17,69 +21,113 @@ import {
   ETIQUETA_TIPO_SITIO,
   FILTROS_VACIOS,
   FiltrosReporte,
+  GrupoProducto,
   GrupoResponsable,
   GrupoUbicacion,
   SIN_SITIO,
+  agruparPorProducto,
   agruparPorResponsable,
   agruparPorUbicacion,
+  cantidadConUnidad,
   describirFiltros,
   devolucionVencida,
   diasEntre,
   fechaCorta,
   filtrarReporte,
+  fraseResumen,
   hoyIso,
+  plural,
   resumir,
 } from './reporte-materiales.util';
 
-type Vista = 'responsables' | 'ubicaciones' | 'unidades' | 'consumibles';
+type Vista = 'productos' | 'ubicaciones' | 'responsables' | 'unidades' | 'consumibles';
 
 const POR_PAGINA = 50;
-/** Unidades que se listan dentro de una tarjeta expandida (el resto, en la vista Unidades). */
+/** Unidades que se listan dentro de una tarjeta expandida (el resto, en la lista de equipos). */
 const MAX_EN_TARJETA = 12;
 
+/** Orden fijo de los estados en barras y textos: lo bueno primero. */
+const ORDEN_ESTADOS = ['DISPONIBLE', 'PRESTADO', 'RESERVADO', 'EN_MANTENIMIENTO', 'DAÑADO', 'PERDIDO'];
+
+/** Cómo se dice cada estado contando ("1 prestado" / "3 prestados"). */
+const ESTADO_CONTADO: Record<string, [string, string]> = {
+  DISPONIBLE: ['disponible', 'disponibles'],
+  PRESTADO: ['prestado', 'prestados'],
+  RESERVADO: ['apartado para traslado', 'apartados para traslado'],
+  EN_MANTENIMIENTO: ['en mantenimiento', 'en mantenimiento'],
+  'DAÑADO': ['dañado', 'dañados'],
+  PERDIDO: ['perdido', 'perdidos'],
+};
+
+const COLOR_BARRA: Record<string, string> = {
+  DISPONIBLE: '#22c55e',
+  PRESTADO: '#3b82f6',
+  RESERVADO: '#a78bfa',
+  EN_MANTENIMIENTO: '#f59e0b',
+  'DAÑADO': '#ef4444',
+  PERDIDO: '#991b1b',
+};
+
+const AYUDA_VISTA: Record<Vista, string> = {
+  productos: 'Cada fila es un tipo de material: cuántos hay y cómo están. Toca una fila para ver cada uno.',
+  ubicaciones: 'Cada tarjeta es un lugar (bodega, ambiente…): qué hay ahí y quién es el encargado.',
+  responsables: 'Cada fila es una persona y lo que tiene a su cargo, ya sea prestado o porque es encargada del lugar.',
+  unidades: 'Todos los equipos uno por uno, con su placa.',
+  consumibles: 'Lo que se gasta al usarlo (cables, baterías, insumos): cuánto queda y cuándo vence.',
+};
+
 /**
- * Reporte de materiales (2026-10-02): cuántos hay, dónde están, en qué estado
- * y quién responde por cada uno. Responsable = quien lo tiene prestado (solicitud
- * entregada), el instructor líder de la ficha a la que se asignó, o si no el
- * responsable del sitio donde está (bodega o ambiente). Ver
- * `GET /api2/existencias/reporte` y `resolverResponsable` en el backend.
- * El alcance lo recorta el backend: admin ve todo el centro; un líder de área,
- * sus áreas; un encargado, sus bodegas y las públicas.
+ * Reporte general de materiales (2026-10-02; rehecho 2026-10-05 para que se
+ * entienda sin explicación): arriba, el inventario contado en dos frases y una
+ * barra de estados; abajo, pestañas que son preguntas — ¿Qué hay? (por
+ * producto, la vista por defecto), ¿Dónde está?, ¿Quién responde?, la lista
+ * de equipos y el material de consumo.
+ * Responsable = quien lo tiene prestado (solicitud entregada), el instructor
+ * líder de la ficha a la que se asignó, o si no el responsable del sitio donde
+ * está. Ver `GET /api2/existencias/reporte` y `resolverResponsable` en el
+ * backend. El alcance lo recorta el backend: admin ve todo el centro; un líder
+ * de área, sus áreas; un encargado, sus bodegas y las públicas.
  */
 @Component({
   selector: 'app-reporte-materiales',
   standalone: true,
-  imports: [FormsModule, TableFilterComponent],
+  imports: [FormsModule, TableFilterComponent, LucideAngularModule],
   template: `
     <div class="p-4 sm:p-6 max-w-7xl mx-auto space-y-5">
       <!-- Encabezado -->
       <div class="flex flex-wrap items-start justify-between gap-3">
-        <div class="min-w-0">
-          <nav aria-label="Migas de pan" class="mb-1 text-xs" style="color: var(--text-muted)">Materiales / Inventario</nav>
-          <h1 class="text-xl font-bold" style="color: var(--text)">Reporte de materiales</h1>
-          <p class="text-sm mt-0.5" style="color: var(--text-muted)">Qué hay, dónde está, en qué estado y quién responde por cada material.</p>
+        <div class="flex items-start gap-3 min-w-0">
+          <span class="hidden sm:flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#39A900]/10 text-[#2d8000] ring-1 ring-[#39A900]/20">
+            <lucide-icon [img]="i.reporte" [size]="24"></lucide-icon>
+          </span>
+          <div class="min-w-0">
+            <nav aria-label="Migas de pan" class="mb-0.5 text-xs" style="color: var(--text-muted)">Materiales / Inventario</nav>
+            <h1 class="text-xl sm:text-2xl font-bold" style="color: var(--text)">Reporte general de materiales</h1>
+            <p class="text-sm mt-0.5" style="color: var(--text-muted)">Todo lo que hay en el centro: qué es, dónde está y quién lo cuida.</p>
+          </div>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           @if (datos(); as d) {
             <span class="text-xs mr-1" style="color: var(--text-faint)">Actualizado {{ horaGenerado(d.generado) }}</span>
           }
-          <button type="button" (click)="cargar()" [disabled]="cargando()" class="btn-sec" aria-label="Actualizar">
-            <svg class="w-4 h-4" [class.animate-spin]="cargando()" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          <button type="button" (click)="cargar()" [disabled]="cargando()" class="btn-sec" aria-label="Actualizar" title="Actualizar">
+            <lucide-icon [img]="i.recargar" [size]="16" [class.animate-spin]="cargando()"></lucide-icon>
           </button>
           <button type="button" (click)="exportar('excel')" [disabled]="!datos() || exportando()" class="btn-sec">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M10 3v18M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/></svg>
+            <lucide-icon [img]="i.excel" [size]="16"></lucide-icon>
             {{ exportando() === 'excel' ? 'Generando…' : 'Excel' }}
           </button>
           <button type="button" (click)="exportar('pdf')" [disabled]="!datos() || exportando()" class="btn-pri">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3M6 20h12a2 2 0 002-2V8l-6-6H6a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-            {{ exportando() === 'pdf' ? 'Generando…' : 'PDF' }}
+            <lucide-icon [img]="i.pdf" [size]="16"></lucide-icon>
+            {{ exportando() === 'pdf' ? 'Generando…' : 'Descargar PDF' }}
           </button>
         </div>
       </div>
 
       @if (cargando() && !datos()) {
-        <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
-          @for (i of [1, 2, 3, 4, 5]; track i) { <div class="h-24 rounded-2xl animate-pulse" style="background: var(--surface2)"></div> }
+        <div class="h-36 rounded-2xl animate-pulse" style="background: var(--surface2)"></div>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          @for (k of [1, 2, 3, 4]; track k) { <div class="h-24 rounded-2xl animate-pulse" style="background: var(--surface2)"></div> }
         </div>
         <div class="h-64 rounded-2xl animate-pulse" style="background: var(--surface2)"></div>
       } @else if (error()) {
@@ -88,86 +136,247 @@ const MAX_EN_TARJETA = 12;
           <button type="button" (click)="cargar()" class="btn-sec mt-3 mx-auto">Reintentar</button>
         </div>
       } @else if (datos()) {
+        <!-- En pocas palabras -->
+        <section class="card p-5 sm:p-6">
+          <div class="flex items-start gap-3">
+            <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+              [style.background]="frase().todoBien ? 'var(--ok-bg)' : 'var(--warn-bg)'"
+              [style.color]="frase().todoBien ? 'var(--ok-text)' : 'var(--warn-text)'">
+              <lucide-icon [img]="frase().todoBien ? i.ok : i.alerta" [size]="20"></lucide-icon>
+            </span>
+            <div class="min-w-0">
+              <p class="text-xs font-semibold uppercase tracking-wide" style="color: var(--text-muted)">En pocas palabras{{ hayFiltros() ? ' (con los filtros elegidos)' : '' }}</p>
+              <p class="mt-1 text-base sm:text-lg font-semibold leading-snug" style="color: var(--text)">{{ frase().titulo }}</p>
+              <p class="mt-0.5 text-sm" style="color: var(--text-2)">{{ frase().detalle }}</p>
+            </div>
+          </div>
+          @if (resumen().unidades) {
+            <div class="mt-5">
+              <div class="flex h-3 w-full overflow-hidden rounded-full" style="background: var(--surface2)" role="img"
+                [attr.aria-label]="'Estado de los equipos: ' + textoEstados(porEstadoTotal(), resumen().unidades)">
+                @for (b of barra(); track b.estado) {
+                  <span class="h-full" [style.width.%]="b.pct" [style.background]="b.color" [title]="b.texto"></span>
+                }
+              </div>
+              <div class="mt-2.5 flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
+                @for (b of barra(); track b.estado) {
+                  <span class="inline-flex items-center gap-1.5" style="color: var(--text-2)">
+                    <span class="h-2.5 w-2.5 rounded-full" [style.background]="b.color"></span>{{ b.texto }}
+                  </span>
+                }
+              </div>
+            </div>
+          }
+        </section>
+
         <!-- Cifras -->
-        <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
-          <div class="card p-4">
-            <p class="kpi-label">Unidades</p>
-            <p class="kpi-valor">{{ n(resumen().unidades) }}</p>
-            <p class="kpi-det">{{ n(resumen().disponibles) }} disponibles</p>
-          </div>
-          <div class="card p-4">
-            <p class="kpi-label">Prestadas o en ficha</p>
-            <p class="kpi-valor" style="color: var(--info-text)">{{ n(resumen().prestadas) }}</p>
-            <p class="kpi-det" [style.color]="resumen().devolucionesVencidas ? 'var(--warn-text)' : null">
-              {{ resumen().devolucionesVencidas ? resumen().devolucionesVencidas + ' con devolución vencida' : 'al día' }}
-            </p>
-          </div>
-          <div class="card p-4">
-            <p class="kpi-label">Con novedad</p>
-            <p class="kpi-valor" [style.color]="resumen().novedad ? 'var(--err-text)' : null">{{ n(resumen().novedad) }}</p>
-            <p class="kpi-det">dañadas, perdidas o en mantenimiento</p>
-          </div>
-          <div class="card p-4">
-            <p class="kpi-label">Consumibles</p>
-            <p class="kpi-valor">{{ n(resumen().lotes) }}</p>
-            <p class="kpi-det">lotes de {{ n(resumen().productosConsumibles) }} productos</p>
-          </div>
-          <div class="card p-4 col-span-2 lg:col-span-1">
-            <p class="kpi-label">Responsables</p>
-            <p class="kpi-valor">{{ n(resumen().responsables) }}</p>
-            <p class="kpi-det">en {{ n(resumen().ubicaciones) }} ubicaciones</p>
-          </div>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <button type="button" class="kpi" (click)="irA('productos', '')">
+            <span class="kpi-icono" style="background: var(--accent-soft); color: var(--accent-text)"><lucide-icon [img]="i.equipo" [size]="20"></lucide-icon></span>
+            <span class="min-w-0">
+              <span class="kpi-label">Equipos y herramientas</span>
+              <span class="kpi-valor">{{ n(resumen().unidades) }}</span>
+              <span class="kpi-det">se prestan y se devuelven</span>
+            </span>
+          </button>
+          <button type="button" class="kpi" (click)="irA('responsables', 'PRESTADO')">
+            <span class="kpi-icono" style="background: var(--info-bg); color: var(--info-text)"><lucide-icon [img]="i.prestado" [size]="20"></lucide-icon></span>
+            <span class="min-w-0">
+              <span class="kpi-label">Prestados</span>
+              <span class="kpi-valor" [style.color]="resumen().prestadas ? 'var(--info-text)' : null">{{ n(resumen().prestadas) }}</span>
+              <span class="kpi-det" [style.color]="resumen().devolucionesVencidas ? 'var(--warn-text)' : null">
+                {{ resumen().devolucionesVencidas ? plural(resumen().devolucionesVencidas, 'ya debía volver', 'ya debían volver') : resumen().prestadas ? 'todos a tiempo' : 'ninguno afuera' }}
+              </span>
+            </span>
+          </button>
+          <button type="button" class="kpi" (click)="irA('unidades', 'NOVEDAD')">
+            <span class="kpi-icono" [style.background]="resumen().novedad ? 'var(--err-bg)' : 'var(--surface2)'" [style.color]="resumen().novedad ? 'var(--err-text)' : 'var(--text-muted)'"><lucide-icon [img]="i.arreglo" [size]="20"></lucide-icon></span>
+            <span class="min-w-0">
+              <span class="kpi-label">Con algún problema</span>
+              <span class="kpi-valor" [style.color]="resumen().novedad ? 'var(--err-text)' : null">{{ n(resumen().novedad) }}</span>
+              <span class="kpi-det">dañados, perdidos o en mantenimiento</span>
+            </span>
+          </button>
+          <button type="button" class="kpi" (click)="irA('consumibles', '')">
+            <span class="kpi-icono" style="background: var(--violet-bg); color: var(--violet-text)"><lucide-icon [img]="i.consumo" [size]="20"></lucide-icon></span>
+            <span class="min-w-0">
+              <span class="kpi-label">Material de consumo</span>
+              <span class="kpi-valor">{{ n(resumen().productosConsumibles) }}</span>
+              <span class="kpi-det">{{ resumen().productosConsumibles === 1 ? 'tipo' : 'tipos' }} que se gastan al usarlos</span>
+            </span>
+          </button>
         </div>
 
         <!-- Avisos -->
         @if (resumenTotal().sinResponsable) {
           <div class="aviso" style="background: var(--err-bg); border-color: var(--err-border); color: var(--err-text)">
-            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z"/></svg>
-            <p class="text-sm flex-1"><strong>{{ resumenTotal().sinResponsable }} materiales no tienen responsable</strong>: están en sitios sin responsable asignado. Asígnelo en Sitios para que alguien responda por ellos.</p>
+            <lucide-icon [img]="i.sinResponsable" [size]="20" class="shrink-0"></lucide-icon>
+            <p class="text-sm flex-1"><strong>{{ plural(resumenTotal().sinResponsable, 'material no tiene', 'materiales no tienen') }} a nadie a cargo.</strong> Están en lugares sin encargado: asígnelo en Sitios para que alguien responda por ellos.</p>
             <button type="button" class="aviso-btn" (click)="verSinResponsable()">Ver cuáles</button>
           </div>
         }
         @if (resumenTotal().devolucionesVencidas) {
           <div class="aviso" style="background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text)">
-            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <p class="text-sm flex-1"><strong>{{ resumenTotal().devolucionesVencidas }} unidades</strong> debían haberse devuelto ya.</p>
-            <button type="button" class="aviso-btn" (click)="verVencidas()">Ver cuáles</button>
+            <lucide-icon [img]="i.reloj" [size]="20" class="shrink-0"></lucide-icon>
+            <p class="text-sm flex-1"><strong>{{ plural(resumenTotal().devolucionesVencidas, 'equipo ya debía', 'equipos ya debían') }} haberse devuelto.</strong></p>
+            <button type="button" class="aviso-btn" (click)="verVencidas()">Ver quién los tiene</button>
           </div>
         }
 
-        <!-- Filtros -->
-        <div class="card p-3 flex flex-wrap items-center gap-2">
-          <div class="relative flex-1 min-w-[220px]">
-            <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style="color: var(--text-faint)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
-            <input type="search" [ngModel]="filtros().q" (ngModelChange)="setFiltro('q', $event)"
-              placeholder="Buscar producto, placa, responsable, cédula, UNSPSC…"
-              class="w-full pl-9 pr-3 py-2 rounded-xl text-sm border focus:outline-none focus:ring-2 focus:ring-[#39A900]/30"
-              style="background: var(--surface); border-color: var(--border); color: var(--text)" />
-          </div>
-          <app-table-filter label="Ubicación" [options]="opcionesSitio()" [value]="filtros().sitio" (valueChange)="setFiltro('sitio', $event)" />
-          <app-table-filter label="Tipo" [options]="opcionesTipoSitio" [value]="filtros().tipoSitio" (valueChange)="setFiltro('tipoSitio', $event)" />
-          <app-table-filter label="Estado" [options]="opcionesEstado" [value]="filtros().estado" (valueChange)="setFiltro('estado', $event)" />
-          <app-table-filter label="Responde por" [options]="opcionesOrigen" [value]="filtros().origen" (valueChange)="setOrigen($event)" />
-          @if (hayFiltros()) {
-            <button type="button" (click)="limpiarFiltros()" class="text-xs font-semibold px-2 py-1 rounded-lg hover:underline" style="color: var(--accent-text)">Limpiar filtros</button>
-          }
-        </div>
-
-        <!-- Vistas -->
-        <div class="flex gap-1 p-1 rounded-xl w-full sm:w-fit overflow-x-auto" style="background: var(--surface2)" role="tablist">
+        <!-- Preguntas (vistas) -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2" role="tablist" aria-label="Cómo ver el reporte">
           @for (v of vistas(); track v.id) {
             <button type="button" role="tab" [attr.aria-selected]="vista() === v.id" (click)="cambiarVista(v.id)"
-              class="px-3.5 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors"
-              [style.background]="vista() === v.id ? 'var(--surface)' : 'transparent'"
-              [style.color]="vista() === v.id ? 'var(--text)' : 'var(--text-muted)'"
-              [class.shadow-sm]="vista() === v.id">
-              {{ v.label }} <span class="ml-1 text-xs" style="color: var(--text-faint)">{{ v.n }}</span>
+              class="pestana" [class.pestana-activa]="vista() === v.id">
+              <lucide-icon [img]="v.icono" [size]="18" class="shrink-0"></lucide-icon>
+              <span class="min-w-0 text-left">
+                <span class="block text-sm font-semibold truncate">{{ v.label }}</span>
+                <span class="block text-[11px] truncate" style="color: var(--text-faint)">{{ v.n }}</span>
+              </span>
             </button>
           }
         </div>
 
+        <!-- Buscar y filtrar -->
+        <div class="card p-3 space-y-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="relative flex-1 min-w-[220px]">
+              <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none" style="color: var(--text-faint)"><lucide-icon [img]="i.buscar" [size]="16"></lucide-icon></span>
+              <input type="search" [ngModel]="filtros().q" (ngModelChange)="setFiltro('q', $event)"
+                placeholder="Busca por nombre, placa o persona…" aria-label="Buscar"
+                class="w-full pr-3 py-2 rounded-xl text-sm border focus:outline-none focus:ring-2 focus:ring-[#39A900]/30"
+                style="background: var(--surface); border-color: var(--border); color: var(--text); padding-left: 2.6rem" />
+            </div>
+            <app-table-filter label="Lugar" [options]="opcionesSitio()" [value]="filtros().sitio" (valueChange)="setFiltro('sitio', $event)" />
+            <app-table-filter label="Tipo de lugar" [options]="opcionesTipoSitio" [value]="filtros().tipoSitio" (valueChange)="setFiltro('tipoSitio', $event)" />
+            <app-table-filter label="Estado" [options]="opcionesEstado" [value]="filtros().estado" (valueChange)="setFiltro('estado', $event)" />
+            <app-table-filter label="Quién responde" [options]="opcionesOrigen" [value]="filtros().origen" (valueChange)="setOrigen($event)" />
+          </div>
+          @if (hayFiltros()) {
+            <div class="flex flex-wrap items-center gap-2 text-xs" style="color: var(--text-muted)">
+              <span>Mostrando: <strong style="color: var(--text)">{{ textoFiltros() }}</strong></span>
+              <button type="button" (click)="limpiarFiltros()" class="font-semibold hover:underline" style="color: var(--accent-text)">Ver todo</button>
+            </div>
+          }
+        </div>
+
+        <p class="text-sm" style="color: var(--text-muted)">{{ ayudaVista() }}</p>
+
         @switch (vista()) {
-          <!-- ── Por responsable ── -->
+          <!-- ── ¿Qué hay? (por producto) ── -->
+          @case ('productos') {
+            <div class="card overflow-hidden">
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="text-left text-xs" style="background: var(--surface2); color: var(--text-muted)">
+                      <th class="px-4 py-3 font-semibold">Material</th>
+                      <th class="px-4 py-3 font-semibold text-right">Cuántos hay</th>
+                      <th class="px-4 py-3 font-semibold min-w-[200px]">Cómo están</th>
+                      <th class="px-4 py-3 font-semibold hidden md:table-cell">Dónde están</th>
+                      <th class="w-8"><span class="sr-only">Ver</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (p of porProducto(); track p.clave) {
+                      <tr class="fila border-t cursor-pointer" style="border-color: var(--border)" tabindex="0"
+                        (click)="verProducto(p)" (keydown.enter)="verProducto(p)">
+                        <td class="px-4 py-3">
+                          <span class="flex items-center gap-2.5">
+                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                              [style.background]="p.tipo === 'CONSUMO' ? 'var(--violet-bg)' : 'var(--surface2)'"
+                              [style.color]="p.tipo === 'CONSUMO' ? 'var(--violet-text)' : 'var(--text-muted)'">
+                              <lucide-icon [img]="p.tipo === 'CONSUMO' ? i.consumo : i.equipo" [size]="16"></lucide-icon>
+                            </span>
+                            <span class="min-w-0">
+                              <span class="block font-semibold" style="color: var(--text)">{{ p.producto }}</span>
+                              <span class="block text-xs" style="color: var(--text-faint)">{{ p.tipo === 'CONSUMO' ? 'Material de consumo' : (p.categoria || 'Equipo o herramienta') }}</span>
+                            </span>
+                          </span>
+                        </td>
+                        <td class="px-4 py-3 text-right whitespace-nowrap">
+                          @if (p.tipo === 'EQUIPO') {
+                            <span class="text-base font-bold tabular-nums" style="color: var(--text)">{{ n(p.total) }}</span>
+                          } @else {
+                            <span class="font-bold tabular-nums" style="color: var(--text)">{{ cantidad(p.cantidad, p.unidad) }}</span>
+                          }
+                        </td>
+                        <td class="px-4 py-3">
+                          @if (p.tipo === 'EQUIPO') {
+                            <div class="flex h-1.5 w-full max-w-[180px] overflow-hidden rounded-full" style="background: var(--surface2)">
+                              @for (e of estadosOrdenados(p.porEstado); track e.estado) {
+                                <span class="h-full" [style.width.%]="(e.n / p.total) * 100" [style.background]="colorBarra(e.estado)"></span>
+                              }
+                            </div>
+                            <span class="mt-1 block text-xs" [style.color]="p.novedad ? 'var(--err-text)' : 'var(--text-2)'">{{ textoEstados(p.porEstado, p.total) }}</span>
+                          } @else {
+                            <span class="text-xs" [style.color]="p.porVencer ? 'var(--warn-text)' : 'var(--text-2)'">
+                              {{ p.porVencer ? plural(p.porVencer, 'lote vence pronto o ya venció', 'lotes vencen pronto o ya vencieron') : 'Sin vencimientos cercanos' }}
+                            </span>
+                          }
+                        </td>
+                        <td class="px-4 py-3 hidden md:table-cell text-xs" style="color: var(--text-2)">{{ textoLugares(p.lugares) }}</td>
+                        <td class="pr-3 text-right"><lucide-icon [img]="i.ir" [size]="16" class="flecha" style="color: var(--text-faint)"></lucide-icon></td>
+                      </tr>
+                    } @empty {
+                      <tr><td colspan="5" class="px-4 py-10 text-center" style="color: var(--text-muted)">No hay materiales con estos filtros.</td></tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
+
+          <!-- ── ¿Dónde está? ── -->
+          @case ('ubicaciones') {
+            @if (!porUbicacion().length) { <div class="card p-10 text-center text-sm" style="color: var(--text-muted)">No hay materiales con estos filtros.</div> }
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              @for (g of porUbicacion(); track g.clave) {
+                <div class="card p-4 flex flex-col gap-3" [style.border-color]="g.responsable ? null : 'var(--err-border)'">
+                  <div class="flex items-start gap-3">
+                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style="background: var(--surface2); color: var(--text-muted)">
+                      <lucide-icon [img]="i.lugar" [size]="18"></lucide-icon>
+                    </span>
+                    <div class="min-w-0 flex-1">
+                      <p class="font-semibold truncate" style="color: var(--text)">{{ g.sitio }}
+                        @if (g.tipo) { <span class="ml-1 text-xs font-normal" style="color: var(--text-faint)">· {{ tipoSitio(g.tipo) }}</span> }
+                      </p>
+                      <p class="text-xs mt-0.5" [style.color]="g.responsable ? 'var(--text-muted)' : 'var(--err-text)'">
+                        {{ g.responsable ? 'Encargado: ' + g.responsable : 'Nadie está a cargo de este lugar' }}
+                      </p>
+                    </div>
+                    <div class="text-right shrink-0">
+                      <p class="text-lg font-bold tabular-nums leading-none" style="color: var(--text)">{{ n(g.unidades.length) }}</p>
+                      <p class="text-[11px]" style="color: var(--text-faint)">{{ g.unidades.length === 1 ? 'equipo' : 'equipos' }}</p>
+                    </div>
+                  </div>
+                  @if (g.unidades.length) {
+                    <p class="text-xs" [style.color]="g.porEstado['DAÑADO'] || g.porEstado['PERDIDO'] ? 'var(--err-text)' : 'var(--text-2)'">{{ textoEstados(g.porEstado, g.unidades.length) }}</p>
+                  }
+                  @if (g.fueraDelSitio) {
+                    <p class="text-xs rounded-lg px-2.5 py-1.5" style="background: var(--info-bg); color: var(--info-text)">{{ plural(g.fueraDelSitio, 'equipo de aquí está prestado', 'equipos de aquí están prestados') }} o en una ficha: responde quien los tiene.</p>
+                  }
+                  <ul class="text-xs divide-y divide-[color:var(--border)]">
+                    @for (p of g.productos.slice(0, 6); track p.producto) {
+                      <li class="flex items-center justify-between gap-3 py-1.5">
+                        <span class="truncate" style="color: var(--text-2)">{{ p.producto }}</span>
+                        <span class="shrink-0 tabular-nums" style="color: var(--text-muted)">
+                          @if (p.unidades) { {{ textoDisponibles(p.disponibles, p.unidades) }} }
+                          @if (p.cantidad) { {{ cantidad(p.cantidad, p.unidad) }} }
+                        </span>
+                      </li>
+                    }
+                    @if (g.productos.length > 6) { <li class="py-1.5" style="color: var(--text-faint)">y {{ plural(g.productos.length - 6, 'material más', 'materiales más') }}</li> }
+                  </ul>
+                  <button type="button" (click)="verSitio(g)" class="mt-auto self-start inline-flex items-center gap-1 text-xs font-semibold hover:underline" style="color: var(--accent-text)">
+                    Ver todo lo de {{ g.sitio }} <lucide-icon [img]="i.ir" [size]="14"></lucide-icon>
+                  </button>
+                </div>
+              }
+            </div>
+          }
+
+          <!-- ── ¿Quién responde? ── -->
           @case ('responsables') {
             @if (!porResponsable().length) { <div class="card p-10 text-center text-sm" style="color: var(--text-muted)">No hay materiales con estos filtros.</div> }
             <div class="space-y-2">
@@ -177,32 +386,30 @@ const MAX_EN_TARJETA = 12;
                     class="w-full flex flex-wrap sm:flex-nowrap items-center gap-3 p-3.5 text-left hover:bg-black/[0.02]">
                     <span class="w-10 h-10 shrink-0 rounded-full grid place-items-center text-sm font-bold"
                       [style.background]="g.sinResponsable ? 'var(--err-bg)' : 'var(--accent-soft)'"
-                      [style.color]="g.sinResponsable ? 'var(--err-text)' : 'var(--accent-text)'">{{ g.sinResponsable ? '!' : iniciales(g.nombre) }}</span>
+                      [style.color]="g.sinResponsable ? 'var(--err-text)' : 'var(--accent-text)'">
+                      @if (g.sinResponsable) { <lucide-icon [img]="i.sinResponsable" [size]="18"></lucide-icon> } @else { {{ iniciales(g.nombre) }} }
+                    </span>
                     <span class="min-w-0 flex-1">
-                      <span class="block text-sm font-semibold truncate" [style.color]="g.sinResponsable ? 'var(--err-text)' : 'var(--text)'">{{ g.nombre }}</span>
-                      <span class="block text-xs truncate" style="color: var(--text-muted)">
-                        @if (g.documento) { C.C. {{ g.documento }} · }{{ g.motivos.join(' · ') }}
-                      </span>
+                      <span class="block text-sm font-semibold truncate" [style.color]="g.sinResponsable ? 'var(--err-text)' : 'var(--text)'">{{ g.sinResponsable ? 'Nadie a cargo' : g.nombre }}</span>
+                      <span class="block text-xs truncate" style="color: var(--text-muted)">{{ textoResponsable(g) }}</span>
                     </span>
                     <span class="flex items-center gap-4 text-center ml-auto">
-                      <span><span class="block text-base font-bold" style="color: var(--text)">{{ g.unidades.length }}</span><span class="block text-[11px]" style="color: var(--text-faint)">unidades</span></span>
+                      <span><span class="block text-base font-bold" style="color: var(--text)">{{ n(g.unidades.length) }}</span><span class="block text-[11px]" style="color: var(--text-faint)">{{ g.unidades.length === 1 ? 'equipo' : 'equipos' }}</span></span>
                       @if (g.enPrestamo) {
-                        <span><span class="block text-base font-bold" [style.color]="g.devolucionesVencidas ? 'var(--warn-text)' : 'var(--info-text)'">{{ g.enPrestamo }}</span><span class="block text-[11px]" style="color: var(--text-faint)">{{ g.devolucionesVencidas ? g.devolucionesVencidas + ' vencidas' : 'prestadas' }}</span></span>
+                        <span><span class="block text-base font-bold" [style.color]="g.devolucionesVencidas ? 'var(--warn-text)' : 'var(--info-text)'">{{ g.enPrestamo }}</span><span class="block text-[11px]" style="color: var(--text-faint)">{{ g.devolucionesVencidas ? g.devolucionesVencidas + ' atrasados' : 'prestados' }}</span></span>
                       }
                       @if (g.lotes.length) {
-                        <span><span class="block text-base font-bold" style="color: var(--text)">{{ g.lotes.length }}</span><span class="block text-[11px]" style="color: var(--text-faint)">lotes</span></span>
+                        <span><span class="block text-base font-bold" style="color: var(--text)">{{ g.lotes.length }}</span><span class="block text-[11px]" style="color: var(--text-faint)">de consumo</span></span>
                       }
-                      <svg class="w-4 h-4 transition-transform" [class.rotate-180]="abierto(g.clave)" style="color: var(--text-faint)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                      <lucide-icon [img]="i.abrir" [size]="16" class="transition-transform" [class.rotate-180]="abierto(g.clave)" style="color: var(--text-faint)"></lucide-icon>
                     </span>
                   </button>
                   @if (abierto(g.clave)) {
                     <div class="border-t px-3.5 py-3 space-y-2" style="border-color: var(--border); background: var(--surface2)">
-                      <div class="flex flex-wrap gap-1.5">
-                        @for (e of estadosDe(g.porEstado); track e.estado) {
-                          <span class="chip" [style.background]="colorEstado(e.estado).bg" [style.color]="colorEstado(e.estado).tx">{{ e.n }} {{ etiquetaEstado(e.estado).toLowerCase() }}</span>
-                        }
-                      </div>
-                      <ul class="divide-y" style="border-color: var(--border)">
+                      @if (g.unidades.length) {
+                        <p class="text-xs" style="color: var(--text-2)">{{ textoEstados(g.porEstado, g.unidades.length) }}</p>
+                      }
+                      <ul class="divide-y divide-[color:var(--border)]">
                         @for (u of g.unidades.slice(0, maxTarjeta); track u.id_item) {
                           <li class="flex flex-wrap items-center gap-x-3 gap-y-0.5 py-2 text-sm">
                             <span class="font-mono text-xs px-1.5 py-0.5 rounded" style="background: var(--surface); color: var(--text-2)">{{ u.placa_sena || u.codigo_sku || 'Sin placa' }}</span>
@@ -213,14 +420,14 @@ const MAX_EN_TARJETA = 12;
                         }
                         @for (l of g.lotes.slice(0, maxTarjeta); track l.id_lote) {
                           <li class="flex flex-wrap items-center gap-x-3 py-2 text-sm">
-                            <span class="chip" style="background: var(--violet-bg); color: var(--violet-text)">Lote</span>
+                            <span class="chip" style="background: var(--violet-bg); color: var(--violet-text)">Consumo</span>
                             <span class="font-medium" style="color: var(--text)">{{ l.producto }}</span>
-                            <span class="text-xs" style="color: var(--text-muted)">{{ n(l.cantidad_disponible) }} {{ l.unidad_medida.toLowerCase() }} · {{ l.sitio || 'Sin ubicación' }}</span>
+                            <span class="text-xs" style="color: var(--text-muted)">{{ cantidad(l.cantidad_disponible, l.unidad_medida) }} · {{ l.sitio || 'Sin ubicación' }}</span>
                           </li>
                         }
                       </ul>
                       @if (g.unidades.length > maxTarjeta || g.lotes.length > maxTarjeta) {
-                        <button type="button" (click)="verDe(g)" class="text-xs font-semibold hover:underline" style="color: var(--accent-text)">Ver todo lo de {{ g.sinResponsable ? 'este grupo' : g.nombre }} →</button>
+                        <button type="button" (click)="verDe(g)" class="inline-flex items-center gap-1 text-xs font-semibold hover:underline" style="color: var(--accent-text)">Ver todo lo de {{ g.sinResponsable ? 'este grupo' : g.nombre }} <lucide-icon [img]="i.ir" [size]="14"></lucide-icon></button>
                       }
                     </div>
                   }
@@ -229,61 +436,18 @@ const MAX_EN_TARJETA = 12;
             </div>
           }
 
-          <!-- ── Por ubicación ── -->
-          @case ('ubicaciones') {
-            @if (!porUbicacion().length) { <div class="card p-10 text-center text-sm" style="color: var(--text-muted)">No hay materiales con estos filtros.</div> }
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              @for (g of porUbicacion(); track g.clave) {
-                <div class="card p-4 flex flex-col gap-3">
-                  <div class="flex items-start justify-between gap-2">
-                    <div class="min-w-0">
-                      <p class="text-sm font-semibold truncate" style="color: var(--text)">{{ g.sitio }}</p>
-                      <p class="text-xs mt-0.5" [style.color]="g.responsable ? 'var(--text-muted)' : 'var(--err-text)'">
-                        {{ g.responsable ? 'Responsable: ' + g.responsable : 'Sin responsable asignado' }}
-                      </p>
-                    </div>
-                    @if (g.tipo) { <span class="chip shrink-0" style="background: var(--surface2); color: var(--text-2)">{{ tipoSitio(g.tipo) }}</span> }
-                  </div>
-                  <div class="flex flex-wrap gap-1.5">
-                    <span class="chip" style="background: var(--surface2); color: var(--text)"><strong>{{ g.unidades.length }}</strong>&nbsp;unidades</span>
-                    @for (e of estadosDe(g.porEstado); track e.estado) {
-                      <span class="chip" [style.background]="colorEstado(e.estado).bg" [style.color]="colorEstado(e.estado).tx">{{ e.n }} {{ etiquetaEstado(e.estado).toLowerCase() }}</span>
-                    }
-                    @if (g.lotes.length) { <span class="chip" style="background: var(--violet-bg); color: var(--violet-text)">{{ g.lotes.length }} lotes</span> }
-                  </div>
-                  @if (g.fueraDelSitio) {
-                    <p class="text-xs" style="color: var(--info-text)">{{ g.fueraDelSitio }} unidad(es) de aquí están prestadas o asignadas: responde quien las tiene.</p>
-                  }
-                  <ul class="text-xs space-y-1">
-                    @for (p of g.productos.slice(0, 6); track p.producto) {
-                      <li class="flex justify-between gap-2">
-                        <span class="truncate" style="color: var(--text-2)">{{ p.producto }}</span>
-                        <span class="shrink-0 tabular-nums" style="color: var(--text-muted)">
-                          @if (p.unidades) { {{ p.disponibles }}/{{ p.unidades }} disp. }
-                          @if (p.cantidad) { {{ n(p.cantidad) }} {{ (p.unidad || '').toLowerCase() }} }
-                        </span>
-                      </li>
-                    }
-                    @if (g.productos.length > 6) { <li style="color: var(--text-faint)">y {{ g.productos.length - 6 }} productos más</li> }
-                  </ul>
-                  <button type="button" (click)="verSitio(g)" class="mt-auto self-start text-xs font-semibold hover:underline" style="color: var(--accent-text)">Ver unidades de este sitio →</button>
-                </div>
-              }
-            </div>
-          }
-
-          <!-- ── Unidades ── -->
+          <!-- ── Lista de equipos ── -->
           @case ('unidades') {
             <div class="card overflow-hidden">
               <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                   <thead>
-                    <tr class="text-left text-[11px] uppercase tracking-wide" style="background: var(--surface2); color: var(--text-muted)">
-                      <th class="px-3 py-2.5 font-semibold">Placa / SKU</th>
-                      <th class="px-3 py-2.5 font-semibold">Producto</th>
-                      <th class="px-3 py-2.5 font-semibold">Estado</th>
-                      <th class="px-3 py-2.5 font-semibold hidden md:table-cell">Ubicación</th>
-                      <th class="px-3 py-2.5 font-semibold">Responsable</th>
+                    <tr class="text-left text-xs" style="background: var(--surface2); color: var(--text-muted)">
+                      <th class="px-3 py-3 font-semibold">Placa</th>
+                      <th class="px-3 py-3 font-semibold">Qué es</th>
+                      <th class="px-3 py-3 font-semibold">Estado</th>
+                      <th class="px-3 py-3 font-semibold hidden md:table-cell">Dónde está</th>
+                      <th class="px-3 py-3 font-semibold">Quién responde</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -292,22 +456,20 @@ const MAX_EN_TARJETA = 12;
                         <td class="px-3 py-2.5 font-mono text-xs whitespace-nowrap" style="color: var(--text-2)">{{ u.placa_sena || u.codigo_sku || 'Sin placa' }}</td>
                         <td class="px-3 py-2.5">
                           <span class="font-medium" style="color: var(--text)">{{ u.producto }}</span>
-                          <span class="block text-xs" style="color: var(--text-faint)">{{ u.codigo_unspsc || 'Sin UNSPSC' }}{{ u.categoria ? ' · ' + u.categoria : '' }}</span>
+                          @if (detalleProducto(u); as det) { <span class="block text-xs" style="color: var(--text-faint)">{{ det }}</span> }
                         </td>
                         <td class="px-3 py-2.5"><span class="chip" [style.background]="colorEstado(u.estado).bg" [style.color]="colorEstado(u.estado).tx">{{ etiquetaEstado(u.estado) }}</span></td>
                         <td class="px-3 py-2.5 hidden md:table-cell">
                           <span style="color: var(--text-2)">{{ u.sitio || 'Sin ubicación' }}</span>
-                          <span class="block text-xs" style="color: var(--text-faint)">{{ tipoSitio(u.sitio_tipo) }}</span>
+                          @if (u.sitio_tipo) { <span class="block text-xs" style="color: var(--text-faint)">{{ tipoSitio(u.sitio_tipo) }}</span> }
                         </td>
                         <td class="px-3 py-2.5">
-                          <span class="font-medium" [style.color]="u.responsable.origen === 'SIN_RESPONSABLE' ? 'var(--err-text)' : 'var(--text)'">{{ u.responsable.nombre || 'Sin responsable' }}</span>
-                          <span class="block text-xs" [style.color]="vencida(u) ? 'var(--warn-text)' : 'var(--text-faint)'">
-                            @if (u.responsable.documento) { C.C. {{ u.responsable.documento }} · }{{ detalleResponsable(u) }}
-                          </span>
+                          <span class="font-medium" [style.color]="u.responsable.origen === 'SIN_RESPONSABLE' ? 'var(--err-text)' : 'var(--text)'">{{ u.responsable.nombre || 'Nadie a cargo' }}</span>
+                          <span class="block text-xs" [style.color]="vencida(u) ? 'var(--warn-text)' : 'var(--text-faint)'">{{ detalleResponsable(u) }}</span>
                         </td>
                       </tr>
                     } @empty {
-                      <tr><td colspan="5" class="px-3 py-10 text-center" style="color: var(--text-muted)">No hay unidades con estos filtros.</td></tr>
+                      <tr><td colspan="5" class="px-3 py-10 text-center" style="color: var(--text-muted)">No hay equipos con estos filtros.</td></tr>
                     }
                   </tbody>
                 </table>
@@ -324,18 +486,18 @@ const MAX_EN_TARJETA = 12;
             </div>
           }
 
-          <!-- ── Consumibles ── -->
+          <!-- ── Material de consumo ── -->
           @case ('consumibles') {
             <div class="card overflow-hidden">
               <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                   <thead>
-                    <tr class="text-left text-[11px] uppercase tracking-wide" style="background: var(--surface2); color: var(--text-muted)">
-                      <th class="px-3 py-2.5 font-semibold">Producto</th>
-                      <th class="px-3 py-2.5 font-semibold text-right">Disponible</th>
-                      <th class="px-3 py-2.5 font-semibold">Vence</th>
-                      <th class="px-3 py-2.5 font-semibold hidden md:table-cell">Ubicación</th>
-                      <th class="px-3 py-2.5 font-semibold">Responsable</th>
+                    <tr class="text-left text-xs" style="background: var(--surface2); color: var(--text-muted)">
+                      <th class="px-3 py-3 font-semibold">Material</th>
+                      <th class="px-3 py-3 font-semibold text-right">Queda</th>
+                      <th class="px-3 py-3 font-semibold">Vence</th>
+                      <th class="px-3 py-3 font-semibold hidden md:table-cell">Dónde está</th>
+                      <th class="px-3 py-3 font-semibold">Quién responde</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -343,22 +505,20 @@ const MAX_EN_TARJETA = 12;
                       <tr class="border-t align-top" style="border-color: var(--border)">
                         <td class="px-3 py-2.5">
                           <span class="font-medium" style="color: var(--text)">{{ l.producto }}</span>
-                          <span class="block text-xs" style="color: var(--text-faint)">Lote {{ l.codigo_lote || 'sin código' }} · {{ l.codigo_unspsc || 'Sin UNSPSC' }}</span>
+                          @if (l.codigo_lote) { <span class="block text-xs" style="color: var(--text-faint)">Lote {{ l.codigo_lote }}</span> }
                         </td>
                         <td class="px-3 py-2.5 text-right tabular-nums whitespace-nowrap">
-                          <span class="font-semibold" style="color: var(--text)">{{ n(l.cantidad_disponible) }}</span>
-                          <span class="text-xs" style="color: var(--text-muted)"> {{ l.unidad_medida.toLowerCase() }}</span>
-                          @if (l.cantidad_reservada) { <span class="block text-xs" style="color: var(--warn-text)">{{ n(l.cantidad_reservada) }} reservado</span> }
+                          <span class="font-semibold" style="color: var(--text)">{{ cantidad(l.cantidad_disponible, l.unidad_medida) }}</span>
+                          @if (l.cantidad_reservada) { <span class="block text-xs" style="color: var(--warn-text)">{{ n(l.cantidad_reservada) }} apartado</span> }
                         </td>
                         <td class="px-3 py-2.5 whitespace-nowrap" [style.color]="colorVence(l.fecha_vencimiento)">{{ textoVence(l.fecha_vencimiento) }}</td>
                         <td class="px-3 py-2.5 hidden md:table-cell" style="color: var(--text-2)">{{ l.sitio || 'Sin ubicación' }}</td>
                         <td class="px-3 py-2.5">
-                          <span class="font-medium" [style.color]="l.responsable.origen === 'SIN_RESPONSABLE' ? 'var(--err-text)' : 'var(--text)'">{{ l.responsable.nombre || 'Sin responsable' }}</span>
-                          @if (l.responsable.documento) { <span class="block text-xs" style="color: var(--text-faint)">C.C. {{ l.responsable.documento }}</span> }
+                          <span class="font-medium" [style.color]="l.responsable.origen === 'SIN_RESPONSABLE' ? 'var(--err-text)' : 'var(--text)'">{{ l.responsable.nombre || 'Nadie a cargo' }}</span>
                         </td>
                       </tr>
                     } @empty {
-                      <tr><td colspan="5" class="px-3 py-10 text-center" style="color: var(--text-muted)">No hay lotes de consumibles con estos filtros.</td></tr>
+                      <tr><td colspan="5" class="px-3 py-10 text-center" style="color: var(--text-muted)">No hay material de consumo con estos filtros.</td></tr>
                     }
                   </tbody>
                 </table>
@@ -371,9 +531,19 @@ const MAX_EN_TARJETA = 12;
   `,
   styles: [`
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: 1rem; }
-    .kpi-label { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
-    .kpi-valor { font-size: 1.6rem; font-weight: 700; line-height: 1.2; margin-top: .25rem; color: var(--text); font-variant-numeric: tabular-nums; }
-    .kpi-det { font-size: .75rem; margin-top: .15rem; color: var(--text-faint); }
+    .kpi { display: flex; align-items: flex-start; gap: .75rem; text-align: left; padding: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 1rem; transition: border-color .15s, box-shadow .15s; }
+    .kpi:hover { border-color: var(--accent-brand); box-shadow: 0 4px 14px -6px rgba(0,0,0,.12); }
+    .kpi-icono { display: flex; flex-shrink: 0; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: .75rem; }
+    .kpi-label { display: block; font-size: .78rem; font-weight: 600; color: var(--text-muted); }
+    .kpi-valor { display: block; font-size: 1.6rem; font-weight: 700; line-height: 1.2; margin-top: .1rem; color: var(--text); font-variant-numeric: tabular-nums; }
+    .kpi-det { display: block; font-size: .75rem; margin-top: .1rem; color: var(--text-faint); }
+    @media (max-width: 639px) { .kpi { flex-direction: column; gap: .5rem; padding: .85rem; } .kpi-valor { font-size: 1.4rem; } }
+    .pestana { display: flex; align-items: center; gap: .6rem; padding: .65rem .8rem; border-radius: .9rem; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); transition: border-color .15s, background-color .15s; min-width: 0; }
+    .pestana:hover { border-color: var(--text-faint); }
+    .pestana-activa { border-color: var(--accent-brand); background: var(--accent-soft); color: var(--accent-text); box-shadow: inset 0 0 0 1px var(--accent-brand); }
+    .fila:hover { background: var(--surface2); }
+    .fila:hover .flecha { color: var(--accent-text) !important; transform: translateX(2px); }
+    .flecha { display: inline-block; transition: transform .15s; }
     .chip { display: inline-flex; align-items: center; font-size: .72rem; font-weight: 600; padding: .15rem .55rem; border-radius: 999px; white-space: nowrap; }
     .aviso { display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem; border: 1px solid; border-radius: 1rem; flex-wrap: wrap; }
     .aviso-btn { font-size: .75rem; font-weight: 700; text-decoration: underline; }
@@ -393,20 +563,27 @@ export class ReporteMaterialesComponent implements OnInit {
   readonly porPagina = POR_PAGINA;
   readonly maxTarjeta = MAX_EN_TARJETA;
   readonly min = Math.min;
+  readonly plural = plural;
+  readonly i = {
+    reporte: FileChartColumn, recargar: RefreshCw, excel: Sheet, pdf: FileDown, ok: CircleCheck, alerta: TriangleAlert,
+    equipo: Package, prestado: Handshake, arreglo: Wrench, consumo: Droplets, sinResponsable: UserX, reloj: Clock,
+    buscar: Search, ir: ArrowRight, abrir: ChevronDown, lugar: MapPin,
+  };
 
   datos = signal<ReporteMateriales | null>(null);
   cargando = signal(false);
   error = signal<string | null>(null);
   exportando = signal<'pdf' | 'excel' | null>(null);
   filtros = signal<FiltrosReporte>({ ...FILTROS_VACIOS });
-  vista = signal<Vista>('responsables');
+  vista = signal<Vista>('productos');
   pagina = signal(1);
   private abiertos = signal<Set<string>>(new Set());
 
   readonly opcionesEstado: TableFilterOption[] = [
     { value: '', label: 'Todos' },
-    ...Object.entries(ETIQUETA_ESTADO).map(([value, label]) => ({ value, label })),
-    { value: 'LOTE', label: 'Solo consumibles (lotes)' },
+    ...ORDEN_ESTADOS.map((value) => ({ value, label: ETIQUETA_ESTADO[value] ?? value })),
+    { value: 'NOVEDAD', label: 'Con algún problema' },
+    { value: 'LOTE', label: 'Solo material de consumo' },
   ];
   readonly opcionesOrigen: TableFilterOption[] = [
     { value: '', label: 'Todos' },
@@ -417,10 +594,10 @@ export class ReporteMaterialesComponent implements OnInit {
     ...Object.entries(ETIQUETA_TIPO_SITIO).map(([value, label]) => ({ value, label })),
   ];
 
-  /** Ubicaciones presentes en el reporte completo (no en el filtrado, para poder cambiar de una a otra). */
+  /** Lugares presentes en el reporte completo (no en el filtrado, para poder cambiar de uno a otro). */
   opcionesSitio = computed<TableFilterOption[]>(() => {
     const d = this.datos();
-    if (!d) return [{ value: '', label: 'Todas' }];
+    if (!d) return [{ value: '', label: 'Todos' }];
     const sitios = new Map<string, string>();
     let sinSitio = false;
     for (const x of [...d.unidades, ...d.lotes]) {
@@ -428,7 +605,7 @@ export class ReporteMaterialesComponent implements OnInit {
       else sinSitio = true;
     }
     return [
-      { value: '', label: 'Todas' },
+      { value: '', label: 'Todos' },
       ...[...sitios.entries()].sort((a, b) => a[1].localeCompare(b[1])).map(([value, label]) => ({ value, label })),
       ...(sinSitio ? [{ value: SIN_SITIO, label: 'Sin ubicación' }] : []),
     ];
@@ -444,6 +621,23 @@ export class ReporteMaterialesComponent implements OnInit {
     const d = this.datos();
     return d ? resumir(d.unidades, d.lotes) : resumir([], []);
   });
+  frase = computed(() => fraseResumen(this.resumen()));
+  porEstadoTotal = computed(() => {
+    const por: Record<string, number> = {};
+    for (const u of this.filtrado().unidades) por[u.estado] = (por[u.estado] ?? 0) + 1;
+    return por;
+  });
+  /** Barra de "cómo están los equipos", con su leyenda. */
+  barra = computed(() => {
+    const total = this.resumen().unidades || 1;
+    return this.estadosOrdenados(this.porEstadoTotal()).map((e) => ({
+      estado: e.estado,
+      pct: (e.n / total) * 100,
+      color: this.colorBarra(e.estado),
+      texto: this.contarEstado(e.estado, e.n),
+    }));
+  });
+  porProducto = computed(() => agruparPorProducto(this.filtrado().unidades, this.filtrado().lotes));
   porResponsable = computed(() => agruparPorResponsable(this.filtrado().unidades, this.filtrado().lotes));
   porUbicacion = computed(() => agruparPorUbicacion(this.filtrado().unidades, this.filtrado().lotes));
   totalPaginas = computed(() => Math.max(1, Math.ceil(this.filtrado().unidades.length / POR_PAGINA)));
@@ -451,16 +645,19 @@ export class ReporteMaterialesComponent implements OnInit {
     const p = Math.min(this.pagina(), this.totalPaginas());
     return this.filtrado().unidades.slice((p - 1) * POR_PAGINA, p * POR_PAGINA);
   });
-  vistas = computed(() => [
-    { id: 'responsables' as Vista, label: 'Por responsable', n: this.porResponsable().length },
-    { id: 'ubicaciones' as Vista, label: 'Por ubicación', n: this.porUbicacion().length },
-    { id: 'unidades' as Vista, label: 'Unidades', n: this.filtrado().unidades.length },
-    { id: 'consumibles' as Vista, label: 'Consumibles', n: this.filtrado().lotes.length },
+  vistas = computed<{ id: Vista; label: string; n: string; icono: LucideIconData }[]>(() => [
+    { id: 'productos', label: '¿Qué hay?', n: plural(this.porProducto().length, 'material', 'materiales'), icono: Boxes },
+    { id: 'ubicaciones', label: '¿Dónde está?', n: plural(this.porUbicacion().length, 'lugar', 'lugares'), icono: MapPin },
+    { id: 'responsables', label: '¿Quién responde?', n: plural(this.porResponsable().length, 'persona', 'personas'), icono: Users },
+    { id: 'unidades', label: 'Lista de equipos', n: plural(this.filtrado().unidades.length, 'equipo', 'equipos'), icono: List },
+    { id: 'consumibles', label: 'Material de consumo', n: plural(this.filtrado().lotes.length, 'lote', 'lotes'), icono: Droplets },
   ]);
+  ayudaVista = computed(() => AYUDA_VISTA[this.vista()]);
   hayFiltros = computed(() => {
     const f = this.filtros();
     return !!(f.q.trim() || f.sitio || f.estado || f.origen || f.tipoSitio);
   });
+  textoFiltros = computed(() => describirFiltros(this.filtros(), (id) => this.nombreSitio(id)));
 
   ngOnInit(): void {
     void this.cargar();
@@ -498,6 +695,12 @@ export class ReporteMaterialesComponent implements OnInit {
     this.pagina.set(1);
   }
 
+  /** Desde una cifra: abre la vista que la explica, con el estado correspondiente (el resto de filtros se conserva). */
+  irA(v: Vista, estado: string): void {
+    this.setFiltro('estado', estado);
+    this.cambiarVista(v);
+  }
+
   alternar(clave: string): void {
     this.abiertos.update((s) => {
       const n = new Set(s);
@@ -531,10 +734,17 @@ export class ReporteMaterialesComponent implements OnInit {
     this.filtros.update((f) => ({ ...f, sitio: g.clave }));
     this.cambiarVista(g.unidades.length ? 'unidades' : 'consumibles');
   }
+  verProducto(p: GrupoProducto): void {
+    this.filtros.update((f) => ({ ...f, q: p.producto }));
+    this.cambiarVista(p.tipo === 'CONSUMO' ? 'consumibles' : 'unidades');
+  }
 
   // ── Presentación ──
   n(v: number): string {
     return v.toLocaleString('es-CO');
+  }
+  cantidad(n: number, unidad: string | null): string {
+    return cantidadConUnidad(n, unidad);
   }
   etiquetaEstado(e: string): string {
     return ETIQUETA_ESTADO[e] ?? e;
@@ -542,14 +752,49 @@ export class ReporteMaterialesComponent implements OnInit {
   tipoSitio(t: string | null): string {
     return t ? ETIQUETA_TIPO_SITIO[t] ?? t : 'Sin tipo';
   }
+  nombreSitio(id: string): string {
+    return this.opcionesSitio().find((o) => o.value === id)?.label ?? id;
+  }
   colorEstado(e: string): { bg: string; tx: string } {
     if (e === 'DISPONIBLE') return { bg: 'var(--ok-bg)', tx: 'var(--ok-text)' };
     if (e === 'PRESTADO') return { bg: 'var(--info-bg)', tx: 'var(--info-text)' };
     if (ESTADOS_NOVEDAD.includes(e) && e !== 'EN_MANTENIMIENTO') return { bg: 'var(--err-bg)', tx: 'var(--err-text)' };
     return { bg: 'var(--warn-bg)', tx: 'var(--warn-text)' };
   }
-  estadosDe(por: Record<string, number>): { estado: string; n: number }[] {
-    return Object.entries(por).sort((a, b) => b[1] - a[1]).map(([estado, n]) => ({ estado, n }));
+  colorBarra(e: string): string {
+    return COLOR_BARRA[e] ?? '#9ca3af';
+  }
+  estadosOrdenados(por: Record<string, number>): { estado: string; n: number }[] {
+    const pos = (e: string) => (ORDEN_ESTADOS.indexOf(e) + 1 || 99);
+    return Object.entries(por).filter(([, n]) => n > 0).sort((a, b) => pos(a[0]) - pos(b[0])).map(([estado, n]) => ({ estado, n }));
+  }
+  /** "3 prestados", "1 dañado". */
+  contarEstado(estado: string, n: number): string {
+    const [uno, varios] = ESTADO_CONTADO[estado] ?? [this.etiquetaEstado(estado).toLowerCase(), this.etiquetaEstado(estado).toLowerCase()];
+    return plural(n, uno, varios);
+  }
+  /** "Todos disponibles" o "20 disponibles, 3 prestados y 1 dañado". */
+  textoEstados(por: Record<string, number>, total: number): string {
+    if ((por['DISPONIBLE'] ?? 0) === total) return total === 1 ? 'Disponible' : 'Todos disponibles';
+    const partes = this.estadosOrdenados(por).map((e) => this.contarEstado(e.estado, e.n));
+    return partes.length < 2 ? partes.join('') : `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`;
+  }
+  textoDisponibles(disponibles: number, total: number): string {
+    if (disponibles === total) return total === 1 ? '1 disponible' : `los ${this.n(total)} disponibles`;
+    return `${this.n(disponibles)} de ${this.n(total)} disponibles`;
+  }
+  /** "Bodega BIO-TIC", "Y-13 y Y-15" o "Y-13, Y-15 y 3 lugares más". */
+  textoLugares(lugares: string[]): string {
+    if (!lugares.length) return '—';
+    if (lugares.length <= 2) return lugares.join(' y ');
+    return `${lugares[0]}, ${lugares[1]} y ${plural(lugares.length - 2, 'lugar más', 'lugares más')}`;
+  }
+  textoResponsable(g: GrupoResponsable): string {
+    const motivos = g.motivos.join(' · ');
+    return g.documento && !g.sinResponsable ? `C.C. ${g.documento} · ${motivos}` : motivos;
+  }
+  detalleProducto(u: ReporteUnidad): string {
+    return [u.marca, u.modelo].filter(Boolean).join(' ') || u.categoria || '';
   }
   iniciales(nombre: string): string {
     return nombre.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase() || '?';
@@ -557,25 +802,27 @@ export class ReporteMaterialesComponent implements OnInit {
   vencida(u: ReporteUnidad): boolean {
     return devolucionVencida(u.responsable);
   }
-  /** "Préstamo · devolver 15/10/2026" / "Ficha 2875 · desde …" / "Responsable de COCINA". */
+  /** "Prestado · debe volver el 15/10/2026" / "Ficha 2875 · desde …" / "Encargado de COCINA". */
   detalleResponsable(u: ReporteUnidad | ReporteLote): string {
     const r = u.responsable;
     if (r.origen === 'PRESTAMO' || r.origen === 'ASIGNACION') {
-      const base = r.origen === 'PRESTAMO' ? 'Préstamo' : r.referencia ?? 'Asignado a ficha';
+      const base = r.origen === 'PRESTAMO' ? 'Prestado' : r.referencia ?? 'Entregado a una ficha';
       if (r.hasta) {
         const dias = diasEntre(hoyIso(), r.hasta);
-        return dias < 0 ? `${base} · vencido hace ${-dias} día${dias === -1 ? '' : 's'}` : `${base} · devolver ${fechaCorta(r.hasta)}`;
+        return dias < 0
+          ? `${base} · debía volver hace ${plural(-dias, 'día', 'días')}`
+          : `${base} · debe volver el ${fechaCorta(r.hasta)}`;
       }
-      return r.desde ? `${base} · desde ${fechaCorta(r.desde)}` : base;
+      return r.desde ? `${base} · desde el ${fechaCorta(r.desde)}` : base;
     }
-    if (r.origen === 'SITIO') return `Responsable de ${r.referencia ?? 'el sitio'}`;
-    return r.referencia ? `${r.referencia} no tiene responsable` : 'Sin sitio asignado';
+    if (r.origen === 'SITIO') return `Encargado de ${r.referencia ?? 'el lugar'}`;
+    return r.referencia ? `${r.referencia} no tiene encargado` : 'Sin lugar asignado';
   }
   textoVence(f: string | null): string {
     if (!f) return 'No vence';
     const dias = diasEntre(hoyIso(), f);
-    if (dias < 0) return `Vencido (${fechaCorta(f)})`;
-    if (dias <= 30) return `${fechaCorta(f)} · ${dias} días`;
+    if (dias < 0) return `Ya venció (${fechaCorta(f)})`;
+    if (dias <= 30) return `${fechaCorta(f)} · en ${plural(dias, 'día', 'días')}`;
     return fechaCorta(f);
   }
   colorVence(f: string | null): string {
@@ -592,14 +839,14 @@ export class ReporteMaterialesComponent implements OnInit {
     this.exportando.set(tipo);
     try {
       const { exportarReporteMaterialesPdf, exportarReporteMaterialesExcel } = await import('./reporte-materiales.export');
-      const nombreSitio = (id: string) => this.opcionesSitio().find((o) => o.value === id)?.label ?? id;
       const datos = {
         unidades: this.filtrado().unidades,
         lotes: this.filtrado().lotes,
         resumen: this.resumen(),
+        porProducto: this.porProducto(),
         porResponsable: this.porResponsable(),
         porUbicacion: this.porUbicacion(),
-        filtros: describirFiltros(this.filtros(), nombreSitio),
+        filtros: this.textoFiltros(),
       };
       if (tipo === 'pdf') await exportarReporteMaterialesPdf(datos);
       else await exportarReporteMaterialesExcel(datos, this.exportService);

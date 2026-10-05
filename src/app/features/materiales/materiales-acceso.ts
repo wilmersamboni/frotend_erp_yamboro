@@ -29,13 +29,16 @@ export type SeccionMateriales = 'Operación' | 'Inventario' | 'Catálogo' | 'Act
  * - `gestor`: el servicio, y además gestionar Materiales: admin, encargado de
  *   ≥1 bodega o líder de área (`gestorMaterialesGuard`). Para pantallas con
  *   datos personales de terceros, como el Reporte de materiales.
+ * - `cualquiera`: alguno de los servicios (OR) — pantallas de entrada que usa
+ *   todo el que trabaja con Materiales (Inicio, Escanear placa).
  */
 export type AccesoPantalla =
   | { tipo: 'servicio'; servicio: string }
   | { tipo: 'admin' }
   | { tipo: 'admin-o-servicio'; servicio: string }
   | { tipo: 'responsable-bodega' }
-  | { tipo: 'gestor'; servicio: string };
+  | { tipo: 'gestor'; servicio: string }
+  | { tipo: 'cualquiera'; servicios: string[] };
 
 export interface PantallaMateriales {
   id: string;
@@ -52,27 +55,42 @@ export interface PantallaMateriales {
 
 const servicio = (nombre: string): AccesoPantalla => ({ tipo: 'servicio', servicio: nombre });
 
+/** Quien usa Materiales de cualquier forma (ver, pedir, gestionar): mismo OR que el backend de `materiales/escaneo` y `materiales/pendientes`. */
+export const SERVICIOS_ENTRADA = [
+  'materiales.items.ver',
+  'materiales.productos.ver',
+  'materiales.solicitudes.crear',
+  'materiales.solicitudes.ver',
+  'materiales.existencias.ver',
+];
+
 /** En el orden del menú: lo de uso diario arriba, la configuración abajo. */
 export const PANTALLAS_MATERIALES: PantallaMateriales[] = [
+  // Entrada de Materiales por TAREAS (2026-10-05): "¿qué quieres hacer?" + lo pendiente de cada uno.
+  { id: 'inicio', label: 'Inicio', path: 'materiales/inicio', seccion: 'Operación', acceso: { tipo: 'cualquiera', servicios: SERVICIOS_ENTRADA } },
+  { id: 'escanear', label: 'Escanear placa', path: 'materiales/escanear', seccion: 'Operación', acceso: { tipo: 'cualquiera', servicios: SERVICIOS_ENTRADA } },
   { id: 'mi-bodega', label: 'Mi Bodega', path: 'mi-bodega', seccion: 'Inventario', acceso: { tipo: 'responsable-bodega' } },
-  { id: 'solicitudes', label: 'Solicitudes', path: 'materiales/solicitudes', seccion: 'Operación', acceso: servicio('materiales.solicitudes.ver') },
+  { id: 'solicitudes', label: 'Pedidos y préstamos', path: 'materiales/solicitudes', seccion: 'Operación', acceso: servicio('materiales.solicitudes.ver') },
   { id: 'devoluciones', label: 'Devoluciones', path: 'materiales/devoluciones', seccion: 'Operación', acceso: servicio('materiales.devoluciones.ver') },
   // Préstamos vencidos / por vencer; la pestaña de perecederos se suma con `materiales.lotes.ver`.
-  { id: 'vencimientos', label: 'Vencimientos', path: 'materiales/vencimientos', seccion: 'Inventario', acceso: servicio('materiales.solicitudes.ver') },
-  { id: 'existencias', label: 'Existencias', path: 'materiales/existencias', seccion: 'Inventario', acceso: servicio('materiales.existencias.ver') },
+  { id: 'vencimientos', label: 'Fechas por vencer', path: 'materiales/vencimientos', seccion: 'Inventario', acceso: servicio('materiales.solicitudes.ver') },
+  { id: 'existencias', label: '¿Qué hay y dónde?', path: 'materiales/existencias', seccion: 'Inventario', acceso: servicio('materiales.existencias.ver') },
   // Qué hay, dónde, en qué estado y quién responde por cada material (2026-10-02).
   // Trae nombres y cédulas de quien tiene cada material: solo para quienes gestionan.
+  { id: 'ingresos', label: 'Llegada de material', path: 'materiales/ingresos', seccion: 'Inventario', acceso: { tipo: 'gestor', servicio: 'materiales.productos.ver' } },
   { id: 'reporte', label: 'Reporte de materiales', path: 'materiales/reporte', seccion: 'Inventario', acceso: { tipo: 'gestor', servicio: 'materiales.existencias.ver' } },
-  { id: 'items', label: 'Ítems', path: 'materiales/items', seccion: 'Inventario', acceso: servicio('materiales.items.ver') },
-  { id: 'lotes', label: 'Lotes', path: 'materiales/lotes', seccion: 'Inventario', acceso: servicio('materiales.lotes.ver') },
-  { id: 'productos', label: 'Productos', path: 'materiales/productos', seccion: 'Catálogo', acceso: servicio('materiales.productos.ver'), cubiertaPorMiBodega: true },
+  { id: 'items', label: 'Equipos con placa', path: 'materiales/items', seccion: 'Inventario', acceso: servicio('materiales.items.ver') },
+  { id: 'lotes', label: 'Material que se gasta', path: 'materiales/lotes', seccion: 'Inventario', acceso: servicio('materiales.lotes.ver') },
+  { id: 'productos', label: 'Catálogo de productos', path: 'materiales/productos', seccion: 'Catálogo', acceso: servicio('materiales.productos.ver'), cubiertaPorMiBodega: true },
   // "Mi Bodega" sin recortar a "las mías" — consola del administrador.
   { id: 'bodegas', label: 'Bodegas', path: 'materiales/bodegas', seccion: 'Catálogo', acceso: { tipo: 'admin' } },
-  { id: 'novedades', label: 'Novedades', path: 'materiales/novedades', seccion: 'Operación', acceso: servicio('materiales.novedades.ver') },
-  { id: 'traslados', label: 'Traslados', path: 'materiales/traslados', seccion: 'Operación', acceso: servicio('materiales.traslados.ver') },
-  { id: 'asignaciones', label: 'Asignaciones', path: 'materiales/asignaciones', seccion: 'Operación', acceso: { tipo: 'admin-o-servicio', servicio: 'materiales.asignaciones.ver' } },
-  { id: 'kardex', label: 'Kardex', path: 'materiales/kardex', seccion: 'Inventario', acceso: servicio('materiales.kardex.ver') },
+  { id: 'novedades', label: 'Daños y problemas', path: 'materiales/novedades', seccion: 'Operación', acceso: servicio('materiales.novedades.ver') },
+  { id: 'traslados', label: 'Mover entre bodegas', path: 'materiales/traslados', seccion: 'Operación', acceso: servicio('materiales.traslados.ver') },
+  { id: 'asignaciones', label: 'Entregas a fichas', path: 'materiales/asignaciones', seccion: 'Operación', acceso: { tipo: 'admin-o-servicio', servicio: 'materiales.asignaciones.ver' } },
+  { id: 'kardex', label: 'Historial de movimientos', path: 'materiales/kardex', seccion: 'Inventario', acceso: servicio('materiales.kardex.ver') },
   { id: 'sitios', label: 'Sitios', path: 'materiales/sitios', seccion: 'Catálogo', acceso: servicio('materiales.sitios.ver') },
+  { id: 'marcas', label: 'Marcas', path: 'materiales/marcas', seccion: 'Catálogo', acceso: { tipo: 'gestor', servicio: 'materiales.productos.ver' } },
+  { id: 'proveedores', label: 'Proveedores', path: 'materiales/proveedores', seccion: 'Catálogo', acceso: { tipo: 'gestor', servicio: 'materiales.productos.ver' } },
   { id: 'categorias', label: 'Categorías', path: 'materiales/categorias', seccion: 'Catálogo', acceso: servicio('materiales.categorias.ver') },
   { id: 'actas', label: 'Actas', path: 'materiales/actas', seccion: 'Actas', acceso: servicio('materiales.actas.ver') },
   { id: 'importar', label: 'Importar productos', path: 'materiales/importar', seccion: 'Catálogo', acceso: servicio('materiales.productos.crear'), enMenu: false },
@@ -102,6 +120,8 @@ export function datosRutaMateriales(id: string): {
       return {};
     case 'gestor':
       return { serviciosRequeridos: [acceso.servicio] };
+    case 'cualquiera':
+      return { servicios: acceso.servicios };
   }
 }
 

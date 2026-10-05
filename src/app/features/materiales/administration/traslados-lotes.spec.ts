@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { MaterialesTrasladosComponent } from './traslados.component';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
 import { Lote } from '../data-access/materiales-api.service';
 
@@ -17,7 +18,10 @@ function lote(datos: Partial<Lote> & { id_lote: string }): Lote {
 
 function crear(lotes: Lote[]): MaterialesTrasladosComponent {
   TestBed.configureTestingModule({
-    providers: [{ provide: MaterialesScreenPolicy, useValue: { puedeListar: () => true } }],
+    providers: [
+      { provide: MaterialesScreenPolicy, useValue: { puedeListar: () => true } },
+      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({}) } } },
+    ],
   });
   const componente = TestBed.runInInjectionContext(
     () => new MaterialesTrasladosComponent({} as any, {} as any, {} as any, {} as any, {} as any),

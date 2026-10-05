@@ -248,9 +248,15 @@ export class MaterialesSitiosComponent implements OnInit {
     return cols;
   }
 
-  /** Al editar sí se puede ver/cambiar `estado` y, si aplica, el centro. */
+  /** Al editar sí se puede ver/cambiar `estado` y, si aplica, el centro. Un sitio
+   *  que es un ambiente del ERP toma nombre y área de ese ambiente: no se editan acá. */
   get camposEditar(): string[] {
-    return [...this.camposCrear, 'estado'];
+    const cols = [...this.camposCrear, 'estado'];
+    return this.esAmbiente ? cols.filter((c) => c !== 'nombre' && c !== 'id_area') : cols;
+  }
+
+  get esAmbiente(): boolean {
+    return !!this.editando?.id_ambiente_origen;
   }
 
   private etiquetaCargo(cargo?: string): string {
@@ -359,6 +365,9 @@ export class MaterialesSitiosComponent implements OnInit {
     };
     this.error = null;
     this.modalOpen = true;
+    if (sitio.id_ambiente_origen) {
+      this.toast.info('Este sitio es un ambiente', 'Su nombre y su área se cambian en el panel administrativo (Ambientes) y aquí se actualizan solos.', 6000);
+    }
   }
 
   cerrarModal(): void {
@@ -385,11 +394,17 @@ export class MaterialesSitiosComponent implements OnInit {
       acceso_publico: !!form['acceso_publico'],
       estado: this.editando ? form['estado'] : true,
     };
+    // Un ambiente toma nombre y área del ERP: no se mandan (el backend rechaza cambiarlos).
+    const cambios: Partial<typeof dto> = { ...dto };
+    if (this.esAmbiente) {
+      delete cambios.nombre;
+      delete cambios.id_area;
+    }
     this.saving = true;
     this.error = null;
     try {
       if (this.editando) {
-        await this.api.actualizarSitio(this.editando.id_sitio, dto);
+        await this.api.actualizarSitio(this.editando.id_sitio, cambios);
         this.toast.ok('Sitio actualizado');
       } else {
         await this.api.crearSitio(dto);

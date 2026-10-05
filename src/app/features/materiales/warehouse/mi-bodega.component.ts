@@ -376,16 +376,14 @@ export class MiBodegaComponent implements OnInit {
    * 2026-09-11: Pollo con lote en "Cocina Fría" invisible ahí porque su
    * `id_sitio` propio apunta a "Cuarto Frío", aunque el backend ya lo incluye
    * en `/productos` desde el fix homónimo en `ProductosRepositoryAdapter`).
-   * Sin ningún ítem/lote todavía, cae al `id_sitio` propio como único dato
-   * disponible — mismo criterio que `UBICACIONES_SQL` en el backend.
+   * La ficha ya no tiene bodega propia (2026-10-05): está en la bodega si
+   * tiene alguna unidad o lote ahí.
    */
   private estaEnBodega(p: Producto, idSitio: string): boolean {
     if (p.tipo_material === 'DEVOLUTIVO') {
-      const units = this.itemsDe(p.id_producto);
-      return units.length > 0 ? units.some((i) => i.id_sitio === idSitio) : p.id_sitio === idSitio;
+      return this.itemsDe(p.id_producto).some((i) => i.id_sitio === idSitio);
     }
-    const lotesDe = this.lotesDe(p.id_producto);
-    return lotesDe.length > 0 ? lotesDe.some((l) => l.id_sitio === idSitio) : p.id_sitio === idSitio;
+    return this.lotesDe(p.id_producto).some((l) => l.id_sitio === idSitio);
   }
 
   /** Stock EN ESTA bodega puntual (no el total del producto en todo el tenant). */

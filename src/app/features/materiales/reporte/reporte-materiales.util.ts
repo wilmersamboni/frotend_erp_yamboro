@@ -21,11 +21,12 @@ export const ETIQUETA_ESTADO: Record<string, string> = {
   RESERVADO: 'Reservado (traslado)',
 };
 
+/** Por qué alguien responde por un material, dicho como lo diría una persona (2026-10-05). */
 export const ETIQUETA_ORIGEN: Record<OrigenResponsable, string> = {
-  PRESTAMO: 'Préstamo',
-  ASIGNACION: 'Asignado a ficha',
-  SITIO: 'Responsable del sitio',
-  SIN_RESPONSABLE: 'Sin responsable',
+  PRESTAMO: 'Lo tiene prestado',
+  ASIGNACION: 'Entregado a una ficha',
+  SITIO: 'Encargado del lugar',
+  SIN_RESPONSABLE: 'Nadie a cargo',
 };
 
 export const ETIQUETA_TIPO_SITIO: Record<string, string> = {
@@ -45,7 +46,7 @@ export interface FiltrosReporte {
   q: string;
   /** id del sitio, `SIN_SITIO` o '' (todos). */
   sitio: string;
-  /** Estado de la unidad, 'LOTE' (solo consumibles) o '' (todos). */
+  /** Estado de la unidad, 'NOVEDAD' (dañado/perdido/mantenimiento), 'LOTE' (solo consumibles) o '' (todos). */
   estado: string;
   origen: '' | OrigenResponsable;
   tipoSitio: string;
@@ -87,12 +88,17 @@ function textoDe(x: ReporteUnidad | ReporteLote): string {
   return norm([x.producto, x.codigo_unspsc, x.categoria, x.sitio, r.nombre, r.documento, r.referencia, ...extra].join(' '));
 }
 
+function coincideEstado(estado: string, filtro: string): boolean {
+  if (!filtro) return true;
+  return filtro === 'NOVEDAD' ? ESTADOS_NOVEDAD.includes(estado) : estado === filtro;
+}
+
 export function filtrarReporte(r: ReporteMateriales, f: FiltrosReporte): { unidades: ReporteUnidad[]; lotes: ReporteLote[] } {
   const palabras = norm(f.q).split(/\s+/).filter(Boolean);
   const texto = (x: ReporteUnidad | ReporteLote) => palabras.every((p) => textoDe(x).includes(p));
   const unidades = f.estado === 'LOTE'
     ? []
-    : r.unidades.filter((u) => (!f.estado || u.estado === f.estado) && coincideComun(u, f) && texto(u));
+    : r.unidades.filter((u) => coincideEstado(u.estado, f.estado) && coincideComun(u, f) && texto(u));
   const lotes = f.estado && f.estado !== 'LOTE' ? [] : r.lotes.filter((l) => coincideComun(l, f) && texto(l));
   return { unidades, lotes };
 }
@@ -170,10 +176,10 @@ export function agruparPorResponsable(unidades: ReporteUnidad[], lotes: ReporteL
       };
       grupos.set(clave, g);
     }
-    const motivo = r.origen === 'SITIO' ? `Responsable de ${r.referencia ?? 'un sitio'}`
-      : r.origen === 'ASIGNACION' ? (r.referencia ?? 'Asignación a ficha')
-      : r.origen === 'PRESTAMO' ? 'Préstamos por solicitud'
-      : r.referencia ? `Sitio ${r.referencia} sin responsable` : 'Sin sitio asignado';
+    const motivo = r.origen === 'SITIO' ? `Encargado de ${r.referencia ?? 'un lugar'}`
+      : r.origen === 'ASIGNACION' ? (r.referencia ?? 'Entregado a una ficha')
+      : r.origen === 'PRESTAMO' ? 'Tiene equipos prestados'
+      : r.referencia ? `${r.referencia} no tiene encargado` : 'Sin lugar asignado';
     if (!g.motivos.includes(motivo)) g.motivos.push(motivo);
     return g;
   };
@@ -253,6 +259,119 @@ export function agruparPorUbicacion(unidades: ReporteUnidad[], lotes: ReporteLot
   );
 }
 
+/** "1 equipo" / "3 equipos" / "1.250 equipos". */
+export function plural(n: number, uno: string, varios: string): string {
+  return `${n.toLocaleString('es-CO')} ${n === 1 ? uno : varios}`;
+}
+
+const PLURAL_UNIDAD: Record<string, string> = { unidad: 'unidades', kit: 'kits', 'galón': 'galones', par: 'pares' };
+
+/** "30 unidades", "1 metro", "2,5 litros": la unidad de medida en minúscula y en plural cuando toca. */
+export function cantidadConUnidad(n: number, unidad: string | null): string {
+  const u = (unidad ?? '').toLowerCase().trim();
+  if (!u) return n.toLocaleString('es-CO');
+  if (n === 1 || u.length <= 2) return `${n.toLocaleString('es-CO')} ${u}`;
+  const varios = PLURAL_UNIDAD[u] ?? (/[aeiou]$/.test(u) ? `${u}s` : /s$/.test(u) ? u : `${u}es`);
+  return `${n.toLocaleString('es-CO')} ${varios}`;
+}
+
+export interface GrupoProducto {
+  clave: string;
+  producto: string;
+  categoria: string | null;
+  /** EQUIPO = devolutivo (se presta y se devuelve); CONSUMO = lotes que se gastan. */
+  tipo: 'EQUIPO' | 'CONSUMO';
+  /** Equipos: cuántas unidades hay. */
+  total: number;
+  porEstado: Record<string, number>;
+  disponibles: number;
+  prestados: number;
+  novedad: number;
+  /** Consumo: cantidad disponible sumando lotes, en `unidad`. */
+  cantidad: number;
+  unidad: string | null;
+  /** Consumo: lotes vencidos o que vencen en 30 días o menos. */
+  porVencer: number;
+  /** Lugares donde hay, ordenados por cuánto hay en cada uno. */
+  lugares: string[];
+}
+
+/**
+ * La pregunta que primero hace cualquiera ("¿qué hay y cuánto de cada cosa?"):
+ * una fila por producto. Primero los equipos, luego el material de consumo;
+ * dentro de cada grupo, por nombre.
+ */
+export function agruparPorProducto(unidades: ReporteUnidad[], lotes: ReporteLote[], hoy = hoyIso()): GrupoProducto[] {
+  const grupos = new Map<string, GrupoProducto>();
+  const lugares = new Map<string, Map<string, number>>();
+  const grupo = (x: ReporteUnidad | ReporteLote, tipo: GrupoProducto['tipo']): GrupoProducto => {
+    const clave = `${tipo}:${x.id_producto}`;
+    let g = grupos.get(clave);
+    if (!g) {
+      g = {
+        clave, producto: x.producto, categoria: x.categoria, tipo, total: 0, porEstado: {},
+        disponibles: 0, prestados: 0, novedad: 0, cantidad: 0,
+        unidad: 'unidad_medida' in x ? x.unidad_medida : null, porVencer: 0, lugares: [],
+      };
+      grupos.set(clave, g);
+      lugares.set(clave, new Map());
+    }
+    const l = lugares.get(clave)!;
+    const lugar = x.sitio ?? 'Sin ubicación';
+    l.set(lugar, (l.get(lugar) ?? 0) + ('cantidad_disponible' in x ? x.cantidad_disponible : 1));
+    return g;
+  };
+  for (const u of unidades) {
+    const g = grupo(u, 'EQUIPO');
+    g.total++;
+    g.porEstado[u.estado] = (g.porEstado[u.estado] ?? 0) + 1;
+    if (u.estado === 'DISPONIBLE') g.disponibles++;
+    if (u.estado === 'PRESTADO') g.prestados++;
+    if (ESTADOS_NOVEDAD.includes(u.estado)) g.novedad++;
+  }
+  for (const l of lotes) {
+    const g = grupo(l, 'CONSUMO');
+    g.cantidad += l.cantidad_disponible;
+    if (l.fecha_vencimiento && diasEntre(hoy, l.fecha_vencimiento) <= 30) g.porVencer++;
+  }
+  for (const g of grupos.values()) {
+    g.lugares = [...lugares.get(g.clave)!.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([n]) => n);
+  }
+  return [...grupos.values()].sort((a, b) =>
+    Number(a.tipo === 'CONSUMO') - Number(b.tipo === 'CONSUMO') || a.producto.localeCompare(b.producto),
+  );
+}
+
+/**
+ * El reporte contado en dos frases, para leerlo sin mirar tablas:
+ * "Hay 612 equipos y herramientas y 11 materiales de consumo en 6 lugares."
+ * "3 están prestados (1 ya debía volver) y 2 tienen algún problema."
+ */
+export function fraseResumen(r: ResumenReporte): { titulo: string; detalle: string; todoBien: boolean } {
+  const cosas: string[] = [];
+  if (r.unidades) cosas.push(plural(r.unidades, 'equipo o herramienta', 'equipos y herramientas'));
+  if (r.productosConsumibles) cosas.push(plural(r.productosConsumibles, 'material de consumo', 'materiales de consumo'));
+  if (!cosas.length) return { titulo: 'No hay materiales para mostrar.', detalle: 'Prueba quitando los filtros.', todoBien: true };
+  const titulo = `Hay ${cosas.join(' y ')} en ${plural(r.ubicaciones, 'lugar', 'lugares')}, a cargo de ${plural(r.responsables, 'persona', 'personas')}.`;
+
+  const partes: string[] = [];
+  if (r.prestadas) {
+    partes.push(`${plural(r.prestadas, 'está prestado', 'están prestados')}` +
+      (r.devolucionesVencidas ? ` (${plural(r.devolucionesVencidas, 'ya debía volver', 'ya debían volver')})` : ''));
+  }
+  if (r.novedad) partes.push(`${plural(r.novedad, 'tiene', 'tienen')} algún problema (dañado, perdido o en mantenimiento)`);
+  if (r.sinResponsable) partes.push(`${plural(r.sinResponsable, 'no tiene', 'no tienen')} a nadie a cargo`);
+  const todoBien = !partes.length;
+  const detalle = todoBien
+    ? (r.unidades ? 'Todos los equipos están en su lugar y en buen estado.' : 'No hay nada pendiente.')
+    : unirConY(partes).replace(/^./, (c) => c.toUpperCase()) + '.';
+  return { titulo, detalle, todoBien };
+}
+
+function unirConY(partes: string[]): string {
+  return partes.length < 2 ? partes.join('') : `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`;
+}
+
 /** "AAAA-MM-DD" → "dd/mm/aaaa" sin pasar por Date (evita el corrimiento de zona horaria). */
 export function fechaCorta(v: string | null | undefined): string {
   if (!v) return '—';
@@ -263,10 +382,13 @@ export function fechaCorta(v: string | null | undefined): string {
 /** Texto legible de los filtros activos, para el encabezado del PDF/Excel. */
 export function describirFiltros(f: FiltrosReporte, nombreSitio: (id: string) => string): string {
   const partes: string[] = [];
-  if (f.sitio) partes.push(`Ubicación: ${f.sitio === SIN_SITIO ? 'sin ubicación' : nombreSitio(f.sitio)}`);
-  if (f.tipoSitio) partes.push(`Tipo: ${ETIQUETA_TIPO_SITIO[f.tipoSitio] ?? f.tipoSitio}`);
-  if (f.estado) partes.push(`Estado: ${f.estado === 'LOTE' ? 'solo consumibles' : ETIQUETA_ESTADO[f.estado] ?? f.estado}`);
-  if (f.origen) partes.push(`Responsable por: ${ETIQUETA_ORIGEN[f.origen]}`);
+  if (f.sitio) partes.push(`Lugar: ${f.sitio === SIN_SITIO ? 'sin ubicación' : nombreSitio(f.sitio)}`);
+  if (f.tipoSitio) partes.push(`Tipo de lugar: ${ETIQUETA_TIPO_SITIO[f.tipoSitio] ?? f.tipoSitio}`);
+  if (f.estado) {
+    const e = f.estado === 'LOTE' ? 'solo material de consumo' : f.estado === 'NOVEDAD' ? 'con algún problema' : ETIQUETA_ESTADO[f.estado] ?? f.estado;
+    partes.push(`Estado: ${e}`);
+  }
+  if (f.origen) partes.push(`Quién responde: ${ETIQUETA_ORIGEN[f.origen]}`);
   if (f.q.trim()) partes.push(`Búsqueda: "${f.q.trim()}"`);
   return partes.length ? partes.join(' · ') : 'Todos los materiales';
 }
