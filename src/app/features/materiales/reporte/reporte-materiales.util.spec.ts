@@ -2,12 +2,16 @@ import type { ReporteLote, ReporteMateriales, ReporteUnidad, ResponsableMaterial
 import {
   FILTROS_VACIOS,
   SIN_SITIO,
+  agruparPorProducto,
   agruparPorResponsable,
   agruparPorUbicacion,
   describirFiltros,
   devolucionVencida,
   fechaCorta,
   filtrarReporte,
+  cantidadConUnidad,
+  fraseResumen,
+  plural,
   resumir,
 } from './reporte-materiales.util';
 
@@ -61,7 +65,7 @@ describe('Reporte de materiales — cálculos', () => {
     expect(ana.unidades).toHaveLength(2);
     expect(ana.lotes).toHaveLength(1);
     expect(ana.porEstado).toEqual({ DISPONIBLE: 1, 'DAÑADO': 1 });
-    expect(ana.motivos).toEqual(['Responsable de COCINA']);
+    expect(ana.motivos).toEqual(['Encargado de COCINA']);
   });
 
   it('agrupa por ubicación con el responsable del sitio, lo que está fuera y el resumen por producto', () => {
@@ -85,6 +89,7 @@ describe('Reporte de materiales — cálculos', () => {
       expect.objectContaining({ lotes: [] }),
     );
     expect(filtrarReporte(d, { ...FILTROS_VACIOS, estado: 'LOTE' }).unidades).toEqual([]);
+    expect(filtrarReporte(d, { ...FILTROS_VACIOS, estado: 'NOVEDAD' }).unidades.map((u) => u.estado)).toEqual(['DAÑADO']);
     expect(filtrarReporte(d, { ...FILTROS_VACIOS, origen: 'SIN_RESPONSABLE' }).unidades).toHaveLength(1);
     expect(filtrarReporte(d, { ...FILTROS_VACIOS, tipoSitio: 'AMBIENTE' }).unidades).toHaveLength(1);
     const sinSitio = { ...d, unidades: [...d.unidades, unidad({ id_sitio: null, sitio: null })] };
@@ -100,6 +105,33 @@ describe('Reporte de materiales — cálculos', () => {
   it('formatea fechas sin corrimiento de zona y describe los filtros', () => {
     expect(fechaCorta('2026-10-01')).toBe('01/10/2026');
     expect(describirFiltros(FILTROS_VACIOS, () => '')).toBe('Todos los materiales');
-    expect(describirFiltros({ ...FILTROS_VACIOS, sitio: 's1', estado: 'DAÑADO' }, () => 'COCINA')).toBe('Ubicación: COCINA · Estado: Dañado');
+    expect(describirFiltros({ ...FILTROS_VACIOS, sitio: 's1', estado: 'DAÑADO' }, () => 'COCINA')).toBe('Lugar: COCINA · Estado: Dañado');
+  });
+
+  it('agrupa por producto: equipos primero, con estados, lugares y consumo por cantidad', () => {
+    const d = datos();
+    const g = agruparPorProducto(d.unidades, [...d.lotes, lote({ cantidad_disponible: 5, fecha_vencimiento: null })], HOY);
+    expect(g.map((x) => [x.tipo, x.producto])).toEqual([['EQUIPO', 'Martillo'], ['CONSUMO', 'Leche']]);
+    const martillo = g[0];
+    expect(martillo).toEqual(expect.objectContaining({ total: 5, disponibles: 2, prestados: 2, novedad: 1 }));
+    expect(martillo.lugares).toEqual(['COCINA', 'Ambiente 204']);
+    const leche = g[1];
+    expect(leche).toEqual(expect.objectContaining({ cantidad: 25, unidad: 'LITRO', porVencer: 1, lugares: ['COCINA'] }));
+  });
+
+  it('cuenta el reporte en frases sencillas', () => {
+    const d = datos();
+    const f = fraseResumen(resumir(d.unidades, d.lotes, HOY));
+    expect(f.titulo).toBe('Hay 5 equipos y herramientas y 1 material de consumo en 2 lugares, a cargo de 2 personas.');
+    expect(f.detalle).toBe('2 están prestados (1 ya debía volver), 1 tiene algún problema (dañado, perdido o en mantenimiento) y 1 no tiene a nadie a cargo.');
+    expect(f.todoBien).toBe(false);
+    const bien = fraseResumen(resumir([unidad()], [], HOY));
+    expect(bien).toEqual({ titulo: 'Hay 1 equipo o herramienta en 1 lugar, a cargo de 1 persona.', detalle: 'Todos los equipos están en su lugar y en buen estado.', todoBien: true });
+    expect(fraseResumen(resumir([], [], HOY)).titulo).toBe('No hay materiales para mostrar.');
+    expect(plural(1250, 'equipo', 'equipos')).toBe('1.250 equipos');
+    expect(cantidadConUnidad(30, 'UNIDAD')).toBe('30 unidades');
+    expect(cantidadConUnidad(1, 'METRO')).toBe('1 metro');
+    expect(cantidadConUnidad(100, 'METRO')).toBe('100 metros');
+    expect(cantidadConUnidad(4, 'KIT')).toBe('4 kits');
   });
 });

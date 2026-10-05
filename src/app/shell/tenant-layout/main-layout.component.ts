@@ -4,6 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
 import { NavbarComponent } from '../tenant-navbar/navbar.component';
 import { SidebarComponent } from '../tenant-sidebar/sidebar.component';
+import { BotonEscanearComponent } from '../../features/materiales/inicio/boton-escanear.component';
 import { AprendizContextService } from '../../core/services/aprendiz-context.service';
 
 /**
@@ -15,7 +16,7 @@ import { AprendizContextService } from '../../core/services/aprendiz-context.ser
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, NavbarComponent, SidebarComponent],
+  imports: [RouterOutlet, RouterLink, NavbarComponent, SidebarComponent, BotonEscanearComponent],
   template: `
     <div class="flex h-screen bg-[#F0F2F5]">
 
@@ -69,6 +70,7 @@ import { AprendizContextService } from '../../core/services/aprendiz-context.ser
             </nav>
           }
           <router-outlet />
+          <app-boton-escanear />
         </main>
 
         <!-- FOOTER (comentado en el original, disponible aquí) -->

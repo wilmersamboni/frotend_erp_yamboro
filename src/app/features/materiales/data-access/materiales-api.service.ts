@@ -32,6 +32,8 @@ export interface Sitio {
   id_sitio: string;
   nombre: string;
   tipo: TipoSitio;
+  /** Ambiente del ERP del que salió este sitio: su nombre y área vienen de ahí (no se editan en Materiales). */
+  id_ambiente_origen?: string | null;
   tipo_personalizado?: string | null;
   codigo_lugar?: string | null;
   id_responsable?: string | null;
@@ -59,7 +61,8 @@ export interface Producto {
   fecha_vencimiento?: string | null;
   unidad_peso_bulto?: string | null;
   peso_por_bulto?: number | null;
-  id_sitio?: string | null;
+  /** Marca de la lista de marcas; `marca` es su nombre. La ficha no tiene bodega (2026-10-05). */
+  id_marca?: string | null;
   marca?: string | null;
   modelo?: string | null;
   /** Solo DEVOLUTIVO. true (default) = los ítems no llevan el SKU copiado, se identifican por su placa SENA. */
@@ -298,6 +301,8 @@ export interface CreateProductoDto {
   codigo_unspsc?: string;
   SKU?: string;
   marca?: string;
+  /** Marca de la lista (manda sobre `marca`). */
+  id_marca?: string | null;
   modelo?: string;
   tipo_material: TipoMaterial;
   unidad_medida: string;
@@ -393,7 +398,7 @@ export interface Solicitud {
   id_usuario_aprueba?: string | null;
   id_curso?: string | null;
   fecha_devolucion?: string | null;
-  producto?: { id_producto: string; nombre: string; SKU: string | null; id_sitio: string | null; tipo_material: string };
+  producto?: { id_producto: string; nombre: string; SKU: string | null; tipo_material: string };
   // Tier SigMat M4/M5
   lineas?: LineaSolicitud[];
   id_usuario_entrega?: string | null;
@@ -708,6 +713,175 @@ export interface Kardex {
   id_lote?: string | null;
   id_usuario: string;
   item?: Item;
+}
+
+// ── Proveedores e ingreso de materiales (2026-10-05) ───────────────────
+export type TipoDocumentoProveedor = 'NIT' | 'CC' | 'CE' | 'PASAPORTE' | 'OTRO';
+export interface Proveedor {
+  id_proveedor: string;
+  nombre: string;
+  tipo_documento: TipoDocumentoProveedor;
+  documento: string;
+  direccion: string | null;
+  id_municipio: string | null;
+  /** "Pitalito (Huila)" */
+  municipio_nombre: string | null;
+  telefono: string | null;
+  correo: string | null;
+  contacto: string | null;
+  observaciones: string | null;
+  activo: boolean;
+  fecha_creacion: string;
+  /** Ingresos registrados con este proveedor. */
+  ingresos: number;
+}
+export interface ProveedorDto {
+  nombre?: string;
+  tipo_documento?: TipoDocumentoProveedor;
+  documento?: string;
+  direccion?: string | null;
+  id_municipio?: string | null;
+  telefono?: string | null;
+  correo?: string | null;
+  contacto?: string | null;
+  observaciones?: string | null;
+  activo?: boolean;
+}
+export type TipoIngreso = 'COMPRA' | 'DONACION' | 'COMODATO' | 'TRASLADO_CENTRO' | 'REPOSICION' | 'OTRO';
+export type TipoSoporte = 'FACTURA' | 'REMISION' | 'ORDEN_COMPRA' | 'CONTRATO' | 'ACTA' | 'OTRO';
+export interface IngresoMaterial {
+  id_ingreso: string;
+  numero: number;
+  /** ING-000001 */
+  codigo: string;
+  tipo_ingreso: TipoIngreso;
+  id_proveedor: string | null;
+  proveedor_nombre: string | null;
+  proveedor_documento: string | null;
+  id_sitio: string;
+  sitio_nombre: string | null;
+  tipo_soporte: TipoSoporte | null;
+  numero_soporte: string | null;
+  fecha_soporte: string | null;
+  fecha_ingreso: string;
+  recibe_nombre: string | null;
+  recibido_por: string | null;
+  registra_nombre: string | null;
+  observaciones: string | null;
+  valor_total: number | null;
+  estado: 'REGISTRADO' | 'ANULADO';
+  motivo_anulacion: string | null;
+  fecha_anulacion: string | null;
+  fecha_registro: string;
+  lineas_count: number;
+  cantidad_total: number;
+}
+export interface LineaIngresoMaterial {
+  id_linea: string;
+  id_producto: string;
+  producto_nombre: string;
+  marca: string | null;
+  modelo: string | null;
+  codigo_unspsc: string | null;
+  tipo_material: string;
+  unidad_medida: string;
+  cantidad: number;
+  valor_unitario: number | null;
+  codigo_lote: string | null;
+  fecha_vencimiento: string | null;
+  observacion: string | null;
+  unidades: { id_item: string; placa_sena: string | null; codigo_sku: string | null; estado: string; id_sitio: string | null }[];
+  lote: { id_lote: string; codigo_lote: string | null; cantidad_disponible: number; estado: string } | null;
+}
+/** Archivo que respalda el ingreso (foto o PDF de la factura, remisión…). */
+export interface SoporteIngreso {
+  id_soporte: string;
+  nombre_original: string;
+  mime: string;
+  tamano: number;
+  fecha: string;
+  subido_por: string | null;
+}
+export type IngresoMaterialDetalle = IngresoMaterial & { lineas: LineaIngresoMaterial[]; soportes: SoporteIngreso[] };
+export interface LineaIngresoDto {
+  id_producto: string;
+  cantidad: number;
+  valor_unitario?: number | null;
+  placas_sena?: string[];
+  codigo_lote?: string | null;
+  fecha_vencimiento?: string | null;
+  observacion?: string | null;
+}
+export interface RegistrarIngresoDto {
+  tipo_ingreso: TipoIngreso;
+  id_proveedor?: string | null;
+  id_sitio: string;
+  tipo_soporte?: TipoSoporte | null;
+  numero_soporte?: string | null;
+  fecha_soporte?: string | null;
+  fecha_ingreso?: string | null;
+  recibido_por?: string | null;
+  observaciones?: string | null;
+  lineas: LineaIngresoDto[];
+}
+
+// ── Listas maestras del catálogo (2026-10-05) ──
+export interface Marca {
+  id_marca: string;
+  nombre: string;
+  activo: boolean;
+  /** Fichas con esta marca. */
+  fichas: number;
+}
+export interface UnidadMedida {
+  /** Lo que guardan la ficha y el lote (ej. "METRO_CUADRADO"). */
+  codigo: string;
+  /** Para mostrar (ej. "Metro cuadrado"). */
+  nombre: string;
+}
+export interface Municipio {
+  id_municipio: string;
+  nombre: string;
+  departamento: string | null;
+}
+
+// ── Inicio de Materiales: escaneo de placa y pendientes (2026-10-05) ──
+export type AccionEscaneo =
+  | 'PRESTAR' | 'TRASLADAR' | 'REPORTAR' | 'RECIBIR_DEVOLUCION' | 'RECIBIR_ASIGNACION'
+  | 'ENVIAR_MANTENIMIENTO' | 'MARCAR_REPARADO' | 'MARCAR_ENCONTRADO' | 'VER_NOVEDAD'
+  | 'VER_TRASLADO' | 'PEDIR_PRESTADO' | 'VER_HISTORIAL';
+export interface FichaEscaneo {
+  item: { id_item: string; placa_sena: string | null; codigo_sku: string | null; estado: string; activo: boolean };
+  producto: {
+    id_producto: string; nombre: string; marca: string | null; modelo: string | null;
+    tipo_material: string; categoria: string | null; codigo_unspsc: string | null;
+  };
+  ubicacion: { id_sitio: string; nombre: string; responsable_nombre: string | null } | null;
+  tenencia: {
+    tipo: 'PRESTAMO' | 'ASIGNACION';
+    id_solicitud: string | null;
+    id_asignacion: string | null;
+    persona: string | null;
+    ficha: string | null;
+    desde: string | null;
+    hasta: string | null;
+    dias_atraso: number | null;
+  } | null;
+  novedad_activa: { id_novedad: string; tipo: string; descripcion: string | null; estado: string; fecha: string } | null;
+  ingreso: { codigo: string; tipo_ingreso: string; fecha_ingreso: string; proveedor: string | null } | null;
+  historial: { fecha: string; tipo: string; observacion: string | null }[];
+  gestiona: boolean;
+  acciones: AccionEscaneo[];
+  ref_solicitud: string | null;
+}
+export interface PendienteMateriales {
+  clave: string;
+  nivel: 'rojo' | 'amarillo' | 'azul';
+  titulo: string;
+  detalle: string | null;
+  cantidad: number;
+  ruta: string;
+  query?: Record<string, string>;
 }
 
 /** Todos los endpoints de Materiales envuelven la respuesta así — nunca devuelven el recurso "pelado". */
@@ -1120,6 +1294,77 @@ export class MaterialesApiService {
     return this.unwrap(this.http.patch<Envelope<Asignacion>>(`${BASE}/materiales/asignaciones/${id}/anular`, {}));
   }
   // Sin eliminarAsignacion: una asignación no se borra, se anula (A3).
+
+  // ── Inicio: escaneo y pendientes (2026-10-05) ──
+  escanearPlaca(placa: string) {
+    return this.unwrap(this.http.get<Envelope<FichaEscaneo>>(`${BASE}/materiales/escaneo/${encodeURIComponent(placa.trim())}`));
+  }
+  pendientesMateriales() {
+    return this.unwrap(this.http.get<Envelope<PendienteMateriales[]>>(`${BASE}/materiales/pendientes`));
+  }
+
+  // ── Listas maestras (2026-10-05) ──
+  listarMarcas(incluirInactivas = false) {
+    const q = incluirInactivas ? '?incluir_inactivas=true' : '';
+    return this.unwrap(this.http.get<Envelope<Marca[]>>(`${BASE}/materiales/marcas${q}`));
+  }
+  crearMarca(nombre: string) {
+    return this.unwrap(this.http.post<Envelope<Marca>>(`${BASE}/materiales/marcas`, { nombre }));
+  }
+  actualizarMarca(id: string, dto: { nombre?: string; activo?: boolean }) {
+    return this.unwrap(this.http.patch<Envelope<Marca>>(`${BASE}/materiales/marcas/${id}`, dto));
+  }
+  /** Pasa las fichas de `id` a `idDestino` y borra `id`. */
+  fusionarMarca(id: string, idDestino: string) {
+    return this.unwrap(
+      this.http.post<Envelope<{ marca: Marca; fichas_movidas: number; fichas_repetidas: string[] }>>(
+        `${BASE}/materiales/marcas/${id}/fusionar`, { id_destino: idDestino },
+      ),
+    );
+  }
+  listarUnidadesMedida() {
+    return this.unwrap(this.http.get<Envelope<UnidadMedida[]>>(`${BASE}/materiales/unidades-medida`));
+  }
+  listarMunicipios() {
+    return this.unwrap(this.http.get<Envelope<Municipio[]>>(`${BASE}/materiales/municipios`));
+  }
+
+  // ── Proveedores e ingreso de materiales (2026-10-05) ──
+  listarProveedores(incluirInactivos = false) {
+    const q = incluirInactivos ? '?incluir_inactivos=true' : '';
+    return this.unwrap(this.http.get<Envelope<Proveedor[]>>(`${BASE}/materiales/proveedores${q}`));
+  }
+  crearProveedor(dto: ProveedorDto) {
+    return this.unwrap(this.http.post<Envelope<Proveedor>>(`${BASE}/materiales/proveedores`, dto));
+  }
+  actualizarProveedor(id: string, dto: ProveedorDto) {
+    return this.unwrap(this.http.patch<Envelope<Proveedor>>(`${BASE}/materiales/proveedores/${id}`, dto));
+  }
+  listarIngresos() {
+    return this.unwrap(this.http.get<Envelope<IngresoMaterial[]>>(`${BASE}/materiales/ingresos`));
+  }
+  obtenerIngreso(id: string) {
+    return this.unwrap(this.http.get<Envelope<IngresoMaterialDetalle>>(`${BASE}/materiales/ingresos/${id}`));
+  }
+  registrarIngreso(dto: RegistrarIngresoDto) {
+    return this.unwrap(this.http.post<Envelope<IngresoMaterialDetalle>>(`${BASE}/materiales/ingresos`, dto));
+  }
+  anularIngreso(id: string, motivo: string) {
+    return this.unwrap(this.http.patch<Envelope<IngresoMaterialDetalle>>(`${BASE}/materiales/ingresos/${id}/anular`, { motivo }));
+  }
+  /** PDF/JPG/PNG/WEBP, hasta 10 MB c/u y 5 por ingreso. */
+  subirSoportesIngreso(id: string, archivos: File[]) {
+    const fd = new FormData();
+    for (const a of archivos) fd.append('archivos', a, a.name);
+    return this.unwrap(this.http.post<Envelope<SoporteIngreso[]>>(`${BASE}/materiales/ingresos/${id}/soportes`, fd));
+  }
+  /** Por HttpClient (blob) y no por un <a href>: así viajan la sesión y la cabecera x-tenant. */
+  descargarSoporteIngreso(id: string, idSoporte: string): Promise<Blob> {
+    return firstValueFrom(this.http.get(`${BASE}/materiales/ingresos/${id}/soportes/${idSoporte}/descargar`, { responseType: 'blob' }));
+  }
+  quitarSoporteIngreso(id: string, idSoporte: string) {
+    return this.unwrap(this.http.delete<Envelope<SoporteIngreso[]>>(`${BASE}/materiales/ingresos/${id}/soportes/${idSoporte}`));
+  }
 
   // Notificaciones: retiradas en la Fase 4 del plan de fusión de
   // notificaciones — desde la Fase 1, Materiales escribe en la tabla única

@@ -1,4 +1,5 @@
 import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { MaterialesLiveService } from '../data-access/materiales-live.service';
@@ -55,7 +56,7 @@ import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
         <span>Materiales</span><span aria-hidden="true">/</span><span>Operación</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Traslados</span>
       </nav>
       <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
-        <h1 class="text-xl font-bold text-gray-800">Traslados</h1>
+        <h1 class="text-xl font-bold text-gray-800">Mover entre bodegas<span class="block text-xs font-normal text-gray-400">antes «Traslados»</span></h1>
         <button (click)="abrirCrear()"
           class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
           style="background-color: var(--accent-brand)">
@@ -456,8 +457,24 @@ export class MaterialesTrasladosComponent implements OnInit {
     return this.sitios.filter((s) => !s.estado);
   }
 
+  private readonly route = inject(ActivatedRoute);
+  /** Desde "Escanear placa" (2026-10-05): `?nuevo=1&placa=…` abre el traslado con el equipo ya buscado. Una sola vez. */
+  private desdeEscaneo = false;
+  private async abrirDesdeEscaneo(): Promise<void> {
+    if (this.desdeEscaneo) return;
+    this.desdeEscaneo = true;
+    const qp = this.route.snapshot.queryParamMap;
+    if (qp.get('nuevo') !== '1') return;
+    this.abrirCrear();
+    const placa = qp.get('placa');
+    if (placa) {
+      this.placaBuscar = placa;
+      await this.buscarPorPlaca();
+    }
+  }
+
   ngOnInit(): void {
-    this.cargar();
+    void this.cargar().then(() => this.abrirDesdeEscaneo());
     this.live.eventos()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.cargar());

@@ -1,4 +1,5 @@
 import { Component, DestroyRef, OnInit, signal, inject, effect, untracked } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { MaterialesLiveService } from '../data-access/materiales-live.service';
@@ -72,7 +73,7 @@ interface LineaForm {
         <span>Materiales</span><span aria-hidden="true">/</span><span>Operación</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Solicitudes</span>
       </nav>
       <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
-        <h1 class="text-xl font-bold text-gray-800">{{ esInstructor || esAdmin ? 'Solicitudes' : 'Mis solicitudes' }}</h1>
+        <h1 class="text-xl font-bold text-gray-800">{{ esInstructor || esAdmin ? 'Pedidos y préstamos' : 'Mis pedidos' }}<span class="block text-xs font-normal text-gray-400">antes «Solicitudes»</span></h1>
         <button (click)="nuevo()"
           class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
           style="background-color: var(--accent-brand)">
@@ -784,8 +785,24 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
     return this.auth.isAdmin();
   }
 
+  private readonly route = inject(ActivatedRoute);
+  /** Desde "Escanear placa" → "Pedirlo prestado" (2026-10-05): `?nuevo=1&ref=p:<producto>@<bodega>`. Una sola vez. */
+  private desdeEscaneo = false;
+  private async abrirDesdeEscaneo(): Promise<void> {
+    if (this.desdeEscaneo) return;
+    this.desdeEscaneo = true;
+    const qp = this.route.snapshot.queryParamMap;
+    if (qp.get('nuevo') !== '1') return;
+    await this.nuevo();
+    const ref = qp.get('ref');
+    if (!this.modalOpen || !ref) return;
+    const { sitio } = this.parseRef(ref);
+    if (this.pasoBodega && sitio) this.onSitioChange(sitio);
+    this.lineas = [{ ref, cantidad: 1 }];
+  }
+
   ngOnInit(): void {
-    this.cargar();
+    void this.cargar().then(() => this.abrirDesdeEscaneo());
     this.live.eventos()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.cargar());
@@ -817,7 +834,7 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
     const [tipo, resto] = ref.split(':');
     if (tipo === 'l') {
       const lote = this.lotes.find((l) => l.id_lote === resto);
-      const sitio = lote?.id_sitio ?? this.productos.find((p) => p.id_producto === lote?.id_producto)?.id_sitio ?? null;
+      const sitio = lote?.id_sitio ?? null;
       return { tipo: 'l', id: resto, sitio };
     }
     const [id, sitio] = (resto ?? '').split('@');
@@ -841,10 +858,7 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
   /** Un lote puede heredar la bodega del producto; si ninguno la tiene, el
    * backend también lo rechaza y no debe llegar al selector. */
   private loteTieneBodega(lote: Lote): boolean {
-    return !!(
-      lote.id_sitio ??
-      this.productos.find((producto) => producto.id_producto === lote.id_producto)?.id_sitio
-    );
+    return !!lote.id_sitio;
   }
 
   private lotesDeBodega(): Lote[] {
@@ -1051,7 +1065,7 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
         if (s.producto?.tipo_material === 'DEVOLUTIVO') {
           // La bodega de ESTA solicitud (guardada al pedirla); las viejas, la
           // bodega "de casa" del producto; sin ninguna, todas.
-          const bodega = s.id_sitio ?? s.producto?.id_sitio ?? null;
+          const bodega = s.id_sitio ?? null;
           if (bodega) {
             const fila = filas.find((f) => f.id_sitio === bodega);
             mapa[s.id_solicitud] = fila ? { disponibles: fila.disponibles, total: fila.total } : { disponibles: 0, total: 0 };

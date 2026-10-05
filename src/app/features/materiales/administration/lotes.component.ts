@@ -43,7 +43,7 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
       </nav>
       <div class="flex items-center justify-between gap-2 mb-5">
         <div class="flex items-center gap-2">
-          <h1 class="text-xl font-bold text-gray-800">Lotes</h1>
+          <h1 class="text-xl font-bold text-gray-800">Material que se gasta<span class="block text-xs font-normal text-gray-400">antes «Lotes»</span></h1>
         @if (idProductoFiltro) {
           <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#39A900]/10 text-[#2d8000] border border-[#39A900]/20">
             Filtrando por producto
@@ -274,27 +274,18 @@ export class MaterialesLotesComponent implements OnInit {
     }
     this.editando = null;
     const primero = loteables[0];
-    const sitioInicial = this.sitiosGestionables.some((s) => s.id_sitio === primero.id_sitio)
-      ? primero.id_sitio
-      : this.sitiosGestionables[0].id_sitio;
     this.form = {
       id_producto: primero.id_producto, cantidad_inicial: null,
       codigo_lote: '', fecha_vencimiento: null,
-      // Precarga la bodega "de casa" del producto — editable si el lote va a otra.
-      id_sitio: sitioInicial,
+      // La ficha no tiene bodega: con una sola bodega a cargo se precarga esa.
+      id_sitio: this.sitiosGestionables.length === 1 ? this.sitiosGestionables[0].id_sitio : '',
     };
     this.error = null;
     this.modalOpen = true;
   }
 
-  /** Al cambiar el producto en el alta, precarga su bodega por defecto (queda editable). */
-  onCampoModal(e: { col: string; value: any }): void {
-    if (e.col !== 'id_producto' || this.editando) return;
-    const prod = this.productos.find((p) => p.id_producto === e.value);
-    if (prod?.id_sitio && this.sitiosGestionables.some((s) => s.id_sitio === prod.id_sitio)) {
-      this.form['id_sitio'] = prod.id_sitio;
-    }
-  }
+  /** La ficha no tiene bodega (2026-10-05): cambiar el producto no cambia la bodega elegida. */
+  onCampoModal(_e: { col: string; value: any }): void {}
 
   editar(fila: any): void {
     if (!this.puedeEditar()) return;

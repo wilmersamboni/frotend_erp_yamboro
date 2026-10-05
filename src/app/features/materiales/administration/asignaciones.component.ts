@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
@@ -56,7 +57,7 @@ interface Ficha {
         <span>Materiales</span><span aria-hidden="true">/</span><span>Operación</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Asignaciones</span>
       </nav>
       <div class="flex items-center justify-between mb-5">
-        <h1 class="text-xl font-bold text-gray-800">Asignaciones</h1>
+        <h1 class="text-xl font-bold text-gray-800">Entregas a fichas<span class="block text-xs font-normal text-gray-400">antes «Asignaciones»</span></h1>
         <button (click)="nuevo()"
           class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
           style="background-color: var(--accent-brand)">
@@ -156,6 +157,12 @@ interface Ficha {
             <app-page-size-select [value]="pageSize()" (valueChange)="seleccionarPageSize($event)" />
           </div>
 
+          @if (idAsignacionFiltro) {
+            <div class="mb-3 flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-800">
+              <span>Mostrando la entrega del equipo escaneado. Para recibir la devolución, usa <strong>Anular</strong>: las unidades vuelven a la bodega.</span>
+              <button type="button" (click)="quitarFiltroAsignacion()" class="shrink-0 text-xs font-semibold hover:underline">Ver todas</button>
+            </div>
+          }
           @if (asignacionesFiltradas.length === 0) {
             <app-empty-state titulo="Sin resultados para estos filtros" variante="busqueda" />
           } @else {
@@ -427,6 +434,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
   get asignacionesFiltradas(): Asignacion[] {
     const q = this.filtroTexto.trim().toLowerCase();
     return this.asignaciones.filter((a) => {
+      if (this.idAsignacionFiltro) return a.id_asignacion === this.idAsignacionFiltro;
       if (this.filtroEstado && a.estado !== this.filtroEstado) return false;
       if (!q) return true;
       return this.nombreFicha(a).toLowerCase().includes(q) ||
@@ -531,8 +539,34 @@ export class MaterialesAsignacionesComponent implements OnInit {
     return this.auth.tieneServicio('materiales.asignaciones.anular');
   }
 
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  /** "Escanear placa" → "Recibir devolución": se muestra solo esa entrega (con su botón Anular). */
+  idAsignacionFiltro: string | null = null;
+  private desdeEscaneo = false;
+
   ngOnInit(): void {
-    this.cargar();
+    this.idAsignacionFiltro = this.route.snapshot.queryParamMap.get('id_asignacion');
+    void this.cargar().then(() => this.abrirDesdeEscaneo());
+  }
+
+  quitarFiltroAsignacion(): void {
+    this.idAsignacionFiltro = null;
+    void this.router.navigate([], { relativeTo: this.route, queryParams: {} });
+  }
+
+  /** Desde "Escanear placa" (2026-10-05): `?nuevo=1&id_sitio=…&id_producto=…` abre la entrega con bodega y producto puestos. */
+  private async abrirDesdeEscaneo(): Promise<void> {
+    if (this.desdeEscaneo) return;
+    this.desdeEscaneo = true;
+    const qp = this.route.snapshot.queryParamMap;
+    if (qp.get('nuevo') !== '1') return;
+    await this.nuevo();
+    if (!this.modalOpen) return;
+    const idSitio = qp.get('id_sitio');
+    if (idSitio && this.opcionesBodegaAsig.some((b) => b.value === idSitio)) this.idSitioAsig = idSitio;
+    const idProducto = qp.get('id_producto');
+    if (idProducto) this.lineas = [{ id_producto: idProducto, cantidad: 1 }];
   }
 
 
