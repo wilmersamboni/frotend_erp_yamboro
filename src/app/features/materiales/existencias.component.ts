@@ -267,12 +267,18 @@ export class MaterialesExistenciasComponent implements OnInit {
     this.router.navigate([], { relativeTo: this.route, queryParams: {} });
   }
 
+  // Mismas cifras que la tabla: devolutivos por unidad, consumibles/perecederos
+  // por saldo de lotes (antes exportaba `disponibles`/`total` crudos, que para
+  // un consumible son siempre 0). Prestado/Mant./Dañado/Perdido no aplican a lotes.
   private readonly exportColumns: ExportColumn<ResumenExistencias>[] = [
     { label: 'Producto', value: (r) => r.nombre }, { label: 'SKU', value: (r) => r.sku },
-    { label: 'Bodega', value: (r) => r.sitio_nombre }, { label: 'Disponible', value: (r) => r.disponibles },
-    { label: 'Prestado', value: (r) => r.prestados }, { label: 'Mantenimiento', value: (r) => r.mantenimiento },
-    { label: 'Dañado', value: (r) => r.danados }, { label: 'Perdido', value: (r) => r.perdidos },
-    { label: 'Total', value: (r) => r.total }, { label: 'Por vencer', value: (r) => r.lotes_por_vencer },
+    { label: 'Tipo', value: (r) => r.tipo_material }, { label: 'Unidad', value: (r) => r.unidad_medida },
+    { label: 'Bodega', value: (r) => r.sitio_nombre }, { label: 'Disponible', value: (r) => this.dispEfectiva(r) },
+    { label: 'Prestado', value: (r) => (this.esDevolutivo(r) ? r.prestados : '—') },
+    { label: 'Mantenimiento', value: (r) => (this.esDevolutivo(r) ? r.mantenimiento : '—') },
+    { label: 'Dañado', value: (r) => (this.esDevolutivo(r) ? r.danados : '—') },
+    { label: 'Perdido', value: (r) => (this.esDevolutivo(r) ? r.perdidos : '—') },
+    { label: 'Total', value: (r) => this.totalEfectivo(r) }, { label: 'Por vencer', value: (r) => r.lotes_por_vencer },
   ];
 
   exportarExcel(): void { void this.exporter.excel('existencias', 'Existencias', this.exportColumns, this.filtradas()); }

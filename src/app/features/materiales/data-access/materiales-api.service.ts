@@ -703,7 +703,9 @@ export interface Kardex {
   saldo_actual: number;
   fecha: string;
   observacion: string | null;
-  id_item: string;
+  /** Movimiento de una unidad devolutiva (`id_item`) o de un lote de consumo/perecedero (`id_lote`). */
+  id_item: string | null;
+  id_lote?: string | null;
   id_usuario: string;
   item?: Item;
 }

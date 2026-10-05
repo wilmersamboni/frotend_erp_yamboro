@@ -4,7 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { AdminTableComponent } from '../../../shared/components/admin-table.component';
 import { StatCardComponent } from '../../../shared/components/stat-card.component';
 import { ToastService } from '../../../core/services/toast.service';
-import { Kardex, MaterialesApiService } from '../data-access/materiales-api.service';
+import { Kardex, Lote, MaterialesApiService } from '../data-access/materiales-api.service';
 import { TableFilterComponent, TableFilterOption } from '../../../shared/components/table-filter.component';
 import { ExportColumn, TableExportService } from '../../../shared/services/table-export.service';
 import { EsperaDirective } from '../../../shared/directives/espera.directive';
@@ -82,6 +82,7 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
 })
 export class MaterialesKardexComponent implements OnInit {
   kardex: Kardex[] = [];
+  private lotesPorId = new Map<string, Lote>();
   loading = false;
 
   filtroTipo = '';
@@ -92,7 +93,7 @@ export class MaterialesKardexComponent implements OnInit {
   idItemFiltro: string | null = null;
 
   columnLabels: Record<string, string> = {
-    item_sku: 'Ítem',
+    item_sku: 'Producto',
     cantidad: 'Cantidad',
     saldo_anterior: 'Saldo anterior',
     saldo_actual: 'Saldo actual',
@@ -125,20 +126,37 @@ export class MaterialesKardexComponent implements OnInit {
     this.router.navigate([], { relativeTo: this.route, queryParams: {} });
   }
 
+  /** Producto y referencia del movimiento: de la unidad (devolutivo) o del lote (consumo/perecedero). */
+  private origen(k: Kardex): { idProducto: string | null; nombre: string | null; ref: string | null } {
+    if (k.item) {
+      return {
+        idProducto: k.item.producto?.id_producto ?? null,
+        nombre: k.item.producto?.nombre ?? null,
+        ref: k.item.placa_sena ? `Placa ${k.item.placa_sena}` : (k.item.codigo_sku ?? null),
+      };
+    }
+    const lote = k.id_lote ? this.lotesPorId.get(k.id_lote) : undefined;
+    return {
+      idProducto: lote?.id_producto ?? null,
+      nombre: lote?.producto?.nombre ?? null,
+      ref: lote?.codigo_lote ? `Lote ${lote.codigo_lote}` : k.id_lote ? 'Lote' : null,
+    };
+  }
+
   get filas(): any[] {
     const texto = this.filtroTexto.trim().toLowerCase();
     return this.kardex
-      .filter((k) => !this.idProductoFiltro || k.item?.producto?.id_producto === this.idProductoFiltro)
-      .filter((k) => !this.idItemFiltro || k.id_item === this.idItemFiltro)
-      .filter((k) => !this.filtroTipo || k.tipo === this.filtroTipo)
-      .filter((k) => !texto
-        || k.item?.producto?.nombre?.toLowerCase().includes(texto)
-        || k.item?.codigo_sku?.toLowerCase().includes(texto)
-        || k.item?.placa_sena?.toLowerCase().includes(texto))
-      .map((k) => ({
+      .map((k) => ({ k, o: this.origen(k) }))
+      .filter(({ o }) => !this.idProductoFiltro || o.idProducto === this.idProductoFiltro)
+      .filter(({ k }) => !this.idItemFiltro || k.id_item === this.idItemFiltro)
+      .filter(({ k }) => !this.filtroTipo || k.tipo === this.filtroTipo)
+      .filter(({ o }) => !texto
+        || o.nombre?.toLowerCase().includes(texto)
+        || o.ref?.toLowerCase().includes(texto))
+      .map(({ k, o }) => ({
         ...k,
         fecha: new Date(k.fecha).toLocaleString('es-CO'),
-        item_sku: k.item?.producto?.nombre ?? k.item?.codigo_sku ?? k.item?.placa_sena ?? '—',
+        item_sku: [o.nombre, o.ref].filter(Boolean).join(' · ') || '—',
         observacion: k.observacion ?? '—',
       }));
   }
@@ -149,7 +167,7 @@ export class MaterialesKardexComponent implements OnInit {
 
   private readonly exportColumns: ExportColumn<any>[] = [
     { label: 'Fecha', value: (f) => f.fecha }, { label: 'Tipo', value: (f) => f.tipo },
-    { label: 'Ítem', value: (f) => f.item_sku }, { label: 'Cantidad', value: (f) => f.cantidad },
+    { label: 'Producto', value: (f) => f.item_sku }, { label: 'Cantidad', value: (f) => f.cantidad },
     { label: 'Saldo anterior', value: (f) => f.saldo_anterior }, { label: 'Saldo actual', value: (f) => f.saldo_actual },
     { label: 'Observación', value: (f) => f.observacion },
   ];
@@ -160,7 +178,13 @@ export class MaterialesKardexComponent implements OnInit {
   private async cargar(): Promise<void> {
     this.loading = true;
     try {
-      this.kardex = await this.api.listarKardex();
+      // Los lotes solo ponen nombre a los movimientos de consumo; si fallan, el kardex igual se muestra.
+      const [kardex, lotes] = await Promise.all([
+        this.api.listarKardex(),
+        this.api.listarLotes().catch(() => [] as Lote[]),
+      ]);
+      this.lotesPorId = new Map(lotes.map((l) => [l.id_lote, l]));
+      this.kardex = kardex;
     } catch (e) {
       this.toast.httpError(e, 'No se pudo cargar el kardex.');
     } finally {
