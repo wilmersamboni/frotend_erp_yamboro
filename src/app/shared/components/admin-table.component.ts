@@ -12,7 +12,10 @@ import { PageSizeSelectComponent } from './page-size-select.component';
 /** Enlace de navegación cruzada por fila (ej. Producto → Existencias filtradas por ese producto). */
 export interface TableRowLink {
   label: string;
-  routerLink: (row: any) => any[];
+  /** Navegación (pill-link). Si se pasa `onClick` en su lugar, la pill es un botón de acción. */
+  routerLink?: (row: any) => any[];
+  /** Acción sobre la fila (ej. abrir un modal) en vez de navegar. */
+  onClick?: (row: any) => void;
   queryParams?: (row: any) => Record<string, any>;
   /** Si se pasa, el link solo se muestra en filas donde devuelva true (ej. "Lotes" solo para productos consumibles). */
   visible?: (row: any) => boolean;
@@ -148,11 +151,18 @@ export interface TableRowLink {
                       <div class="flex justify-end gap-2">
                         @for (link of rowLinks; track link.label) {
                           @if (!link.visible || link.visible(row)) {
-                            <a [routerLink]="link.routerLink(row)" [queryParams]="link.queryParams ? link.queryParams(row) : undefined"
-                              (click)="$event.stopPropagation()"
-                              class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-[#39A900] hover:text-[#39A900] transition-colors">
-                              {{ link.label }}
-                            </a>
+                            @if (link.onClick) {
+                              <button type="button" (click)="link.onClick(row); $event.stopPropagation()"
+                                class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-[#39A900] hover:text-[#39A900] transition-colors">
+                                {{ link.label }}
+                              </button>
+                            } @else if (link.routerLink) {
+                              <a [routerLink]="link.routerLink(row)" [queryParams]="link.queryParams ? link.queryParams(row) : undefined"
+                                (click)="$event.stopPropagation()"
+                                class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-[#39A900] hover:text-[#39A900] transition-colors">
+                                {{ link.label }}
+                              </a>
+                            }
                           }
                         }
                         @if (canEdit) {

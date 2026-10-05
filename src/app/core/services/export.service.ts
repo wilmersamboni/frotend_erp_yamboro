@@ -1,8 +1,10 @@
 import { Injectable } from '@angular/core';
-import * as ExcelJS from 'exceljs';
+// Solo tipos: ExcelJS (~920 kB) se carga con `import()` dentro de cada
+// exportación — importado acá viajaba con Inicio, la primera pantalla de todos.
+import type * as ExcelJS from 'exceljs';
 import { Stats, DonaStats, categorizarEstado } from './stats.service';
 import { ResultadoConsulta } from '../../shared/models/estudiante.model';
-import { InformePdf, TINTA, RGB, fechaInforme, hoyLocal } from '../../shared/utils/informe-pdf';
+import { crearInformePdf, TINTA, RGB, fechaInforme, hoyLocal } from '../../shared/utils/informe-pdf';
 
 /**
  * Datos del panel de inicio para exportar. Las imágenes de los gráficos ya no
@@ -40,7 +42,7 @@ const COLOR_ESTADO_XL: Record<string, string> = {
 const fuenteXl = (o: Partial<ExcelJS.Font> = {}): Partial<ExcelJS.Font> => ({ name: 'Calibri', size: 10, color: { argb: XL.TX }, ...o });
 
 /** Fecha como fecha de Excel. AAAA-MM-DD se toma tal cual: ExcelJS escribe en UTC y una fecha local se correría un día. */
-function fechaXl(v?: string | null): Date | string {
+export function fechaXl(v?: string | null): Date | string {
   if (!v) return '—';
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v);
   if (m) return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
@@ -48,7 +50,7 @@ function fechaXl(v?: string | null): Date | string {
   return isNaN(d.getTime()) ? '—' : new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
 }
 
-type ColXl = { titulo: string; ancho: number; tipo?: 'fecha' | 'numero' | 'estado' | 'negrita' | 'porcentaje' };
+export type ColXl = { titulo: string; ancho: number; tipo?: 'fecha' | 'numero' | 'estado' | 'negrita' | 'porcentaje' };
 
 /** "activo" → "Activo", "en_curso" → "En curso". */
 function etiquetaEstado(e?: string | null): string {
@@ -242,7 +244,7 @@ export class ExportService {
     graficos?: GraficosExport,
   ): Promise<void> {
     const r = this.resumenPanel(stats, practicas, graficos);
-    const inf = new InformePdf({ marca: 'Etapa productiva · SENA', tipo: 'Reporte estadístico' });
+    const inf = await crearInformePdf({ marca: 'Etapa productiva · SENA', tipo: 'Reporte estadístico' });
     const { mg, ancho } = inf;
     const hoy = new Date();
     const fechaLarga = hoy.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -412,7 +414,8 @@ export class ExportService {
   ): Promise<void> {
     const r = this.resumenPanel(stats, practicas, graficos);
     const { GRIS, TENUE, LINEA, LINEA_F, SUAVE, ACENTO } = XL;
-    const wb = new ExcelJS.Workbook();
+    const XLS = await import('exceljs');
+    const wb = new XLS.Workbook();
     wb.creator = 'EPSAS';
     wb.created = new Date();
     const subtitulo = 'Panel de control · Etapa productiva';
@@ -610,7 +613,7 @@ export class ExportService {
    * subtítulo (2), encabezado gris con filtros (4, inmovilizado) y datos desde
    * la 5. Estados en texto de color, fechas reales y lista para imprimir.
    */
-  private hojaExcel(wb: ExcelJS.Workbook, titulo: string, subtitulo: string, pie: string, cols: ColXl[], filas: any[][], vacio = 'Sin registros.'): ExcelJS.Worksheet {
+  hojaExcel(wb: ExcelJS.Workbook, titulo: string, subtitulo: string, pie: string, cols: ColXl[], filas: any[][], vacio = 'Sin registros.'): ExcelJS.Worksheet {
     const { TX, GRIS, TENUE, LINEA, LINEA_F, SUAVE, ACENTO } = XL;
     const ws = wb.addWorksheet(titulo, {
       views: [{ state: 'frozen', ySplit: 4, showGridLines: false }],
@@ -675,7 +678,7 @@ export class ExportService {
     return ws;
   }
 
-  private async descargarExcel(wb: ExcelJS.Workbook, nombre: string): Promise<void> {
+  async descargarExcel(wb: ExcelJS.Workbook, nombre: string): Promise<void> {
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
@@ -699,9 +702,9 @@ export class ExportService {
    * Rediseñado 2026-10-01: el anterior pintaba cada sección con un color
    * distinto y repartía bitácoras y observaciones en tablas sueltas.
    */
-  exportarHistorialPDF(resultado: ResultadoConsulta, personasMap: Map<string, string>): void {
+  async exportarHistorialPDF(resultado: ResultadoConsulta, personasMap: Map<string, string>): Promise<void> {
     const { estudiante, historial, practicas } = resultado;
-    const inf = new InformePdf({ marca: 'Plataforma académica · SENA', tipo: 'Historial del aprendiz' });
+    const inf = await crearInformePdf({ marca: 'Plataforma académica · SENA', tipo: 'Historial del aprendiz' });
     const f = fechaInforme;
     const rango = (a?: string, b?: string) => (a || b ? `${f(a)} – ${f(b)}` : '—');
 
@@ -825,8 +828,8 @@ export class ExportService {
    */
   async exportarHistorialExcel(resultado: ResultadoConsulta, personasMap: Map<string, string>): Promise<void> {
     const { estudiante, historial, practicas } = resultado;
-    const ExcelJS = await import('exceljs');
-    const wb = new ExcelJS.Workbook();
+    const XLS = await import('exceljs');
+    const wb = new XLS.Workbook();
     wb.creator = 'EPSAS';
     wb.created = new Date();
 

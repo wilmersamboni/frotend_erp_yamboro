@@ -73,7 +73,8 @@ import { DialogDirective } from '../../../shared/directives/dialog.directive';
                   <app-date-input
                     [ngModel]="dateValue(col)"
                     (ngModelChange)="setDateValue(col, $event)"
-                    [min]="minParaFecha(col)"></app-date-input>
+                    [min]="minParaFecha(col)"
+                    [clearable]="fechasLimpiables.includes(col)"></app-date-input>
 
                 } @else if (tiposCampo[col] === 'tel') {
                   <!-- TELÉFONO: solo dígitos y un "+" inicial (ej. +573212327xx) -->
@@ -173,6 +174,8 @@ export class AdminModalComponent {
 
   /** Campos de fecha que no pueden quedar en el pasado (ej. `fecha_vencimiento` de un lote). */
   @Input() minDateToday: string[] = [];
+  /** Campos de fecha opcionales: muestran un "×" para vaciarlos. */
+  @Input() fechasLimpiables: string[] = [];
 
   /**
    * Placeholder de ejemplo opcional por campo, para el `<input>` normal

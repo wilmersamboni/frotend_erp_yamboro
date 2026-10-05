@@ -136,7 +136,7 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
       [open]="agregarOpen"
       [editando]="null"
       labelSingular="ítem al lote"
-      [columns]="['id_producto', 'placa_sena']"
+      [columns]="['id_producto', 'id_sitio', 'placa_sena']"
       [form]="agregarForm"
       [opciones]="opcionesAgregar"
       [columnLabels]="columnLabels"
@@ -164,7 +164,7 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
             </div>
 
             @if (filasPlacas.length > 0) {
-              <app-barcode-scanner [activo]="asignarPlacasOpen" [modoManual]="false" (scanned)="onCodigoEscaneado($event)"></app-barcode-scanner>
+              <app-barcode-scanner perfil="placa" [activo]="asignarPlacasOpen" [modoManual]="false" (scanned)="onCodigoEscaneado($event)"></app-barcode-scanner>
 
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Pegar lista (una placa por línea)</label>
@@ -179,8 +179,15 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
                   <div class="flex items-center gap-3 px-3 py-2">
                     <span class="text-xs text-gray-400 w-6 shrink-0">#{{ i + 1 }}</span>
                     <span class="text-xs text-gray-400 w-24 shrink-0 truncate">{{ fila.estado }}</span>
-                    <input type="text" [(ngModel)]="fila.placa" placeholder="Placa SENA"
-                      class="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                    <div class="flex-1">
+                      <input type="text" [(ngModel)]="fila.placa" placeholder="Placa SENA"
+                        [attr.aria-invalid]="motivoPlacaInvalida(fila) ? true : null"
+                        class="w-full px-2.5 py-1.5 border rounded-md text-sm focus:outline-none focus:ring-2"
+                        [class]="clasesPlaca(fila)" />
+                      @if (motivoPlacaInvalida(fila); as motivo) {
+                        <p class="text-xs text-red-600 mt-1">{{ motivo }}</p>
+                      }
+                    </div>
                   </div>
                 }
               </div>
@@ -193,7 +200,7 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
 
           <div class="flex justify-end gap-2 mt-6">
             <button (click)="cerrarAsignarPlacas()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
-            <button (click)="guardarPlacas()" [disabled]="asignarPlacasSaving || placasLlenas === 0"
+            <button (click)="guardarPlacas()" [disabled]="asignarPlacasSaving || placasLlenas === 0 || hayPlacasInvalidas"
               class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60 transition-colors"
               style="background-color: var(--accent-brand)">
               {{ asignarPlacasSaving ? 'Asignando…' : 'Asignar ' + placasLlenas + ' placa(s)' }}
@@ -386,8 +393,15 @@ export class MaterialesItemsComponent implements OnInit {
     return this.productos.filter((p) => p.tipo_material === 'DEVOLUTIVO');
   }
 
+  /** Bodegas donde puedo dejar la unidad nueva: todas las activas (admin) o las que gestiono. */
+  bodegasParaAgregar: Sitio[] = [];
+
   get opcionesAgregar(): Record<string, OpcionSelect[]> {
-    return { id_producto: this.productosDevolutivos.map((p) => ({ label: p.SKU ? `${p.nombre} (${p.SKU})` : p.nombre, value: p.id_producto })) };
+    return {
+      id_producto: this.productosDevolutivos.map((p) => ({ label: p.SKU ? `${p.nombre} (${p.SKU})` : p.nombre, value: p.id_producto })),
+      // Catálogo único: la ficha no tiene bodega "de casa", la unidad va a la elegida.
+      id_sitio: this.bodegasParaAgregar.filter((s) => s.estado).map((s) => ({ label: s.nombre, value: s.id_sitio })),
+    };
   }
 
   get filas(): any[] {
@@ -462,14 +476,20 @@ export class MaterialesItemsComponent implements OnInit {
     }
   }
 
-  abrirAgregar(): void {
+  async abrirAgregar(): Promise<void> {
     if (!this.puedeCrear()) return;
     const devolutivos = this.productosDevolutivos;
     if (devolutivos.length === 0) {
       this.toast.warn('Faltan datos', 'Solo los productos devolutivos se manejan por ítems. Para consumibles registrá un lote.');
       return;
     }
-    this.agregarForm = { id_producto: devolutivos[0].id_producto, placa_sena: '' };
+    this.bodegasParaAgregar = this.auth.isAdmin()
+      ? (this.sitios.length ? this.sitios : await this.api.listarSitios().catch(() => [] as Sitio[]))
+      : await this.api.sitiosACargo().catch(() => [] as Sitio[]);
+    const primera = devolutivos[0];
+    const activas = this.bodegasParaAgregar.filter((s) => s.estado);
+    const bodegaInicial = activas.find((s) => s.id_sitio === primera.id_sitio)?.id_sitio ?? (activas.length === 1 ? activas[0].id_sitio : '');
+    this.agregarForm = { id_producto: primera.id_producto, id_sitio: bodegaInicial, placa_sena: '' };
     this.agregarError = null;
     this.agregarOpen = true;
   }
@@ -484,10 +504,14 @@ export class MaterialesItemsComponent implements OnInit {
       this.agregarError = 'Elegí un producto.';
       return;
     }
+    if (!form['id_sitio']) {
+      this.agregarError = 'Elegí la bodega donde queda la unidad.';
+      return;
+    }
     this.agregarSaving = true;
     this.agregarError = null;
     try {
-      await this.api.agregarItemAProducto(form['id_producto'], form['placa_sena'] || undefined);
+      await this.api.agregarItemAProducto(form['id_producto'], form['placa_sena'] || undefined, form['id_sitio']);
       this.toast.ok('Ítem agregado al lote');
       this.agregarOpen = false;
       await this.cargar();
@@ -586,12 +610,58 @@ export class MaterialesItemsComponent implements OnInit {
    *  avanza — pensado para escanear ítem físico tras ítem físico sin tocar
    *  el teclado. */
   onCodigoEscaneado(codigo: string): void {
+    const placa = codigo.trim();
+    if (!placa) return;
+    // La cámara puede leer varias veces la misma etiqueta: no se acepta una
+    // placa que ya está en la grilla ni una que ya tiene otro ítem.
+    const claveEscaneada = this.clavePlaca(placa);
+    const filaConLaPlaca = this.filasPlacas.findIndex((f) => this.clavePlaca(f.placa) === claveEscaneada);
+    if (filaConLaPlaca >= 0) {
+      this.toast.warn('Placa repetida', `La placa "${placa}" ya está en la fila #${filaConLaPlaca + 1}. Escanea el siguiente equipo.`);
+      return;
+    }
+    if (this.placaYaAsignada(placa)) {
+      this.toast.warn('Placa ya existe', `La placa "${placa}" ya está asignada a otro ítem.`);
+      return;
+    }
     const fila = this.filasPlacas.find((f) => !f.placa.trim());
     if (!fila) {
       this.toast.warn('Sin filas libres', 'Ya completaste todas las placas de este producto.');
       return;
     }
-    fila.placa = codigo;
+    fila.placa = placa;
+  }
+
+  private clavePlaca(placa: string | null | undefined): string {
+    return (placa ?? '').trim().toLowerCase();
+  }
+
+  /** ¿Otro ítem (de los que esta pantalla conoce, fuera de la grilla) ya usa esa placa? El backend la valida contra todo el tenant al guardar. */
+  private placaYaAsignada(placa: string): boolean {
+    const clave = this.clavePlaca(placa);
+    const idsGrilla = new Set(this.filasPlacas.map((f) => f.id_item));
+    return this.items.some((i) => !idsGrilla.has(i.id_item) && this.clavePlaca(i.placa_sena) === clave);
+  }
+
+  /** Motivo por el que la placa de una fila no es válida (null si está bien o vacía). */
+  motivoPlacaInvalida(fila: { id_item: string; placa: string }): string | null {
+    const clave = this.clavePlaca(fila.placa);
+    if (!clave) return null;
+    const idx = this.filasPlacas.findIndex((f) => this.clavePlaca(f.placa) === clave);
+    if (this.filasPlacas[idx]?.id_item !== fila.id_item) {
+      return `Repetida: ya está en la fila #${idx + 1}.`;
+    }
+    return this.placaYaAsignada(fila.placa) ? 'Esta placa ya está asignada a otro ítem.' : null;
+  }
+
+  clasesPlaca(fila: { id_item: string; placa: string }): string {
+    return this.motivoPlacaInvalida(fila)
+      ? 'border-red-500 bg-red-50 text-red-700 focus:ring-red-300'
+      : 'border-gray-200 focus:ring-[#39A900]/30 focus:border-[#39A900]';
+  }
+
+  get hayPlacasInvalidas(): boolean {
+    return this.filasPlacas.some((f) => !!this.motivoPlacaInvalida(f));
   }
 
   aplicarPegado(): void {

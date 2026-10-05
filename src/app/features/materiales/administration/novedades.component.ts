@@ -133,6 +133,9 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
                 <p class="mt-2 text-xs text-gray-500">{{ nombreUsuario(n) }} · {{ n.fecha | date: 'short' }}</p>
                 <div class="mt-3 flex flex-wrap justify-end gap-2">
                   <button (click)="verDetalle(n)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600">Ver</button>
+                  @if (puedeCorregir(n)) {
+                    <button (click)="corregir(n)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600">Corregir</button>
+                  }
                   @if (puedeEditar && n.estado === 'PENDIENTE' && esResponsableDelSitio(n)) {
                     <button (click)="cambiarEstado(n, 'EN_PROCESO')" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-blue-200 text-blue-600">En proceso</button>
                   }
@@ -174,6 +177,12 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
                         class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">
                         Ver
                       </button>
+                      @if (puedeCorregir(n)) {
+                        <button (click)="corregir(n)"
+                          class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-gray-400 transition-colors">
+                          Corregir
+                        </button>
+                      }
                       @if (puedeEditar && n.estado === 'PENDIENTE' && esResponsableDelSitio(n)) {
                         <button (click)="cambiarEstado(n, 'EN_PROCESO')"
                           class="px-3 py-1.5 rounded-full text-xs font-semibold border border-blue-200 text-blue-600 bg-white hover:bg-blue-50 transition-colors">
@@ -205,7 +214,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
 
     <app-admin-modal
       [open]="modalOpen"
-      [editando]="null"
+      [editando]="editando"
       labelSingular="novedad"
       [columns]="camposModal"
       [form]="form"
@@ -217,7 +226,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
       (closed)="cerrarModal()"
       (saved)="guardar($event)">
       <div campoExtra class="mt-3">
-        <app-barcode-scanner [modoManual]="false" [activo]="modalOpen" (scanned)="onPlacaEscaneada($event)"></app-barcode-scanner>
+        <app-barcode-scanner perfil="placa" [modoManual]="false" [activo]="modalOpen" (scanned)="onPlacaEscaneada($event)"></app-barcode-scanner>
         @if (escaneo) {
           <p class="mt-2 text-xs" [class.text-green-700]="escaneo.ok" [class.text-red-500]="!escaneo.ok">{{ escaneo.texto }}</p>
         }
@@ -287,6 +296,8 @@ export class MaterialesNovedadesComponent implements OnInit {
   error: string | null = null;
 
   modalOpen = false;
+  /** Novedad que se está corrigiendo (null = alta nueva). */
+  editando: Novedad | null = null;
   form: Record<string, any> = {};
 
   /** "Ver detalles" (Fase 9). */
@@ -458,7 +469,26 @@ export class MaterialesNovedadesComponent implements OnInit {
     }
   }
 
+  /**
+   * "Corregir" (error de captura, p. ej. se escaneó la placa de otro equipo):
+   * solo mientras está PENDIENTE — replica `NovedadesService.editarNovedad`
+   * (admin, quien la reportó, o quien gestiona la bodega del ítem).
+   */
+  puedeCorregir(n: Novedad): boolean {
+    if (!this.puedeEditar || n.estado !== 'PENDIENTE') return false;
+    return this.auth.isAdmin() || n.id_usuario === this.auth.user()?.id || this.esResponsableDelSitio(n);
+  }
+
+  corregir(n: Novedad): void {
+    this.editando = n;
+    this.form = { tipo: n.tipo, descripcion: n.descripcion, id_item: n.id_item ?? null };
+    this.escaneo = null;
+    this.error = null;
+    this.modalOpen = true;
+  }
+
   nuevo(): void {
+    this.editando = null;
     this.form = { tipo: 'OTRO', descripcion: '', id_item: null };
     this.escaneo = null;
     this.error = null;
@@ -508,12 +538,22 @@ export class MaterialesNovedadesComponent implements OnInit {
     this.saving = true;
     this.error = null;
     try {
-      await this.api.crearNovedad({
-        tipo: form['tipo'] as TipoNovedad,
-        descripcion: form['descripcion'],
-        id_item: form['id_item'] || undefined,
-      });
-      this.toast.ok('Novedad registrada');
+      if (this.editando) {
+        // `null` (no `undefined`) para poder quitar el ítem en tipos que lo permiten.
+        await this.api.corregirNovedad(this.editando.id_novedad, {
+          tipo: form['tipo'] as TipoNovedad,
+          descripcion: form['descripcion'],
+          id_item: form['id_item'] || null,
+        });
+        this.toast.ok('Novedad corregida');
+      } else {
+        await this.api.crearNovedad({
+          tipo: form['tipo'] as TipoNovedad,
+          descripcion: form['descripcion'],
+          id_item: form['id_item'] || undefined,
+        });
+        this.toast.ok('Novedad registrada');
+      }
       this.modalOpen = false;
       await this.cargar();
     } catch (e: any) {

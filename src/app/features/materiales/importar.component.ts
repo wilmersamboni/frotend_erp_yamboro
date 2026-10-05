@@ -255,6 +255,28 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
             </div>
           </div>
 
+          <!-- Catálogo único: productos nuevos que quien importa no puede crear (solo líder de área / administrador). -->
+          @if (filasRequierenLider.length) {
+            <div class="rounded-xl border border-red-200 bg-red-50/70 px-5 py-4 text-sm">
+              <p class="font-medium text-red-800">
+                {{ filasRequierenLider.length }} producto(s) nuevo(s) que no puedes crear
+              </p>
+              <p class="text-xs text-red-700 mt-1">
+                No existen en el catálogo y solo un líder de área o el administrador puede crear la ficha. Pídeselas (le llega una notificación con los datos) o quita esas filas para importar el resto.
+              </p>
+              <p class="text-xs text-red-700/80 mt-1.5">{{ nombresRequierenLider }}</p>
+              <div class="flex flex-wrap gap-2 mt-3">
+                <button type="button" (click)="pedirFichasLider()" [disabled]="pidiendoFichas"
+                  class="px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50" style="background-color: var(--accent-brand)">
+                  {{ pidiendoFichas ? 'Enviando…' : 'Pedir estas fichas al líder' }}
+                </button>
+                <button type="button" (click)="quitarFilasLider()" class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-red-200 text-red-700 bg-white">
+                  Quitar estas filas
+                </button>
+              </div>
+            </div>
+          }
+
           @if (prev.errores.length) {
             <div data-anim="seccion" class="rounded-xl border border-amber-200 bg-amber-50/70 px-5 py-4 text-sm">
               <p class="font-medium text-amber-800 flex items-center gap-1.5">
@@ -406,7 +428,11 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
 
           <!-- barra de acción -->
           <div data-anim="seccion" class="card px-5 py-4 flex flex-wrap items-center gap-3 shadow-sm">
-            @if (pendientes > 0) {
+            @if (filasRequierenLider.length) {
+              <span class="text-sm text-red-600">
+                Hay <b>{{ filasRequierenLider.length }}</b> producto(s) nuevo(s) que no puedes crear: pídelos al líder o quítalos.
+              </span>
+            } @else if (pendientes > 0) {
               <span class="text-sm text-amber-600 flex items-center gap-1.5">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
                 Faltan <b>{{ filas.length - (listasVisibles() ?? listas) }}</b> fila(s) con tipo o categoría sin elegir
@@ -417,7 +443,7 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
                 Todo listo para registrar
               </span>
             }
-            <button (click)="confirmar()" [disabled]="pendientes > 0 || confirmando || !filas.length"
+            <button (click)="confirmar()" [disabled]="pendientes > 0 || confirmando || !filas.length || filasRequierenLider.length > 0"
               class="btn-primary ml-auto px-6 py-2.5 text-sm flex items-center gap-2">
               @if (confirmando) {
                 <svg class="animate-spin" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
@@ -588,6 +614,55 @@ export class MaterialesImportarComponent implements OnInit {
   private barraIndet: gsap.core.Tween | null = null;
   private mensajesTimer: ReturnType<typeof setInterval> | null = null;
   private fallbackProcesando: ReturnType<typeof setTimeout> | null = null;
+
+  // ── Productos nuevos que quien importa no puede crear (catálogo único) ──
+  pidiendoFichas = false;
+
+  get filasRequierenLider(): FilaRevision[] {
+    return this.filas.filter((f) => f.requiere_lider);
+  }
+
+  get nombresRequierenLider(): string {
+    const nombres = this.filasRequierenLider.map((f) => f.nombre);
+    return nombres.slice(0, 6).join(', ') + (nombres.length > 6 ? ` y ${nombres.length - 6} más` : '');
+  }
+
+  quitarFilasLider(): void {
+    this.filas = this.filas.filter((f) => !f.requiere_lider);
+  }
+
+  /** Un pedido por fila (el backend no duplica los que ya estaban pedidos); luego se quitan de la importación. */
+  async pedirFichasLider(): Promise<void> {
+    const filas = this.filasRequierenLider;
+    if (!filas.length) return;
+    this.pidiendoFichas = true;
+    let enviados = 0;
+    let existian = 0;
+    for (const f of filas) {
+      try {
+        await this.api.pedirFicha({
+          nombre: f.nombre,
+          marca: f.marca || undefined,
+          modelo: f.modelo || undefined,
+          tipo_material: f.tipo_material || undefined,
+          unidad_medida: f.unidad_medida || undefined,
+          codigo_unspsc: f.codigo_unspsc || undefined,
+          id_sitio: f.id_sitio || undefined,
+          nota: f.cantidad ? `Desde una importación: llegaron ${f.cantidad} ${f.unidad_medida?.toLowerCase() || 'unidades'}.` : 'Desde una importación.',
+        });
+        enviados++;
+      } catch (e: any) {
+        if (e?.status === 409) existian++; // la ficha ya existe: se reimporta y suma stock
+      }
+    }
+    this.pidiendoFichas = false;
+    this.quitarFilasLider();
+    this.toast.ok(
+      'Pedidos enviados',
+      `${enviados} ficha(s) pedida(s) a tu líder de área${existian ? `; ${existian} ya existían en el catálogo (vuelve a importarlas)` : ''}. Te avisamos cuando estén creadas.`,
+      7000,
+    );
+  }
 
   constructor(
     private api: MaterialesApiService,

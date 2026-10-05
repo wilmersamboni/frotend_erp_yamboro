@@ -212,7 +212,14 @@ export class EntregarSolicitudModalComponent implements OnChanges {
       this.lineas = await Promise.all(
         base.map(async (l) => {
           const items = await this.api.listarItems(l.id_producto);
-          return { ...l, opciones: items.filter((i) => i.estado === 'DISPONIBLE'), elegidos: [] as string[] };
+          // Solo unidades de la bodega de la solicitud (catálogo único: la
+          // ficha puede tener unidades en otras bodegas; el backend las rechaza).
+          const bodega = this.solicitud.id_sitio ?? null;
+          return {
+            ...l,
+            opciones: items.filter((i) => i.estado === 'DISPONIBLE' && i.activo !== false && (!bodega || i.id_sitio === bodega)),
+            elegidos: [] as string[],
+          };
         }),
       );
     } finally {

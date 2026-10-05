@@ -100,6 +100,8 @@ interface LineaParaElegir{
 export class ElegirPlacasAsignacionModalComponent implements OnChanges {
     @Input() abierto = false
     @Input({ required:true}) lineas!:{id_producto:string, nombre:string, cantidad:number}[]
+    /** Bodega de la que sale la asignación: solo se ofrecen sus unidades. */
+    @Input() idSitio: string | null = null
     @Output() cerrado = new EventEmitter<void>();
     @Output() confirmado = new EventEmitter<{id_producto: string, id_items:string[]}[] | undefined>();
 
@@ -122,7 +124,7 @@ export class ElegirPlacasAsignacionModalComponent implements OnChanges {
             this.lineasParaElegir = await Promise.all(
                 this.lineas.map(async (l)=>{
                     const items = await this.api.listarItems(l.id_producto);
-                    return {...l, opciones: items.filter((i)=> i.estado === 'DISPONIBLE'), elegidos: [] as string[]};
+                    return {...l, opciones: items.filter((i)=> i.estado === 'DISPONIBLE' && i.activo !== false && (!this.idSitio || i.id_sitio === this.idSitio)), elegidos: [] as string[]};
                 })
             )
         } finally{
