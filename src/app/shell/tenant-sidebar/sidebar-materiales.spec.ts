@@ -19,6 +19,8 @@ function menuMateriales(opciones: {
   servicios: string[];
   aplicativo?: string;
   responsableBodega?: boolean;
+  /** Lo que respondería `GET materiales/ingresos/acceso` (admin ERP, líder o permiso personal). */
+  gestorIngresos?: boolean;
 }): string[] {
   const esAdmin = opciones.cargo === 'administrador' || opciones.cargo === 'administrador_erp';
   const auth = {
@@ -36,6 +38,7 @@ function menuMateriales(opciones: {
     { sitiosACargo: () => Promise.resolve([]) } as any,
   );
   sidebar.esResponsableBodega.set(!!opciones.responsableBodega);
+  sidebar.esGestorIngresos.set(!!opciones.gestorIngresos);
   return sidebar.visibleGroups.find((g) => g.id === 'materiales')?.links.map((l) => l.label) ?? [];
 }
 
@@ -79,12 +82,26 @@ describe('Sidebar: menú de Materiales según permisos efectivos', () => {
     expect(menuMateriales({ cargo: 'aprendiz', servicios: ['materiales.actas.ver'] })).not.toContain('Inicio');
   });
 
-  it('administrador de Materiales: todo el menú, con "Bodegas" y sin "Mi Bodega"', () => {
-    const menu = menuMateriales({ cargo: 'administrador', servicios: TODOS, aplicativo: 'Materiales', responsableBodega: true });
+  it('administrador ERP: todo el menú, con "Bodegas" y sin "Mi Bodega"', () => {
+    const menu = menuMateriales({
+      cargo: 'administrador_erp', servicios: TODOS, aplicativo: 'Materiales', responsableBodega: true, gestorIngresos: true,
+    });
 
     expect(menu).toEqual(
       PANTALLAS_MATERIALES.filter((p) => p.enMenu !== false && p.id !== 'mi-bodega').map((p) => p.label),
     );
+  });
+
+  it('Llegada de material y Proveedores: solo si el backend dice que gestiona ingresos (2026-10-06)', () => {
+    // Encargado de bodega (o administrador común) sin el permiso personal: no los ve.
+    const sinPermiso = menuMateriales({ cargo: 'administrador', servicios: TODOS, aplicativo: 'Materiales', responsableBodega: true });
+    expect(sinPermiso).not.toContain('Llegada de material');
+    expect(sinPermiso).not.toContain('Proveedores');
+
+    // Instructor con la excepción personal `materiales.ingresos.gestionar`.
+    const conPermiso = menuMateriales({ cargo: 'instructor', servicios: BASE_INSTRUCTOR, gestorIngresos: true });
+    expect(conPermiso).toContain('Llegada de material');
+    expect(conPermiso).toContain('Proveedores');
   });
 
   it('administrador de otro aplicativo, sin servicios de Materiales: no ve el grupo', () => {

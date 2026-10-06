@@ -31,6 +31,10 @@ export type SeccionMateriales = 'Operación' | 'Inventario' | 'Catálogo' | 'Act
  *   datos personales de terceros, como el Reporte de materiales.
  * - `cualquiera`: alguno de los servicios (OR) — pantallas de entrada que usa
  *   todo el que trabaja con Materiales (Inicio, Escanear placa).
+ * - `ingresos`: proveedores y llegada de material (2026-10-06): solo
+ *   administrador_erp, líderes de área o quien tenga la excepción personal
+ *   `materiales.ingresos.gestionar` (`gestorIngresosGuard`; lo decide el
+ *   backend en `GET materiales/ingresos/acceso`).
  */
 export type AccesoPantalla =
   | { tipo: 'servicio'; servicio: string }
@@ -38,7 +42,8 @@ export type AccesoPantalla =
   | { tipo: 'admin-o-servicio'; servicio: string }
   | { tipo: 'responsable-bodega' }
   | { tipo: 'gestor'; servicio: string }
-  | { tipo: 'cualquiera'; servicios: string[] };
+  | { tipo: 'cualquiera'; servicios: string[] }
+  | { tipo: 'ingresos' };
 
 export interface PantallaMateriales {
   id: string;
@@ -77,7 +82,7 @@ export const PANTALLAS_MATERIALES: PantallaMateriales[] = [
   { id: 'existencias', label: '¿Qué hay y dónde?', path: 'materiales/existencias', seccion: 'Inventario', acceso: servicio('materiales.existencias.ver') },
   // Qué hay, dónde, en qué estado y quién responde por cada material (2026-10-02).
   // Trae nombres y cédulas de quien tiene cada material: solo para quienes gestionan.
-  { id: 'ingresos', label: 'Llegada de material', path: 'materiales/ingresos', seccion: 'Inventario', acceso: { tipo: 'gestor', servicio: 'materiales.productos.ver' } },
+  { id: 'ingresos', label: 'Llegada de material', path: 'materiales/ingresos', seccion: 'Inventario', acceso: { tipo: 'ingresos' } },
   { id: 'reporte', label: 'Reporte de materiales', path: 'materiales/reporte', seccion: 'Inventario', acceso: { tipo: 'gestor', servicio: 'materiales.existencias.ver' } },
   { id: 'items', label: 'Equipos con placa', path: 'materiales/items', seccion: 'Inventario', acceso: servicio('materiales.items.ver') },
   { id: 'lotes', label: 'Material que se gasta', path: 'materiales/lotes', seccion: 'Inventario', acceso: servicio('materiales.lotes.ver') },
@@ -90,7 +95,7 @@ export const PANTALLAS_MATERIALES: PantallaMateriales[] = [
   { id: 'kardex', label: 'Historial de movimientos', path: 'materiales/kardex', seccion: 'Inventario', acceso: servicio('materiales.kardex.ver') },
   { id: 'sitios', label: 'Sitios', path: 'materiales/sitios', seccion: 'Catálogo', acceso: servicio('materiales.sitios.ver') },
   { id: 'marcas', label: 'Marcas', path: 'materiales/marcas', seccion: 'Catálogo', acceso: { tipo: 'gestor', servicio: 'materiales.productos.ver' } },
-  { id: 'proveedores', label: 'Proveedores', path: 'materiales/proveedores', seccion: 'Catálogo', acceso: { tipo: 'gestor', servicio: 'materiales.productos.ver' } },
+  { id: 'proveedores', label: 'Proveedores', path: 'materiales/proveedores', seccion: 'Catálogo', acceso: { tipo: 'ingresos' } },
   { id: 'categorias', label: 'Categorías', path: 'materiales/categorias', seccion: 'Catálogo', acceso: servicio('materiales.categorias.ver') },
   { id: 'actas', label: 'Actas', path: 'materiales/actas', seccion: 'Actas', acceso: servicio('materiales.actas.ver') },
   { id: 'importar', label: 'Importar productos', path: 'materiales/importar', seccion: 'Catálogo', acceso: servicio('materiales.productos.crear'), enMenu: false },
@@ -117,6 +122,7 @@ export function datosRutaMateriales(id: string): {
     case 'admin-o-servicio':
       return { roles: CARGOS_ADMIN, servicios: [acceso.servicio] };
     case 'responsable-bodega':
+    case 'ingresos':
       return {};
     case 'gestor':
       return { serviciosRequeridos: [acceso.servicio] };

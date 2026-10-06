@@ -1340,6 +1340,12 @@ export class MaterialesApiService {
   actualizarProveedor(id: string, dto: ProveedorDto) {
     return this.unwrap(this.http.patch<Envelope<Proveedor>>(`${BASE}/materiales/proveedores/${id}`, dto));
   }
+  /** ¿Puede registrar llegadas de material y a qué bodegas? No responde 403 a quien no puede. */
+  accesoIngresos() {
+    return this.unwrap(
+      this.http.get<Envelope<{ puede: boolean; bodegas: Sitio[] }>>(`${BASE}/materiales/ingresos/acceso`),
+    );
+  }
   listarIngresos() {
     return this.unwrap(this.http.get<Envelope<IngresoMaterial[]>>(`${BASE}/materiales/ingresos`));
   }

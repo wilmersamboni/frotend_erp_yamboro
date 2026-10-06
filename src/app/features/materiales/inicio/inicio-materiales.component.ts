@@ -202,6 +202,7 @@ export class InicioMaterialesComponent implements OnInit {
   readonly cargando = signal(true);
   private readonly gestor = signal(false);
   private readonly encargado = signal(false);
+  private readonly registraIngresos = signal(false);
 
   readonly fecha = new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
   readonly saludo = (() => {
@@ -227,7 +228,7 @@ export class InicioMaterialesComponent implements OnInit {
     const s = (n: string) => this.auth.tieneServicio(n);
     const gestor = this.gestor();
     const recibir: Tarea[] = [
-      { icono: PackagePlus, tono: 'verde', titulo: 'Llegó material', ayuda: 'Registra lo que entró a la sede, con su factura', ruta: '/materiales/ingresos', query: { nuevo: 1 }, visible: gestor, pendientes: ['ingresos_sin_soporte'] },
+      { icono: PackagePlus, tono: 'verde', titulo: 'Llegó material', ayuda: 'Registra lo que entró a la sede, con su factura', ruta: '/materiales/ingresos', query: { nuevo: 1 }, visible: this.registraIngresos(), pendientes: ['ingresos_sin_soporte'] },
       { icono: ClipboardCheck, tono: 'azul', titulo: 'Aprobar y entregar pedidos', ayuda: 'Lo que te pidieron prestado', ruta: '/materiales/solicitudes', visible: gestor && s('materiales.solicitudes.ver'), pendientes: ['solicitudes_por_aprobar', 'solicitudes_por_entregar'] },
       { icono: ShoppingCart, tono: 'violeta', titulo: 'Pedir material', ayuda: 'Pide prestado o para gastar', ruta: '/materiales/solicitudes', query: { nuevo: 1 }, visible: s('materiales.solicitudes.crear'), pendientes: ['mis_solicitudes_listas'] },
       { icono: Undo2, tono: 'teal', titulo: 'Me devolvieron algo', ayuda: 'Recibe lo que se había prestado', ruta: '/materiales/devoluciones', visible: gestor && s('materiales.devoluciones.ver'), pendientes: ['prestamos_vencidos'] },
@@ -251,10 +252,12 @@ export class InicioMaterialesComponent implements OnInit {
   }
 
   private async cargarRol(): Promise<void> {
-    const [aCargo, lider] = await Promise.all([
+    const [aCargo, lider, ingresos] = await Promise.all([
       this.api.sitiosACargo().catch(() => []),
       this.api.puedeGestionarCatalogo().catch(() => false),
+      this.api.accesoIngresos().catch(() => ({ puede: false })),
     ]);
+    this.registraIngresos.set(ingresos.puede);
     this.encargado.set(aCargo.length > 0);
     this.gestor.set(this.auth.isAdmin() || aCargo.length > 0 || lider);
   }

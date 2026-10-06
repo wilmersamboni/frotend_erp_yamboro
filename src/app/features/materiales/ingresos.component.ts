@@ -3,7 +3,6 @@ import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AdminTableComponent, TableRowLink } from '../../shared/components/admin-table.component';
 import { DialogDirective } from '../../shared/directives/dialog.directive';
-import { AuthService } from '../../core/services/auth.service';
 import { ToastService, mensajeDeError } from '../../core/services/toast.service';
 import { ExportColumn, TableExportService } from '../../shared/services/table-export.service';
 import { IngresoMaterial, IngresoMaterialDetalle, MaterialesApiService, Sitio, SoporteIngreso } from './data-access/materiales-api.service';
@@ -198,7 +197,6 @@ const etiqueta = (lista: { value: string; label: string }[], v: string | null) =
 export class MaterialesIngresosComponent implements OnInit {
   private readonly api = inject(MaterialesApiService);
   private readonly toast = inject(ToastService);
-  private readonly auth = inject(AuthService);
   private readonly exporter = inject(TableExportService);
 
   readonly pesos = (v: number) => pesos.format(v);
@@ -273,7 +271,8 @@ export class MaterialesIngresosComponent implements OnInit {
 
   private async cargarBodegas(): Promise<void> {
     try {
-      this.bodegas = this.auth.isAdmin() ? await this.api.listarSitios() : await this.api.sitiosACargo();
+      // Las que el backend deja usar: todas (admin ERP / permiso personal) o las del área del líder.
+      this.bodegas = (await this.api.accesoIngresos()).bodegas;
     } catch {
       this.bodegas = [];
     }

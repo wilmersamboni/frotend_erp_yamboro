@@ -26,3 +26,20 @@ export const gestorMaterialesGuard: CanActivateFn = async () => {
     return router.createUrlTree(['/']);
   }
 };
+
+/**
+ * Proveedores y Llegada de material (2026-10-06): administrador_erp, líder de
+ * área o excepción personal `materiales.ingresos.gestionar`. Ser encargado de
+ * una bodega ya no basta. La regla vive en el backend
+ * (`ProveedoresService.alcance`); esto solo pregunta.
+ */
+export const gestorIngresosGuard: CanActivateFn = async () => {
+  const api = inject(MaterialesApiService);
+  const router = inject(Router);
+  try {
+    const { puede } = await api.accesoIngresos();
+    return puede ? true : router.createUrlTree(['/']);
+  } catch {
+    return router.createUrlTree(['/']);
+  }
+};
