@@ -92,7 +92,6 @@ export class HomeComponent implements OnInit {
 
   readonly exportMenuItems: MenuItem[] = [
     { label: 'Reporte para imprimir / PDF', icon: 'pi pi-print',      command: () => this.abrirReporte() },
-    { label: 'PDF (formato anterior)',      icon: 'pi pi-file-pdf',   command: () => this.exportarPDF()  },
     { label: 'Exportar Excel',              icon: 'pi pi-file-excel', command: () => this.exportarExcel() },
   ];
 
@@ -826,28 +825,7 @@ private capturarGraficos() {
     },
   };
 }
-
-  /**
-   * exportarPDF es async: antes no se esperaba, así que el aviso "PDF generado"
-   * salía antes de terminar y un fallo nunca llegaba al catch.
-   */
-  async exportarPDF(): Promise<void> {
-    if (this.exportando) return;
-    this.exportando = true;
-    try {
-      await this.exportService.exportarPDF(
-        this.stats, this.etapaActiva, this.etapaCertificada, this.practicas,
-        this.capturarGraficos()
-      );
-      this.toast.ok('PDF generado', 'El reporte fue exportado correctamente.');
-    } catch (e) {
-      console.error('[panel] exportar PDF falló', e);
-      this.toast.error('Error', 'No se pudo generar el PDF.');
-    } finally {
-      this.exportando = false;
-    }
-  }
-
+  
   async exportarExcel(): Promise<void> {
     if (this.exportando) return;
     this.exportando = true;
