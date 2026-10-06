@@ -1,0 +1,188 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Panel de inicio: estructura del bloque shadcn "dashboard-3" + tema
+   "Spotify" de tweakcn (2026-10-05), SOLO aquí. Los tokens del sistema se
+   redefinen dentro de `.spotify`: la tabla y la vista del aprendiz cambian
+   sin tocarlas y el resto del ERP conserva su tema.
+   ══════════════════════════════════════════════════════════════════════════ */
+.spotify {
+  --sp-1: #1db954;
+  --sp-1-suave: rgba(29, 185, 84, .45);
+  --sp-2: #191414;
+  --sp-card: #f6f6f6;
+  --sp-pie: #efefef;
+  --sp-borde: #ebebeb;
+  --sp-texto: #121212;
+  --sp-texto-2: #535353;
+  --sp-texto-3: #8a8a8a;
+  --sp-sube: #138a3e;
+  --sp-baja: #e91429;
+  --sp-sombra: 0 4px 10px rgba(0, 0, 0, .05);
+  --sp-sombra-hover: 0 4px 10px rgba(0, 0, 0, .08), 0 2px 4px -1px rgba(0, 0, 0, .06);
+
+  --accent-brand: #1db954;
+  --accent-brand-dark: #169c46;
+  --accent-text: #138a3e;
+  --accent-soft: rgba(29, 185, 84, .12);
+  --surface: var(--sp-card);
+  --surface2: var(--sp-pie);
+  --border: var(--sp-borde);
+  --text: var(--sp-texto);
+  --text-muted: var(--sp-texto-2);
+  letter-spacing: -0.02em;
+}
+:host-context([data-theme="dark"]) .spotify {
+  --sp-2: #b3b3b3;
+  --sp-card: #181818;
+  --sp-pie: #1f1f1f;
+  --sp-borde: #282828;
+  --sp-texto: #ffffff;
+  --sp-texto-2: #b3b3b3;
+  --sp-texto-3: #8a8a8a;
+  --sp-sube: #1ed760;
+  --sp-baja: #ff4d5e;
+  --sp-sombra: 0 10px 20px rgba(0, 0, 0, .25);
+  --sp-sombra-hover: 0 10px 20px rgba(0, 0, 0, .5);
+  --accent-text: #1ed760;
+  --accent-soft: rgba(29, 185, 84, .16);
+}
+
+.spotify ::ng-deep .export-buttons .p-splitbutton .p-button { background: var(--sp-1); border-color: var(--sp-1); color: #000; font-weight: 700; }
+.spotify ::ng-deep .export-buttons .p-splitbutton .p-splitbutton-button { border-radius: 999px 0 0 999px; padding-left: 1.1rem; }
+.spotify ::ng-deep .export-buttons .p-splitbutton .p-splitbutton-dropdown { border-radius: 0 999px 999px 0; }
+
+/* ── Base de tarjeta ──────────────────────────────────────────────────── */
+.sp-kpi, .sp-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid var(--sp-borde);
+  background: var(--sp-card);
+  box-shadow: var(--sp-sombra);
+  transition: box-shadow .2s ease, transform .2s ease, border-color .2s ease;
+  animation: sp-entrar .5s cubic-bezier(.2, .8, .2, 1) both;
+}
+.sp-card { animation-delay: .12s; }
+.sp-kpi:hover, .sp-card:hover { box-shadow: var(--sp-sombra-hover); }
+.sp-kpi:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--c) 40%, var(--sp-borde)); }
+
+/* Franja inferior gris con la comparación (sello del dashboard-3) */
+.sp-pie {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  padding: 11px 18px;
+  border-top: 1px solid var(--sp-borde);
+  background: var(--sp-pie);
+  font-size: 12.5px;
+  color: var(--sp-texto-2);
+}
+.sp-pie lucide-icon { color: var(--sp-sube); flex-shrink: 0; }
+.sp-pie b { color: var(--sp-sube); font-weight: 600; }
+.sp-pie-baja lucide-icon, .sp-pie-baja b { color: var(--sp-baja); }
+.sp-pie-plana lucide-icon, .sp-pie-plana b { color: var(--sp-texto-3); }
+.sp-pie-card { padding: 12px 22px; }
+.sp-enlace { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: var(--sp-texto-2); white-space: nowrap; }
+.sp-enlace:hover { color: var(--sp-texto); }
+
+/* ── Cifras (versión 1: barra de color, brillo, píldora y mini-gráfica) ── */
+.sp-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.sp-kpi {
+  position: relative;
+  padding: 20px 20px 10px;
+  background: radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--c) 12%, transparent) 0%, transparent 55%), var(--sp-card);
+}
+.sp-kpi::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; background: var(--c); }
+.sp-kpi:hover { transform: translateY(-3px); }
+.sp-kpi-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.sp-kpi-label { font-size: 13.5px; font-weight: 500; color: var(--sp-texto-2); }
+.sp-pill {
+  display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; padding: 3px 8px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 600; white-space: nowrap; color: var(--c);
+  background: color-mix(in srgb, var(--c) 12%, transparent); border: 1px solid color-mix(in srgb, var(--c) 25%, transparent);
+}
+.sp-kpi-num { margin-top: 6px; font-size: 34px; font-weight: 800; line-height: 1.1; letter-spacing: -0.03em; color: var(--sp-texto); font-variant-numeric: tabular-nums; }
+.sp-kpi-foot { display: flex; flex-direction: column; gap: 2px; margin-top: 14px; font-size: 13px; }
+.sp-kpi-foot strong { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--sp-texto); }
+.sp-kpi-foot strong lucide-icon { color: var(--c); }
+.sp-kpi-foot span { color: var(--sp-texto-2); }
+.sp-spark { margin: 8px -6px 0; height: 58px; }
+
+.sp-segmentos { display: inline-flex; padding: 3px; border-radius: 999px; border: 1px solid var(--sp-borde); }
+.sp-segmentos button { padding: 6px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: var(--sp-texto-2); white-space: nowrap; transition: background-color .15s, color .15s; }
+.sp-segmentos button:hover { color: var(--sp-texto); }
+.sp-segmentos button.activo { background: var(--sp-1); color: #000; }
+
+/* ── Filas ────────────────────────────────────────────────────────────── */
+.sp-fila { display: grid; gap: 14px; }
+.sp-fila-2-1 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.sp-fila-1-1 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.sp-fila-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.sp-card-cuerpo { padding: 18px 22px 20px; display: flex; flex-direction: column; min-width: 0; }
+.sp-card-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.sp-card-title { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 15.5px; font-weight: 600; color: var(--sp-texto); }
+.sp-card-sub { margin: 4px 0 0; font-size: 13px; color: var(--sp-texto-2); }
+.sp-insignia { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 999px; font-size: 11.5px; font-weight: 600; color: var(--sp-sube); background: color-mix(in srgb, var(--sp-1) 14%, transparent); }
+.sp-insignia-baja { color: var(--sp-baja); background: color-mix(in srgb, var(--sp-baja) 12%, transparent); }
+
+.sp-leyenda { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 8px; font-size: 12.5px; color: var(--sp-texto-2); }
+.sp-leyenda span { display: inline-flex; align-items: center; gap: 6px; }
+.sp-leyenda i { width: 9px; height: 9px; border-radius: 2px; }
+.sp-leyenda b { color: var(--sp-texto); font-weight: 600; }
+.sp-leyenda-centro { justify-content: center; margin: 12px 0 0; }
+
+.sp-rel { position: relative; }
+.sp-vacio {
+  position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%);
+  padding: 8px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 600; white-space: nowrap;
+  color: var(--sp-texto-2); background: var(--sp-card); border: 1px solid var(--sp-borde); pointer-events: none;
+}
+
+.sp-dona { position: relative; }
+.sp-dona-centro { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+.sp-dona-centro span { font-size: 26px; font-weight: 700; color: var(--sp-texto); line-height: 1; font-variant-numeric: tabular-nums; }
+.sp-dona-centro small { font-size: 12px; color: var(--sp-texto-2); margin-top: 3px; }
+
+/* ── Listas (acciones, terminan pronto, empresas) ─────────────────────── */
+.sp-lista { display: flex; flex-direction: column; margin-top: 12px; }
+.sp-item { display: flex; align-items: center; gap: 12px; padding: 10px 8px; margin: 0 -8px; border-radius: 10px; text-align: left; min-width: 0; }
+.sp-item-accion { width: calc(100% + 16px); transition: background-color .15s; }
+.sp-item-accion:hover:not(:disabled) { background: var(--sp-pie); }
+.sp-item-accion:disabled { opacity: .6; }
+.sp-item-icono { display: flex; flex-shrink: 0; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; color: var(--accent-text); background: var(--accent-soft); }
+.sp-item-texto { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.sp-item-texto b { font-size: 13.5px; font-weight: 600; color: var(--sp-texto); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-item-texto small { font-size: 12.5px; color: var(--sp-texto-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-item-flecha { color: var(--sp-texto-3); flex-shrink: 0; transition: transform .15s, color .15s; }
+.sp-item-accion:hover .sp-item-flecha { color: var(--sp-texto); transform: translateX(2px); }
+.sp-avatar { display: grid; place-items: center; flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; font-size: 12px; font-weight: 700; color: #000; background: var(--sp-1); }
+.sp-dias { flex-shrink: 0; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--sp-texto-2); background: var(--sp-pie); border: 1px solid var(--sp-borde); }
+.sp-dias-urgente { color: #000; background: #f59b23; border-color: #f59b23; }
+.sp-rank { display: grid; place-items: center; flex-shrink: 0; width: 26px; height: 26px; border-radius: 8px; font-size: 12px; font-weight: 700; color: var(--sp-texto-2); background: var(--sp-pie); }
+.sp-barrita { display: block; height: 4px; margin-top: 6px; border-radius: 999px; background: color-mix(in srgb, var(--sp-texto) 7%, transparent); overflow: hidden; }
+.sp-barrita span { display: block; height: 100%; border-radius: 999px; background: var(--sp-1); }
+.sp-item-n { flex-shrink: 0; font-size: 14px; font-weight: 700; color: var(--sp-texto); text-align: right; }
+.sp-item-n small { display: block; font-size: 11px; font-weight: 400; color: var(--sp-texto-3); }
+.sp-lista-vacia { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 26px 10px; text-align: center; font-size: 13px; color: var(--sp-texto-3); }
+
+/* Tabla con la tarjeta del panel */
+.spotify .data-card { border-radius: 14px; border-color: var(--sp-borde); background: var(--sp-card); box-shadow: var(--sp-sombra); }
+.spotify .data-table thead tr { background: var(--sp-pie); }
+.spotify .user-avatar { background: var(--sp-1); color: #000; }
+.spotify .avance-fill { background: var(--sp-1); }
+
+@keyframes sp-entrar { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .sp-kpi, .sp-card { animation: none; } }
+@media (max-width: 1200px) {
+  .sp-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sp-fila-2-1, .sp-fila-1-1 { grid-template-columns: minmax(0, 1fr); }
+  .sp-fila-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .sp-kpis, .sp-fila-3 { grid-template-columns: minmax(0, 1fr); }
+  .sp-card-cuerpo { padding: 16px; }
+  .sp-pie-card { padding: 11px 16px; flex-wrap: wrap; }
+}

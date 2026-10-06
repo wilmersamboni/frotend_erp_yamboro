@@ -27,12 +27,17 @@ function ruta(id: string, loadComponent: NonNullable<Route['loadComponent']>, ex
  * se trasladan a este dominio; así sidebar, enlaces y deep-links no cambian.
  */
 export const MATERIALS_ROUTES: Routes = [
+  ruta('inicio', () => import('./inicio/inicio-materiales.component').then((m) => m.InicioMaterialesComponent)),
+  ruta('escanear', () => import('./inicio/escanear.component').then((m) => m.EscanearComponent)),
   ruta('mi-bodega', () => import('./warehouse/mi-bodega.component').then((m) => m.MiBodegaComponent), { canActivate: [miBodegaGuard] }),
   ruta('bodegas', () => import('./warehouse/mi-bodega.component').then((m) => m.MiBodegaComponent), { data: { todasLasBodegas: true } }),
   ruta('categorias', () => import('./categorias.component').then((m) => m.MaterialesCategoriasComponent)),
   ruta('sitios', () => import('./sitios.component').then((m) => m.MaterialesSitiosComponent)),
   ruta('productos', () => import('./productos.component').then((m) => m.MaterialesProductosComponent), { canActivate: [roleGuard, productosGuard] }),
   ruta('existencias', () => import('./existencias.component').then((m) => m.MaterialesExistenciasComponent)),
+  ruta('ingresos', () => import('./ingresos.component').then((m) => m.MaterialesIngresosComponent), { canActivate: [roleGuard, gestorMaterialesGuard] }),
+  ruta('marcas', () => import('./marcas.component').then((m) => m.MaterialesMarcasComponent), { canActivate: [roleGuard, gestorMaterialesGuard] }),
+  ruta('proveedores', () => import('./proveedores.component').then((m) => m.MaterialesProveedoresComponent), { canActivate: [roleGuard, gestorMaterialesGuard] }),
   ruta('reporte', () => import('./reporte/reporte-materiales.component').then((m) => m.ReporteMaterialesComponent), { canActivate: [roleGuard, gestorMaterialesGuard] }),
   ruta('items', () => import('./items.component').then((m) => m.MaterialesItemsComponent)),
   ruta('salidas', () => import('./salidas/salidas.component').then((m) => m.MaterialesSalidasComponent)),

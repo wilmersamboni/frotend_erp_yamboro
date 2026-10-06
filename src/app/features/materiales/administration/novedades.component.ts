@@ -78,7 +78,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
       </nav>
       <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
         <div class="flex flex-wrap items-center gap-2">
-          <h1 class="text-xl font-bold text-gray-800">Novedades</h1>
+          <h1 class="text-xl font-bold text-gray-800">Daños y problemas<span class="block text-xs font-normal text-gray-400">antes «Novedades»</span></h1>
           @if (idItemFiltro) {
             <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#39A900]/10 text-[#2d8000] border border-[#39A900]/20">
               Filtrando por ítem
@@ -368,7 +368,7 @@ export class MaterialesNovedadesComponent implements OnInit {
   }
 
   private idSitioNovedad(novedad: Novedad): string | null {
-    return novedad.item?.id_sitio ?? novedad.item?.producto?.id_sitio ?? null;
+    return novedad.item?.id_sitio ?? null;
   }
 
   quitarFiltroItem(): void {
@@ -419,7 +419,7 @@ export class MaterialesNovedadesComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.cargar();
+    void this.cargar().then(() => this.abrirDesdeEscaneo());
     this.live.eventos()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.cargar());
@@ -485,6 +485,18 @@ export class MaterialesNovedadesComponent implements OnInit {
     this.escaneo = null;
     this.error = null;
     this.modalOpen = true;
+  }
+
+  /** Desde "Escanear placa" (2026-10-05): `?nuevo=1&id_item=…[&tipo=DAÑO]` abre el reporte con el equipo ya elegido. Una sola vez. */
+  private desdeEscaneo = false;
+  private abrirDesdeEscaneo(): void {
+    if (this.desdeEscaneo) return;
+    this.desdeEscaneo = true;
+    const qp = this.route.snapshot.queryParamMap;
+    if (qp.get('nuevo') !== '1') return;
+    this.nuevo();
+    if (qp.get('id_item')) this.form['id_item'] = qp.get('id_item');
+    if (qp.get('tipo')) this.form['tipo'] = qp.get('tipo');
   }
 
   nuevo(): void {

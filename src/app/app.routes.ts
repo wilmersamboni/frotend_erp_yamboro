@@ -49,6 +49,13 @@ const RUTAS: Routes = [
         title: 'Página no encontrada | ERP',
         loadComponent: () => import('./features/errors/not-found.component').then((m) => m.NotFoundComponent),
       },
+      // Reporte del panel para imprimir / guardar como PDF: sin menú ni barra.
+      {
+        path: 'reporte-panel',
+        title: 'Reporte del panel | ERP',
+        canActivate: [authGuard],
+        loadComponent: () => import('./features/dashboard/reporte-panel.component').then((m) => m.ReportePanelComponent),
+      },
       {
         path: '',
         // authGuard en el padre cubre todas las rutas internas; corre antes que

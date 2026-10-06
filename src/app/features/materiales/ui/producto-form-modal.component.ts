@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
 import { OpcionSelect } from '../../tenant-administration/services/admin.service';
 import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
-import { Categoria, MaterialesApiService, Producto } from '../data-access/materiales-api.service';
+import { Categoria, Marca, MaterialesApiService, Producto, UnidadMedida } from '../data-access/materiales-api.service';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
 
 /** Minúsculas, sin tildes ni signos — mismo criterio que `normalizarFicha` del backend. */
@@ -17,21 +17,14 @@ export function normalizarFicha(valor: string | null | undefined): string {
 }
 
 const OPCIONES_TIPO_MATERIAL = [
-  { value: 'CONSUMO', label: 'Consumo', clases: 'border-green-300 bg-green-50 text-green-700' },
-  { value: 'DEVOLUTIVO', label: 'Devolutivo', clases: 'border-blue-300 bg-blue-50 text-blue-700' },
-  { value: 'PERECEDERO', label: 'Perecedero', clases: 'border-amber-300 bg-amber-50 text-amber-700' },
+  { value: 'CONSUMO', label: 'Consumo', ayuda: 'Se gasta', clases: 'border-green-300 bg-green-50 text-green-700' },
+  { value: 'DEVOLUTIVO', label: 'Devolutivo', ayuda: 'Se presta y se devuelve', clases: 'border-blue-300 bg-blue-50 text-blue-700' },
+  { value: 'PERECEDERO', label: 'Perecedero', ayuda: 'Se gasta y se vence', clases: 'border-amber-300 bg-amber-50 text-amber-700' },
 ] as const;
 
-// Unidades de medida frecuentes en SENA (alimentos, TIC, aseo, herramientas) —
-// select en vez de texto libre. Lista completa, usada como fallback cuando
-// no hay UNSPSC elegido o su familia no está en UNIDADES_POR_FAMILIA de abajo.
-const TODAS_LAS_UNIDADES = [
-  'UNIDAD', 'PAR', 'KIT', 'JUEGO', 'SET', 'METRO', 'ROLLO',
-  'LITRO', 'MILILITRO', 'GALÓN', 'BOTELLA', 'LATA', 'FRASCO',
-  'KILOGRAMO', 'GRAMO', 'LIBRA', 'TONELADA',
-  'BULTO', 'PAQUETE', 'CAJA', 'CARTÓN', 'ATADO', 'BOLSA', 'SOBRE', 'RACIMO',
-  'LICENCIA', 'ARROBA',
-];
+// La lista válida de unidades vive en la base (`unidad_medida`, migración
+// 1790200000000, GET /materiales/unidades-medida). Sin UNSPSC elegido, o si su
+// familia no está en UNIDADES_POR_FAMILIA, se ofrecen todas.
 
 // Filtra las unidades ofrecidas según la familia UNSPSC elegida (primeros 4
 // dígitos del código) — mismo criterio que SGM (`UNIDADES_POR_FAMILIA`),
@@ -55,7 +48,7 @@ const TODAS_LAS_UNIDADES = [
  *   uva, limón...) tiene su propio grupo de ~10 familias (una por estado:
  *   fresca, orgánica, seca, congelada, en conserva, puré...). Curar esto
  *   requeriría mapear decenas de familias por cada producto agrícola, no es
- *   viable a mano. Quedan en el fallback (`TODAS_LAS_UNIDADES`, ya incluye
+ *   viable a mano. Quedan en el fallback (todas las unidades de la base, que incluyen
  *   LATA/RACIMO/GALÓN para cubrir los casos más comunes).
  * - Detergentes/jabones de limpieza: no se encontró una familia identificable
  *   con confianza (las búsquedas por "detergente" solo daban reactivos de
@@ -101,7 +94,7 @@ const UNIDADES_POR_FAMILIA: Record<string, string[]> = {
 };
 
 // Unidades de peso válidas para "peso por bulto" — subconjunto de
-// TODAS_LAS_UNIDADES, mismas 3 que ofrece SGM (unidadesPeso).
+// la lista de unidades, mismas 3 que ofrece SGM (unidadesPeso).
 const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map((u) => ({ label: u, value: u }));
 
 /**
@@ -149,6 +142,7 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
                     class="px-2 py-2 rounded-lg border text-sm font-medium text-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     [class]="form['tipo_material'] === t.value ? t.clases : 'border-gray-200 text-gray-500 hover:bg-gray-50'">
                     {{ t.label }}
+                    <span class="block text-[11px] font-normal opacity-80">{{ t.ayuda }}</span>
                   </button>
                 }
               </div>
@@ -191,8 +185,18 @@ const OPCIONES_UNIDAD_PESO: OpcionSelect[] = ['KILOGRAMO', 'GRAMO', 'LIBRA'].map
             <div [class]="form['tipo_material'] === 'DEVOLUTIVO' ? 'grid grid-cols-1 sm:grid-cols-2 gap-3' : ''">
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Marca</label>
-                <input type="text" [(ngModel)]="form['marca']" placeholder="Ej: Bosch, 3M…"
-                  class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                <app-ss [options]="opcionesMarca" placeholder="Sin marca" [(ngModel)]="form['id_marca']"></app-ss>
+                @if (!creandoMarca) {
+                  <button type="button" (click)="abrirMarcaNueva()" class="mt-1 text-xs font-medium text-[#2d8000] hover:underline">+ Nueva marca</button>
+                } @else {
+                  <div class="mt-1.5 flex gap-1.5">
+                    <input type="text" [(ngModel)]="marcaNueva" maxlength="80" placeholder="Nombre de la marca" (keydown.enter)="crearMarca()"
+                      class="min-w-0 flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                    <button type="button" (click)="crearMarca()" [disabled]="guardandoMarca || !marcaNueva.trim()"
+                      class="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50" style="background-color: var(--accent-brand)">{{ guardandoMarca ? '…' : 'Crear' }}</button>
+                    <button type="button" (click)="creandoMarca = false" class="px-1.5 text-xs text-gray-400 hover:text-gray-600">✕</button>
+                  </div>
+                }
               </div>
               @if (form['tipo_material'] === 'DEVOLUTIVO') {
                 <div>
@@ -346,6 +350,71 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
       .slice(0, 3);
   }
 
+  // ── Listas maestras (2026-10-05): marcas y unidades vienen de la base ──
+  marcas: Marca[] = [];
+  unidades: UnidadMedida[] = [];
+  creandoMarca = false;
+  guardandoMarca = false;
+  marcaNueva = '';
+
+  get opcionesMarca(): OpcionSelect[] {
+    return [{ label: 'Sin marca', value: '' }, ...this.marcas.map((m) => ({ label: m.nombre, value: m.id_marca }))];
+  }
+
+  /** Nombre de la marca elegida (para la vista previa del SKU). */
+  private nombreMarca(): string {
+    return this.marcas.find((m) => m.id_marca === this.form['id_marca'])?.nombre ?? '';
+  }
+
+  private async cargarListas(): Promise<void> {
+    try {
+      const [marcas, unidades] = await Promise.all([this.api.listarMarcas(), this.api.listarUnidadesMedida()]);
+      this.marcas = marcas;
+      this.unidades = unidades;
+      // Ficha que llega con una marca escrita (pedido de un encargado): si ya existe en la lista, se elige.
+      const texto: string = this.form['marca_texto'] ?? '';
+      if (texto && !this.form['id_marca']) {
+        const m = this.marcas.find((x) => normalizarFicha(x.nombre).replace(/ /g, '') === normalizarFicha(texto).replace(/ /g, ''));
+        if (m) {
+          this.form['id_marca'] = m.id_marca;
+          this.form['marca_texto'] = '';
+        }
+      }
+    } catch (e) {
+      this.toast.httpError(e, 'No se pudieron cargar las marcas o las unidades.');
+    }
+  }
+
+  abrirMarcaNueva(): void {
+    this.marcaNueva = this.form['marca_texto'] ?? '';
+    this.creandoMarca = true;
+  }
+
+  async crearMarca(): Promise<void> {
+    const nombre = this.marcaNueva.trim();
+    if (!nombre) return;
+    this.guardandoMarca = true;
+    try {
+      const m = await this.api.crearMarca(nombre);
+      this.marcas = [...this.marcas, m].sort((a, b) => a.nombre.localeCompare(b.nombre));
+      this.form['id_marca'] = m.id_marca;
+      this.form['marca_texto'] = '';
+      this.creandoMarca = false;
+    } catch (e: any) {
+      // 409: ya existe (escrita distinto) — se elige la existente.
+      const id = e?.status === 409 ? e?.error?.data?.id_marca : null;
+      if (id && this.marcas.some((x) => x.id_marca === id)) {
+        this.form['id_marca'] = id;
+        this.creandoMarca = false;
+        this.toast.ok('Ya existía', mensajeDeError(e, 'La marca ya estaba en la lista: quedó elegida.'));
+      } else {
+        this.toast.httpError(e, 'No se pudo crear la marca.');
+      }
+    } finally {
+      this.guardandoMarca = false;
+    }
+  }
+
   opcionesTipoMaterial = OPCIONES_TIPO_MATERIAL;
   opcionesUnidadPeso = OPCIONES_UNIDAD_PESO;
 
@@ -389,11 +458,17 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
    * aunque el dato real siguiera ahí (bug real, 2026-09-17).
    */
   opcionesUnidadMedida(): OpcionSelect[] {
+    // La lista válida es la de la base (`unidad_medida`); el mapa por familia
+    // solo decide cuáles se sugieren (códigos sin tildes: GALÓN → GALON).
+    const sinTilde = (u: string) => u.normalize('NFD').replace(/[̀-ͯ]/g, '');
     const familia = (this.form['codigo_unspsc'] ?? '').slice(0, 4);
-    const unidades = UNIDADES_POR_FAMILIA[familia] ?? TODAS_LAS_UNIDADES;
+    const sugeridas = UNIDADES_POR_FAMILIA[familia]?.map(sinTilde);
+    const lista = sugeridas ? this.unidades.filter((u) => sugeridas.includes(u.codigo)) : this.unidades;
     const actual: string | undefined = this.form['unidad_medida'];
-    const lista = actual && !unidades.includes(actual) ? [actual, ...unidades] : unidades;
-    return lista.map((u) => ({ label: u, value: u }));
+    const conActual = actual && !lista.some((u) => u.codigo === actual)
+      ? [this.unidades.find((u) => u.codigo === actual) ?? { codigo: actual, nombre: actual }, ...lista]
+      : lista;
+    return conActual.map((u) => ({ label: u.nombre, value: u.codigo }));
   }
 
   /** Estado del auto-fill de SKU al crear — ver docblock de la clase. */
@@ -413,7 +488,7 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
   ngDoCheck(): void {
     if (!this.open || this.editando) return;
     const nombreActual: string = this.form['nombre'] ?? '';
-    const marcaActual: string = this.form['marca'] ?? '';
+    const marcaActual: string = this.nombreMarca() || (this.form['marca_texto'] ?? '');
     const modeloActual: string = this.form['modelo'] ?? '';
     const skuActual: string = this.form['SKU'] ?? '';
 
@@ -465,6 +540,7 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
     this.error = null;
     this.duplicado = null;
     if (!this.editando) void this.cargarCatalogo();
+    this.creandoMarca = false;
     this.skuEsAuto = true;
     this.ultimoNombreVisto = '';
     this.ultimaMarcaVista = '';
@@ -478,7 +554,8 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
         descripcion: p.descripcion ?? '',
         codigo_unspsc: p.codigo_unspsc ?? '',
         SKU: p.SKU ?? '',
-        marca: p.marca ?? '',
+        id_marca: p.id_marca ?? '',
+        marca_texto: '',
         modelo: p.modelo ?? '',
         tipo_material: p.tipo_material,
         usa_placa_sena: p.usa_placa_sena ?? true,
@@ -490,16 +567,18 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
       };
     } else {
       this.form = {
-        nombre: '', descripcion: '', codigo_unspsc: '', SKU: '', marca: '', modelo: '',
+        nombre: '', descripcion: '', codigo_unspsc: '', SKU: '', id_marca: '', marca_texto: '', modelo: '',
         tipo_material: 'CONSUMO', unidad_medida: '', usa_placa_sena: true,
         unidad_peso_bulto: '', peso_por_bulto: '',
         id_categoria: this.categorias[0]?.id_categoria ?? '',
         stock_minimo: 1,
       };
       for (const [k, v] of Object.entries(this.prefill ?? {})) {
-        if (v) this.form[k] = v;
+        // La marca del pedido llega como texto: se enlaza a la lista al cargarla (o se crea al guardar).
+        if (v) this.form[k === 'marca' ? 'marca_texto' : k] = v;
       }
     }
+    void this.cargarListas();
   }
 
   /** Best-effort: si falla, simplemente no hay sugerencias (el backend igual rechaza el duplicado). */
@@ -556,7 +635,8 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
           descripcion: form['descripcion'] || undefined,
           codigo_unspsc: form['codigo_unspsc'] || undefined,
           SKU: this.skuEsAuto ? undefined : form['SKU'] || undefined,
-          marca: form['marca'] || undefined,
+          // null quita la marca; el backend copia el nombre en `marca`.
+          id_marca: form['id_marca'] || null,
           modelo,
           usa_placa_sena: usaPlacaSena,
           unidad_medida: form['unidad_medida'],
@@ -575,7 +655,8 @@ export class ProductoFormModalComponent implements OnChanges, DoCheck {
           descripcion: form['descripcion'] || undefined,
           codigo_unspsc: form['codigo_unspsc'] || undefined,
           SKU: form['SKU'] || undefined,
-          marca: form['marca'] || undefined,
+          id_marca: form['id_marca'] || undefined,
+          marca: !form['id_marca'] && form['marca_texto'] ? form['marca_texto'] : undefined,
           modelo,
           tipo_material: form['tipo_material'],
           usa_placa_sena: usaPlacaSena,

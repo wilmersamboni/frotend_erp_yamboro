@@ -42,8 +42,9 @@ function menuMateriales(opciones: {
 describe('Sidebar: menú de Materiales según permisos efectivos', () => {
   it('instructor común: solo las pantallas de los servicios que trae de fábrica', () => {
     // Sin "Reporte de materiales": tiene existencias.ver pero no gestiona ninguna bodega ni área.
+    // Nombres de todos los días (2026-10-05); Inicio y Escanear placa los ve todo el que usa Materiales.
     expect(menuMateriales({ cargo: 'instructor', servicios: BASE_INSTRUCTOR })).toEqual([
-      'Solicitudes', 'Salidas', 'Devoluciones', 'Vencimientos', 'Existencias', 'Productos', 'Actas',
+      'Inicio', 'Escanear placa', 'Pedidos y préstamos', 'Salidas', 'Devoluciones', 'Fechas por vencer', '¿Qué hay y dónde?', 'Catálogo de productos', 'Actas',
     ]);
   });
 
@@ -54,11 +55,11 @@ describe('Sidebar: menú de Materiales según permisos efectivos', () => {
       responsableBodega: true,
     });
 
-    expect(menu).toEqual(expect.arrayContaining(['Mi Bodega', 'Traslados', 'Novedades', 'Kardex', 'Categorías', 'Asignaciones', 'Ítems', 'Lotes']));
+    expect(menu).toEqual(expect.arrayContaining(['Inicio', 'Mi Bodega', 'Mover entre bodegas', 'Daños y problemas', 'Historial de movimientos', 'Categorías', 'Entregas a fichas', 'Equipos con placa', 'Material que se gasta']));
     // El reporte (nombres y cédulas de terceros) es para quien gestiona: el encargado sí lo ve.
     expect(menu).toContain('Reporte de materiales');
     // "Mi Bodega" ya cubre el catálogo de productos; "Bodegas" es la consola del administrador.
-    expect(menu).not.toContain('Productos');
+    expect(menu).not.toContain('Catálogo de productos');
     expect(menu).not.toContain('Bodegas');
   });
 
@@ -67,10 +68,15 @@ describe('Sidebar: menú de Materiales según permisos efectivos', () => {
 
     for (const cargo of ['instructor', 'aprendiz', 'administrador']) {
       const menu = menuMateriales({ cargo, servicios: sinSolicitudes, aplicativo: 'Materiales' });
-      expect(menu).not.toContain('Solicitudes');
-      expect(menu).not.toContain('Vencimientos');
-      expect(menu).toContain('Existencias');
+      expect(menu).not.toContain('Pedidos y préstamos');
+      expect(menu).not.toContain('Fechas por vencer');
+      expect(menu).toContain('¿Qué hay y dónde?');
     }
+  });
+
+  it('Inicio y Escanear placa: los ve quien tenga cualquier servicio de entrada, y nadie más', () => {
+    expect(menuMateriales({ cargo: 'aprendiz', servicios: ['materiales.solicitudes.crear'] })).toEqual(['Inicio', 'Escanear placa']);
+    expect(menuMateriales({ cargo: 'aprendiz', servicios: ['materiales.actas.ver'] })).not.toContain('Inicio');
   });
 
   it('administrador de Materiales: todo el menú, con "Bodegas" y sin "Mi Bodega"', () => {
@@ -99,6 +105,9 @@ describe('Rutas de Materiales: misma regla que el menú', () => {
       expect(r, pantalla.id).toBeDefined();
       if (pantalla.acceso.tipo === 'servicio') {
         expect(r?.data?.['serviciosRequeridos'], pantalla.id).toEqual([pantalla.acceso.servicio]);
+      }
+      if (pantalla.acceso.tipo === 'cualquiera') {
+        expect(r?.data?.['servicios'], pantalla.id).toEqual(pantalla.acceso.servicios);
       }
     }
   });

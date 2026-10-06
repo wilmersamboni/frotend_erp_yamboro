@@ -48,7 +48,7 @@ import { MaterialesScreenPolicy } from './ui/materiales-screen-policy';
       </nav>
       <div class="flex items-center justify-between mb-5">
         <div>
-          <h1 class="text-xl font-bold text-gray-800">Productos</h1>
+          <h1 class="text-xl font-bold text-gray-800">Catálogo de productos</h1>
           <p class="text-xs text-gray-400 mt-0.5">Catálogo único del centro. Cada bodega agrega aquí sus unidades, sin crear el producto otra vez.</p>
         </div>
         <div class="flex items-center gap-2">

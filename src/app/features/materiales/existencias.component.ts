@@ -40,7 +40,7 @@ import { EsperaDirective } from '../../shared/directives/espera.directive';
   template: `
     <div class="p-6">
       <div class="mb-5">
-        <h1 class="text-xl font-bold text-gray-800 mb-3">Existencias</h1>
+        <h1 class="text-xl font-bold text-gray-800 mb-3">¿Qué hay y dónde?<span class="block text-xs font-normal text-gray-400">antes «Existencias»</span></h1>
         <p class="text-sm text-gray-400">Vista de solo lectura. El stock se mueve con solicitudes, traslados, novedades y devoluciones.</p>
       </div>
 

@@ -75,7 +75,7 @@ const VENTANAS = [7, 15, 30] as const;
       <div class="flex flex-wrap items-end justify-between gap-4 mb-5">
         <div>
           <p class="text-xs font-bold uppercase tracking-[0.14em] text-[#2d8000]">Control de inventario</p>
-          <h1 class="text-2xl font-bold text-gray-900 mt-0.5">Vencimientos</h1>
+          <h1 class="text-2xl font-bold text-gray-900 mt-0.5">Fechas por vencer<span class="block text-xs font-normal text-gray-400">antes «Vencimientos»</span></h1>
           <p class="text-sm text-gray-400 mt-0.5">
             {{ vista() === 'perecederos' ? 'Lotes perecederos con fecha de vencimiento próxima o pasada.' : 'Préstamos entregados que deben devolverse.' }}
           </p>
