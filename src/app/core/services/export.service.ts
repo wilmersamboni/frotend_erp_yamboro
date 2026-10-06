@@ -399,11 +399,9 @@ export class ExportService {
   //  PANEL DE INICIO — EXCEL
   // ══════════════════════════════════════════════════════════════════════════
   /**
-   * Excel del panel de inicio con el estilo de los informes: Resumen (cifras,
-   * hallazgos, distribución y ritmo con barras de datos), Requieren atención,
-   * Por programa, Por empresa y Prácticas (filtros, fechas reales, días para
-   * el fin, estado en color). ExcelJS no tiene gráficos nativos: se usan
-   * barras de datos (formato condicional).
+   * Excel del panel de inicio, clásico y organizado (2026-10-06): Resumen,
+   * Por programa, Por empresa, Requieren atención y Prácticas (tabla de Excel
+   * con filtros). Las estadísticas son fórmulas sobre la hoja Prácticas.
    */
   async exportarExcel(
     stats: Stats,
@@ -412,198 +410,244 @@ export class ExportService {
     practicas: any[],
     graficos?: GraficosExport,
   ): Promise<void> {
+    // Excel clásico y "vivo" (2026-10-06, pedido del dueño): la hoja Prácticas
+    // es una tabla de Excel real y TODAS las estadísticas son fórmulas sobre
+    // ella (CONTAR.SI.CONJUNTO), así que se recalculan solas si alguien
+    // corrige o agrega filas. "Días para el fin" usa HOY(): cambia cada día.
     const r = this.resumenPanel(stats, practicas, graficos);
-    const { GRIS, TENUE, LINEA, LINEA_F, SUAVE, ACENTO } = XL;
     const XLS = await import('exceljs');
     const wb = new XLS.Workbook();
     wb.creator = 'EPSAS';
     wb.created = new Date();
-    const subtitulo = 'Panel de control · Etapa productiva';
+    wb.calcProperties = { fullCalcOnLoad: true };
     const generado = `Generado el ${new Date().toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })}`;
-    const colorTasa = (t: number | null) => (t === null ? XL.TENUE : t >= 80 ? 'FF15803D' : t >= 60 ? 'FFB45309' : 'FFB91C1C');
 
-    // ── Resumen ─────────────────────────────────────────────────────────────
-    const ws = wb.addWorksheet('Resumen', {
-      views: [{ showGridLines: false }],
-      pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
-    });
-    ws.columns = [{ width: 26 }, { width: 18 }, { width: 18 }, { width: 18 }];
-    const fila = (n: number, alto?: number) => { const rw = ws.getRow(n); if (alto) rw.height = alto; return rw; };
-    const bajo = (c: ExcelJS.Cell, color = LINEA, estilo: ExcelJS.BorderStyle = 'thin') => (c.border = { bottom: { style: estilo, color: { argb: color } } });
-    const rotulo = (celda: string, texto: string) => { ws.getCell(celda).value = texto.toUpperCase(); ws.getCell(celda).font = fuenteXl({ size: 9, bold: true, color: { argb: ACENTO } }); };
-
-    ws.mergeCells('A1:D1'); ws.getCell('A1').value = 'Reporte estadístico'; ws.getCell('A1').font = fuenteXl({ size: 9, bold: true, color: { argb: ACENTO } });
-    ws.mergeCells('A2:D2'); ws.getCell('A2').value = 'Panel de control'; ws.getCell('A2').font = fuenteXl({ size: 18, bold: true }); fila(2, 30);
-    ws.mergeCells('A3:D3'); ws.getCell('A3').value = 'Estado de la etapa productiva de los aprendices'; ws.getCell('A3').font = fuenteXl({ color: { argb: GRIS } });
-    ws.mergeCells('A4:D4'); ws.getCell('A4').value = generado; ws.getCell('A4').font = fuenteXl({ size: 8.5, color: { argb: TENUE } });
-    for (let c = 1; c <= 4; c++) bajo(fila(4).getCell(c), ACENTO, 'medium');
-
-    const cifras: [string, number | string, string?, string?][][] = [
-      [['Aprendices', r.total], ['En etapa productiva', stats.activas, `${r.pct.activas}%`], ['Certificadas', stats.certificadas, `${r.pct.certificadas}%`], ['Desertadas', stats.desertadas, `${r.pct.desertadas}%`]],
-      [['Tasa de éxito', r.casosResueltos ? r.tasaExito / 100 : '—', r.casosResueltos ? `de ${r.casosResueltos} resueltos` : '', r.casosResueltos ? colorTasa(r.tasaExito) : undefined],
-       ['En riesgo', stats.enRiesgo, `${r.pct.enRiesgo}%`, stats.enRiesgo ? 'FFB45309' : undefined],
-       ['Requieren atención', r.atencion.length, '', r.atencion.length ? 'FFB91C1C' : 'FF15803D'],
-       ['Otros estados', r.otros, `${r.pct.otros}%`]],
-    ];
-    let f = 6;
-    cifras.forEach((grupo) => {
-      grupo.forEach(([etq, valor, det, color], i) => {
-        const v = fila(f).getCell(i + 1);
-        v.value = valor as any;
-        v.font = fuenteXl({ size: 20, bold: true, color: { argb: color ?? XL.TX } });
-        v.alignment = { horizontal: 'left', vertical: 'bottom' };
-        if (etq === 'Tasa de éxito' && typeof valor === 'number') v.numFmt = '0%';
-        const e = fila(f + 1).getCell(i + 1);
-        e.value = det ? `${etq.toUpperCase()} · ${det}` : etq.toUpperCase();
-        e.font = fuenteXl({ size: 8, bold: true, color: { argb: GRIS } });
-        bajo(e);
-      });
-      fila(f, 30);
-      f += 3;
-    });
-
-    rotulo(`A${f}`, 'Hallazgos');
-    f++;
-    r.hallazgos.forEach((h) => {
-      ws.mergeCells(`A${f}:D${f}`);
-      const c = ws.getCell(`A${f}`);
-      c.value = { richText: [
-        { text: '■  ', font: { name: 'Calibri', size: 8, color: { argb: ACENTO } } },
-        ...(h.fuerte ? [{ text: `${h.fuerte} `, font: { name: 'Calibri', size: 10, bold: true, color: { argb: XL.TX } } }] : []),
-        { text: h.texto, font: { name: 'Calibri', size: 10, color: { argb: XL.TX } } },
-      ] };
-      c.alignment = { wrapText: true, vertical: 'top' };
-      fila(f, 18);
-      f++;
-    });
-    f++;
-
-    /** Tabla chica dentro del Resumen (encabezado gris + filas con línea abajo). */
-    const tablita = (titulo: string, cab: string[], filas: (string | number)[][], formato: (fila: ExcelJS.Row, i: number) => void) => {
-      rotulo(`A${f}`, titulo);
-      f++;
-      cab.forEach((t, i) => {
-        const c = fila(f).getCell(i + 1);
-        c.value = t.toUpperCase();
-        c.font = fuenteXl({ size: 8.5, bold: true, color: { argb: GRIS } });
-        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: SUAVE } };
-        c.alignment = { horizontal: i ? 'center' : 'left', vertical: 'middle' };
-        bajo(c, LINEA_F, 'medium');
-      });
-      fila(f, 20);
-      f++;
-      const desde = f;
-      filas.forEach((vals, i) => {
-        const rw = fila(f, 18);
-        vals.forEach((v, ci) => {
-          const c = rw.getCell(ci + 1);
-          c.value = v;
-          c.font = fuenteXl();
-          c.alignment = { horizontal: ci ? 'center' : 'left', vertical: 'middle' };
-          bajo(c);
-        });
-        formato(rw, i);
-        f++;
-      });
-      f++;
-      return { desde, hasta: f - 2 };
+    // ── Estilo clásico ──────────────────────────────────────────────────────
+    const VERDE = 'FF375623';
+    const VERDE_CLARO = 'FFE2EFDA';
+    const BORDE = 'FFBFBFBF';
+    const f11 = (o: Partial<ExcelJS.Font> = {}): Partial<ExcelJS.Font> => ({ name: 'Calibri', size: 11, color: { argb: 'FF000000' }, ...o });
+    const marco: Partial<ExcelJS.Borders> = {
+      top: { style: 'thin', color: { argb: BORDE } }, bottom: { style: 'thin', color: { argb: BORDE } },
+      left: { style: 'thin', color: { argb: BORDE } }, right: { style: 'thin', color: { argb: BORDE } },
     };
-    const barra = (ref: string, argb = 'FF2D6A0F') => ws.addConditionalFormatting({
+    const hoja = (nombre: string, anchos: number[], horizontal = false) => {
+      const ws = wb.addWorksheet(nombre, {
+        views: [{ showGridLines: false }],
+        pageSetup: { paperSize: 9, orientation: horizontal ? 'landscape' : 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+        headerFooter: { oddFooter: `&L&8Panel de control · Etapa productiva&R&8Página &P de &N` },
+      });
+      ws.columns = anchos.map((width) => ({ width }));
+      return ws;
+    };
+    const titulo = (ws: ExcelJS.Worksheet, texto: string, sub: string) => {
+      ws.getCell('A1').value = texto;
+      ws.getCell('A1').font = f11({ size: 16, bold: true, color: { argb: VERDE } });
+      ws.getRow(1).height = 24;
+      ws.getCell('A2').value = sub;
+      ws.getCell('A2').font = f11({ size: 10, italic: true, color: { argb: 'FF595959' } });
+    };
+    /** Encabezado de tabla clásico: verde claro, negrita, con marco. */
+    const encabezado = (ws: ExcelJS.Worksheet, fila: number, textos: string[], desdeCol = 1) => {
+      textos.forEach((t, i) => {
+        const c = ws.getRow(fila).getCell(desdeCol + i);
+        c.value = t;
+        c.font = f11({ bold: true });
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: VERDE_CLARO } };
+        c.border = marco;
+        c.alignment = { vertical: 'middle', horizontal: i ? 'center' : 'left', wrapText: true };
+      });
+      ws.getRow(fila).height = 20;
+    };
+    const celda = (ws: ExcelJS.Worksheet, ref: string, valor: any, o: { fmt?: string; negrita?: boolean; centro?: boolean } = {}) => {
+      const c = ws.getCell(ref);
+      c.value = valor;
+      c.font = f11({ bold: !!o.negrita });
+      c.border = marco;
+      c.alignment = { vertical: 'middle', horizontal: o.centro ? 'center' : 'left' };
+      if (o.fmt) c.numFmt = o.fmt;
+      return c;
+    };
+    const barra = (ws: ExcelJS.Worksheet, ref: string, argb = 'FF8FC27A') => ws.addConditionalFormatting({
       ref,
-      rules: [{ type: 'dataBar', priority: 1, gradient: false, minLength: 0, maxLength: 100,
+      rules: [{ type: 'dataBar', priority: 1, gradient: true, minLength: 0, maxLength: 100,
         cfvo: [{ type: 'num', value: 0 }, { type: 'max' }], color: { argb } } as any],
     });
 
-    const dist = tablita('Distribución por estado', ['Estado', 'Total', 'Porcentaje'],
-      r.distribucion.map((d) => [d.etiqueta, d.valor, d.pct / 100]),
-      (rw, i) => {
-        rw.getCell(3).numFmt = '0%';
-        rw.getCell(1).value = { richText: [
-          { text: '●  ', font: { name: 'Calibri', size: 10, color: { argb: r.distribucion[i].argb } } },
-          { text: r.distribucion[i].etiqueta, font: { name: 'Calibri', size: 10, color: { argb: XL.TX } } },
-        ] };
+    // ── Datos base: la hoja Prácticas (tabla de Excel) ─────────────────────
+    // Columnas fijas: las fórmulas de las demás hojas apuntan a ellas.
+    const SITUACION: Record<string, string> = { activa: 'Activa', certificada: 'Certificada', desertada: 'Desertada', enRiesgo: 'En riesgo' };
+    const situacion = (p: any) => SITUACION[categorizarEstado(p.estado)] ?? 'Otro';
+    const filasP = r.practicas;
+    const PRIMERA = 5;
+    const ULTIMA = 5000; // rango amplio: las fórmulas siguen contando si se agregan filas
+    const col = (letra: string) => `'Prácticas'!$${letra}$${PRIMERA}:$${letra}$${ULTIMA}`;
+    const SIT = col('G'), PROG = col('D'), EMP = col('E'), INI = col('H'), FIN = col('I'), DIAS = col('J'), APR = col('A');
+
+    const wsL = hoja('Prácticas', [32, 15, 11, 36, 28, 14, 13, 12, 12, 14, 10, 40], true);
+    titulo(wsL, 'Prácticas', `Etapas prácticas registradas · ${generado}`);
+    const hoyUtc = (() => { const h = new Date(); return Date.UTC(h.getFullYear(), h.getMonth(), h.getDate()); })();
+    if (filasP.length) {
+      wsL.addTable({
+        name: 'Practicas',
+        ref: `A${PRIMERA - 1}`,
+        headerRow: true,
+        // Medium4 = acento verde en el tema que escribe ExcelJS (Medium7 sale naranja).
+        style: { theme: 'TableStyleMedium4', showRowStripes: true },
+        columns: ['Aprendiz', 'Identificación', 'Ficha', 'Programa', 'Empresa', 'Estado', 'Situación', 'Inicio', 'Fin', 'Días para el fin', 'Avance', 'Observación']
+          .map((name) => ({ name, filterButton: true })),
+        rows: filasP.map((p: any, i: number) => {
+          const fila = PRIMERA + i;
+          const fin = fechaXl(p.fecha_fin);
+          const sigue = ['Activa', 'En riesgo'].includes(situacion(p));
+          const dias = sigue && fin instanceof Date ? Math.round((fin.getTime() - hoyUtc) / DIA_MS) : '';
+          return [
+            p.nombre ?? '—', String(p.identificacion ?? p.documento ?? '—'), p.ficha ?? '—', p.programa ?? '—', p.empresaNombre ?? '—',
+            etiquetaEstado(p.estado), situacion(p), fechaXl(p.fecha_inicio), fin,
+            // Se recalcula cada día; vacío si ya no está activa o no tiene fecha de fin.
+            { formula: `IF(AND(OR(G${fila}="Activa",G${fila}="En riesgo"),ISNUMBER(I${fila})),I${fila}-TODAY(),"")`, result: dias },
+            typeof p.avance === 'number' ? p.avance / 100 : '', p.observacion || '',
+          ];
+        }),
       });
-    barra(`C${dist.desde}:C${dist.hasta}`);
-
-    const rit = tablita('Ritmo: inicios y cierres previstos', ['Mes', 'Inicios', 'Cierres previstos'],
-      r.ritmo.labels.map((m, i) => [m, r.ritmo.inicios[i], r.ritmo.cierres[i]]),
-      (rw, i) => { if (i === r.ritmo.actual) rw.eachCell((c) => (c.font = fuenteXl({ bold: true }))); });
-    barra(`B${rit.desde}:B${rit.hasta}`);
-    barra(`C${rit.desde}:C${rit.hasta}`, 'FF94A3B8');
-    ws.getCell(`A${f - 1}`).value = 'Seis meses atrás y cinco adelante; el mes actual va en negrita.';
-    ws.getCell(`A${f - 1}`).font = fuenteXl({ size: 8, italic: true, color: { argb: TENUE } });
-
-    // ── Requieren atención ──────────────────────────────────────────────────
-    const wsA = this.hojaExcel(wb, 'Requieren atención', `${subtitulo} · ${r.atencion.length} prácticas`, `${subtitulo} · ${generado}`,
-      [
-        { titulo: 'Prioridad', ancho: 11, tipo: 'negrita' }, { titulo: 'Aprendiz', ancho: 30, tipo: 'negrita' }, { titulo: 'Identificación', ancho: 15 },
-        { titulo: 'Programa', ancho: 30 }, { titulo: 'Ficha', ancho: 11 }, { titulo: 'Empresa', ancho: 24 }, { titulo: 'Estado', ancho: 13, tipo: 'estado' },
-        { titulo: 'Motivo', ancho: 52 }, { titulo: 'Avance', ancho: 10, tipo: 'porcentaje' },
-      ],
-      r.atencion.map((a) => [a.prioridad, a.nombre, a.identificacion, a.programa, a.ficha, a.empresa, a.estado, a.motivo, a.avance === null ? '—' : a.avance / 100]),
-      'Ninguna práctica requiere atención inmediata.');
-    r.atencion.forEach((a, i) => (wsA.getRow(5 + i).getCell(1).font = fuenteXl({ bold: true, color: { argb: a.prioridad === 'Alta' ? 'FFB91C1C' : 'FFB45309' } })));
-
-    // ── Por programa ────────────────────────────────────────────────────────
-    const wsP = this.hojaExcel(wb, 'Por programa', subtitulo, `${subtitulo} · ${generado}`,
-      [
-        { titulo: 'Programa', ancho: 44, tipo: 'negrita' }, { titulo: 'Aprendices', ancho: 12, tipo: 'numero' },
-        { titulo: 'Activas', ancho: 10, tipo: 'numero' }, { titulo: 'Certificadas', ancho: 13, tipo: 'numero' },
-        { titulo: 'Desertadas', ancho: 12, tipo: 'numero' }, { titulo: 'En riesgo', ancho: 11, tipo: 'numero' },
-        { titulo: 'Tasa de éxito', ancho: 14, tipo: 'porcentaje' },
-      ],
-      r.porPrograma.map((p) => [p.programa, p.total, p.activas, p.certificadas, p.desertadas, p.enRiesgo, p.tasa === null ? '—' : p.tasa / 100]),
-      'No hay prácticas registradas.');
-    r.porPrograma.forEach((p, i) => {
-      if (p.tasa !== null) wsP.getRow(5 + i).getCell(7).font = fuenteXl({ bold: true, color: { argb: colorTasa(p.tasa) } });
-      if (p.desertadas > 0) wsP.getRow(5 + i).getCell(5).font = fuenteXl({ color: { argb: 'FFB91C1C' } });
-    });
-
-    // ── Por empresa ─────────────────────────────────────────────────────────
-    this.hojaExcel(wb, 'Por empresa', subtitulo, `${subtitulo} · ${generado}`,
-      [
-        { titulo: 'Empresa', ancho: 40, tipo: 'negrita' }, { titulo: 'Aprendices', ancho: 12, tipo: 'numero' },
-        { titulo: 'Activas', ancho: 10, tipo: 'numero' }, { titulo: 'Certificadas', ancho: 13, tipo: 'numero' },
-        { titulo: 'Desertadas', ancho: 12, tipo: 'numero' },
-      ],
-      r.porEmpresa.map((e) => [e.empresa, e.total, e.activas, e.certificadas, e.desertadas]),
-      'No hay empresas registradas.');
-
-    // ── Prácticas ───────────────────────────────────────────────────────────
-    const wsL = this.hojaExcel(wb, 'Prácticas', subtitulo, `${subtitulo} · ${generado}`,
-      [
-        { titulo: 'Aprendiz', ancho: 30, tipo: 'negrita' }, { titulo: 'Identificación', ancho: 15 }, { titulo: 'Ficha', ancho: 11 },
-        { titulo: 'Programa', ancho: 34 }, { titulo: 'Empresa', ancho: 28 }, { titulo: 'Estado', ancho: 14, tipo: 'estado' },
-        { titulo: 'Inicio', ancho: 12, tipo: 'fecha' }, { titulo: 'Fin', ancho: 12, tipo: 'fecha' },
-        { titulo: 'Días para el fin', ancho: 14, tipo: 'numero' }, { titulo: 'Avance', ancho: 10, tipo: 'porcentaje' }, { titulo: 'Observación', ancho: 36 },
-      ],
-      r.practicas.map((p: any) => {
-        const sigue = ['activa', 'enRiesgo'].includes(categorizarEstado(p.estado));
-        const dias = sigue ? diasHasta(p.fecha_fin) : null;
-        return [
-          p.nombre ?? '—', String(p.identificacion ?? p.documento ?? '—'), p.ficha ?? '—', p.programa ?? '—', p.empresaNombre ?? '—',
-          etiquetaEstado(p.estado), fechaXl(p.fecha_inicio), fechaXl(p.fecha_fin), dias ?? '—',
-          typeof p.avance === 'number' ? p.avance / 100 : '—', p.observacion || '—',
-        ];
-      }),
-      'No hay prácticas registradas.');
-    if (r.practicas.length) {
-      const ultima = 4 + r.practicas.length;
-      // Días para el fin: rojo si ya venció (y sigue activa), ámbar si quedan 30 o menos.
+      for (let i = 0; i < filasP.length; i++) {
+        const rw = wsL.getRow(PRIMERA + i);
+        rw.getCell(8).numFmt = 'dd/mm/yyyy';
+        rw.getCell(9).numFmt = 'dd/mm/yyyy';
+        rw.getCell(10).numFmt = '0;[Red]-0';
+        rw.getCell(11).numFmt = '0%';
+        [3, 6, 7, 8, 9, 10, 11].forEach((c) => (rw.getCell(c).alignment = { horizontal: 'center' }));
+      }
+      const fin = PRIMERA + filasP.length - 1;
+      barra(wsL, `K${PRIMERA}:K${fin}`);
       wsL.addConditionalFormatting({
-        ref: `I5:I${ultima}`,
+        ref: `J${PRIMERA}:J${fin}`,
         rules: [
-          { type: 'cellIs', operator: 'lessThan', formulae: ['0'], priority: 1, style: { font: { color: { argb: 'FFB91C1C' }, bold: true } } } as any,
-          { type: 'cellIs', operator: 'between', formulae: ['0', '30'], priority: 2, style: { font: { color: { argb: 'FFB45309' }, bold: true } } } as any,
+          { type: 'cellIs', operator: 'lessThan', formulae: ['0'], priority: 2, style: { font: { color: { argb: 'FFC00000' }, bold: true } } } as any,
+          { type: 'expression', formulae: [`AND(ISNUMBER(J${PRIMERA}),J${PRIMERA}>=0,J${PRIMERA}<=30)`], priority: 3, style: { font: { color: { argb: 'FFC65911' }, bold: true } } } as any,
         ],
       });
-      wsL.addConditionalFormatting({
-        ref: `J5:J${ultima}`,
-        rules: [{ type: 'dataBar', priority: 3, gradient: false, minLength: 0, maxLength: 100,
-          cfvo: [{ type: 'num', value: 0 }, { type: 'num', value: 1 }], color: { argb: 'FF2D6A0F' } } as any],
-      });
-      wsL.views = [{ state: 'frozen', ySplit: 4, xSplit: 1, showGridLines: false }];
+      wsL.views = [{ state: 'frozen', ySplit: PRIMERA - 1, xSplit: 1, showGridLines: false }];
+    } else {
+      wsL.getCell('A4').value = 'No hay prácticas registradas.';
+      wsL.getCell('A4').font = f11({ italic: true, color: { argb: 'FF7F7F7F' } });
     }
+
+    // ── Resumen: indicadores con fórmulas ───────────────────────────────────
+    const ws = hoja('Resumen', [44, 14, 16, 52]);
+    titulo(ws, 'Panel de control — Etapa productiva', `${generado}. Las cifras se calculan con fórmulas sobre la hoja «Prácticas».`);
+
+    const cuenta = (cat: string) => practicas.filter((p) => situacion(p) === cat).length;
+    const n = { total: filasP.length, activa: cuenta('Activa'), cert: cuenta('Certificada'), des: cuenta('Desertada'), riesgo: cuenta('En riesgo') };
+    const resueltos = n.cert + n.des;
+    const proximas = filasP.filter((p: any) => { const d = diasHasta(p.fecha_fin); return situacion(p) === 'Activa' && d !== null && d >= 0 && d <= 30; }).length;
+    const vencidas = filasP.filter((p: any) => { const d = diasHasta(p.fecha_fin); return situacion(p) === 'Activa' && d !== null && d < 0; }).length;
+
+    encabezado(ws, 4, ['Indicador', 'Valor', '% de las etapas', 'Cómo se calcula']);
+    type Ind = [string, any, any, string];
+    const pctDe = (filaValor: number, res: number) => ({ formula: `IFERROR(B${filaValor}/$B$6,0)`, result: n.total ? res / n.total : 0 });
+    const indicadores: Ind[] = [
+      ['Aprendices del centro', stats.aprendices, '', 'Dato del sistema al generar el archivo'],
+      ['Etapas prácticas registradas', { formula: `COUNTA(${APR})`, result: n.total }, '', 'Filas de la hoja Prácticas'],
+      ['En etapa productiva (activas)', { formula: `COUNTIF(${SIT},"Activa")`, result: n.activa }, pctDe(7, n.activa), 'Situación = Activa'],
+      ['Certificadas', { formula: `COUNTIF(${SIT},"Certificada")`, result: n.cert }, pctDe(8, n.cert), 'Situación = Certificada'],
+      ['Desertadas', { formula: `COUNTIF(${SIT},"Desertada")`, result: n.des }, pctDe(9, n.des), 'Situación = Desertada'],
+      ['En riesgo (suspendidas o condicionadas)', { formula: `COUNTIF(${SIT},"En riesgo")`, result: n.riesgo }, pctDe(10, n.riesgo), 'Situación = En riesgo'],
+      ['Tasa de éxito', { formula: `IFERROR(B8/(B8+B9),"—")`, result: resueltos ? n.cert / resueltos : '—' }, '', 'Certificadas ÷ (certificadas + desertadas); «—» si aún no hay casos resueltos'],
+      ['Activas que terminan en los próximos 30 días', { formula: `COUNTIFS(${SIT},"Activa",${DIAS},">=0",${DIAS},"<=30")`, result: proximas }, '', 'Se actualiza cada día (columna Días para el fin)'],
+      ['Activas con la fecha de fin vencida', { formula: `COUNTIFS(${SIT},"Activa",${DIAS},"<0")`, result: vencidas }, '', 'Siguen activas y ya pasó su fecha de fin'],
+    ];
+    indicadores.forEach(([etq, valor, pct, nota], i) => {
+      const f = 5 + i;
+      celda(ws, `A${f}`, etq, { negrita: i === 1 });
+      celda(ws, `B${f}`, valor, { centro: true, negrita: true, fmt: etq === 'Tasa de éxito' ? '0%' : '#,##0' });
+      celda(ws, `C${f}`, pct, { centro: true, fmt: '0%' });
+      const c = celda(ws, `D${f}`, nota);
+      c.font = f11({ size: 9, italic: true, color: { argb: 'FF7F7F7F' } });
+    });
+    barra(ws, 'C7:C10');
+
+    // Ritmo por mes: inicios y cierres previstos, con fórmulas sobre las fechas reales
+    let f = 5 + indicadores.length + 2;
+    ws.getCell(`A${f}`).value = 'Ritmo por mes';
+    ws.getCell(`A${f}`).font = f11({ size: 13, bold: true, color: { argb: VERDE } });
+    f++;
+    encabezado(ws, f, ['Mes', 'Inicios', 'Cierres previstos']);
+    f++;
+    const hoy = new Date();
+    const desdeRitmo = f;
+    for (let k = -6; k <= 5; k++) {
+      const ini = new Date(Date.UTC(hoy.getFullYear(), hoy.getMonth() + k, 1));
+      const i = k + 6;
+      celda(ws, `A${f}`, ini, { fmt: 'mmmm yyyy', negrita: k === 0 });
+      celda(ws, `B${f}`, { formula: `COUNTIFS(${INI},">="&A${f},${INI},"<"&DATE(YEAR(A${f}),MONTH(A${f})+1,1))`, result: r.ritmo.inicios[i] }, { centro: true });
+      celda(ws, `C${f}`, { formula: `COUNTIFS(${FIN},">="&A${f},${FIN},"<"&DATE(YEAR(A${f}),MONTH(A${f})+1,1))`, result: r.ritmo.cierres[i] }, { centro: true });
+      f++;
+    }
+    barra(ws, `B${desdeRitmo}:B${f - 1}`);
+    barra(ws, `C${desdeRitmo}:C${f - 1}`, 'FFA6A6A6');
+    ws.getCell(`A${f}`).value = 'Seis meses atrás y cinco adelante. El mes actual va en negrita.';
+    ws.getCell(`A${f}`).font = f11({ size: 9, italic: true, color: { argb: 'FF7F7F7F' } });
+
+    // ── Por programa / por empresa: una fila por nombre, columnas con fórmulas ─
+    const porGrupo = (nombre: string, etiqueta: string, nombres: string[], rango: string) => {
+      const wsG = hoja(nombre, [46, 11, 11, 13, 12, 11, 14]);
+      titulo(wsG, nombre, `${generado}. Se recalcula a partir de la hoja «Prácticas».`);
+      encabezado(wsG, 4, [etiqueta, 'Etapas', 'Activas', 'Certificadas', 'Desertadas', 'En riesgo', 'Tasa de éxito']);
+      if (!nombres.length) {
+        wsG.getCell('A5').value = 'No hay prácticas registradas.';
+        wsG.getCell('A5').font = f11({ italic: true, color: { argb: 'FF7F7F7F' } });
+        return;
+      }
+      const deGrupo = (g: string) => practicas.filter((p) => ((nombre === 'Por programa' ? p.programa : p.empresaNombre) || '—') === g);
+      nombres.forEach((g, i) => {
+        const fl = 5 + i;
+        const ps = deGrupo(g);
+        const c = (cat: string) => ps.filter((p) => situacion(p) === cat).length;
+        const cuentaSi = (cat?: string) => cat ? `COUNTIFS(${rango},$A${fl},${SIT},"${cat}")` : `COUNTIF(${rango},$A${fl})`;
+        celda(wsG, `A${fl}`, g);
+        celda(wsG, `B${fl}`, { formula: cuentaSi(), result: ps.length }, { centro: true, negrita: true });
+        celda(wsG, `C${fl}`, { formula: cuentaSi('Activa'), result: c('Activa') }, { centro: true });
+        celda(wsG, `D${fl}`, { formula: cuentaSi('Certificada'), result: c('Certificada') }, { centro: true });
+        celda(wsG, `E${fl}`, { formula: cuentaSi('Desertada'), result: c('Desertada') }, { centro: true });
+        celda(wsG, `F${fl}`, { formula: cuentaSi('En riesgo'), result: c('En riesgo') }, { centro: true });
+        const res = c('Certificada') + c('Desertada');
+        celda(wsG, `G${fl}`, { formula: `IFERROR(D${fl}/(D${fl}+E${fl}),"—")`, result: res ? c('Certificada') / res : '—' }, { centro: true, fmt: '0%' });
+      });
+      const fin = 4 + nombres.length;
+      const tot = fin + 1;
+      celda(wsG, `A${tot}`, 'Total', { negrita: true });
+      ['B', 'C', 'D', 'E', 'F'].forEach((L) => celda(wsG, `${L}${tot}`, { formula: `SUM(${L}5:${L}${fin})` }, { centro: true, negrita: true }));
+      celda(wsG, `G${tot}`, { formula: `IFERROR(D${tot}/(D${tot}+E${tot}),"—")` }, { centro: true, negrita: true, fmt: '0%' });
+      wsG.getRow(tot).eachCell((cc) => (cc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } }));
+      barra(wsG, `B5:B${fin}`);
+      wsG.views = [{ state: 'frozen', ySplit: 4, showGridLines: false }];
+    };
+    porGrupo('Por programa', 'Programa', r.porPrograma.map((p) => (p.programa === 'Sin programa' ? '—' : p.programa)), PROG);
+    porGrupo('Por empresa', 'Empresa', r.porEmpresa.map((e) => (e.empresa === 'Sin empresa' ? '—' : e.empresa)), EMP);
+
+    // ── Requieren atención (foto al generar: depende de reglas, no de una fórmula) ─
+    const wsA = hoja('Requieren atención', [11, 32, 15, 34, 11, 26, 14, 56, 10], true);
+    titulo(wsA, 'Requieren atención', `${generado}. Lista calculada al generar el archivo.`);
+    encabezado(wsA, 4, ['Prioridad', 'Aprendiz', 'Identificación', 'Programa', 'Ficha', 'Empresa', 'Estado', 'Motivo', 'Avance']);
+    if (!r.atencion.length) {
+      wsA.getCell('A5').value = 'Ninguna práctica requiere atención inmediata.';
+      wsA.getCell('A5').font = f11({ bold: true, color: { argb: 'FF375623' } });
+    }
+    r.atencion.forEach((a, i) => {
+      const fl = 5 + i;
+      const vals = [a.prioridad, a.nombre, a.identificacion, a.programa, a.ficha, a.empresa, a.estado, a.motivo, a.avance === null ? '—' : a.avance / 100];
+      vals.forEach((v, ci) => {
+        const c = celda(wsA, `${String.fromCharCode(65 + ci)}${fl}`, v, { centro: [0, 4, 6, 8].includes(ci), fmt: ci === 8 ? '0%' : undefined });
+        c.alignment = { ...c.alignment, wrapText: true, vertical: 'top' };
+      });
+      wsA.getCell(`A${fl}`).font = f11({ bold: true, color: { argb: a.prioridad === 'Alta' ? 'FFC00000' : 'FFC65911' } });
+    });
+    wsA.views = [{ state: 'frozen', ySplit: 4, showGridLines: false }];
+
+    // Orden de las pestañas: Resumen, Por programa, Por empresa, Requieren atención, Prácticas
+    const orden = ['Resumen', 'Por programa', 'Por empresa', 'Requieren atención', 'Prácticas'];
+    orden.forEach((nombre, i) => { const h = wb.getWorksheet(nombre); if (h) (h as any).orderNo = i; });
 
     await this.descargarExcel(wb, `panel-etapa-productiva-${hoyLocal()}.xlsx`);
   }
