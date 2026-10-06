@@ -56,6 +56,8 @@ const servicio = (nombre: string): AccesoPantalla => ({ tipo: 'servicio', servic
 export const PANTALLAS_MATERIALES: PantallaMateriales[] = [
   { id: 'mi-bodega', label: 'Mi Bodega', path: 'mi-bodega', seccion: 'Inventario', acceso: { tipo: 'responsable-bodega' } },
   { id: 'solicitudes', label: 'Solicitudes', path: 'materiales/solicitudes', seccion: 'Operación', acceso: servicio('materiales.solicitudes.ver') },
+  // Material que sale de la sede: consumibles (permanente) y devolutivos (despacho con póliza), 2026-10-05.
+  { id: 'salidas', label: 'Salidas', path: 'materiales/salidas', seccion: 'Operación', acceso: servicio('materiales.solicitudes.ver') },
   { id: 'devoluciones', label: 'Devoluciones', path: 'materiales/devoluciones', seccion: 'Operación', acceso: servicio('materiales.devoluciones.ver') },
   // Préstamos vencidos / por vencer; la pestaña de perecederos se suma con `materiales.lotes.ver`.
   { id: 'vencimientos', label: 'Vencimientos', path: 'materiales/vencimientos', seccion: 'Inventario', acceso: servicio('materiales.solicitudes.ver') },

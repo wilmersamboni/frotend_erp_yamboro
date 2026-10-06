@@ -43,7 +43,7 @@ describe('Sidebar: menú de Materiales según permisos efectivos', () => {
   it('instructor común: solo las pantallas de los servicios que trae de fábrica', () => {
     // Sin "Reporte de materiales": tiene existencias.ver pero no gestiona ninguna bodega ni área.
     expect(menuMateriales({ cargo: 'instructor', servicios: BASE_INSTRUCTOR })).toEqual([
-      'Solicitudes', 'Devoluciones', 'Vencimientos', 'Existencias', 'Productos', 'Actas',
+      'Solicitudes', 'Salidas', 'Devoluciones', 'Vencimientos', 'Existencias', 'Productos', 'Actas',
     ]);
   });
 

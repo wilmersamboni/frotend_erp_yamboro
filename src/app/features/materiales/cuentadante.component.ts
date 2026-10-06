@@ -102,7 +102,8 @@ type Pestana = 'mis-bienes' | 'ingresos';
                       <span class="font-normal text-gray-500">· {{ i.unidades }} unidad(es)</span>
                     </p>
                     <p class="text-xs text-gray-500 mt-0.5">
-                      Ingresó el {{ fecha(i.fecha_ingreso) }}{{ i.sitio_nombre ? ' a ' + i.sitio_nombre : '' }}
+                      @if (i.numero_ingreso) { <strong>{{ i.numero_ingreso }}</strong> · }
+                      Ingresó el {{ fecha(i.fecha_ingreso) }}{{ i.sitio_nombre ? ' a ' + i.sitio_nombre : '' }}{{ i.proveedor_nombre ? ' · ' + i.proveedor_nombre : '' }}
                     </p>
                     <p class="text-xs mt-1" [class]="i.sin_asignar ? 'text-amber-700' : 'text-gray-600'">
                       @if (i.sin_asignar === i.unidades) { Sin cuentadante }
