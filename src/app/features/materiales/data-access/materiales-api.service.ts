@@ -833,7 +833,34 @@ export interface Acta {
   solicitud?: Solicitud;
 }
 
-export type EstadoAsignacion = 'ACTIVA' | 'ANULADA' | 'DEVUELTA';
+/** ENTREGADA = solo material de consumo: salió para la ficha y no queda nada por devolver. */
+export type EstadoAsignacion = 'ACTIVA' | 'ANULADA' | 'DEVUELTA' | 'ENTREGADA';
+
+/** Consumible entregado a una ficha (por lote), con lo que ya volvió como sobrante. */
+export interface ConsumoAsignacion {
+  id_asignacion_consumo: string;
+  id_lote: string;
+  id_producto: string;
+  producto_nombre: string | null;
+  codigo_lote: string | null;
+  unidad_medida: string | null;
+  cantidad: number;
+  cantidad_reintegrada: number;
+}
+
+/** Lote de consumo que se puede entregar a una ficha (`GET materiales/asignaciones/opciones/consumo`). */
+export interface OpcionConsumo {
+  id_lote: string;
+  id_producto: string;
+  nombre: string;
+  marca: string | null;
+  codigo_lote: string | null;
+  unidad_medida: string | null;
+  fecha_vencimiento: string | null;
+  id_sitio: string;
+  sitio_nombre: string;
+  disponibles: number;
+}
 
 export interface Asignacion {
   id_asignacion: string;
@@ -847,6 +874,8 @@ export interface Asignacion {
   fecha_devolucion?: string | null;
   producto?: Producto;
   lineas?: { id_producto: string; producto_nombre: string | null; cantidad: number; id_items: string[] }[];
+  /** Material de consumo de la misma entrega (2026-10-06). */
+  consumos?: ConsumoAsignacion[];
   /** Resueltos por el backend vía SQL directo a `cursos` — no dependen de que
    *  el `GET /api/cursos` del cliente (recortado por RLS a "mis cursos")
    *  incluya la ficha de esta asignación, que puede ser de otro instructor. */
@@ -858,7 +887,8 @@ export interface CreateAsignacionDto {
   id_curso: string;
   /** Bodega de la que salen las unidades (catálogo único). */
   id_sitio?: string;
-  lineas:{id_producto:string, cantidad:number, id_items?: string[]}[],
+  /** `id_producto` = unidades devolutivas; `id_lote` = consumo de ese lote. */
+  lineas: { id_producto?: string; id_lote?: string; cantidad: number; id_items?: string[] }[];
   observacion?: string;
   fecha_devolucion?: string;
 }
@@ -1515,6 +1545,12 @@ export class MaterialesApiService {
   }
   crearAsignacion(dto: CreateAsignacionDto) {
     return this.unwrap(this.http.post<Envelope<Asignacion>>(`${BASE}/materiales/asignaciones`, dto));
+  }
+  opcionesConsumoAsignacion() {
+    return this.unwrap(this.http.get<Envelope<OpcionConsumo[]>>(`${BASE}/materiales/asignaciones/opciones/consumo`));
+  }
+  reintegrarConsumo(id: string, dto: { lineas: { id_asignacion_consumo: string; cantidad: number }[]; observacion?: string }) {
+    return this.unwrap(this.http.post<Envelope<Asignacion>>(`${BASE}/materiales/asignaciones/${id}/reintegro`, dto));
   }
   anularAsignacion(id: string) {
     return this.unwrap(this.http.patch<Envelope<Asignacion>>(`${BASE}/materiales/asignaciones/${id}/anular`, {}));

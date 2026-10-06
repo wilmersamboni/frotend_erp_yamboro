@@ -12,7 +12,7 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select.component';
 import { TuiDayCache } from '../../../shared/utils/tui-day.util';
 import type { TuiDay } from '@taiga-ui/cdk';
-import { OpcionDevolutivo, Asignacion, CreateAsignacionDto, EstadoAsignacion, MaterialesApiService, Producto, Sitio } from '../data-access/materiales-api.service';
+import { OpcionConsumo, OpcionDevolutivo, Asignacion, ConsumoAsignacion, CreateAsignacionDto, EstadoAsignacion, MaterialesApiService, Producto, Sitio } from '../data-access/materiales-api.service';
 import { ElegirPlacasAsignacionModalComponent } from '../ui/elegir-placas-asignacion-modal.component';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
@@ -25,10 +25,13 @@ import { CargasSecundarias } from '../data-access/cargas-secundarias';
 import { AvisoCargasComponent } from '../ui/aviso-cargas.component';
 import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
 
+/** `valor`: 'p:<id_producto>' (unidades devolutivas) o 'l:<id_lote>' (consumo de ese lote). */
 interface LineaAsignacionForm{
-  id_producto:string;
+  valor: string;
   cantidad:number
 }
+
+const idDe = (valor: string, tipo: 'p' | 'l'): string | null => (valor.startsWith(tipo + ':') ? valor.slice(2) : null);
 
 interface Ficha {
   idCurso: string;
@@ -37,12 +40,13 @@ interface Ficha {
 }
 
 /**
- * Asignación de material devolutivo a una ficha (préstamo de mediano plazo,
- * distinto de Solicitudes que es un préstamo puntual a una persona). Sin
- * doble confirmación ni aprobación — el admin la crea directamente y el
- * backend descuenta stock (marca ítems DISPONIBLE→PRESTADO) automáticamente
- * según la cantidad pedida. Solo dos estados: ACTIVA → ANULADA (terminal,
- * restaura el stock).
+ * Entrega de material a una ficha (préstamo de mediano plazo, distinto de
+ * Solicitudes que es un préstamo puntual a una persona). Sin doble
+ * confirmación ni aprobación — quien gestiona la bodega la crea directamente.
+ *  - Devolutivo: unidades DISPONIBLE→PRESTADO, quedan pendientes de devolver
+ *    (ACTIVA → ANULADA restaura el stock).
+ *  - Consumo (2026-10-06): sale del lote para siempre; la ficha puede
+ *    reintegrar el sobrante. Una entrega de solo consumo queda ENTREGADA.
  *
  * Gating de botones: solo admin (ver nota en Novedades/Traslados/
  * Solicitudes — responsable-de-sitio queda pendiente).
@@ -57,11 +61,11 @@ interface Ficha {
         <span>Materiales</span><span aria-hidden="true">/</span><span>Operación</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Asignaciones</span>
       </nav>
       <div class="flex items-center justify-between mb-5">
-        <h1 class="text-xl font-bold text-gray-800">Entregas a fichas<span class="block text-xs font-normal text-gray-400">antes «Asignaciones»</span></h1>
+        <h1 class="text-xl font-bold text-gray-800">Entregas a fichas<span class="block text-xs font-normal text-gray-400">Equipos que vuelven y material de consumo que se queda en la ficha</span></h1>
         <button (click)="nuevo()"
           class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
           style="background-color: var(--accent-brand)">
-          + Nueva asignación
+          + Nueva entrega
         </button>
       </div>
 
@@ -174,6 +178,7 @@ interface Ficha {
                 <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs"><dt class="text-gray-500">Cantidad</dt><dd class="text-right">{{ a.cantidad }}</dd><dt class="text-gray-500">Fecha</dt><dd class="text-right">{{ a.fecha_asignacion | date: 'short' }}</dd></dl>
                 <div class="mt-3 flex flex-wrap justify-end gap-2">
                   <button (click)="toggleUbicacion(a)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600">Ambiente</button>
+                  @if (puedeReintegrarEn(a)) { <button (click)="abrirReintegro(a)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600">Reintegrar sobrante</button> }
                   @if (a.estado === 'ACTIVA' && puedeAnular) { <button (click)="anular(a)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-amber-200 text-amber-700">Anular</button> }
                 </div>
                 @if (filaAbierta === a.id_asignacion) {
@@ -218,6 +223,12 @@ interface Ficha {
                   </td>
                   <td class="px-4 py-3">
                     <div class="flex justify-end gap-2">
+                      @if (puedeReintegrarEn(a)) {
+                        <button (click)="abrirReintegro(a)"
+                          class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-[#39A900] hover:text-[#39A900] transition-colors">
+                          Reintegrar sobrante
+                        </button>
+                      }
                       @if (a.estado === 'ACTIVA' && puedeAnular) {
                         <button (click)="anular(a)"
                           class="px-3 py-1.5 rounded-full text-xs font-semibold border border-amber-200 text-amber-600 bg-white hover:bg-amber-50 transition-colors">
@@ -282,7 +293,7 @@ interface Ficha {
       <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarModal()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-5">
-            <h2 class="text-lg font-bold text-gray-800">Nueva asignación</h2>
+            <h2 class="text-lg font-bold text-gray-800">Nueva entrega a ficha</h2>
             <button aria-label="Cerrar" (click)="cerrarModal()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 
@@ -300,11 +311,11 @@ interface Ficha {
     <app-ss [options]="opcionesBodegaAsig" placeholder="— Selecciona la bodega —"
       [(ngModel)]="idSitioAsig" (ngModelChange)="onBodegaAsigChange()"></app-ss>
     @if (!opcionesBodegaAsig.length) {
-      <p class="text-xs text-gray-400 mt-1">No hay unidades disponibles en las bodegas que gestionás.</p>
+      <p class="text-xs text-gray-400 mt-1">No hay material disponible en las bodegas que gestionas.</p>
     }
   </div>
   <div class="flex items-center justify-between mb-1.5">
-    <label class="block text-xs font-medium text-gray-600">Productos a asignar</label>
+    <label class="block text-xs font-medium text-gray-600">Material a entregar</label>
     <button type="button" data-dirty (click)="agregarLineas()"
       class="text-xs font-medium text-[#39A900] hover:underline">
       + Agregar línea
@@ -315,13 +326,14 @@ interface Ficha {
     @for (linea of lineas; track $index) {
       <div class="flex gap-2 items-start">
         <div class="flex-1 min-w-0">
-          <app-ss [options]="opcionesProductoLinea(linea)" placeholder="— Selecciona un producto —"
-            [(ngModel)]="linea.id_producto" (ngModelChange)="onProductoLineaChange(linea)"></app-ss>
-          @if (linea.id_producto) {
+          <app-ss [options]="opcionesProductoLinea(linea)" placeholder="— Selecciona un material —"
+            [(ngModel)]="linea.valor"></app-ss>
+          @if (linea.valor) {
             <p class="text-xs mt-0.5"
               [class.text-red-500]="disponibleDe(linea) < linea.cantidad"
               [class.text-gray-400]="disponibleDe(linea) >= linea.cantidad">
-              {{ disponibleDe(linea) }} disponible(s){{ disponibleDe(linea) < linea.cantidad ? ' — cantidad excede el stock' : '' }}
+              {{ disponibleDe(linea) }} {{ unidadDe(linea) }} disponible(s){{ disponibleDe(linea) < linea.cantidad ? ' — cantidad excede el stock' : '' }}
+              · {{ esConsumo(linea) ? 'consumo: no se devuelve' : 'devolutivo: queda pendiente de devolver' }}
             </p>
           }
         </div>
@@ -339,12 +351,14 @@ interface Ficha {
 }
 
 
+            @if (hayDevolutivos()) {
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Fecha de devolución (opcional)</label>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Fecha de devolución de los equipos (opcional)</label>
               <app-date-input placeholder="DD/MM/AAAA" [min]="hoyTuiDay"
                 [ngModel]="cacheFechaDevolucion.get(form['fecha_devolucion'])"
                 (ngModelChange)="form['fecha_devolucion'] = tuiDayToIso($event)"></app-date-input>
             </div>
+            }
 
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Observación (opcional)</label>
@@ -370,6 +384,45 @@ interface Ficha {
         </div>
       </div>
       
+    }
+    @if (reintegroDe; as r) {
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="reintegroDe = null">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
+          <div class="flex items-start justify-between mb-1">
+            <h2 class="text-lg font-bold text-gray-800">Reintegrar sobrante</h2>
+            <button aria-label="Cerrar" (click)="reintegroDe = null" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+          </div>
+          <p class="text-sm text-gray-500 mb-4">Ficha {{ nombreFicha(r) }}. Escribe cuánto vuelve sin usar: regresa al mismo lote de la bodega.</p>
+          <div class="space-y-2">
+            @for (c of consumosPendientes(r); track c.id_asignacion_consumo) {
+              <div class="flex items-center gap-3 rounded-xl border border-gray-200 px-3 py-2">
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-gray-800 truncate">{{ c.producto_nombre ?? 'Material' }}</p>
+                  <p class="text-xs text-gray-400">
+                    Entregados {{ c.cantidad }} · ya volvieron {{ c.cantidad_reintegrada }} · máximo {{ c.cantidad - c.cantidad_reintegrada }}{{ c.codigo_lote ? ' · lote ' + c.codigo_lote : '' }}
+                  </p>
+                </div>
+                <input type="number" min="0" [max]="c.cantidad - c.cantidad_reintegrada"
+                  [(ngModel)]="cantidadesReintegro[c.id_asignacion_consumo]" [attr.aria-label]="'Cantidad que vuelve de ' + (c.producto_nombre ?? 'material')"
+                  class="w-20 px-2 py-2 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+              </div>
+            }
+          </div>
+          <div class="mt-3">
+            <label class="block text-xs font-medium text-gray-600 mb-1">Observación (opcional)</label>
+            <input type="text" [(ngModel)]="observacionReintegro" maxlength="1000" placeholder="Ej: sobraron al cerrar el proyecto"
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+          </div>
+          @if (errorReintegro) { <p class="text-red-500 text-xs mt-3 p-2 bg-red-50 rounded-lg">{{ errorReintegro }}</p> }
+          <div class="flex justify-end gap-2 mt-6">
+            <button (click)="reintegroDe = null" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">Cancelar</button>
+            <button (click)="guardarReintegro()" [disabled]="saving"
+              class="px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-60" style="background-color: var(--accent-brand)">
+              {{ saving ? 'Guardando…' : 'Reintegrar' }}
+            </button>
+          </div>
+        </div>
+      </div>
     }
     <app-elegir-placas-asignacion-modal
   [abierto]="elegirPlacasOpen"
@@ -414,12 +467,12 @@ export class MaterialesAsignacionesComponent implements OnInit {
   pageSize = signal(20);
   readonly opcionesEstadoFiltro = [
     { value: '', label: 'Todos' },
-    ...(['ACTIVA', 'DEVUELTA', 'ANULADA'] as EstadoAsignacion[]).map((estado) => ({ value: estado, label: estado })),
+    ...(['ACTIVA', 'ENTREGADA', 'DEVUELTA', 'ANULADA'] as EstadoAsignacion[]).map((estado) => ({ value: estado, label: estado })),
   ];
   /** Solo sostiene el bloque legado inactivo durante la migración a TableFilter. */
   estadoDropdownOpen = signal(false);
   page = 0;
-  readonly estadosAsignacion: EstadoAsignacion[] = ['ACTIVA', 'DEVUELTA', 'ANULADA'];
+  readonly estadosAsignacion: EstadoAsignacion[] = ['ACTIVA', 'ENTREGADA', 'DEVUELTA', 'ANULADA'];
 
   seleccionarPageSize(size: number): void {
     this.pageSize.set(size);
@@ -437,8 +490,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
       if (this.idAsignacionFiltro) return a.id_asignacion === this.idAsignacionFiltro;
       if (this.filtroEstado && a.estado !== this.filtroEstado) return false;
       if (!q) return true;
-      return this.nombreFicha(a).toLowerCase().includes(q) ||
-        (a.producto?.nombre?.toLowerCase().includes(q) ?? false);
+      return this.nombreFicha(a).toLowerCase().includes(q) || this.descripcionLineas(a).toLowerCase().includes(q);
     });
   }
   get totalPaginas(): number {
@@ -476,17 +528,19 @@ export class MaterialesAsignacionesComponent implements OnInit {
   /** Stock del producto elegido — consultado en vivo, mismo endpoint que ya usa el módulo hermano SGM. */
   lineas:LineaAsignacionForm[]=[];
   agregarLineas():void{
-    this.lineas.push({id_producto: '', cantidad:1})
+    this.lineas.push({ valor: '', cantidad: 1 })
   }
   quitarLineas(i:number):void{
     this.lineas.splice(i, 1);
-    if(this.lineas.length === 0 ) this.lineas.push({id_producto:'', cantidad:1})
+    if(this.lineas.length === 0 ) this.lineas.push({ valor: '', cantidad: 1 })
   }
 
 
   // ── Bodega de origen (catálogo único, 2026-10-02) ──
   /** Devolutivos por bodega con sus disponibles (`GET /solicitudes/opciones/devolutivos`). */
   opcionesDev: OpcionDevolutivo[] = [];
+  /** Lotes de consumo entregables (ya recortados a las bodegas que gestiono). */
+  opcionesCons: OpcionConsumo[] = [];
   /** Bodegas que el usuario gestiona; `null` = todas (admin). */
   private bodegasGestionadas: Set<string> | null = null;
   idSitioAsig = '';
@@ -496,33 +550,62 @@ export class MaterialesAsignacionesComponent implements OnInit {
     for (const o of this.opcionesDev) {
       if (!this.bodegasGestionadas || this.bodegasGestionadas.has(o.id_sitio)) vistas.set(o.id_sitio, o.sitio_nombre);
     }
+    for (const o of this.opcionesCons) vistas.set(o.id_sitio, o.sitio_nombre);
     return [...vistas.entries()].sort((a, b) => a[1].localeCompare(b[1])).map(([value, label]) => ({ value, label }));
   }
 
   onBodegaAsigChange(): void {
-    this.lineas = [{ id_producto: '', cantidad: 1 }];
+    this.lineas = [{ valor: '', cantidad: 1 }];
   }
 
   private opcionDe(idProducto: string): OpcionDevolutivo | undefined {
     return this.opcionesDev.find((o) => o.id_producto === idProducto && o.id_sitio === this.idSitioAsig);
   }
 
-  disponibleDe(linea:LineaAsignacionForm):number{
-    if(!linea.id_producto) return 0
-    return this.opcionDe(linea.id_producto)?.disponibles ?? 0;
+  private loteDe(idLote: string): OpcionConsumo | undefined {
+    return this.opcionesCons.find((o) => o.id_lote === idLote);
   }
 
-  /** El disponible ya viene en la opción de la bodega elegida. */
-  onProductoLineaChange(_linea:LineaAsignacionForm): void {}
+  esConsumo(linea: LineaAsignacionForm): boolean {
+    return linea.valor.startsWith('l:');
+  }
+
+  hayDevolutivos(): boolean {
+    return this.lineas.some((l) => l.valor.startsWith('p:'));
+  }
+
+  nombreLinea(linea: LineaAsignacionForm): string {
+    const idP = idDe(linea.valor, 'p');
+    if (idP) return this.opcionDe(idP)?.nombre ?? 'Producto';
+    const idL = idDe(linea.valor, 'l');
+    return (idL && this.loteDe(idL)?.nombre) || 'Material';
+  }
+
+  unidadDe(linea: LineaAsignacionForm): string {
+    const idL = idDe(linea.valor, 'l');
+    return idL ? (this.loteDe(idL)?.unidad_medida ?? '') : '';
+  }
+
+  disponibleDe(linea:LineaAsignacionForm):number{
+    const idP = idDe(linea.valor, 'p');
+    if (idP) return this.opcionDe(idP)?.disponibles ?? 0;
+    const idL = idDe(linea.valor, 'l');
+    return idL ? (this.loteDe(idL)?.disponibles ?? 0) : 0;
+  }
 
   opcionesProductoLinea(linea:LineaAsignacionForm){
-    const usados = new Set(
-      this.lineas.filter((l)=> l !== linea).map((l)=> l.id_producto).filter(Boolean),
-    )
+    const usados = new Set(this.lineas.filter((l) => l !== linea).map((l) => l.valor).filter(Boolean));
     if (!this.idSitioAsig) return [];
-    return this.opcionesDev
-      .filter((o) => o.id_sitio === this.idSitioAsig && !usados.has(o.id_producto))
-      .map((o) => ({ value: o.id_producto, label: `${o.nombre}${o.marca ? ' · ' + o.marca : ''} (${o.disponibles} disp.)` }));
+    const devolutivos = this.opcionesDev
+      .filter((o) => o.id_sitio === this.idSitioAsig && !usados.has('p:' + o.id_producto))
+      .map((o) => ({ value: 'p:' + o.id_producto, label: `${o.nombre}${o.marca ? ' · ' + o.marca : ''} — equipo (${o.disponibles} disp.)` }));
+    const consumo = this.opcionesCons
+      .filter((o) => o.id_sitio === this.idSitioAsig && !usados.has('l:' + o.id_lote))
+      .map((o) => ({
+        value: 'l:' + o.id_lote,
+        label: `${o.nombre}${o.marca ? ' · ' + o.marca : ''} — consumo${o.codigo_lote ? ', lote ' + o.codigo_lote : ''}${o.fecha_vencimiento ? ', vence ' + o.fecha_vencimiento : ''} (${o.disponibles} ${o.unidad_medida ?? ''} disp.)`.replace(' )', ')'),
+      }));
+    return [...devolutivos, ...consumo];
   }
 
   
@@ -537,6 +620,60 @@ export class MaterialesAsignacionesComponent implements OnInit {
   /** Gateado por servicio, no por cargo — ver plan "Ronda 3". */
   get puedeAnular(): boolean {
     return this.auth.tieneServicio('materiales.asignaciones.anular');
+  }
+
+  // ── Reintegro de sobrante de consumo (2026-10-06) ──
+  reintegroDe: Asignacion | null = null;
+  cantidadesReintegro: Record<string, number> = {};
+  observacionReintegro = '';
+  errorReintegro: string | null = null;
+
+  consumosPendientes(a: Asignacion): ConsumoAsignacion[] {
+    return (a.consumos ?? []).filter((c) => c.cantidad_reintegrada < c.cantidad);
+  }
+
+  puedeReintegrarEn(a: Asignacion): boolean {
+    return a.estado !== 'ANULADA' && this.consumosPendientes(a).length > 0 && this.auth.tieneServicio('materiales.asignaciones.editar');
+  }
+
+  abrirReintegro(a: Asignacion): void {
+    this.reintegroDe = a;
+    this.cantidadesReintegro = {};
+    for (const c of this.consumosPendientes(a)) this.cantidadesReintegro[c.id_asignacion_consumo] = 0;
+    this.observacionReintegro = '';
+    this.errorReintegro = null;
+  }
+
+  async guardarReintegro(): Promise<void> {
+    const a = this.reintegroDe;
+    if (!a) return;
+    const lineas = this.consumosPendientes(a)
+      .map((c) => ({ c, n: Math.floor(Number(this.cantidadesReintegro[c.id_asignacion_consumo]) || 0) }))
+      .filter(({ n }) => n > 0);
+    const excedida = lineas.find(({ c, n }) => n > c.cantidad - c.cantidad_reintegrada);
+    if (excedida) {
+      this.errorReintegro = `De ${excedida.c.producto_nombre ?? 'ese material'} solo pueden volver ${excedida.c.cantidad - excedida.c.cantidad_reintegrada}.`;
+      return;
+    }
+    if (lineas.length === 0) {
+      this.errorReintegro = 'Escribe cuánto vuelve de al menos un material.';
+      return;
+    }
+    this.saving = true;
+    this.errorReintegro = null;
+    try {
+      await this.api.reintegrarConsumo(a.id_asignacion, {
+        lineas: lineas.map(({ c, n }) => ({ id_asignacion_consumo: c.id_asignacion_consumo, cantidad: n })),
+        observacion: this.observacionReintegro.trim() || undefined,
+      });
+      this.toast.ok('Sobrante reintegrado al lote');
+      this.reintegroDe = null;
+      await this.cargar();
+    } catch (e) {
+      this.errorReintegro = mensajeDeError(e, 'No se pudo reintegrar el sobrante.');
+    } finally {
+      this.saving = false;
+    }
   }
 
   private readonly route = inject(ActivatedRoute);
@@ -566,7 +703,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
     const idSitio = qp.get('id_sitio');
     if (idSitio && this.opcionesBodegaAsig.some((b) => b.value === idSitio)) this.idSitioAsig = idSitio;
     const idProducto = qp.get('id_producto');
-    if (idProducto) this.lineas = [{ id_producto: idProducto, cantidad: 1 }];
+    if (idProducto) this.lineas = [{ valor: 'p:' + idProducto, cantidad: 1 }];
   }
 
 
@@ -576,7 +713,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
     if (this.bodegaDelProductoInactiva()) return false;
 
     return this.lineas.every((l)=>{
-      if(!l.id_producto) return false;
+      if(!l.valor) return false;
       const cantidad= Number(l.cantidad) || 0;
       const disponibles = this.disponibleDe(l);
       return cantidad >= 1 && cantidad <= disponibles
@@ -613,20 +750,21 @@ export class MaterialesAsignacionesComponent implements OnInit {
   }
 
   descripcionLineas(a: Asignacion): string {
-    if(a.lineas && a.lineas.length > 0){
-      return a.lineas.map((l)=>`${l.producto_nombre ?? 'Producto'} (x${l.cantidad})`).join(', ')
-    }
-    return a.producto?.nombre ?? '-'
+    const partes = [
+      ...(a.lineas ?? []).map((l) => `${l.producto_nombre ?? 'Producto'} (x${l.cantidad})`),
+      ...(a.consumos ?? []).map((c) => `${c.producto_nombre ?? 'Material'} (x${c.cantidad}${c.unidad_medida ? ' ' + c.unidad_medida : ''}, consumo${c.cantidad_reintegrada ? `, volvieron ${c.cantidad_reintegrada}` : ''})`),
+    ];
+    return partes.length ? partes.join(', ') : (a.producto?.nombre ?? '-');
   }
 
   /** Resumen corto para diálogos: los primeros `max` productos y "y N más". */
   resumenLineas(a: Asignacion, max = 2): string {
-    const ls = a.lineas ?? [];
+    const ls = [
+      ...(a.lineas ?? []).map((l) => `${l.producto_nombre ?? 'Producto'} (x${l.cantidad})`),
+      ...(a.consumos ?? []).map((c) => `${c.producto_nombre ?? 'Material'} (x${c.cantidad})`),
+    ];
     if (ls.length === 0) return a.producto?.nombre ?? 'sin productos';
-    const vistos = ls
-      .slice(0, max)
-      .map((l) => `${l.producto_nombre ?? 'Producto'} (x${l.cantidad})`)
-      .join(', ');
+    const vistos = ls.slice(0, max).join(', ');
     return ls.length > max ? `${vistos} y ${ls.length - max} más` : vistos;
   }
 
@@ -690,11 +828,13 @@ export class MaterialesAsignacionesComponent implements OnInit {
 
   async nuevo(): Promise<void> {
     // Disponibilidad por bodega + bodegas que gestiono (admin: todas).
-    const [opciones, aCargo] = await Promise.all([
+    const [opciones, consumo, aCargo] = await Promise.all([
       this.api.opcionesDevolutivos().catch(() => [] as OpcionDevolutivo[]),
+      this.api.opcionesConsumoAsignacion().catch(() => [] as OpcionConsumo[]),
       this.auth.isAdmin() ? Promise.resolve(null) : this.api.sitiosACargo().catch(() => []),
     ]);
     this.opcionesDev = opciones;
+    this.opcionesCons = consumo;
     this.bodegasGestionadas = aCargo ? new Set(aCargo.map((x) => x.id_sitio)) : null;
     const bodegas = this.opcionesBodegaAsig;
     this.idSitioAsig = bodegas.length === 1 ? bodegas[0].value : '';
@@ -708,7 +848,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
       return;
     }
     if (this.opcionesBodegaAsig.length === 0) {
-      this.toast.warn('Sin unidades disponibles', 'No hay unidades devolutivas disponibles en las bodegas que gestionas.');
+      this.toast.warn('Sin material disponible', 'No hay equipos ni material de consumo disponible en las bodegas que gestionas.');
       return;
     }
     this.form = {
@@ -720,9 +860,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
     };
     this.error = null;
     this.modalOpen = true;
-    this.lineas = [{ id_producto: '', cantidad: 1 }];
-
-    //this.onProductoChange(this.form['id_producto']);
+    this.lineas = [{ valor: '', cantidad: 1 }];
   }
 
   cerrarModal(): void {
@@ -739,11 +877,14 @@ export class MaterialesAsignacionesComponent implements OnInit {
       return;
     }
     this.error = null;
-    this.lineasParaElegirPlacas = this.lineas.map((l)=>({
-      id_producto: l.id_producto,
-      nombre: this.opcionDe(l.id_producto)?.nombre ?? 'Producto',
-      cantidad:Number(l.cantidad) || 1
-    }))
+    // Solo los equipos pasan por la elección de placas; el consumo sale del lote.
+    this.lineasParaElegirPlacas = this.lineas
+      .filter((l) => !this.esConsumo(l))
+      .map((l) => ({ id_producto: idDe(l.valor, 'p')!, nombre: this.nombreLinea(l), cantidad: Number(l.cantidad) || 1 }));
+    if (this.lineasParaElegirPlacas.length === 0) {
+      await this.confirmarCreacionAsignacion(undefined);
+      return;
+    }
     this.elegirPlacasOpen = true
   }
 
@@ -755,16 +896,21 @@ export class MaterialesAsignacionesComponent implements OnInit {
     const dto: CreateAsignacionDto = {
       id_curso: this.form['id_curso'],
       id_sitio: this.idSitioAsig,
-      lineas: this.lineas.map((l) => ({
-        id_producto: l.id_producto,
-        cantidad: Number(l.cantidad) || 1,
-        id_items: seleccion?.find((s) => s.id_producto === l.id_producto)?.id_items,
-      })),
+      lineas: this.lineas.map((l) => {
+        const idLote = idDe(l.valor, 'l');
+        if (idLote) return { id_lote: idLote, cantidad: Number(l.cantidad) || 1 };
+        const idProducto = idDe(l.valor, 'p')!;
+        return {
+          id_producto: idProducto,
+          cantidad: Number(l.cantidad) || 1,
+          id_items: seleccion?.find((s) => s.id_producto === idProducto)?.id_items,
+        };
+      }),
       observacion: this.form['observacion'] || undefined,
-      fecha_devolucion: this.form['fecha_devolucion'] || undefined,
+      fecha_devolucion: (this.hayDevolutivos() && this.form['fecha_devolucion']) || undefined,
     };
     await this.api.crearAsignacion(dto);
-    this.toast.ok('Asignación creada');
+    this.toast.ok('Entrega registrada');
     this.modalOpen = false;
     await this.cargar();
   } catch (e: any) {
@@ -776,7 +922,8 @@ export class MaterialesAsignacionesComponent implements OnInit {
   
 
   async anular(a: Asignacion): Promise<void> {
-    const msg = `¿Anular la asignación de ${this.resumenLineas(a)} a la ficha ${this.nombreFicha(a)}? Los ítems que sigan prestados volverán al inventario.`;
+    const conConsumo = this.consumosPendientes(a).length > 0;
+    const msg = `¿Anular la entrega de ${this.resumenLineas(a)} a la ficha ${this.nombreFicha(a)}? Los equipos que sigan prestados volverán al inventario${conConsumo ? ' y el material de consumo que no se haya reintegrado volverá a su lote' : ''}.`;
     if (!(await this.confirm.ask(msg))) return;
     try {
       await this.api.anularAsignacion(a.id_asignacion);

@@ -12,6 +12,7 @@ import { ExportColumn, TableExportService } from '../../../shared/services/table
 import { CargasSecundarias } from '../data-access/cargas-secundarias';
 import { AvisoCargasComponent } from '../ui/aviso-cargas.component';
 import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
+import { codigoLoteSugerido } from '../codigo-lote.util';
 
 const OPCIONES_ESTADO: OpcionSelect[] = [
   { label: 'Activo', value: 'ACTIVO' },
@@ -136,9 +137,18 @@ export class MaterialesLotesComponent implements OnInit {
     };
   }
 
-  placeholders: Record<string, string> = {
-    codigo_lote: 'Ej: LT-2026-014', cantidad_inicial: 'Ej: 500',
-  };
+  /** Alta: el código que se generará si se deja vacío (2026-10-06); se puede escribir otro. */
+  get placeholders(): Record<string, string> {
+    const producto = this.editando ? null : this.productos.find((p) => p.id_producto === this.form['id_producto']);
+    return {
+      codigo_lote: this.editando
+        ? 'Ej: ANE-06-10-26'
+        : producto
+          ? `Vacío = automático: ${codigoLoteSugerido(producto.nombre)}`
+          : 'Vacío = se genera solo',
+      cantidad_inicial: 'Ej: 500',
+    };
+  }
 
   /** `fecha_vencimiento` como calendario desplegable (no <input> de texto). */
   tiposCampo: Record<string, string> = { fecha_vencimiento: 'date' };

@@ -17,6 +17,7 @@ import {
   TipoIngreso,
   TipoSoporte,
 } from '../data-access/materiales-api.service';
+import { codigoLoteSugerido } from '../codigo-lote.util';
 
 export const TIPOS_INGRESO: { value: TipoIngreso; label: string }[] = [
   { value: 'COMPRA', label: 'Compra' },
@@ -293,7 +294,7 @@ export function tamanoLegible(bytes: number): string {
                         @if (p.tipo_material !== 'DEVOLUTIVO') {
                           <div>
                             <label class="block text-[11px] font-medium text-gray-500 mb-0.5">Código de lote</label>
-                            <input type="text" [(ngModel)]="l.codigo_lote" maxlength="60" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                            <input type="text" [(ngModel)]="l.codigo_lote" maxlength="60" [placeholder]="'Auto: ' + sugerirCodigo(p.nombre)" title="Déjalo vacío y se genera solo, o escribe el tuyo" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
                           </div>
                           @if (p.tipo_material === 'PERECEDERO') {
                             <div>
@@ -413,6 +414,8 @@ export class IngresoFormModalComponent implements OnChanges {
   numeroSoporte = '';
   fechaSoporte = '';
   fechaIngreso = hoyLocal();
+  /** Código que se generará si la línea deja el lote vacío (2026-10-06). */
+  readonly sugerirCodigo = (nombre: string): string => codigoLoteSugerido(nombre, this.fechaIngreso);
   recibidoPor = '';
   observaciones = '';
   lineas: LineaForm[] = [];
