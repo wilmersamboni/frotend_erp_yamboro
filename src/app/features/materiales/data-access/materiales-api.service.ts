@@ -192,6 +192,169 @@ export interface FilaConfirmada {
   fila_origen?: number;
 }
 
+/** Salida de material: consumible (permanente) o devolutivo (despacho con póliza). */
+/** MIXTA = la misma salida lleva consumibles (lotes) y devolutivos (unidades); el backend la deduce de las líneas. */
+export type ClaseSalida = 'CONSUMO' | 'DEVOLUTIVO' | 'MIXTA';
+export type TipoDestinoSalida = 'PROPIO' | 'TERCERO';
+export type EstadoSalida = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'CANCELADA' | 'REGRESADA';
+
+export interface SalidaResumen {
+  id_salida: string;
+  numero: number;
+  codigo: string;
+  clase: ClaseSalida;
+  estado: EstadoSalida;
+  /** Solo true en un devolutivo que va y regresa (póliza). Consumible o devolutivo permanente: false. */
+  con_regreso: boolean;
+  id_sitio: string;
+  sitio_nombre: string | null;
+  /** Ubicación de la bodega (sede → centro → regional), resuelta por el backend para los encabezados de los Excel. */
+  sede_nombre?: string | null;
+  centro_nombre?: string | null;
+  area_nombre?: string | null;
+  regional_nombre?: string | null;
+  id_usuario_solicita: string;
+  solicitante_nombre: string | null;
+  /** Cargo crudo (instructor, administrador_erp…), para las firmas del reporte. */
+  solicitante_cargo?: string | null;
+  tipo_destino: TipoDestinoSalida;
+  dest_nombre: string | null;
+  dest_documento: string | null;
+  dest_cargo: string | null;
+  dest_sede: string | null;
+  lugar_destino: string | null;
+  medio_transporte: string | null;
+  id_jefe_inmediato: string | null;
+  jefe_nombre: string | null;
+  jefe_cargo?: string | null;
+  motivo: string;
+  valor_total: number | null;
+  aprueba_nombre: string | null;
+  fecha_aprobacion: string | null;
+  motivo_rechazo: string | null;
+  fecha_regreso: string | null;
+  fecha: string;
+  lineas_count: number;
+}
+
+export interface LineaSalida {
+  id_linea: string;
+  id_producto: string;
+  producto_nombre: string;
+  marca: string | null;
+  modelo: string | null;
+  descripcion: string | null;
+  unidad_medida: string | null;
+  id_lote: string | null;
+  codigo_lote: string | null;
+  id_item: string | null;
+  placa_sena: string | null;
+  serial: string | null;
+  cantidad: number;
+  valor_unitario: number | null;
+  nota: string | null;
+  id_cuentadante: string | null;
+  cuentadante_nombre: string | null;
+}
+
+export interface SalidaDetalle extends SalidaResumen {
+  lineas: LineaSalida[];
+  /** Solo en `GET /salidas/:id`: ¿me toca aprobar o rechazar esta? */
+  puede_resolver?: boolean;
+}
+
+export interface LineaSalidaDto {
+  id_lote?: string;
+  id_item?: string;
+  cantidad?: number;
+  valor_unitario?: number;
+  serial?: string;
+  nota?: string;
+}
+
+export interface CrearSalidaDto {
+  clase: ClaseSalida;
+  /** Obligatorio en devolutivos: true = va y regresa (póliza); false = sale para siempre, como un consumible. */
+  con_regreso?: boolean;
+  id_sitio: string;
+  tipo_destino: TipoDestinoSalida;
+  dest_nombre?: string;
+  dest_documento?: string;
+  dest_cargo?: string;
+  dest_sede?: string;
+  lugar_destino?: string;
+  medio_transporte?: string;
+  id_jefe_inmediato?: string;
+  motivo: string;
+  lineas: LineaSalidaDto[];
+}
+
+/** Lo que se puede sacar de una bodega (lotes de consumibles, unidades con o sin placa, posibles jefes). */
+export interface OpcionesSalida {
+  lotes: { id_lote: string; producto_nombre: string; codigo_lote: string | null; unidad_medida: string | null; libres: number; fecha_vencimiento: string | null }[];
+  unidades: {
+    id_item: string;
+    producto_nombre: string;
+    marca: string | null;
+    modelo: string | null;
+    placa_sena: string | null;
+    codigo_sku: string | null;
+    /** Últimos 4 del id: identifica una unidad sin placa. */
+    codigo: string;
+    id_cuentadante: string | null;
+    cuentadante_nombre: string | null;
+    puede_despachar: boolean;
+  }[];
+  jefes: { id_usuario: string; nombre: string; cargo: string | null }[];
+}
+
+/** Encabezado del reporte de póliza (por tenant). */
+export type ConfigSalida = Record<
+  'poliza_numero' | 'limite_despacho' | 'presupuesto_anual' | 'regional' | 'centro_formacion' | 'dependencia',
+  string | null
+>;
+
+/** Cuentadante de devolutivos — un ingreso a bodega (las unidades que entraron juntas). */
+export interface IngresoDevolutivo {
+  id_ingreso: string;
+  fecha_ingreso: string;
+  id_producto: string;
+  producto_nombre: string;
+  unidades: number;
+  id_sitio: string | null;
+  sitio_nombre: string | null;
+  id_cuentadante: string | null;
+  cuentadante_nombre: string | null;
+  sin_asignar: number;
+  /** Solo si entró por el módulo de ingresos (ING-000001). */
+  numero_ingreso: string | null;
+  proveedor_nombre: string | null;
+}
+
+/** Ítem del que el usuario actual es cuentadante, esté donde esté. */
+export interface BienACargo {
+  id_item: string;
+  placa_sena: string | null;
+  codigo_sku: string | null;
+  estado: string;
+  id_producto: string;
+  producto_nombre: string;
+  id_sitio: string | null;
+  sitio_nombre: string | null;
+  fecha_ingreso: string | null;
+}
+
+export interface HistorialCuentadante {
+  id_historial: string;
+  id_item: string;
+  placa_sena: string | null;
+  cuentadante_anterior_nombre: string | null;
+  cuentadante_nuevo_nombre: string | null;
+  asigna_nombre: string | null;
+  motivo: string | null;
+  fecha: string;
+}
+
 /** "Pedir ficha al líder" — pedido de un encargado para que el líder cree una ficha del catálogo. */
 export interface SolicitudFicha {
   id_solicitud_ficha: string;
@@ -1006,6 +1169,69 @@ export class MaterialesApiService {
       this.http.get<Envelope<{ puede_gestionar: boolean }>>(`${BASE}/productos/catalogo/gestion`),
     );
     return !!r?.puede_gestionar;
+  }
+  // ── Salidas de material ──
+  listarSalidas(estado?: string) {
+    return this.unwrap(
+      this.http.get<Envelope<SalidaResumen[]>>(`${BASE}/materiales/salidas`, { params: estado ? { estado } : {} }),
+    );
+  }
+  bodegasSalida() {
+    return this.unwrap(this.http.get<Envelope<{ id_sitio: string; nombre: string; tipo: string | null }[]>>(`${BASE}/materiales/salidas/bodegas`));
+  }
+  opcionesSalida(idSitio: string) {
+    return this.unwrap(this.http.get<Envelope<OpcionesSalida>>(`${BASE}/materiales/salidas/opciones`, { params: { id_sitio: idSitio } }));
+  }
+  obtenerSalida(id: string) {
+    return this.unwrap(this.http.get<Envelope<SalidaDetalle>>(`${BASE}/materiales/salidas/${id}`));
+  }
+  crearSalida(dto: CrearSalidaDto) {
+    return this.unwrap(this.http.post<Envelope<SalidaDetalle>>(`${BASE}/materiales/salidas`, dto));
+  }
+  aprobarSalida(id: string) {
+    return this.unwrap(this.http.patch<Envelope<SalidaDetalle>>(`${BASE}/materiales/salidas/${id}/aprobar`, {}));
+  }
+  rechazarSalida(id: string, motivo: string) {
+    return this.unwrap(this.http.patch<Envelope<SalidaDetalle>>(`${BASE}/materiales/salidas/${id}/rechazar`, { motivo }));
+  }
+  cancelarSalida(id: string) {
+    return this.unwrap(this.http.patch<Envelope<SalidaDetalle>>(`${BASE}/materiales/salidas/${id}/cancelar`, {}));
+  }
+  registrarRegresoSalida(id: string) {
+    return this.unwrap(this.http.patch<Envelope<SalidaDetalle>>(`${BASE}/materiales/salidas/${id}/regreso`, {}));
+  }
+  datosPolizaSalida(id: string) {
+    return this.unwrap(
+      this.http.get<Envelope<{ config: ConfigSalida; salida: SalidaDetalle }>>(`${BASE}/materiales/salidas/${id}/poliza`),
+    );
+  }
+  obtenerConfigSalida() {
+    return this.unwrap(this.http.get<Envelope<ConfigSalida>>(`${BASE}/materiales/salidas/config`));
+  }
+  guardarConfigSalida(config: Partial<ConfigSalida>) {
+    return this.unwrap(this.http.put<Envelope<ConfigSalida>>(`${BASE}/materiales/salidas/config`, config));
+  }
+  /** Ingresos de devolutivos con su cuentadante. Solo administrador_erp y líderes de área (403 al resto). */
+  listarIngresosCuentadante() {
+    return this.unwrap(this.http.get<Envelope<IngresoDevolutivo[]>>(`${BASE}/materiales/cuentadante/ingresos`));
+  }
+  /** Asigna el cuentadante a todas las unidades de un ingreso. */
+  asignarCuentadante(idIngreso: string, idCuentadante: string, motivo?: string) {
+    return this.unwrap(
+      this.http.put<Envelope<{ actualizados: number }>>(`${BASE}/materiales/cuentadante/ingresos/${idIngreso}`, {
+        id_cuentadante: idCuentadante,
+        motivo: motivo?.trim() || undefined,
+      }),
+    );
+  }
+  historialCuentadante(idIngreso: string) {
+    return this.unwrap(
+      this.http.get<Envelope<HistorialCuentadante[]>>(`${BASE}/materiales/cuentadante/ingresos/${idIngreso}/historial`),
+    );
+  }
+  /** "Mis bienes a cargo": ítems de los que soy cuentadante. */
+  misBienesACargo() {
+    return this.unwrap(this.http.get<Envelope<BienACargo[]>>(`${BASE}/materiales/cuentadante/mis-bienes`));
   }
   /** La bodega declara cuántas unidades tiene de una ficha: DEVOLUTIVO → ítems, CONSUMO/PERECEDERO → lote. */
   agregarExistencias(idProducto: string, dto: AgregarExistenciasDto) {

@@ -44,7 +44,7 @@ describe('Sidebar: menú de Materiales según permisos efectivos', () => {
     // Sin "Reporte de materiales": tiene existencias.ver pero no gestiona ninguna bodega ni área.
     // Nombres de todos los días (2026-10-05); Inicio y Escanear placa los ve todo el que usa Materiales.
     expect(menuMateriales({ cargo: 'instructor', servicios: BASE_INSTRUCTOR })).toEqual([
-      'Inicio', 'Escanear placa', 'Pedidos y préstamos', 'Devoluciones', 'Fechas por vencer', '¿Qué hay y dónde?', 'Catálogo de productos', 'Actas',
+      'Inicio', 'Escanear placa', 'Pedidos y préstamos', 'Salidas', 'Devoluciones', 'Fechas por vencer', '¿Qué hay y dónde?', 'Catálogo de productos', 'Actas',
     ]);
   });
 
