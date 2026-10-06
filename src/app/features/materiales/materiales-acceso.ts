@@ -76,6 +76,8 @@ export const PANTALLAS_MATERIALES: PantallaMateriales[] = [
   { id: 'escanear', label: 'Escanear placa', path: 'materiales/escanear', seccion: 'Operación', acceso: { tipo: 'cualquiera', servicios: SERVICIOS_ENTRADA } },
   { id: 'mi-bodega', label: 'Mi Bodega', path: 'mi-bodega', seccion: 'Inventario', acceso: { tipo: 'responsable-bodega' } },
   { id: 'solicitudes', label: 'Pedidos y préstamos', path: 'materiales/solicitudes', seccion: 'Operación', acceso: servicio('materiales.solicitudes.ver') },
+  // Material que sale de la sede: consumibles (permanente) y devolutivos (despacho con póliza), 2026-10-05.
+  { id: 'salidas', label: 'Salidas', path: 'materiales/salidas', seccion: 'Operación', acceso: servicio('materiales.solicitudes.ver') },
   { id: 'devoluciones', label: 'Devoluciones', path: 'materiales/devoluciones', seccion: 'Operación', acceso: servicio('materiales.devoluciones.ver') },
   // Préstamos vencidos / por vencer; la pestaña de perecederos se suma con `materiales.lotes.ver`.
   { id: 'vencimientos', label: 'Fechas por vencer', path: 'materiales/vencimientos', seccion: 'Inventario', acceso: servicio('materiales.solicitudes.ver') },
@@ -84,6 +86,9 @@ export const PANTALLAS_MATERIALES: PantallaMateriales[] = [
   // Trae nombres y cédulas de quien tiene cada material: solo para quienes gestionan.
   { id: 'ingresos', label: 'Llegada de material', path: 'materiales/ingresos', seccion: 'Inventario', acceso: { tipo: 'ingresos' } },
   { id: 'reporte', label: 'Reporte de materiales', path: 'materiales/reporte', seccion: 'Inventario', acceso: { tipo: 'gestor', servicio: 'materiales.existencias.ver' } },
+  // Quién responde por cada devolutivo (2026-10-05): "Mis bienes a cargo" para cualquiera
+  // que llegue; la pestaña de asignar la decide `puedeGestionarCatalogo` dentro de la pantalla.
+  { id: 'cuentadante', label: 'Cuentadante', path: 'materiales/cuentadante', seccion: 'Inventario', acceso: servicio('materiales.items.ver') },
   { id: 'items', label: 'Equipos con placa', path: 'materiales/items', seccion: 'Inventario', acceso: servicio('materiales.items.ver') },
   { id: 'lotes', label: 'Material que se gasta', path: 'materiales/lotes', seccion: 'Inventario', acceso: servicio('materiales.lotes.ver') },
   { id: 'productos', label: 'Catálogo de productos', path: 'materiales/productos', seccion: 'Catálogo', acceso: servicio('materiales.productos.ver'), cubiertaPorMiBodega: true },
