@@ -13,6 +13,7 @@ import { ExportService } from '../../core/services/export.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { HorariosHomeComponent } from './horarios-home.component';
+import { cargarPracticasPanel } from './panel-datos';
 import { RouterLink } from '@angular/router';
 import {
   ArrowRight, Building2, CalendarClock, ChevronDown, ChevronRight, ClipboardList, Download, FileText, LucideAngularModule,
@@ -90,9 +91,15 @@ export class HomeComponent implements OnInit {
   @ViewChild('chartEvolucionRef')  chartEvolucionRef?:  UIChart;
 
   readonly exportMenuItems: MenuItem[] = [
-    { label: 'Exportar PDF',   icon: 'pi pi-file-pdf',   command: () => this.exportarPDF()   },
-    { label: 'Exportar Excel', icon: 'pi pi-file-excel', command: () => this.exportarExcel() },
+    { label: 'Reporte para imprimir / PDF', icon: 'pi pi-print',      command: () => this.abrirReporte() },
+    { label: 'PDF (formato anterior)',      icon: 'pi pi-file-pdf',   command: () => this.exportarPDF()  },
+    { label: 'Exportar Excel',              icon: 'pi pi-file-excel', command: () => this.exportarExcel() },
   ];
+
+  /** Reporte en HTML (`/reporte-panel`) en otra pestaña; abre la impresión solo ("Guardar como PDF"). */
+  abrirReporte(): void {
+    window.open('/reporte-panel?imprimir=1', '_blank');
+  }
 
   /** Práctica personal del aprendiz */
   miPractica: any = null;
@@ -135,7 +142,7 @@ export class HomeComponent implements OnInit {
       lista.push({ titulo: 'Buscar aprendiz por cédula', detalle: 'Todo su historial en un solo lugar.', icono: Search, ruta: '/docs' });
     }
     lista.push({ titulo: 'Formatos', detalle: 'Plantillas oficiales para descargar.', icono: FileText, ruta: '/format' });
-    lista.push({ titulo: 'Descargar reporte PDF', detalle: 'Este panel, listo para imprimir.', icono: Download, accion: () => this.exportarPDF() });
+    lista.push({ titulo: 'Reporte para imprimir', detalle: 'Este panel en hoja carta, o guárdalo como PDF.', icono: Download, accion: () => this.abrirReporte() });
     return lista;
   });
   readonly anioActual = new Date().getFullYear();
@@ -760,46 +767,8 @@ export class HomeComponent implements OnInit {
       error: () => { this.cargando = false; }
     });
 
-    // Por SERVICIO, no por cargo: 'findAll' en empresa.controller.ts exige
-    // 'practica.empresas.gestionar' — un administrador/instructor sin ese
-    // nivel (ej. solo "Ver detalle") recibía 403 igual, y como esta llamada
-    // vive dentro de un Promise.all, tumbaba la carga de TODO el panel
-    // (prácticas y matrículas incluidas), no solo empresas.
-    const puedeVerEmpresas = this.auth.tieneServicio('practica.empresas.gestionar');
-
-    Promise.all([
-      this.apiService.listarPracticas(),
-      puedeVerEmpresas ? this.apiService.listarEmpresas() : Promise.resolve([]),
-      this.apiService.listarTodasMatriculas(),
-    ]).then(([practicas, empresas, matriculas]: [any[], any[], any[]]) => {
-
-      const empresaMap = new Map<string, string>(
-        empresas.map((e: any) => [
-          e.id,
-          e.nombre ?? e.razon_social ?? e.nombreEmpresa ?? e.name ?? e.id
-        ])
-      );
-
-      const matriculaMap = new Map<string, any>(
-        matriculas.map((m: any) => [m.idMatricula ?? m.id, m])
-      );
-
-      this.practicas = practicas.map((p: any) => {
-        const matricula = matriculaMap.get(p.matriculaId);
-        const persona   = matricula?.persona;
-        const curso     = matricula?.curso;
-
-        return {
-          ...p,
-          empresaNombre:  empresaMap.get(p.empresa?.id) ?? p.empresa?.nombre ?? '—',
-          nombre:         persona
-            ? `${persona.nombres ?? persona.nombre ?? ''} ${persona.apellidos ?? persona.apellido ?? ''}`.trim()
-            : '—',
-          identificacion: persona?.cedula        ?? persona?.documento      ?? '—',
-          ficha:          curso?.codigo          ?? curso?.numeroFicha      ?? curso?.ficha ?? '—',
-          programa:       curso?.programa?.nombre ?? curso?.nombrePrograma  ?? '—',
-        };
-      });
+    cargarPracticasPanel(this.apiService, this.auth).then((practicas) => {
+      this.practicas = practicas;
 
       if (this.esAprendiz()) {
         this.aprendizTieneEtapa.set(this.practicas.length > 0);

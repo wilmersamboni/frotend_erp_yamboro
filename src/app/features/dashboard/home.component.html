@@ -24,11 +24,11 @@
         <div class="export-buttons">
         <p-splitButton
           [label]="exportando ? 'Exportando...' : 'Exportar'"
-          icon="pi pi-file-pdf"
+          icon="pi pi-print"
           severity="success"
           [model]="exportMenuItems"
           [disabled]="exportando || cargando"
-          (onClick)="exportarPDF()"
+          (onClick)="abrirReporte()"
         />
         </div>
       }

@@ -70,7 +70,7 @@ function colorPractica(estado?: string | null): RGB {
 }
 
 /** Una práctica que el coordinador debería mirar ya. */
-interface Atencion {
+export interface Atencion {
   prioridad: 'Alta' | 'Media';
   nombre: string;
   identificacion: string;
@@ -84,7 +84,7 @@ interface Atencion {
 }
 
 /** Todo lo que muestran el PDF y el Excel del panel, calculado una sola vez. */
-interface ResumenPanel {
+export interface ResumenPanel {
   total: number;
   pct: { activas: number; certificadas: number; desertadas: number; enRiesgo: number; otros: number };
   otros: number;
@@ -113,7 +113,7 @@ function diasHasta(valor?: string | null): number | null {
 @Injectable({ providedIn: 'root' })
 export class ExportService {
 
-  private resumenPanel(stats: Stats, practicas: any[], _graficos?: GraficosExport): ResumenPanel {
+  resumenPanel(stats: Stats, practicas: any[], _graficos?: GraficosExport): ResumenPanel {
     const total = Math.max(stats.aprendices, 0);
     const base = Math.max(total, 1);
     const pc = (n: number) => Math.round((n / base) * 100);
