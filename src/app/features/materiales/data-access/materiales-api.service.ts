@@ -255,6 +255,8 @@ export interface LineaSalida {
   nota: string | null;
   id_cuentadante: string | null;
   cuentadante_nombre: string | null;
+  /** Línea de consumo: ¿ya tiene su foto (obligatoria)? Se baja con `fotoLineaSalida`. */
+  tiene_foto?: boolean;
 }
 
 export interface SalidaDetalle extends SalidaResumen {
@@ -1326,6 +1328,16 @@ export class MaterialesApiService {
   }
   cancelarSalida(id: string) {
     return this.unwrap(this.http.patch<Envelope<SalidaDetalle>>(`${BASE}/materiales/salidas/${id}/cancelar`, {}));
+  }
+  /** Pone o cambia la foto de un material de consumo (solo quien pidió la salida, mientras está pendiente). */
+  subirFotoLineaSalida(id: string, idLinea: string, foto: Blob) {
+    const fd = new FormData();
+    fd.append('foto', foto, foto.type === 'image/png' ? 'foto.png' : 'foto.jpg');
+    return this.unwrap(this.http.put<Envelope<SalidaDetalle>>(`${BASE}/materiales/salidas/${id}/lineas/${idLinea}/foto`, fd));
+  }
+  /** Por HttpClient (blob): así viajan la sesión y la cabecera x-tenant. */
+  fotoLineaSalida(id: string, idLinea: string): Promise<Blob> {
+    return firstValueFrom(this.http.get(`${BASE}/materiales/salidas/${id}/lineas/${idLinea}/foto`, { responseType: 'blob' }));
   }
   registrarRegresoSalida(id: string) {
     return this.unwrap(this.http.patch<Envelope<SalidaDetalle>>(`${BASE}/materiales/salidas/${id}/regreso`, {}));

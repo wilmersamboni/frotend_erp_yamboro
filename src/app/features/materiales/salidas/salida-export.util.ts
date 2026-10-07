@@ -1,6 +1,10 @@
 import type { Cell, Workbook, Worksheet } from 'exceljs';
 import type { ConfigSalida, LineaSalida, SalidaDetalle } from '../data-access/materiales-api.service';
 import { agregarHojaPoliza, cargoLegible } from './poliza-excel.util';
+import { encajar, type FotoExcel } from './foto-salida';
+
+/** Fotos de las líneas de consumo, por `id_linea`. */
+export type FotosSalida = Record<string, FotoExcel>;
 
 /*
  * Solo hay DOS formatos (decisión del dueño, 2026-10-06):
@@ -91,12 +95,30 @@ function descargarBlob(blob: Blob, nombre: string): void {
 
 // ───────────────────────────── Hoja de San Agustín ─────────────────────────────
 
+const EMU_POR_PX = 9525;
+/** Celda de la foto (columna H × fila de 99,95 pt), en píxeles, con un margen de 6 px por lado. */
+export const CAJA_FOTO = { ancho: 171, alto: 133, margen: 6 };
+
+/** Pone la foto centrada dentro de la celda H de su fila, sin deformarla (ancla nativa en EMU, como los logos de la póliza). */
+export function ponerFoto(wb: Workbook, ws: Worksheet, fila: number, foto: FotoExcel): void {
+  const { width, height } = encajar(foto.ancho, foto.alto, CAJA_FOTO.ancho - 2 * CAJA_FOTO.margen, CAJA_FOTO.alto - 2 * CAJA_FOTO.margen);
+  const id = wb.addImage({ buffer: foto.buffer, extension: foto.extension } as never);
+  const tl = {
+    nativeCol: 7,
+    nativeColOff: Math.round(((CAJA_FOTO.ancho - width) / 2) * EMU_POR_PX),
+    nativeRow: fila - 1,
+    nativeRowOff: Math.round(((CAJA_FOTO.alto - height) / 2) * EMU_POR_PX),
+  };
+  ws.addImage(id, { tl: tl as never, ext: { width, height }, editAs: 'oneCell' });
+}
+
 /**
  * Hoja calcada de "San agustin 12-08-2026.xlsx": título, ITEM / DESCRIPCION /
- * Registro Sena / CANT. / Registro Fotografico (filas altas para pegar la foto)
- * y, al final, el espacio para las firmas.
+ * Registro Sena / CANT. / Registro Fotografico (la foto que se tomó al pedir la
+ * salida; sin foto, la celda queda vacía para pegarla a mano) y, al final, el
+ * espacio para las firmas.
  */
-export function agregarHojaConsumo(wb: Workbook, s: SalidaDetalle, lineas: LineaSalida[]): Worksheet {
+export function agregarHojaConsumo(wb: Workbook, s: SalidaDetalle, lineas: LineaSalida[], fotos: FotosSalida = {}): Worksheet {
   const ws = wb.addWorksheet('Hoja1', {
     // Sin cuadrícula: lo que no tiene borde se ve blanco, y la tabla y las firmas quedan como un solo recuadro.
     views: [{ showGridLines: false }],
@@ -136,6 +158,8 @@ export function agregarHojaConsumo(wb: Workbook, s: SalidaDetalle, lineas: Linea
     celda(fila, 7, fila, 7, /^\d+$/.test(cant) ? Number(l.cantidad) : cant);
     celda(fila, 8, fila, 8, '');
     ws.getRow(fila).height = 99.95;
+    const foto = fotos[l.id_linea];
+    if (foto) ponerFoto(wb, ws, fila, foto);
     fila += 1;
   });
 
@@ -202,13 +226,13 @@ export async function construirSalidaExcel(s: SalidaDetalle, _config?: ConfigSal
  * póliza con los devolutivos con cuentadante y la de San Agustín con el resto
  * (una o las dos). ExcelJS (≈920 kB) se carga acá, solo al usarlo.
  */
-export async function construirExcel(s: SalidaDetalle, config: ConfigSalida): Promise<{ wb: Workbook; nombre: string }> {
+export async function construirExcel(s: SalidaDetalle, config: ConfigSalida, fotos: FotosSalida = {}): Promise<{ wb: Workbook; nombre: string }> {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
   wb.creator = 'EPSAS · Materiales';
   const { poliza, consumo } = lineasPorFormato(s);
   if (poliza.length) await agregarHojaPoliza(wb, s, poliza, config);
-  if (consumo.length) agregarHojaConsumo(wb, s, consumo);
+  if (consumo.length) agregarHojaConsumo(wb, s, consumo, fotos);
   const prefijo = poliza.length && consumo.length ? 'Salida-Poliza' : poliza.length ? 'Poliza' : 'Salida';
   return { wb, nombre: `${prefijo}-${s.codigo}.xlsx` };
 }

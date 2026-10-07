@@ -398,6 +398,7 @@ export class MaterialesCuentadanteComponent implements OnInit {
   /**
    * Personas elegibles: instructores activos más las cuentas que el administrador habilitó como
    * cuentadante en Usuarios (`puedeSerCuentadante`, 2026-10-07; el backend aplica la misma regla).
+   * Un aprendiz nunca aparece, tenga o no la marca.
    * Se toman del mismo endpoint de datos mínimos que los responsables de bodega, que no exige
    * `usuarios.gestionar`. Ser encargado de bodega no cambia nada: son cosas independientes.
    */
@@ -406,7 +407,7 @@ export class MaterialesCuentadanteComponent implements OnInit {
       const usuarios = await this.personaApi.listarResponsablesBodega();
       this.candidatos.set(
         usuarios
-          .filter((u: any) => u.persona?.cargo === 'instructor' || u.puedeSerCuentadante === true)
+          .filter((u: any) => u.persona?.cargo === 'instructor' || (u.puedeSerCuentadante === true && u.persona?.cargo !== 'aprendiz'))
           .map((u: any) => ({
             value: u.idUsuario,
             label: `${u.persona?.nombre ?? ''} ${u.persona?.apellido ?? ''}`.trim(),

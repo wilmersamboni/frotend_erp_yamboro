@@ -16,7 +16,8 @@ import { ConfirmService } from '../../../core/services/confirm.service';
 import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
 import { log } from '../../../core/utils/log';
-import { construirExcel, descargarLibro, lineasPorFormato } from './salida-export.util';
+import { FotosSalida, construirExcel, descargarLibro, lineasPorFormato } from './salida-export.util';
+import { achicarFoto, fotoParaExcel } from './foto-salida';
 import { HojaVista, hojaAVista } from './vista-previa-excel';
 import type { Workbook } from 'exceljs';
 
@@ -31,6 +32,10 @@ interface LineaForm {
   serial: string;
   /** La cantidad se bajó al máximo libre del lote (para avisarlo). */
   ajustada?: boolean;
+  /** Consumible: foto obligatoria (ya achicada) y su vista previa. Se sube después de crear la salida. */
+  foto?: Blob | null;
+  fotoUrl?: string | null;
+  procesandoFoto?: boolean;
 }
 
 const ESTILO_ESTADO: Record<EstadoSalida, string> = {
@@ -213,6 +218,7 @@ const MEDIOS = ['Automóvil', 'Camioneta', 'Camión', 'Bus', 'Moto', 'Otro'];
                           <th class="text-left px-3 py-2">Material</th>
                           <th class="text-left px-3 py-2">{{ d.clase === 'CONSUMO' ? 'Lote' : d.clase === 'DEVOLUTIVO' ? 'Placa / serial' : 'Lote / placa' }}</th>
                           <th class="text-right px-3 py-2">Cantidad</th>
+                          @if (tieneConsumo(d)) { <th class="text-left px-3 py-2">Foto</th> }
                           @if (d.con_regreso) {
                             <th class="text-left px-3 py-2">Cuentadante</th>
                             <th class="text-right px-3 py-2">Valor</th>
@@ -232,6 +238,30 @@ const MEDIOS = ['Automóvil', 'Camioneta', 'Camión', 'Bus', 'Moto', 'Otro'];
                               @else { <span class="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[10px] font-semibold">SIN PLACA</span> }
                             </td>
                             <td class="px-3 py-2 text-right whitespace-nowrap">{{ l.cantidad }} {{ l.id_lote ? (l.unidad_medida || '').toLowerCase() : '' }}</td>
+                            @if (tieneConsumo(d)) {
+                              <td class="px-3 py-2">
+                                @if (l.id_lote) {
+                                  <div class="flex items-center gap-2">
+                                    @if (fotosDetalle()[l.id_linea]; as url) {
+                                      <a [href]="url" target="_blank" rel="noopener" title="Ver la foto en grande">
+                                        <img [src]="url" alt="Foto de {{ l.producto_nombre }}" class="w-14 h-11 object-cover rounded-md border border-gray-200" />
+                                      </a>
+                                    } @else if (l.tiene_foto) {
+                                      <span class="w-14 h-11 rounded-md bg-gray-100 animate-pulse"></span>
+                                    } @else {
+                                      <span class="px-1.5 py-0.5 rounded bg-red-50 text-red-700 text-[10px] font-semibold whitespace-nowrap">Falta foto</span>
+                                    }
+                                    @if (puedeCambiarFotos(d)) {
+                                      <label class="relative text-[11px] font-semibold text-[#2d8000] hover:underline cursor-pointer whitespace-nowrap focus-within:ring-2 focus-within:ring-[#39A900]/40 rounded">
+                                        {{ subiendoFoto() === l.id_linea ? 'Subiendo…' : l.tiene_foto ? 'Cambiar foto' : 'Tomar foto' }}
+                                        <input type="file" accept="image/*" capture="environment" class="sr-only" [disabled]="!!subiendoFoto()"
+                                          (change)="cambiarFotoDetalle(d, l.id_linea, $any($event.target))" />
+                                      </label>
+                                    }
+                                  </div>
+                                } @else { <span class="text-gray-300">—</span> }
+                              </td>
+                            }
                             @if (d.con_regreso) {
                               <td class="px-3 py-2">{{ l.cuentadante_nombre || '—' }}</td>
                               <td class="px-3 py-2 text-right whitespace-nowrap">{{ moneda(l.valor_unitario) }}</td>
@@ -242,10 +272,17 @@ const MEDIOS = ['Automóvil', 'Camioneta', 'Camión', 'Bus', 'Moto', 'Otro'];
                     </table>
                   </div>
 
+                  @if (d.estado === 'PENDIENTE' && faltanFotos(d) > 0) {
+                    <p class="text-xs rounded-lg bg-amber-50 text-amber-800 px-3 py-2">
+                      Falta la foto de {{ faltanFotos(d) }} {{ faltanFotos(d) === 1 ? 'material' : 'materiales' }}.
+                      {{ puedeCambiarFotos(d) ? 'Agrégala con «Tomar foto» para que se pueda aprobar.' : 'Quien pidió la salida debe agregarla antes de aprobar.' }}
+                    </p>
+                  }
+
                   <!-- Acciones -->
                   <div class="flex flex-wrap items-center gap-2">
                     @if (d.puede_resolver) {
-                      <button type="button" (click)="aprobar(s)" [disabled]="enviando()"
+                      <button type="button" (click)="aprobar(s)" [disabled]="enviando() || faltanFotos(d) > 0"
                         class="px-4 py-2 rounded-full text-xs font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50">Aprobar</button>
                       <button type="button" (click)="rechazando.set(!rechazando())"
                         class="px-4 py-2 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-red-300 hover:text-red-600">Rechazar</button>
@@ -284,14 +321,14 @@ const MEDIOS = ['Automóvil', 'Camioneta', 'Camión', 'Bus', 'Moto', 'Otro'];
     </div>
 
     @if (nueva()) {
-      <div appDialog class="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 overflow-y-auto p-2 sm:p-4" (click)="nueva.set(false)">
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 overflow-y-auto p-2 sm:p-4" (click)="cerrarNueva()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl my-auto max-h-[calc(100dvh-1rem)] sm:max-h-[90vh] flex flex-col overflow-hidden" (click)="$event.stopPropagation()">
           <div class="flex items-start justify-between shrink-0 px-4 pt-4 pb-3 sm:px-6 sm:pt-5 border-b border-gray-100">
             <div>
               <h2 class="text-lg font-bold text-gray-800">Nueva salida</h2>
               <p class="text-xs text-gray-400 mt-0.5">Queda pendiente hasta que la apruebe {{ conPoliza() && f.clase === 'DEVOLUTIVO' ? 'el jefe inmediato' : 'el administrador' }}.</p>
             </div>
-            <button aria-label="Cerrar" (click)="nueva.set(false)" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
+            <button aria-label="Cerrar" (click)="cerrarNueva()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 
           <div id="salida-cuerpo" class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 space-y-6">
@@ -446,6 +483,30 @@ const MEDIOS = ['Automóvil', 'Camioneta', 'Camión', 'Bus', 'Moto', 'Otro'];
                         @if (err('l' + $index + '_cantidad'); as m) { <p class="text-xs text-red-500 mt-1">{{ m }}</p> }
                         @else if (l.ajustada) { <p class="text-xs text-amber-700 mt-1">Se ajustó al máximo disponible del lote ({{ libresLote(l.clave) }}).</p> }
                       </div>
+                      <div [attr.data-error]="err('l' + $index + '_foto') ? 'true' : null">
+                        <p class="text-xs font-medium text-gray-600 mb-1">Foto del material <span class="text-red-500">*</span></p>
+                        @if (l.fotoUrl) {
+                          <div class="flex items-center gap-3">
+                            <img [src]="l.fotoUrl" alt="Foto del material {{ $index + 1 }}" class="w-28 h-20 object-cover rounded-lg border border-gray-200" />
+                            <div class="flex flex-col items-start gap-1.5">
+                              <label class="relative text-xs font-semibold text-[#2d8000] hover:underline cursor-pointer focus-within:ring-2 focus-within:ring-[#39A900]/40 rounded">
+                                {{ l.procesandoFoto ? 'Procesando…' : 'Cambiar foto' }}
+                                <input type="file" accept="image/*" capture="environment" class="sr-only" (change)="elegirFoto(l, $any($event.target))" />
+                              </label>
+                              <button type="button" (click)="quitarFoto(l)" class="text-xs font-medium text-gray-400 hover:text-red-600">Quitar</button>
+                            </div>
+                          </div>
+                        } @else {
+                          <label class="relative inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-dashed text-sm font-semibold cursor-pointer focus-within:ring-2 focus-within:ring-[#39A900]/40"
+                            [class]="err('l' + $index + '_foto') ? 'border-red-500 bg-red-50 text-red-700' : 'border-gray-300 text-gray-600 hover:border-[#39A900] hover:text-[#2d8000]'">
+                            <svg aria-hidden="true" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+                            {{ l.procesandoFoto ? 'Procesando…' : 'Tomar foto' }}
+                            <input type="file" accept="image/*" capture="environment" class="sr-only" [disabled]="l.procesandoFoto" (change)="elegirFoto(l, $any($event.target))" />
+                          </label>
+                          <p class="text-[11px] text-gray-400 mt-1">En el celular abre la cámara; en el computador puedes elegir una imagen. Va en el Excel de la salida.</p>
+                        }
+                        @if (err('l' + $index + '_foto'); as m) { <p class="text-xs text-red-500 mt-1">{{ m }}</p> }
+                      </div>
                     } @else {
                       @if (cuentadanteDe(l.clave); as cu) {
                         <p class="text-[11px] text-blue-700 bg-blue-50 rounded-lg px-2.5 py-1.5">Cuentadante: <strong>{{ cu }}</strong> · solo él o el encargado de la bodega pueden despacharla.</p>
@@ -494,7 +555,7 @@ const MEDIOS = ['Automóvil', 'Camioneta', 'Camión', 'Bus', 'Moto', 'Otro'];
               @if (conPoliza() && totalValor() > 0) { · Valor asegurado <strong class="text-gray-800">{{ moneda(totalValor()) }}</strong> }
             </p>
             <div class="flex flex-col-reverse sm:flex-row gap-2">
-              <button (click)="nueva.set(false)" class="w-full sm:w-auto px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
+              <button (click)="cerrarNueva()" class="w-full sm:w-auto px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
               <button (click)="guardarNueva()" [disabled]="enviando()"
                 [style.opacity]="enviando() ? 0.6 : 1" [style.cursor]="enviando() ? 'not-allowed' : 'pointer'"
                 class="w-full sm:w-auto px-5 py-2 text-white text-sm font-semibold rounded-full transition-colors" style="background-color: var(--accent-brand)">
@@ -760,13 +821,13 @@ export class MaterialesSalidasComponent implements OnInit {
 
   async alternarDetalle(s: SalidaResumen): Promise<void> {
     if (this.detalle()?.id_salida === s.id_salida) {
-      this.detalle.set(null);
+      this.mostrarDetalle(null);
       return;
     }
     this.rechazando.set(false);
     this.motivoRechazo = '';
     try {
-      this.detalle.set(await this.api.obtenerSalida(s.id_salida));
+      this.mostrarDetalle(await this.api.obtenerSalida(s.id_salida));
     } catch (e) {
       this.toast.httpError(e, 'No se pudo abrir la salida.');
     }
@@ -807,9 +868,11 @@ export class MaterialesSalidasComponent implements OnInit {
     this.f.clase = clase;
     this.claseSel.set(clase);
     this.regresa.set(null);
+    this.f.lineas.forEach((l) => this.soltarFoto(l));
     this.f.lineas = [this.lineaVacia()];
   }
   cambioSitio(): void {
+    this.f.lineas.forEach((l) => this.soltarFoto(l));
     this.f.lineas = [this.lineaVacia()];
     void this.cargarOpciones(this.f.id_sitio);
   }
@@ -824,6 +887,7 @@ export class MaterialesSalidasComponent implements OnInit {
     return l.tipo ?? (this.f.clase === 'DEVOLUTIVO' ? 'item' : 'lote');
   }
   quitarLinea(i: number): void {
+    this.soltarFoto(this.f.lineas[i]);
     this.f.lineas = this.f.lineas.filter((_, idx) => idx !== i);
   }
 
@@ -860,6 +924,7 @@ export class MaterialesSalidasComponent implements OnInit {
         const max = this.libresLote(l.clave);
         if (!Number.isInteger(c) || c < 1) e[`l${i}_cantidad`] = 'Escribe un número entero de 1 en adelante.';
         else if (max !== null && c > max) e[`l${i}_cantidad`] = `Solo hay ${max} libres en ese lote.`;
+        if (!l.foto) e[`l${i}_foto`] = l.procesandoFoto ? 'Espera a que termine de procesar la foto.' : 'Toma la foto del material.';
       } else if (this.conPoliza() && (l.valor === null || l.valor === undefined || String(l.valor) === '' || Number(l.valor) < 0)) {
         e[`l${i}_valor`] = 'Escribe el valor asegurado de esta unidad.';
       }
@@ -953,14 +1018,151 @@ export class MaterialesSalidasComponent implements OnInit {
             : { id_item: l.clave!, valor_unitario: this.conPoliza() ? Number(l.valor) : undefined, serial: l.serial.trim() || undefined },
         ),
       });
-      this.toast.ok('Salida registrada', `${s.codigo} quedó pendiente de aprobación.`);
-      this.nueva.set(false);
+      const faltan = await this.subirFotos(s, lineas);
+      if (faltan.length) {
+        this.toast.warn(
+          `${s.codigo} quedó registrada, pero sin todas las fotos`,
+          `No se pudo subir la foto de ${faltan.join(', ')}. Ábrela en la lista y usa «Tomar foto»: sin foto no se puede aprobar.`,
+          9000,
+        );
+      } else {
+        this.toast.ok('Salida registrada', `${s.codigo} quedó pendiente de aprobación.`);
+      }
+      this.cerrarNueva();
       await this.cargar();
     } catch (e) {
       this.toast.httpError(e, 'No se pudo registrar la salida.');
     } finally {
       this.enviando.set(false);
     }
+  }
+
+  // ── Fotos de los consumibles (obligatorias; van en la columna "Registro Fotografico" del Excel) ──
+  /** Miniaturas del detalle abierto, por id_linea (URLs de objeto: se liberan al cambiar de salida). */
+  readonly fotosDetalle = signal<Record<string, string>>({});
+  readonly subiendoFoto = signal<string | null>(null);
+
+  async elegirFoto(l: LineaForm, input: HTMLInputElement): Promise<void> {
+    const archivo = input.files?.[0];
+    input.value = ''; // permite volver a elegir el mismo archivo
+    if (!archivo) return;
+    l.procesandoFoto = true;
+    try {
+      const foto = await achicarFoto(archivo);
+      this.soltarFoto(l);
+      l.foto = foto;
+      l.fotoUrl = URL.createObjectURL(foto);
+    } catch (e) {
+      log.warn('salidas: no se pudo procesar la foto', e);
+      this.toast.error('No se pudo usar esa foto', (e as Error).message);
+    } finally {
+      l.procesandoFoto = false;
+    }
+  }
+  quitarFoto(l: LineaForm): void {
+    this.soltarFoto(l);
+  }
+  private soltarFoto(l: LineaForm | undefined): void {
+    if (!l) return;
+    if (l.fotoUrl) URL.revokeObjectURL(l.fotoUrl);
+    l.foto = null;
+    l.fotoUrl = null;
+  }
+  cerrarNueva(): void {
+    this.f.lineas.forEach((l) => this.soltarFoto(l));
+    this.nueva.set(false);
+  }
+
+  /** Sube la foto de cada consumible de la salida recién creada. Devuelve los materiales cuya foto falló. */
+  private async subirFotos(s: SalidaDetalle, lineas: LineaForm[]): Promise<string[]> {
+    const faltan: string[] = [];
+    for (const l of lineas) {
+      if (this.tipoLinea(l) !== 'lote' || !l.foto) continue;
+      // Cada lote va una sola vez por salida: la línea creada se reconoce por su lote.
+      const creada = s.lineas.find((x) => x.id_lote === l.clave);
+      if (!creada) continue;
+      try {
+        await this.api.subirFotoLineaSalida(s.id_salida, creada.id_linea, l.foto);
+      } catch (e) {
+        log.warn(`salidas: no se pudo subir la foto de ${creada.producto_nombre}`, e);
+        faltan.push(`«${creada.producto_nombre}»`);
+      }
+    }
+    return faltan;
+  }
+
+  tieneConsumo(d: SalidaDetalle): boolean {
+    return d.lineas.some((l) => !!l.id_lote);
+  }
+  faltanFotos(d: SalidaDetalle): number {
+    return d.lineas.filter((l) => l.id_lote && !l.tiene_foto).length;
+  }
+  /** Solo quien pidió la salida, y mientras está pendiente: se cambia la foto, nunca el material. */
+  puedeCambiarFotos(d: SalidaDetalle): boolean {
+    return d.estado === 'PENDIENTE' && d.id_usuario_solicita === this.miId();
+  }
+
+  /** Abre una salida en el detalle y baja las miniaturas de sus fotos. */
+  private mostrarDetalle(d: SalidaDetalle | null): void {
+    Object.values(this.fotosDetalle()).forEach((u) => URL.revokeObjectURL(u));
+    this.fotosDetalle.set({});
+    this.detalle.set(d);
+    if (!d) return;
+    for (const l of d.lineas) {
+      if (!l.id_lote || !l.tiene_foto) continue;
+      this.api
+        .fotoLineaSalida(d.id_salida, l.id_linea)
+        .then((blob) => {
+          // Si mientras tanto se abrió otra salida, esta miniatura ya no va.
+          if (this.detalle() !== d) return;
+          this.fotosDetalle.update((m) => ({ ...m, [l.id_linea]: URL.createObjectURL(blob) }));
+        })
+        .catch((e) => log.warn('salidas: no se pudo bajar una foto', e));
+    }
+  }
+
+  async cambiarFotoDetalle(d: SalidaDetalle, idLinea: string, input: HTMLInputElement): Promise<void> {
+    const archivo = input.files?.[0];
+    input.value = '';
+    if (!archivo) return;
+    this.subiendoFoto.set(idLinea);
+    let foto: Blob;
+    try {
+      foto = await achicarFoto(archivo);
+    } catch (e) {
+      this.toast.error('No se pudo usar esa foto', (e as Error).message);
+      this.subiendoFoto.set(null);
+      return;
+    }
+    try {
+      const actualizada = await this.api.subirFotoLineaSalida(d.id_salida, idLinea, foto);
+      this.toast.ok('Foto guardada');
+      this.mostrarDetalle(actualizada);
+    } catch (e) {
+      this.toast.httpError(e, 'No se pudo guardar la foto.');
+    } finally {
+      this.subiendoFoto.set(null);
+    }
+  }
+
+  /** Fotos de los consumibles para el Excel. Si una no se puede bajar, su celda queda vacía (y se avisa). */
+  private async fotosExcel(s: SalidaDetalle): Promise<FotosSalida> {
+    const fotos: FotosSalida = {};
+    let fallidas = 0;
+    await Promise.all(
+      s.lineas
+        .filter((l) => l.id_lote && l.tiene_foto)
+        .map(async (l) => {
+          try {
+            fotos[l.id_linea] = await fotoParaExcel(await this.api.fotoLineaSalida(s.id_salida, l.id_linea));
+          } catch (e) {
+            fallidas += 1;
+            log.warn('salidas: foto sin incluir en el Excel', e);
+          }
+        }),
+    );
+    if (fallidas) this.toast.warn('Faltan fotos en el Excel', `No se pudo bajar ${fallidas === 1 ? 'una foto' : `${fallidas} fotos`}; esa celda queda vacía.`);
+    return fotos;
   }
 
   // ── Acciones sobre una salida ──
@@ -971,7 +1173,7 @@ export class MaterialesSalidasComponent implements OnInit {
       this.toast.ok(ok);
       this.rechazando.set(false);
       await this.cargar();
-      this.detalle.set(await this.api.obtenerSalida(s.id_salida));
+      this.mostrarDetalle(await this.api.obtenerSalida(s.id_salida));
     } catch (e) {
       this.toast.httpError(e, fallo);
     } finally {
@@ -1005,10 +1207,10 @@ export class MaterialesSalidasComponent implements OnInit {
   /** Arma el libro de la salida (exceljs ≈920 kB se carga con import() solo aquí). */
   private async libro(s: SalidaResumen): Promise<{ wb: Workbook; nombre: string; salida: SalidaDetalle }> {
     const { config, salida } = await this.api.datosPolizaSalida(s.id_salida);
-    return { ...(await construirExcel(salida, config)), salida };
+    return { ...(await construirExcel(salida, config, await this.fotosExcel(salida))), salida };
   }
 
-  // Solo Excel: el usuario pega las fotos y firma, y lo pasa a PDF él mismo.
+  // Solo Excel: las fotos de los consumibles ya van; el usuario firma y lo pasa a PDF él mismo.
   async descargar(s: SalidaResumen): Promise<void> {
     this.enviando.set(true);
     try {

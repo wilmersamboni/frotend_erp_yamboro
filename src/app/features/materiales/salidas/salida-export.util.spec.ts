@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ConfigSalida, SalidaDetalle } from '../data-access/materiales-api.service';
-import { cantidadConsumo, descargarSalidaExcel, firmantes, lineasPorFormato, usaFormatoPoliza } from './salida-export.util';
+import { CAJA_FOTO, cantidadConsumo, construirExcel, descargarSalidaExcel, firmantes, lineasPorFormato, usaFormatoPoliza } from './salida-export.util';
+import { encajar } from './foto-salida';
 import { ubicacionSalida } from './poliza-excel.util';
 
 const config: ConfigSalida = {
@@ -221,5 +222,28 @@ describe('Descarga de salidas: dos formatos', () => {
     expect(cantidadConsumo(l(2, 'CAJA'))).toBe('2 cajas');
     expect(cantidadConsumo(l(2, 'PAR'))).toBe('2 pares');
     expect(cantidadConsumo(l(1, 'ROLLO'))).toBe('1 rollo');
+  });
+});
+
+describe('Registro fotográfico de los consumibles', () => {
+  // PNG de 1×1: basta para que ExcelJS lo empaque; el tamaño que cuenta es el declarado.
+  const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='), (c) => c.charCodeAt(0)).buffer;
+
+  it('pone la foto de cada material en la columna H de su fila, centrada y sin deformar', async () => {
+    const { wb } = await construirExcel(consumo, config, { b: { buffer: png, extension: 'png', ancho: 1280, alto: 960 } });
+    const imgs = wb.worksheets[0].getImages();
+    expect(imgs).toHaveLength(1); // la línea "a" no tiene foto: su celda queda vacía
+    const tl = imgs[0].range.tl as unknown as { nativeCol: number; nativeRow: number; nativeColOff: number; nativeRowOff: number };
+    expect(tl.nativeCol).toBe(7); // H
+    expect(tl.nativeRow).toBe(3); // fila 4 = segundo material
+    const ext = (imgs[0].range as unknown as { ext: { width: number; height: number } }).ext;
+    expect(ext).toEqual(encajar(1280, 960, CAJA_FOTO.ancho - 12, CAJA_FOTO.alto - 12));
+    expect(ext.width / ext.height).toBeCloseTo(4 / 3, 1);
+    expect(tl.nativeColOff).toBe(Math.round(((CAJA_FOTO.ancho - ext.width) / 2) * 9525));
+  });
+
+  it('encajar no agranda ni deforma', () => {
+    expect(encajar(100, 50, 159, 121)).toEqual({ width: 100, height: 50 });
+    expect(encajar(3000, 4000, 159, 121)).toEqual({ width: 91, height: 121 });
   });
 });
