@@ -68,8 +68,8 @@ interface LineaFormato {
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-gray-600 mb-1">Servidor público a quien se asigna (cuentadante)</label>
-                  <app-ss [options]="opcionesPersona" placeholder="— Buscar persona —" [(ngModel)]="idCuentadante"></app-ss>
-                  <p class="text-[11px] text-gray-400 mt-1">Los equipos que se repartan quedan a su cargo.</p>
+                  <app-ss [options]="opcionesCuentadante" placeholder="— Buscar persona —" [(ngModel)]="idCuentadante"></app-ss>
+                  <p class="text-[11px] text-gray-400 mt-1">Los equipos que se repartan quedan a su cargo. Solo instructores o personas habilitadas como cuentadante en Usuarios.</p>
                 </div>
                 <div class="sm:col-span-2">
                   <label class="block text-xs font-medium text-gray-600 mb-1">Código de grupo o ficha de caracterización (si lo trae)</label>
@@ -188,6 +188,8 @@ export class FormatoGilModalComponent implements OnChanges {
 
   catalogo: Producto[] = [];
   opcionesPersona: SSOption[] = [];
+  /** Misma regla que la pantalla de cuentadante: instructor o habilitado en Usuarios (`puedeSerCuentadante`). */
+  opcionesCuentadante: SSOption[] = [];
   opcionesFicha: SSOption[] = [];
   cargando = false;
   guardando = false;
@@ -236,12 +238,16 @@ export class FormatoGilModalComponent implements OnChanges {
       this.erpCatalogo.getFichas().catch(() => [] as any[]),
     ]);
     this.catalogo = catalogo.filter((p) => p.activo !== false);
-    this.opcionesPersona = personas.map((u: any) => ({
+    const opcion = (u: any): SSOption => ({
       value: u.idUsuario,
       label: [`${u.persona?.nombre ?? ''} ${u.persona?.apellido ?? ''}`.trim(), u.persona?.documento ?? u.persona?.cedula, u.persona?.cargo]
         .filter(Boolean)
         .join(' — '),
-    }));
+    });
+    this.opcionesPersona = personas.map(opcion);
+    this.opcionesCuentadante = personas
+      .filter((u: any) => u.persona?.cargo === 'instructor' || u.puedeSerCuentadante === true)
+      .map(opcion);
     this.opcionesFicha = fichas.map((f: any) => ({ value: f.idCurso, label: `${f.codigo}${f.programa ? ' — ' + f.programa : ''}` }));
     this.cargando = false;
   }
