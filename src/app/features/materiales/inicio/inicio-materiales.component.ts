@@ -65,6 +65,7 @@ const ICONO_PENDIENTE: Record<string, LucideIconData> = {
   lotes_por_vencer: Clock3,
   unidades_sin_placa: Tag,
   ingresos_sin_soporte: FileText,
+  ingresos_por_repartir: PackagePlus,
   fichas_pedidas: PackagePlus,
   mis_prestamos_vencidos: CalendarClock,
   mis_prestamos_por_vencer: Clock3,
@@ -228,7 +229,7 @@ export class InicioMaterialesComponent implements OnInit {
     const s = (n: string) => this.auth.tieneServicio(n);
     const gestor = this.gestor();
     const recibir: Tarea[] = [
-      { icono: PackagePlus, tono: 'verde', titulo: 'Llegó material', ayuda: 'Registra lo que entró a la sede, con su factura', ruta: '/materiales/ingresos', query: { nuevo: 1 }, visible: this.registraIngresos(), pendientes: ['ingresos_sin_soporte'] },
+      { icono: PackagePlus, tono: 'verde', titulo: 'Llegó material', ayuda: 'Registra lo que entró a la sede, con su factura', ruta: '/materiales/ingresos', query: { nuevo: 1 }, visible: this.registraIngresos(), pendientes: ['ingresos_por_repartir', 'ingresos_sin_soporte'] },
       { icono: ClipboardCheck, tono: 'azul', titulo: 'Aprobar y entregar pedidos', ayuda: 'Lo que te pidieron prestado', ruta: '/materiales/solicitudes', visible: gestor && s('materiales.solicitudes.ver'), pendientes: ['solicitudes_por_aprobar', 'solicitudes_por_entregar'] },
       { icono: ShoppingCart, tono: 'violeta', titulo: 'Pedir material', ayuda: 'Pide prestado o para gastar', ruta: '/materiales/solicitudes', query: { nuevo: 1 }, visible: s('materiales.solicitudes.crear'), pendientes: ['mis_solicitudes_listas'] },
       { icono: Undo2, tono: 'teal', titulo: 'Me devolvieron algo', ayuda: 'Recibe lo que se había prestado', ruta: '/materiales/devoluciones', visible: gestor && s('materiales.devoluciones.ver'), pendientes: ['prestamos_vencidos'] },

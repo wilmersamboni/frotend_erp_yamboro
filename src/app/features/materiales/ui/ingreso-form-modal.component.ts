@@ -34,6 +34,7 @@ export const TIPOS_SOPORTE: { value: TipoSoporte; label: string }[] = [
   { value: 'ORDEN_COMPRA', label: 'Orden de compra' },
   { value: 'CONTRATO', label: 'Contrato' },
   { value: 'ACTA', label: 'Acta' },
+  { value: 'GIL_F_014', label: 'Formato GIL-F-014' },
   { value: 'OTRO', label: 'Otro' },
 ];
 
