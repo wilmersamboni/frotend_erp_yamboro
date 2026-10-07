@@ -4,6 +4,7 @@ import { SearchableSelectComponent, SSOption } from '../../../shared/components/
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
 import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
 import { MaterialesApiService, Producto, Sitio, UnidadMedida } from '../data-access/materiales-api.service';
+import { codigoLoteSugerido } from '../codigo-lote.util';
 
 const ETIQUETA_TIPO: Record<string, { texto: string; clases: string }> = {
   CONSUMO: { texto: 'Consumo · se gasta', clases: 'bg-green-50 text-green-700 border-green-200' },
@@ -157,9 +158,10 @@ function hoyLocal(): string {
               } @else {
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Código del lote <span class="text-gray-400 font-normal">(opcional)</span></label>
-                    <input type="text" [(ngModel)]="codigoLote" placeholder="Ej: L-2026-10"
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Código del lote</label>
+                    <input type="text" [(ngModel)]="codigoLote" maxlength="60" [placeholder]="'Automático: ' + sugerirCodigo(p.nombre)"
                       class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                    <p class="text-[11px] text-gray-400 mt-1">Déjalo vacío y se genera solo, o escribe el tuyo.</p>
                   </div>
                   @if (p.tipo_material === 'PERECEDERO') {
                     <div>
@@ -216,6 +218,7 @@ export class AgregarExistenciasModalComponent implements OnChanges {
   cantidad: number | null = null;
   placasTexto = '';
   codigoLote = '';
+  readonly sugerirCodigo = (nombre: string): string => codigoLoteSugerido(nombre);
   fechaVencimiento = '';
   saving = false;
   error: string | null = null;

@@ -21,8 +21,9 @@ const VACIO: ProveedorDto = {
 };
 
 /**
- * Proveedores de la sede (2026-10-05). Los gestionan el administrador, los
- * líderes de área y los encargados de bodega (ruta con `gestorMaterialesGuard`).
+ * Proveedores de la sede (2026-10-05). Desde 2026-10-06 solo los gestionan
+ * administrador_erp, los líderes de área y quien tenga la excepción personal
+ * `materiales.ingresos.gestionar` (ruta con `gestorIngresosGuard`).
  * No se borran: se desactivan, porque los ingresos los referencian; un
  * proveedor inactivo no aparece al registrar un ingreso nuevo.
  */
@@ -39,7 +40,7 @@ const VACIO: ProveedorDto = {
         </div>
         <label class="flex items-center gap-2 text-sm text-gray-600">
           <input type="checkbox" [(ngModel)]="verInactivos" (ngModelChange)="cargar()" class="rounded" />
-          Ver desactivados
+          Mostrar también los desactivados
         </label>
       </div>
 
@@ -49,8 +50,8 @@ const VACIO: ProveedorDto = {
         [rows]="filas"
         [searchable]="true"
         searchPlaceholder="Buscar por nombre, documento, contacto…"
-        [columns]="['nombre', 'documento_txt', 'municipio_nombre', 'telefono', 'correo', 'contacto', 'ingresos', 'estado_txt']"
-        [columnLabels]="{ nombre: 'Proveedor', documento_txt: 'Documento', municipio_nombre: 'Municipio', telefono: 'Teléfono', correo: 'Correo', contacto: 'Contacto', ingresos: 'Ingresos', estado_txt: 'Estado' }"
+        [columns]="['nombre', 'documento_txt', 'municipio_nombre', 'contacto_txt', 'ingresos', 'estado_txt']"
+        [columnLabels]="{ nombre: 'Proveedor', documento_txt: 'Documento', municipio_nombre: 'Municipio', contacto_txt: 'Contacto', ingresos: 'Ingresos', estado_txt: 'Estado' }"
         [loading]="loading"
         [canEdit]="true"
         [canDelete]="true"
@@ -111,6 +112,18 @@ const VACIO: ProveedorDto = {
               <label class="block text-xs font-medium text-gray-600 mb-1">Observaciones</label>
               <textarea rows="2" [(ngModel)]="form.observaciones" maxlength="2000" [class]="campo"></textarea>
             </div>
+            @if (editando) {
+              <label class="flex items-start gap-3 p-3 rounded-lg border cursor-pointer"
+                [class]="form.activo ? 'border-gray-200 bg-white' : 'border-amber-200 bg-amber-50'">
+                <input type="checkbox" [(ngModel)]="form.activo" class="mt-0.5 rounded" />
+                <span>
+                  <span class="block text-sm font-medium text-gray-800">Proveedor activo</span>
+                  <span class="block text-xs text-gray-500 mt-0.5">
+                    Si lo desactivas, deja de aparecer al registrar llegadas nuevas. Sus ingresos anteriores se conservan.
+                  </span>
+                </span>
+              </label>
+            }
             @if (error) { <p class="text-red-600 text-xs p-2 bg-red-50 rounded-lg">{{ error }}</p> }
           </div>
           <div class="shrink-0 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 border-t border-gray-100 px-4 py-4 sm:px-6 mt-2">
@@ -175,6 +188,9 @@ export class MaterialesProveedoresComponent implements OnInit {
         ...p,
         documento_txt: `${p.tipo_documento} ${p.documento}`,
         estado_txt: p.activo ? 'Activo' : 'Desactivado',
+        // Teléfono, correo y contacto en una sola columna: con las tres por
+        // separado la tabla se salía a lo ancho y escondía los botones de la fila.
+        contacto_txt: [p.contacto, p.telefono, p.correo].filter(Boolean).join(' · ') || '—',
         municipio_nombre: p.municipio_nombre ?? '—',
       }));
     } catch (e) {
@@ -196,7 +212,7 @@ export class MaterialesProveedoresComponent implements OnInit {
     this.form = {
       nombre: p.nombre, tipo_documento: p.tipo_documento, documento: p.documento, direccion: p.direccion ?? '',
       id_municipio: p.id_municipio ?? '', telefono: p.telefono ?? '', correo: p.correo ?? '', contacto: p.contacto ?? '',
-      observaciones: p.observaciones ?? '',
+      observaciones: p.observaciones ?? '', activo: p.activo,
     };
     this.error = null;
     this.modalOpen = true;
@@ -218,12 +234,14 @@ export class MaterialesProveedoresComponent implements OnInit {
       if (v) dto[k] = v;
       else if (this.editando) dto[k] = null;
     }
+    if (this.editando) dto.activo = f.activo !== false;
     this.saving = true;
     this.error = null;
     try {
       if (this.editando) {
         await this.api.actualizarProveedor(this.editando.id_proveedor, dto);
-        this.toast.ok('Proveedor actualizado');
+        const cambioEstado = dto.activo !== this.editando.activo;
+        this.toast.ok(!cambioEstado ? 'Proveedor actualizado' : dto.activo ? 'Proveedor activado' : 'Proveedor desactivado');
       } else {
         await this.api.crearProveedor(dto);
         this.toast.ok('Proveedor creado');

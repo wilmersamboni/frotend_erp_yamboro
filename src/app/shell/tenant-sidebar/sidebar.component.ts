@@ -30,6 +30,8 @@ interface NavLink  {
   /** Solo para quien gestiona Materiales: admin, encargado de ≥1 bodega o
    * líder de área (mismo criterio que `gestorMaterialesGuard`). */
   soloGestorMateriales?: boolean;
+  /** Solo para quien registra llegadas/proveedores (mismo criterio que `gestorIngresosGuard`). */
+  soloGestorIngresos?: boolean;
   /** Servicio del sistema de permisos dinámico que también habilita este link,
    * aunque el cargo no esté en `roles` (ver AuthService.tieneServicio). OR con
    * `roles` — pensado para poblaciones DISTINTAS (ej. `roles` = admin,
@@ -291,6 +293,8 @@ export class SidebarComponent implements OnChanges, OnInit {
   esResponsableBodega = signal(false);
   /** ¿Puede alimentar el catálogo (administrador_erp o líder de área)? Gate del Reporte de materiales. */
   esGestorCatalogo = signal(false);
+  /** ¿Registra llegadas de material y proveedores? Gate de esas dos pantallas. */
+  esGestorIngresos = signal(false);
 
   ngOnInit(): void {
     this.materialesApi
@@ -301,6 +305,10 @@ export class SidebarComponent implements OnChanges, OnInit {
       .puedeGestionarCatalogo?.()
       .then((puede) => this.esGestorCatalogo.set(puede))
       .catch(() => this.esGestorCatalogo.set(false));
+    this.materialesApi
+      .accesoIngresos?.()
+      .then((r) => this.esGestorIngresos.set(!!r?.puede))
+      .catch(() => this.esGestorIngresos.set(false));
   }
 
   @Input() open = false;
@@ -534,6 +542,8 @@ export class SidebarComponent implements OnChanges, OnInit {
         return { ...base, soloResponsableBodega: true };
       case 'gestor':
         return { ...base, servicios: [p.acceso.servicio], soloGestorMateriales: true };
+      case 'ingresos':
+        return { ...base, soloGestorIngresos: true };
       case 'cualquiera':
         return { ...base, servicios: p.acceso.servicios };
     }
@@ -603,6 +613,7 @@ export class SidebarComponent implements OnChanges, OnInit {
           if (l.soloResponsableBodega && (this.auth.isAdmin() || !this.esResponsableBodega())) return false;
           if (l.ocultarSiResponsableBodega && !this.auth.isAdmin() && this.esResponsableBodega()) return false;
           if (l.soloGestorMateriales && !this.auth.isAdmin() && !this.esResponsableBodega() && !this.esGestorCatalogo()) return false;
+          if (l.soloGestorIngresos && !this.esGestorIngresos()) return false;
           return true;
         }),
       }))

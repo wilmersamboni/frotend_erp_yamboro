@@ -1,7 +1,8 @@
 import { Component, OnInit, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { AdminTableComponent } from '../../../shared/components/admin-table.component';
+import { AdminTableComponent, TableRowLink } from '../../../shared/components/admin-table.component';
+import { DialogDirective } from '../../../shared/directives/dialog.directive';
 import { AdminModalComponent } from '../../tenant-administration/ui/admin-modal.component';
 import { OpcionSelect } from '../../tenant-administration/services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -12,6 +13,7 @@ import { ExportColumn, TableExportService } from '../../../shared/services/table
 import { CargasSecundarias } from '../data-access/cargas-secundarias';
 import { AvisoCargasComponent } from '../ui/aviso-cargas.component';
 import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
+import { codigoLoteSugerido } from '../codigo-lote.util';
 
 const OPCIONES_ESTADO: OpcionSelect[] = [
   { label: 'Activo', value: 'ACTIVO' },
@@ -35,7 +37,7 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
 @Component({
   selector: 'app-materiales-lotes',
   standalone: true,
-  imports: [AvisoCargasComponent, FormsModule, AdminTableComponent, AdminModalComponent],
+  imports: [AvisoCargasComponent, FormsModule, AdminTableComponent, AdminModalComponent, DialogDirective],
   template: `
     <div class="p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
@@ -70,9 +72,31 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
         [loading]="loading"
         [canEdit]="puedeEditar()"
         [canDelete]="puedeEliminar()"
+        [rowLinks]="accionesFila"
         (edit)="editar($event)"
         (delete)="eliminar($event)" />
     </div>
+
+    @if (bajaDe; as b) {
+      <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="bajaDe = null">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" (click)="$event.stopPropagation()">
+          <h2 class="text-lg font-bold text-gray-800">Dar de baja el lote</h2>
+          <p class="text-sm text-gray-500 mt-1">
+            {{ b.producto_nombre }}{{ b.codigo_lote ? ' · lote ' + b.codigo_lote : '' }}: quedan <strong>{{ b.cantidad_disponible }}</strong>.
+            Pasa a 0 y queda como <em>dado de baja</em>; su historial se conserva completo.
+          </p>
+          <label class="block text-xs font-medium text-gray-600 mt-4 mb-1">Motivo <span class="text-red-500">*</span></label>
+          <textarea rows="3" [(ngModel)]="motivoBaja" maxlength="500" placeholder="Ej: se venció y se desechó; se dañó con humedad; se perdió en el traslado"
+            class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]"></textarea>
+          @if (errorBaja) { <p class="text-red-600 text-xs mt-2 p-2 bg-red-50 rounded-lg">{{ errorBaja }}</p> }
+          <div class="flex justify-end gap-2 mt-5">
+            <button (click)="bajaDe = null" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">Cancelar</button>
+            <button (click)="confirmarBaja()" [disabled]="saving || motivoBaja.trim().length < 5"
+              class="px-5 py-2 text-white text-sm font-medium rounded-lg bg-red-600 disabled:opacity-50">{{ saving ? 'Guardando…' : 'Dar de baja' }}</button>
+          </div>
+        </div>
+      </div>
+    }
 
     <app-admin-modal
       [open]="modalOpen"
@@ -136,9 +160,18 @@ export class MaterialesLotesComponent implements OnInit {
     };
   }
 
-  placeholders: Record<string, string> = {
-    codigo_lote: 'Ej: LT-2026-014', cantidad_inicial: 'Ej: 500',
-  };
+  /** Alta: el código que se generará si se deja vacío (2026-10-06); se puede escribir otro. */
+  get placeholders(): Record<string, string> {
+    const producto = this.editando ? null : this.productos.find((p) => p.id_producto === this.form['id_producto']);
+    return {
+      codigo_lote: this.editando
+        ? 'Ej: ANE-06-10-26'
+        : producto
+          ? `Vacío = automático: ${codigoLoteSugerido(producto.nombre)}`
+          : 'Vacío = se genera solo',
+      cantidad_inicial: 'Ej: 500',
+    };
+  }
 
   /** `fecha_vencimiento` como calendario desplegable (no <input> de texto). */
   tiposCampo: Record<string, string> = { fecha_vencimiento: 'date' };
@@ -149,6 +182,41 @@ export class MaterialesLotesComponent implements OnInit {
   puedeCrear = computed(() => this.auth.tieneServicio('materiales.lotes.crear'));
   puedeEditar = computed(() => this.auth.tieneServicio('materiales.lotes.editar'));
   puedeEliminar = computed(() => this.auth.tieneServicio('materiales.lotes.eliminar'));
+
+  // ── Dar de baja (2026-10-07): la salida honesta cuando un lote no se puede eliminar ──
+  bajaDe: any | null = null;
+  motivoBaja = '';
+  errorBaja: string | null = null;
+  readonly accionesFila: TableRowLink[] = [
+    {
+      label: 'Dar de baja',
+      onClick: (row) => this.abrirBaja(row),
+      visible: (row) => this.puedeEditar() && row.estado !== 'DADO_DE_BAJA',
+    },
+  ];
+
+  abrirBaja(row: any): void {
+    this.bajaDe = row;
+    this.motivoBaja = '';
+    this.errorBaja = null;
+  }
+
+  async confirmarBaja(): Promise<void> {
+    const b = this.bajaDe;
+    if (!b || this.motivoBaja.trim().length < 5) return;
+    this.saving = true;
+    this.errorBaja = null;
+    try {
+      await this.api.darDeBajaLote(b.id_lote, this.motivoBaja.trim());
+      this.toast.ok('Lote dado de baja', 'Quedó en 0 y su historial se conserva.');
+      this.bajaDe = null;
+      await this.cargar();
+    } catch (e) {
+      this.errorBaja = mensajeDeError(e, 'No se pudo dar de baja el lote.');
+    } finally {
+      this.saving = false;
+    }
+  }
 
   constructor(
     private api: MaterialesApiService,
@@ -367,8 +435,15 @@ export class MaterialesLotesComponent implements OnInit {
       await this.api.eliminarLote(fila.id_lote);
       this.toast.ok('Lote eliminado');
       await this.cargar();
-    } catch (e) {
-      this.toast.httpError(e, 'No se pudo eliminar el lote.');
+    } catch (e: any) {
+      // 409: el lote tiene historia (vino de una llegada o ya se movió). El
+      // mensaje del backend dice qué hacer; se ofrece la baja de una vez.
+      if (e?.status === 409 && this.puedeEditar() && fila.estado !== 'DADO_DE_BAJA') {
+        this.toast.warn('No se puede eliminar', mensajeDeError(e, 'El lote tiene historia.'), 9000);
+        this.abrirBaja(fila);
+      } else {
+        this.toast.httpError(e, 'No se pudo eliminar el lote.');
+      }
     }
   }
 }

@@ -299,7 +299,7 @@ interface LineaForm {
                   <div class="mt-2">
                     <app-ss [options]="opcionesFicha" placeholder="— Selecciona la ficha —"
                       [(ngModel)]="idCursoSeleccionado"></app-ss>
-                    <p class="text-xs text-gray-400 mt-1">Al entregarse, el material queda asignado a esta ficha (no a vos) — se devuelve desde Asignaciones, no desde Devoluciones.</p>
+                    <p class="text-xs text-gray-400 mt-1">Al entregarse, todo queda registrado en Entregas a fichas a nombre de esta ficha (no a tu nombre). Los equipos se devuelven desde ahí; el material de consumo no se devuelve, solo se puede reintegrar lo que sobre.</p>
                   </div>
                 }
               </div>

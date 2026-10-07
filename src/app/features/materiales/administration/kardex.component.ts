@@ -126,20 +126,24 @@ export class MaterialesKardexComponent implements OnInit {
     this.router.navigate([], { relativeTo: this.route, queryParams: {} });
   }
 
-  /** Producto y referencia del movimiento: de la unidad (devolutivo) o del lote (consumo/perecedero). */
+  /**
+   * Producto y referencia del movimiento: de la unidad (devolutivo) o del lote
+   * (consumo/perecedero). Si ya no existen (p. ej. el lote se eliminó), se usa
+   * la foto que guarda el propio movimiento (`producto_nombre`/`referencia`).
+   */
   private origen(k: Kardex): { idProducto: string | null; nombre: string | null; ref: string | null } {
     if (k.item) {
       return {
-        idProducto: k.item.producto?.id_producto ?? null,
-        nombre: k.item.producto?.nombre ?? null,
-        ref: k.item.placa_sena ? `Placa ${k.item.placa_sena}` : (k.item.codigo_sku ?? null),
+        idProducto: k.item.producto?.id_producto ?? k.id_producto ?? null,
+        nombre: k.item.producto?.nombre ?? k.producto_nombre ?? null,
+        ref: k.item.placa_sena ? `Placa ${k.item.placa_sena}` : (k.item.codigo_sku ?? k.referencia ?? null),
       };
     }
     const lote = k.id_lote ? this.lotesPorId.get(k.id_lote) : undefined;
     return {
-      idProducto: lote?.id_producto ?? null,
-      nombre: lote?.producto?.nombre ?? null,
-      ref: lote?.codigo_lote ? `Lote ${lote.codigo_lote}` : k.id_lote ? 'Lote' : null,
+      idProducto: lote?.id_producto ?? k.id_producto ?? null,
+      nombre: lote?.producto?.nombre ?? k.producto_nombre ?? null,
+      ref: lote?.codigo_lote ? `Lote ${lote.codigo_lote}` : (k.referencia ?? (k.id_lote ? 'Lote' : null)),
     };
   }
 

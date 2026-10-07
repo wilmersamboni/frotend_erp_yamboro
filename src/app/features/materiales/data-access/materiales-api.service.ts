@@ -880,7 +880,34 @@ export interface Acta {
   solicitud?: Solicitud;
 }
 
-export type EstadoAsignacion = 'ACTIVA' | 'ANULADA' | 'DEVUELTA';
+/** ENTREGADA = solo material de consumo: salió para la ficha y no queda nada por devolver. */
+export type EstadoAsignacion = 'ACTIVA' | 'ANULADA' | 'DEVUELTA' | 'ENTREGADA';
+
+/** Consumible entregado a una ficha (por lote), con lo que ya volvió como sobrante. */
+export interface ConsumoAsignacion {
+  id_asignacion_consumo: string;
+  id_lote: string;
+  id_producto: string;
+  producto_nombre: string | null;
+  codigo_lote: string | null;
+  unidad_medida: string | null;
+  cantidad: number;
+  cantidad_reintegrada: number;
+}
+
+/** Lote de consumo que se puede entregar a una ficha (`GET materiales/asignaciones/opciones/consumo`). */
+export interface OpcionConsumo {
+  id_lote: string;
+  id_producto: string;
+  nombre: string;
+  marca: string | null;
+  codigo_lote: string | null;
+  unidad_medida: string | null;
+  fecha_vencimiento: string | null;
+  id_sitio: string;
+  sitio_nombre: string;
+  disponibles: number;
+}
 
 export interface Asignacion {
   id_asignacion: string;
@@ -894,6 +921,8 @@ export interface Asignacion {
   fecha_devolucion?: string | null;
   producto?: Producto;
   lineas?: { id_producto: string; producto_nombre: string | null; cantidad: number; id_items: string[] }[];
+  /** Material de consumo de la misma entrega (2026-10-06). */
+  consumos?: ConsumoAsignacion[];
   /** Resueltos por el backend vía SQL directo a `cursos` — no dependen de que
    *  el `GET /api/cursos` del cliente (recortado por RLS a "mis cursos")
    *  incluya la ficha de esta asignación, que puede ser de otro instructor. */
@@ -905,7 +934,8 @@ export interface CreateAsignacionDto {
   id_curso: string;
   /** Bodega de la que salen las unidades (catálogo único). */
   id_sitio?: string;
-  lineas:{id_producto:string, cantidad:number, id_items?: string[]}[],
+  /** `id_producto` = unidades devolutivas; `id_lote` = consumo de ese lote. */
+  lineas: { id_producto?: string; id_lote?: string; cantidad: number; id_items?: string[] }[];
   observacion?: string;
   fecha_devolucion?: string;
 }
@@ -923,6 +953,10 @@ export interface Kardex {
   id_lote?: string | null;
   id_usuario: string;
   item?: Item;
+  /** Foto del producto y la referencia al registrar el movimiento: sigue ahí aunque el lote se elimine. */
+  id_producto?: string | null;
+  producto_nombre?: string | null;
+  referencia?: string | null;
 }
 
 // ── Proveedores e ingreso de materiales (2026-10-05) ───────────────────
@@ -958,17 +992,32 @@ export interface ProveedorDto {
   activo?: boolean;
 }
 export type TipoIngreso = 'COMPRA' | 'DONACION' | 'COMODATO' | 'TRASLADO_CENTRO' | 'REPOSICION' | 'OTRO';
-export type TipoSoporte = 'FACTURA' | 'REMISION' | 'ORDEN_COMPRA' | 'CONTRATO' | 'ACTA' | 'OTRO';
+export type TipoSoporte = 'FACTURA' | 'REMISION' | 'ORDEN_COMPRA' | 'CONTRATO' | 'ACTA' | 'GIL_F_014' | 'OTRO';
+/** DIRECTO: a una bodega. FORMATO_AREA: formato GIL-F-014 al área, se reparte después (2026-10-06). */
+export type ModalidadIngreso = 'DIRECTO' | 'FORMATO_AREA';
+export type EstadoRepartoIngreso = 'POR_REPARTIR' | 'PARCIAL' | 'REPARTIDO';
 export interface IngresoMaterial {
   id_ingreso: string;
   numero: number;
   /** ING-20261006-001 */
   codigo: string;
+  modalidad: ModalidadIngreso;
+  id_area: string | null;
+  area_nombre: string | null;
+  id_coordinador: string | null;
+  coordinador_nombre: string | null;
+  id_cuentadante: string | null;
+  cuentadante_nombre: string | null;
+  id_curso: string | null;
+  ficha_codigo: string | null;
+  cantidad_repartida: number;
+  /** Solo formato por área. */
+  estado_reparto: EstadoRepartoIngreso | null;
   tipo_ingreso: TipoIngreso;
   id_proveedor: string | null;
   proveedor_nombre: string | null;
   proveedor_documento: string | null;
-  id_sitio: string;
+  id_sitio: string | null;
   sitio_nombre: string | null;
   tipo_soporte: TipoSoporte | null;
   numero_soporte: string | null;
@@ -1000,8 +1049,13 @@ export interface LineaIngresoMaterial {
   codigo_lote: string | null;
   fecha_vencimiento: string | null;
   observacion: string | null;
+  codigo_sena: string | null;
+  cantidad_solicitada: number | null;
+  cantidad_repartida: number;
+  repartos: { id_reparto: string; id_sitio: string; sitio_nombre: string; cantidad: number; fecha: string; registra_nombre: string | null }[];
   unidades: { id_item: string; placa_sena: string | null; codigo_sku: string | null; estado: string; id_sitio: string | null }[];
   lote: { id_lote: string; codigo_lote: string | null; cantidad_disponible: number; estado: string } | null;
+  lotes: { id_lote: string; codigo_lote: string | null; cantidad_disponible: number; estado: string; id_sitio: string | null }[];
 }
 /** Archivo que respalda el ingreso (foto o PDF de la factura, remisión…). */
 export interface SoporteIngreso {
@@ -1013,9 +1067,25 @@ export interface SoporteIngreso {
   subido_por: string | null;
 }
 export type IngresoMaterialDetalle = IngresoMaterial & { lineas: LineaIngresoMaterial[]; soportes: SoporteIngreso[] };
+/** Área a la que puede llegar un formato GIL-F-014, con las bodegas a las que se reparte. */
+export interface AreaIngreso {
+  id_area: string;
+  nombre: string;
+  bodegas: { id_sitio: string; nombre: string }[];
+}
+/** Parte de una línea del formato que va a una bodega del área. */
+export interface RepartoLineaDto {
+  id_sitio: string;
+  cantidad: number;
+  placas_sena?: string[];
+  codigo_lote?: string | null;
+}
 export interface LineaIngresoDto {
   id_producto: string;
   cantidad: number;
+  codigo_sena?: string | null;
+  cantidad_solicitada?: number | null;
+  reparto?: RepartoLineaDto[];
   valor_unitario?: number | null;
   placas_sena?: string[];
   codigo_lote?: string | null;
@@ -1023,9 +1093,14 @@ export interface LineaIngresoDto {
   observacion?: string | null;
 }
 export interface RegistrarIngresoDto {
-  tipo_ingreso: TipoIngreso;
+  modalidad?: ModalidadIngreso;
+  tipo_ingreso?: TipoIngreso;
   id_proveedor?: string | null;
-  id_sitio: string;
+  id_sitio?: string;
+  id_area?: string;
+  id_coordinador?: string;
+  id_cuentadante?: string;
+  id_curso?: string;
   tipo_soporte?: TipoSoporte | null;
   numero_soporte?: string | null;
   fecha_soporte?: string | null;
@@ -1405,6 +1480,10 @@ export class MaterialesApiService {
   eliminarLote(id: string) {
     return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/lotes/${id}`));
   }
+  /** Deja el lote en 0 (DADO_DE_BAJA) con su motivo, sin borrar su historia. */
+  darDeBajaLote(id: string, motivo: string) {
+    return this.unwrap(this.http.patch<Envelope<Lote>>(`${BASE}/lotes/${id}/baja`, { motivo }));
+  }
 
   // ── Items ──────────────────────────────────────────────────────────
   listarItems(idProducto?: string) {
@@ -1605,6 +1684,12 @@ export class MaterialesApiService {
   crearAsignacion(dto: CreateAsignacionDto) {
     return this.unwrap(this.http.post<Envelope<Asignacion>>(`${BASE}/materiales/asignaciones`, dto));
   }
+  opcionesConsumoAsignacion() {
+    return this.unwrap(this.http.get<Envelope<OpcionConsumo[]>>(`${BASE}/materiales/asignaciones/opciones/consumo`));
+  }
+  reintegrarConsumo(id: string, dto: { lineas: { id_asignacion_consumo: string; cantidad: number }[]; observacion?: string }) {
+    return this.unwrap(this.http.post<Envelope<Asignacion>>(`${BASE}/materiales/asignaciones/${id}/reintegro`, dto));
+  }
   anularAsignacion(id: string) {
     return this.unwrap(this.http.patch<Envelope<Asignacion>>(`${BASE}/materiales/asignaciones/${id}/anular`, {}));
   }
@@ -1654,6 +1739,16 @@ export class MaterialesApiService {
   }
   actualizarProveedor(id: string, dto: ProveedorDto) {
     return this.unwrap(this.http.patch<Envelope<Proveedor>>(`${BASE}/materiales/proveedores/${id}`, dto));
+  }
+  /** ¿Puede registrar llegadas de material y a qué bodegas? No responde 403 a quien no puede. */
+  accesoIngresos() {
+    return this.unwrap(
+      this.http.get<Envelope<{ puede: boolean; bodegas: Sitio[]; areas: AreaIngreso[] }>>(`${BASE}/materiales/ingresos/acceso`),
+    );
+  }
+  /** Formato GIL-F-014: reparte lo que llegó a las bodegas del área. */
+  repartirIngreso(id: string, repartos: (RepartoLineaDto & { id_linea: string })[]) {
+    return this.unwrap(this.http.post<Envelope<IngresoMaterialDetalle>>(`${BASE}/materiales/ingresos/${id}/reparto`, { repartos }));
   }
   listarIngresos() {
     return this.unwrap(this.http.get<Envelope<IngresoMaterial[]>>(`${BASE}/materiales/ingresos`));
