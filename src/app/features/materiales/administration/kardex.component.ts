@@ -38,7 +38,7 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
         <span>Materiales</span><span aria-hidden="true">/</span><span>Inventario</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Kardex</span>
       </nav>
       <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
-        <h1 class="text-xl font-bold text-gray-800">Historial de movimientos<span class="block text-xs font-normal text-gray-400">antes «Kardex»</span></h1>
+        <h1 class="text-xl font-bold text-gray-800">Historial de Movimientos<span class="block text-xs font-normal text-gray-400">antes «Kardex»</span></h1>
         <div class="flex flex-wrap gap-2 border-gray-200">
           <app-table-filter label="Tipo" [options]="opcionesTipoFiltro" [value]="filtroTipo"
           (valueChange)="filtroTipo = $event" />

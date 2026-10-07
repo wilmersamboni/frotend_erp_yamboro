@@ -7,6 +7,7 @@ import { ProductoFormModalComponent } from '../ui/producto-form-modal.component'
 import { AgregarExistenciasModalComponent } from '../ui/agregar-existencias-modal.component';
 import { FichasPedidasPanelComponent, prefillDesdePedido } from '../ui/fichas-pedidas-panel.component';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
+import { log } from '../../../core/utils/log';
 import { OpcionSelect } from '../../tenant-administration/services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
@@ -158,16 +159,17 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
             [rows]="filasProd()"
             [searchable]="true"
             [searchPlaceholder]="'Buscar por nombre, SKU, categoría, tipo…'"
-            [columns]="['nombre', 'categoria_nombre', 'tipo_material', 'unidad_medida', 'SKU', 'minimo_txt', 'stock_txt']"
-            [columnLabels]="{ categoria_nombre: 'Categoría', tipo_material: 'Tipo', unidad_medida: 'Unidad de medida', SKU: 'SKU', minimo_txt: 'Stock mínimo (esta bodega)', stock_txt: 'Stock (disp./total)' }"
+            [columns]="columnasProd()"
+            statusColumn="estado_ficha"
+            [columnLabels]="{ categoria_nombre: 'Categoría', tipo_material: 'Tipo', unidad_medida: 'Unidad de medida', SKU: 'SKU', minimo_txt: 'Stock mínimo (esta bodega)', stock_txt: 'Stock (disp./total)', estado_ficha: 'Estado' }"
             [loading]="loading()"
             [filterOptions]="puedeEliminar() ? estadoOpciones : null"
             [filterValue]="estadoFiltro"
             filterLabel="Estado"
             (filterValueChange)="onEstadoFiltro($event)"
-            [canEdit]="puedeEditar() && estadoFiltro === 'activos'"
+            [canEdit]="puedeEditarProd"
             [canDelete]="puedeGestionarActivoProd"
-            [deleteLabel]="estadoFiltro === 'inactivos' ? 'Reactivar' : 'Desactivar'"
+            [deleteLabel]="etiquetaActivoProd"
             [rowLinks]="rowLinksProducto"
             (edit)="editarProd($event)"
             (delete)="eliminarProd($event)" />
@@ -285,8 +287,14 @@ export class MiBodegaComponent implements OnInit {
   );
 
   /** Desactivar/Activar afecta la ficha en TODAS las bodegas (para una unidad: desactivar POR ÍTEM en "Ítems"). */
-  puedeGestionarActivoProd = (row: any): boolean =>
-    this.puedeEliminar() && this.estadoFiltro !== 'todos' && !!row;
+  puedeGestionarActivoProd = (row: any): boolean => this.puedeEliminar() && !!row;
+  /** Por fila, como en `/materiales/productos`: activa → Editar y Desactivar; desactivada → Reactivar. */
+  puedeEditarProd = (row: any): boolean => this.puedeEditar() && row?.activo !== false;
+  etiquetaActivoProd = (row: any): string => (row?.activo === false ? 'Reactivar' : 'Desactivar');
+  columnasProd = computed(() => [
+    'nombre', 'categoria_nombre', 'tipo_material', 'unidad_medida', 'SKU', 'minimo_txt', 'stock_txt',
+    ...(this.puedeEliminar() ? ['estado_ficha'] : []),
+  ]);
   /** Ítems tiene su propio servicio de edición, distinto del de Productos. */
   puedeEditarItem = computed(() => this.auth.tieneServicio('materiales.items.editar'));
 
@@ -320,11 +328,9 @@ export class MiBodegaComponent implements OnInit {
     { id: 'items' as Tab, label: 'Ítems' },
   ];
 
-  /** B1 — filtro de estado del toolbar (solo se ofrece a quien puede desactivar).
-   *  'todos' = activos + desactivados mezclados, solo lectura (default);
-   *  'activos' = solo activos, editable/desactivable; 'inactivos' = solo los
-   *  desactivados, para reactivarlos. Mismo patrón que `/materiales/productos`
-   *  (ver ese componente para por qué 'todos' deshabilita edit/delete). */
+  /** B1 — filtro de estado del toolbar (solo se ofrece a quien puede desactivar):
+   *  'todos' (default), 'activos', 'inactivos'. Botones por fila en las tres
+   *  vistas, mismo patrón que `/materiales/productos`. */
   readonly estadoOpciones = [
     { value: 'todos', label: 'Todos' },
     { value: 'activos', label: 'Activos' },
@@ -344,7 +350,7 @@ export class MiBodegaComponent implements OnInit {
     { label: 'Existencias', routerLink: () => ['/materiales/existencias'], queryParams: (r) => ({ id_producto: r.id_producto }) },
     {
       label: 'Kardex',
-      routerLink: () => [this.auth.isAdmin() ? '/materiales/kardex' : '/instructor/materiales/kardex'],
+      routerLink: () => ['/materiales/kardex'],
       queryParams: (r) => ({ id_producto: r.id_producto }),
       visible: () => this.auth.isAdmin() || this.auth.cargo() === 'instructor',
     },
@@ -406,7 +412,7 @@ export class MiBodegaComponent implements OnInit {
       .filter((p) => this.estaEnBodega(p, sel))
       .map((p) => ({
         ...p,
-        nombre: (p as any).activo === false ? `${p.nombre}  ·  (desactivado)` : p.nombre,
+        estado_ficha: (p as any).activo === false ? 'INACTIVO' : 'ACTIVO',
         // Mismo dato que ya mostraba /materiales/productos — acá faltaba.
         categoria_nombre: p.categoria?.nombre ?? cats.find((c) => c.id_categoria === p.id_categoria)?.nombre ?? '—',
         stock_txt: this.stockEnBodega(p, sel),
@@ -457,11 +463,25 @@ export class MiBodegaComponent implements OnInit {
     }
   }
 
+  /**
+   * Mínimos propios de todas las bodegas en UN pedido (2026-10-07; antes uno por
+   * bodega: 17 seguidos en la consola de Bodegas). Un ambiente sin materializar
+   * llega como bodega virtual (`amb-<id>`) y no tiene mínimos propios: no se envía.
+   * Si falla, cada producto muestra el mínimo de su ficha.
+   */
   private async cargarMinimos(bodegas: Sitio[]): Promise<void> {
-    const pares = await Promise.all(
-      bodegas.map(async (b) => [b.id_sitio, await this.api.minimosBodega(b.id_sitio).catch(() => [])] as const),
-    );
-    this.minimos.set(Object.fromEntries(pares.map(([id, filas]) => [id, Object.fromEntries(filas.map((f) => [f.id_producto, f.stock_minimo]))])));
+    const ids = bodegas.map((b) => b.id_sitio).filter((id) => !id.startsWith('amb-'));
+    let filas: { id_sitio: string; id_producto: string; stock_minimo: number }[] = [];
+    if (ids.length) {
+      try {
+        filas = await this.api.minimosBodegas(ids);
+      } catch (e) {
+        log.warn('mi-bodega: no se pudieron cargar los mínimos por bodega; se usa el de la ficha', e);
+      }
+    }
+    const porSitio: Record<string, Record<string, number>> = {};
+    for (const f of filas) (porSitio[f.id_sitio] ??= {})[f.id_producto] = f.stock_minimo;
+    this.minimos.set(porSitio);
   }
 
   // ── Fichas pedidas por los encargados (solo quien gestiona el catálogo) ──
@@ -627,7 +647,7 @@ export class MiBodegaComponent implements OnInit {
     const p = this.productos().find((x) => x.id_producto === fila.id_producto);
     const nombre = p?.nombre ?? 'este producto';
 
-    if (this.estadoFiltro === 'inactivos') {
+    if (p?.activo === false || fila.activo === false) {
       if (!(await this.confirm.ask(`¿Reactivar el producto "${nombre}"?`, { danger: false, acceptLabel: 'Reactivar' }))) return;
       try {
         await this.api.activarProducto(fila.id_producto);
@@ -657,7 +677,7 @@ export class MiBodegaComponent implements OnInit {
     }
 
     if (!(await this.confirm.ask(
-      `¿Desactivar el producto "${nombre}"? Sale de las listas y los selects; su histórico (kardex, préstamos, lotes) queda intacto y podés reactivarlo.`,
+      `¿Desactivar el producto "${nombre}"? Sale de las listas y los selects; su histórico (kardex, préstamos, lotes) queda intacto y puedes reactivarlo.`,
       { acceptLabel: 'Desactivar' },
     ))) return;
     try {

@@ -288,13 +288,11 @@ function rutaAccion(n: Notificacion, cargo: string): AccionDestino | null {
       return { label: 'Ver en Materiales', ruta: [`/${ruta}`] };
     }
     if (esInstructor) {
-      const ruta = tipo.startsWith('materiales_traslado')
-        ? 'instructor/materiales/traslados'
-        : 'instructor/materiales/solicitudes';
+      const ruta = tipo.startsWith('materiales_traslado') ? 'materiales/traslados' : 'materiales/solicitudes';
       return { label: 'Ver solicitud', ruta: [`/${ruta}`] };
     }
     if (esAprendiz) {
-      return { label: 'Ver mi solicitud', ruta: ['/aprendiz/materiales/solicitudes'] };
+      return { label: 'Ver mi solicitud', ruta: ['/materiales/solicitudes'] };
     }
     return null;
   }
