@@ -35,6 +35,7 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
 import { PageSizeSelectComponent } from '../../../shared/components/page-size-select.component';
 import { TableFilterComponent } from '../../../shared/components/table-filter.component';
 import { CargasSecundarias } from '../data-access/cargas-secundarias';
+import { BodegasInactivasAvisoComponent, BodegasInactivasEtiquetaComponent } from '../ui/bodegas-inactivas.component';
 import { AvisoCargasComponent } from '../ui/aviso-cargas.component';
 
 /**
@@ -66,14 +67,17 @@ interface LineaForm {
 @Component({
   selector: 'app-materiales-solicitudes-usuario',
   standalone: true,
-  imports: [AvisoCargasComponent, EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent, TableFilterComponent],
+  imports: [BodegasInactivasEtiquetaComponent, BodegasInactivasAvisoComponent, AvisoCargasComponent, EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent, TableFilterComponent],
   template: `
     <div class="p-4 sm:p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
         <span>Materiales</span><span aria-hidden="true">/</span><span>Operación</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Solicitudes</span>
       </nav>
       <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
-        <h1 class="text-xl font-bold text-gray-800">{{ esInstructor || esAdmin ? 'Pedidos y préstamos' : 'Mis pedidos' }}<span class="block text-xs font-normal text-gray-400">antes «Solicitudes»</span></h1>
+        <div class="flex flex-wrap items-center gap-3">
+          <h1 class="text-xl font-bold text-gray-800">{{ esInstructor || esAdmin ? 'Pedidos y Préstamos' : 'Mis Pedidos' }}<span class="block text-xs font-normal text-gray-400">antes «Solicitudes»</span></h1>
+          <app-bodegas-inactivas-etiqueta [bodegas]="bodegasInactivas()" [abierto]="avisoBodegasAbierto()" (alternar)="avisoBodegasAbierto.set(!avisoBodegasAbierto())" />
+        </div>
         <button (click)="nuevo()"
           class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
           style="background-color: var(--accent-brand)">
@@ -83,12 +87,7 @@ interface LineaForm {
 
       <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
 
-      @if (bodegasInactivas().length > 0) {
-        <app-alert class="mb-4" variante="advertencia" [titulo]="bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas'">
-          <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
-          — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
-        </app-alert>
-      }
+      <app-bodegas-inactivas-aviso [bodegas]="bodegasInactivas()" [abierto]="avisoBodegasAbierto()" />
 
       @if (datosGuardadosDe) {
         <app-alert class="mb-4" variante="advertencia" titulo="Sin conexión">
@@ -772,6 +771,9 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
 
   /** Banner general de la pantalla — lista todas las bodegas inactivas del
    *  tenant, no solo la de una fila puntual (ver plan 2026-09-18). */
+  /** El aviso de bodegas inactivas se abre/cierra desde la etiqueta junto al título. */
+  readonly avisoBodegasAbierto = signal(false);
+
   bodegasInactivas(): Sitio[] {
     return this.sitios.filter((s) => !s.estado);
   }

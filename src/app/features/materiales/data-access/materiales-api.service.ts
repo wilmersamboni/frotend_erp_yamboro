@@ -326,7 +326,7 @@ export interface IngresoDevolutivo {
   id_cuentadante: string | null;
   cuentadante_nombre: string | null;
   sin_asignar: number;
-  /** Solo si entró por el módulo de ingresos (ING-000001). */
+  /** Solo si entró por el módulo de ingresos (ING-20261006-001). */
   numero_ingreso: string | null;
   proveedor_nombre: string | null;
 }
@@ -339,9 +339,56 @@ export interface BienACargo {
   estado: string;
   id_producto: string;
   producto_nombre: string;
+  marca: string | null;
+  modelo: string | null;
+  descripcion: string | null;
+  /** Último serial anotado en una salida (el ítem no lo guarda aparte). */
+  serial: string | null;
   id_sitio: string | null;
   sitio_nombre: string | null;
   fecha_ingreso: string | null;
+  /** Dónde está físicamente: bodega, préstamo, ficha o fuera de la sede. */
+  ubicacion: string;
+  /** Quién lo tiene si no está en la bodega. */
+  en_poder_de: string | null;
+  /** Daño o problema reportado sin resolver. */
+  novedad: string | null;
+}
+
+/** Bienes de un cuentadante + encabezado del inventario de fin de año. */
+export interface InventarioCuentadante {
+  cuentadante: { id_usuario: string; nombre: string | null; cedula: string | null; cargo: string | null };
+  bienes: BienACargo[];
+}
+
+/** Ficha + bodega de material anterior al módulo (sin ingreso registrado). */
+export interface GrupoSinIngreso {
+  id_producto: string;
+  producto_nombre: string;
+  id_sitio: string | null;
+  sitio_nombre: string | null;
+  unidades: number;
+  sin_asignar: number;
+  sin_placa: number;
+}
+
+export interface UnidadSinIngreso {
+  id_item: string;
+  placa_sena: string | null;
+  codigo_sku: string | null;
+  estado: string;
+  id_cuentadante: string | null;
+  cuentadante_nombre: string | null;
+}
+
+export interface ResumenCuentadante {
+  id_cuentadante: string;
+  nombre: string | null;
+  cargo: string | null;
+  bienes: number;
+  sin_placa: number;
+  fuera_de_bodega: number;
+  con_novedad: number;
 }
 
 export interface HistorialCuentadante {
@@ -915,7 +962,7 @@ export type TipoSoporte = 'FACTURA' | 'REMISION' | 'ORDEN_COMPRA' | 'CONTRATO' |
 export interface IngresoMaterial {
   id_ingreso: string;
   numero: number;
-  /** ING-000001 */
+  /** ING-20261006-001 */
   codigo: string;
   tipo_ingreso: TipoIngreso;
   id_proveedor: string | null;
@@ -1152,6 +1199,14 @@ export class MaterialesApiService {
       this.http.get<Envelope<{ id_producto: string; stock_minimo: number }[]>>(`${BASE}/productos/minimos`, { params: { id_sitio: idSitio } }),
     );
   }
+  /** Mínimos propios de varias bodegas en un solo pedido (las bodegas virtuales `amb-…` el backend las ignora). */
+  minimosBodegas(idsSitio: string[]) {
+    return this.unwrap(
+      this.http.get<Envelope<{ id_sitio: string; id_producto: string; stock_minimo: number }[]>>(`${BASE}/productos/minimos/bodegas`, {
+        params: { ids: idsSitio.join(',') },
+      }),
+    );
+  }
   /** `stockMinimo = null` vuelve al mínimo de la ficha. */
   fijarMinimoBodega(idProducto: string, idSitio: string, stockMinimo: number | null) {
     return this.unwrap(
@@ -1232,6 +1287,40 @@ export class MaterialesApiService {
   /** "Mis bienes a cargo": ítems de los que soy cuentadante. */
   misBienesACargo() {
     return this.unwrap(this.http.get<Envelope<BienACargo[]>>(`${BASE}/materiales/cuentadante/mis-bienes`));
+  }
+  /** Material anterior al módulo (sin ingreso), por ficha y bodega. Solo gestores. */
+  listarSinIngresoCuentadante() {
+    return this.unwrap(this.http.get<Envelope<GrupoSinIngreso[]>>(`${BASE}/materiales/cuentadante/sin-ingreso`));
+  }
+  unidadesSinIngresoCuentadante(idProducto: string, idSitio: string | null) {
+    return this.unwrap(
+      this.http.get<Envelope<UnidadSinIngreso[]>>(`${BASE}/materiales/cuentadante/sin-ingreso/unidades`, {
+        params: { id_producto: idProducto, ...(idSitio ? { id_sitio: idSitio } : {}) },
+      }),
+    );
+  }
+  /** Asigna el cuentadante a unidades puntuales. */
+  asignarCuentadanteItems(idsItem: string[], idCuentadante: string, motivo?: string) {
+    return this.unwrap(
+      this.http.put<Envelope<{ actualizados: number }>>(`${BASE}/materiales/cuentadante/items`, {
+        ids_item: idsItem,
+        id_cuentadante: idCuentadante,
+        motivo: motivo?.trim() || undefined,
+      }),
+    );
+  }
+  /** Mis bienes con nombre/cédula/cargo, para el inventario de fin de año. */
+  miInventarioCuentadante() {
+    return this.unwrap(this.http.get<Envelope<InventarioCuentadante>>(`${BASE}/materiales/cuentadante/mi-inventario`));
+  }
+  /** Resumen por cuentadante. Solo administrador_erp y líderes de área. */
+  listarCuentadantes() {
+    return this.unwrap(this.http.get<Envelope<ResumenCuentadante[]>>(`${BASE}/materiales/cuentadante/cuentadantes`));
+  }
+  inventarioDeCuentadante(idUsuario: string) {
+    return this.unwrap(
+      this.http.get<Envelope<InventarioCuentadante>>(`${BASE}/materiales/cuentadante/cuentadantes/${idUsuario}/inventario`),
+    );
   }
   /** La bodega declara cuántas unidades tiene de una ficha: DEVOLUTIVO → ítems, CONSUMO/PERECEDERO → lote. */
   agregarExistencias(idProducto: string, dto: AgregarExistenciasDto) {

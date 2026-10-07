@@ -16,7 +16,7 @@ const OPCIONES: OpcionesSalida = {
 };
 
 function crear() {
-  const crearSalida = vi.fn().mockResolvedValue({ codigo: 'SAL-000001' });
+  const crearSalida = vi.fn().mockResolvedValue({ codigo: 'SAL-20261006-001' });
   TestBed.configureTestingModule({
     providers: [
       { provide: MaterialesApiService, useValue: { crearSalida, listarSalidas: vi.fn().mockResolvedValue([]) } },

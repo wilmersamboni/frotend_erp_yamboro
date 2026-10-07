@@ -483,9 +483,9 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     // sensible. Reservado a administrador_erp/administrador.
     servicio: 'usuarios.gestionar',
     usePatch: true,
-    columnas: ['persona','apellido', 'aplicativo', 'login', 'rol'],
-    campos: ['personaId', 'aplicativoId', 'login', 'password', 'rolId'],
-    placeholders: { login: 'Ej: juan.perez' },
+    columnas: ['persona','apellido', 'aplicativo', 'login', 'rol', 'puedeSerCuentadante'],
+    campos: ['personaId', 'aplicativoId', 'login', 'password', 'rolId', 'puedeSerCuentadante'],
+    placeholders: { login: 'Ej: juan.perez', password: 'Mínimo 8 caracteres' },
     selectores: {
       personaId:    { modulo: 'personas',    label: 'nombre', value: 'idPersona'   },
       aplicativoId: { modulo: 'aplicativos', label: 'nombre', value: 'idAplicativo' },
@@ -493,11 +493,16 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     },
     tiposCampo: {
       password: 'password',
+      // Habilita la cuenta como cuentadante de equipos en Materiales (2026-10-07). Los instructores
+      // ya pueden serlo sin esto; sirve para personal de planta u otros cargos. Es independiente de
+      // ser encargado de bodega.
+      puedeSerCuentadante: 'boolean',
     },
     columnLabels: {
       persona: 'Persona', apellido: 'Apellido',aplicativo: 'Aplicativo', login: 'Login', rol: 'Rol',
       personaId: 'Persona', aplicativoId: 'Aplicativo', rolId: 'Rol',
       password: 'Contraseña (vacío = no cambiar)',
+      puedeSerCuentadante: 'Puede ser cuentadante',
     },
   },
 

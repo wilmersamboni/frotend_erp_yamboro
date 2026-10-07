@@ -42,9 +42,10 @@ function menuMateriales(opciones: {
 describe('Sidebar: menú de Materiales según permisos efectivos', () => {
   it('instructor común: solo las pantallas de los servicios que trae de fábrica', () => {
     // Sin "Reporte de materiales": tiene existencias.ver pero no gestiona ninguna bodega ni área.
-    // Nombres de todos los días (2026-10-05); Inicio y Escanear placa los ve todo el que usa Materiales.
+    // Nombres de todos los días (2026-10-05); Inicio, Escanear placa y Cuentadante los ve todo el que usa Materiales
+    // (un instructor cuentadante tiene que poder ver y descargar sus bienes a cargo).
     expect(menuMateriales({ cargo: 'instructor', servicios: BASE_INSTRUCTOR })).toEqual([
-      'Inicio', 'Escanear placa', 'Pedidos y préstamos', 'Salidas', 'Devoluciones', 'Fechas por vencer', '¿Qué hay y dónde?', 'Catálogo de productos', 'Actas',
+      'Inicio', 'Escanear placa', 'Pedidos y préstamos', 'Salidas', 'Devoluciones', 'Fechas por vencer', '¿Qué hay y dónde?', 'Cuentadante', 'Catálogo de productos', 'Actas',
     ]);
   });
 
@@ -74,8 +75,8 @@ describe('Sidebar: menú de Materiales según permisos efectivos', () => {
     }
   });
 
-  it('Inicio y Escanear placa: los ve quien tenga cualquier servicio de entrada, y nadie más', () => {
-    expect(menuMateriales({ cargo: 'aprendiz', servicios: ['materiales.solicitudes.crear'] })).toEqual(['Inicio', 'Escanear placa']);
+  it('Inicio, Escanear placa y Cuentadante: los ve quien tenga cualquier servicio de entrada, y nadie más', () => {
+    expect(menuMateriales({ cargo: 'aprendiz', servicios: ['materiales.solicitudes.crear'] })).toEqual(['Inicio', 'Escanear placa', 'Cuentadante']);
     expect(menuMateriales({ cargo: 'aprendiz', servicios: ['materiales.actas.ver'] })).not.toContain('Inicio');
   });
 
