@@ -1391,6 +1391,10 @@ export class MaterialesApiService {
   eliminarLote(id: string) {
     return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/lotes/${id}`));
   }
+  /** Deja el lote en 0 (DADO_DE_BAJA) con su motivo, sin borrar su historia. */
+  darDeBajaLote(id: string, motivo: string) {
+    return this.unwrap(this.http.patch<Envelope<Lote>>(`${BASE}/lotes/${id}/baja`, { motivo }));
+  }
 
   // ── Items ──────────────────────────────────────────────────────────
   listarItems(idProducto?: string) {
