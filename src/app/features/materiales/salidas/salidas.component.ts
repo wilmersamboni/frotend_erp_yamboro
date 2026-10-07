@@ -67,8 +67,8 @@ const MEDIOS = ['Automóvil', 'Camioneta', 'Camión', 'Bus', 'Moto', 'Otro'];
       <!-- Encabezado -->
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0">
-          <h1 class="text-xl font-bold text-gray-900">Salidas de material</h1>
-          <p class="text-sm text-gray-500">Lo que sale de la sede: consumibles, devolutivos que regresan (con póliza) y devolutivos que no vuelven.</p>
+          <h1 class="text-xl font-bold text-gray-900">Salidas de Material</h1>
+          <p class="text-sm text-gray-500">Lo que sale de la sede: consumibles, que no vuelven, y devolutivos, que llevan el reporte de póliza y pueden regresar o no.</p>
         </div>
         <div class="flex flex-wrap gap-2">
           @if (esAdmin()) {
@@ -681,7 +681,6 @@ export class MaterialesSalidasComponent implements OnInit {
   readonly regresa = signal<boolean | null>(null);
   /** Salida de devolutivos que regresan. */
   readonly conRegreso = computed(() => this.claseSel() !== 'CONSUMO' && this.regresa() === true);
-  /** Reporte de póliza: solo devolutivos puros que regresan (valor asegurado y jefe inmediato). */
   /** Reporte de póliza: la salida es de devolutivos (pide valor asegurado, destino, transporte y jefe inmediato). */
   conPoliza(): boolean {
     // Todo devolutivo sale en el reporte de póliza (decisión del dueño, 2026-10-06), tenga o no cuentadante.
@@ -1137,13 +1136,13 @@ export class MaterialesSalidasComponent implements OnInit {
     return s.con_regreso ? 'bg-blue-50 text-blue-700' : 'bg-violet-50 text-violet-700';
   }
 
-  /** Qué trae el Excel: reporte de póliza (devolutivos con cuentadante), hoja de salida (el resto) o las dos hojas. */
+  /** Qué trae el Excel: reporte de póliza (devolutivos), hoja de salida (consumibles) o, en una salida mixta vieja, las dos hojas. */
   formatoDescarga(d: SalidaDetalle): { nombre: string; ayuda: string } {
     const { poliza, consumo } = lineasPorFormato(d);
-    if (poliza.length && consumo.length) return { nombre: 'Póliza + hoja de salida', ayuda: 'Dos hojas: transporte de mercancías (equipos con cuentadante) y material enviado (lo demás)' };
+    if (poliza.length && consumo.length) return { nombre: 'Póliza + hoja de salida', ayuda: 'Dos hojas: transporte de mercancías (devolutivos) y material enviado (consumibles)' };
     return poliza.length
-      ? { nombre: 'Reporte de póliza', ayuda: 'Formato de transporte de mercancías (devolutivos con cuentadante)' }
-      : { nombre: 'Hoja de salida', ayuda: 'Formato de material enviado (consumibles y equipos sin cuentadante)' };
+      ? { nombre: 'Reporte de póliza', ayuda: 'Formato de transporte de mercancías (devolutivos)' }
+      : { nombre: 'Hoja de salida', ayuda: 'Formato de material enviado (consumibles)' };
   }
 
   /** Línea de tiempo del detalle: solicitada → aprobada / rechazada / cancelada → (si regresa) regresó. */

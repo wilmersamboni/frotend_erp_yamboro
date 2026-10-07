@@ -13,7 +13,7 @@ const config: ConfigSalida = {
 
 const salida = {
   id_salida: 's1',
-  codigo: 'SAL-000003',
+  codigo: 'SAL-20261006-003',
   clase: 'DEVOLUTIVO',
   estado: 'APROBADA',
   sitio_nombre: 'Bodega Tecnoparque',

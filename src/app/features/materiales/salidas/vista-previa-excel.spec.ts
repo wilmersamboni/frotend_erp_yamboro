@@ -13,7 +13,7 @@ const config: ConfigSalida = {
 };
 
 const salida = {
-  codigo: 'SAL-000003',
+  codigo: 'SAL-20261006-003',
   clase: 'DEVOLUTIVO',
   con_regreso: true,
   tipo_destino: 'PROPIO',

@@ -75,7 +75,7 @@ const VENTANAS = [7, 15, 30] as const;
       <div class="flex flex-wrap items-end justify-between gap-4 mb-5">
         <div>
           <p class="text-xs font-bold uppercase tracking-[0.14em] text-[#2d8000]">Control de inventario</p>
-          <h1 class="text-2xl font-bold text-gray-900 mt-0.5">Fechas por vencer<span class="block text-xs font-normal text-gray-400">antes «Vencimientos»</span></h1>
+          <h1 class="text-2xl font-bold text-gray-900 mt-0.5">Fechas por Vencer<span class="block text-xs font-normal text-gray-400">antes «Vencimientos»</span></h1>
           <p class="text-sm text-gray-400 mt-0.5">
             {{ vista() === 'perecederos' ? 'Lotes perecederos con fecha de vencimiento próxima o pasada.' : 'Préstamos entregados que deben devolverse.' }}
           </p>
@@ -530,18 +530,15 @@ export class MaterialesVencimientosComponent implements OnInit {
   private seccionListo = false;
 
   /**
-   * "Registrar devolución" es un link fijo — pero la pantalla de destino está
-   * triplicada por cargo (`/materiales/devoluciones` es admin-only vía
-   * `roleGuard`, ver materiales.routes.ts). Antes apuntaba siempre a la ruta
-   * de admin: un instructor/aprendiz que la clickeaba pasaba el guard con
-   * `roles` rechazado → `roleGuard` redirige a `/`, que en la app de tenant
-   * ES el login (no un home) — parecía un logout aunque la sesión seguía
-   * viva. Bug reportado 2026-09-21.
+   * "Registrar devolución": una sola pantalla para todos los cargos
+   * (`/materiales/devoluciones`, la abre quien tenga `materiales.devoluciones.ver`).
+   * Antes elegía una ruta por cargo; la de instructor solo redirigía y la de
+   * aprendiz (`/aprendiz/materiales/devoluciones`) no existía y llevaba a la 404
+   * (corregido 2026-10-07). El botón solo aparece si el backend dice que esa fila
+   * se puede gestionar (`puedeRegistrarDevolucion`).
    */
   rutaDevoluciones(): string {
-    if (this.auth.isAdmin()) return '/materiales/devoluciones';
-    if (this.auth.cargo() === 'instructor') return '/instructor/materiales/devoluciones';
-    return '/aprendiz/materiales/devoluciones';
+    return '/materiales/devoluciones';
   }
 
   /**

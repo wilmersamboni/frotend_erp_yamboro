@@ -58,7 +58,7 @@ const OPCIONES_TIPO: OpcionSelect[] = [
   imports: [AvisoCargasComponent, DialogDirective, FormsModule, AdminTableComponent, AdminModalComponent],
   template: `
     <div class="p-6">
-      <h1 class="text-xl font-bold text-gray-800 mb-5">Sitios de almacenamiento</h1>
+      <h1 class="text-xl font-bold text-gray-800 mb-5">Sitios de Almacenamiento</h1>
 
       <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
 

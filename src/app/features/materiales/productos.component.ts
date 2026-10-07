@@ -9,8 +9,8 @@ import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 import { Categoria, Item, MaterialesApiService, Producto, Sitio, SolicitudFicha } from './data-access/materiales-api.service';
-import { AlertComponent } from '../../shared/ui/alert.component';
 import { CargasSecundarias } from './data-access/cargas-secundarias';
+import { BodegasInactivasAvisoComponent, BodegasInactivasEtiquetaComponent } from './ui/bodegas-inactivas.component';
 import { AvisoCargasComponent } from './ui/aviso-cargas.component';
 import { MaterialesScreenPolicy } from './ui/materiales-screen-policy';
 
@@ -40,7 +40,7 @@ import { MaterialesScreenPolicy } from './ui/materiales-screen-policy';
 @Component({
   selector: 'app-materiales-productos',
   standalone: true,
-  imports: [AvisoCargasComponent, AlertComponent, FormsModule, RouterLink, AdminTableComponent, ProductoFormModalComponent, AgregarExistenciasModalComponent, FichasPedidasPanelComponent],
+  imports: [BodegasInactivasEtiquetaComponent, BodegasInactivasAvisoComponent, AvisoCargasComponent, FormsModule, RouterLink, AdminTableComponent, ProductoFormModalComponent, AgregarExistenciasModalComponent, FichasPedidasPanelComponent],
   template: `
     <div class="p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
@@ -48,7 +48,10 @@ import { MaterialesScreenPolicy } from './ui/materiales-screen-policy';
       </nav>
       <div class="flex items-center justify-between mb-5">
         <div>
-          <h1 class="text-xl font-bold text-gray-800">Catálogo de productos</h1>
+          <div class="flex flex-wrap items-center gap-3">
+            <h1 class="text-xl font-bold text-gray-800">Catálogo de Productos</h1>
+            <app-bodegas-inactivas-etiqueta [bodegas]="bodegasInactivas()" [abierto]="avisoBodegasAbierto()" (alternar)="avisoBodegasAbierto.set(!avisoBodegasAbierto())" />
+          </div>
           <p class="text-xs text-gray-400 mt-0.5">Catálogo único del centro. Cada bodega agrega aquí sus unidades, sin crear el producto otra vez.</p>
         </div>
         <div class="flex items-center gap-2">
@@ -83,12 +86,7 @@ import { MaterialesScreenPolicy } from './ui/materiales-screen-policy';
         </div>
       }
 
-      @if (bodegasInactivas().length > 0) {
-        <app-alert class="mb-4" variante="advertencia" [titulo]="bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas'">
-          <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
-          — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
-        </app-alert>
-      }
+      <app-bodegas-inactivas-aviso [bodegas]="bodegasInactivas()" [abierto]="avisoBodegasAbierto()" />
 
       <app-admin-table
         [addLabel]="puedeCrear() ? 'Nueva ficha' : null"
@@ -96,16 +94,17 @@ import { MaterialesScreenPolicy } from './ui/materiales-screen-policy';
         [rows]="filas"
         [searchable]="true"
         [searchPlaceholder]="'Buscar por nombre, SKU, categoría, placa…'"
-        [columns]="['nombre', 'categoria_nombre', 'tipo_material', 'unidad_medida', 'stock_minimo']"
+        [columns]="columnas()"
+        statusColumn="estado_ficha"
         [columnLabels]="columnLabels"
         [loading]="loading"
         [filterOptions]="puedeEliminar() ? estadoOpciones : null"
         [filterValue]="estadoFiltro"
         filterLabel="Estado"
         (filterValueChange)="onEstadoFiltro($event)"
-        [canEdit]="puedeEditar() && estadoFiltro === 'activos'"
+        [canEdit]="puedeEditarFila"
         [canDelete]="puedeGestionarActivo"
-        [deleteLabel]="estadoFiltro === 'inactivos' ? 'Reactivar' : 'Desactivar'"
+        [deleteLabel]="etiquetaActivo"
         [rowLinks]="rowLinks"
         (edit)="editar($event)"
         (delete)="eliminar($event)" />
@@ -143,6 +142,9 @@ export class MaterialesProductosComponent implements OnInit {
   items: Item[] = [];
   loading = false;
 
+  /** El aviso de bodegas inactivas es una etiqueta azul junto al título que se despliega al tocarla (igual que en Equipos con placa). */
+  readonly avisoBodegasAbierto = signal(false);
+
   /** Banner general de la pantalla — lista todas las bodegas inactivas del
    *  tenant (ver plan 2026-09-18). */
   bodegasInactivas(): Sitio[] {
@@ -164,8 +166,15 @@ export class MaterialesProductosComponent implements OnInit {
   puedeImportar = computed(() => this.auth.tieneServicio('materiales.productos.crear'));
 
   /** Desactivar/Activar afecta la ficha en TODAS las bodegas (para una unidad: desactivar POR ÍTEM). */
-  puedeGestionarActivo = (row: any): boolean =>
-    this.puedeEliminar() && this.estadoFiltro !== 'todos' && !!row;
+  puedeGestionarActivo = (row: any): boolean => this.puedeEliminar() && !!row;
+  /** Se edita una ficha activa; una desactivada primero se reactiva. Por fila: la vista "Todos" mezcla ambas. */
+  puedeEditarFila = (row: any): boolean => this.puedeEditar() && row?.activo !== false;
+  etiquetaActivo = (row: any): string => (row?.activo === false ? 'Reactivar' : 'Desactivar');
+  /** "Estado" solo para quien ve también las desactivadas (los demás solo reciben activas). */
+  columnas = computed(() => [
+    'nombre', 'categoria_nombre', 'tipo_material', 'unidad_medida', 'stock_minimo',
+    ...(this.puedeEliminar() ? ['estado_ficha'] : []),
+  ]);
   // Misma regla que `GET /sitios` del backend (`LECTURA_LISTA.sitios`) — acá
   // se chequeaba solo `sitios.ver`, más estricto de lo que el backend permite,
   // y alguien con solo `traslados.crear` no cargaba bodegas ni veía el aviso de
@@ -181,6 +190,7 @@ export class MaterialesProductosComponent implements OnInit {
     unidad_medida: 'Unidad de medida',
     // El de la ficha (sugerido para todo el centro); cada bodega fija el suyo en Mi Bodega.
     stock_minimo: 'Stock mínimo (ficha)',
+    estado_ficha: 'Estado',
   };
 
   constructor(
@@ -203,7 +213,7 @@ export class MaterialesProductosComponent implements OnInit {
     { label: 'Existencias', routerLink: () => ['/materiales/existencias'], queryParams: (r) => ({ id_producto: r.id_producto }) },
     {
       label: 'Kardex',
-      routerLink: () => [this.auth.isAdmin() ? '/materiales/kardex' : '/instructor/materiales/kardex'],
+      routerLink: () => ['/materiales/kardex'],
       queryParams: (r) => ({ id_producto: r.id_producto }),
       // Antes solo miraba el cargo ('instructor'), no el servicio real — un
       // instructor común ya NO tiene `materiales.kardex.ver` por defecto
@@ -221,14 +231,12 @@ export class MaterialesProductosComponent implements OnInit {
     },
   ];
 
-  /** B1 — filtro de estado del toolbar (solo se ofrece a quien puede desactivar).
-   *  'todos' = activos + desactivados mezclados, solo lectura (default);
-   *  'activos' = solo activos, editable/desactivable; 'inactivos' = solo los
-   *  desactivados, para reactivarlos. Edit/Reactivar/Desactivar quedan
-   *  deshabilitados en 'todos' porque `<app-admin-table>` no soporta un
-   *  label o permiso distinto por fila — mezclar activos/inactivos en la
-   *  misma tabla haría ambiguo un solo botón "Desactivar"/"Reactivar" para
-   *  toda la tabla. Para mutar un registro, cambiar a la vista específica. */
+  /** B1 — filtro de estado del toolbar (solo se ofrece a quien puede desactivar):
+   *  'todos' = activas + desactivadas (default), 'activos', 'inactivos'. Los
+   *  botones se deciden POR FILA en las tres vistas (2026-10-06): una ficha
+   *  activa muestra Editar y Desactivar; una desactivada, Reactivar. Antes
+   *  "Todos" era solo lectura porque `<app-admin-table>` no aceptaba permiso
+   *  ni texto por fila, y para editar había que cambiar a "Activos". */
   readonly estadoOpciones = [
     { value: 'todos', label: 'Todos' },
     { value: 'activos', label: 'Activos' },
@@ -239,7 +247,7 @@ export class MaterialesProductosComponent implements OnInit {
   get filas(): any[] {
     return this.productos.map((p) => ({
       ...p,
-      nombre: (p as any).activo === false ? `${p.nombre}  ·  (desactivado)` : p.nombre,
+      estado_ficha: (p as any).activo === false ? 'INACTIVO' : 'ACTIVO',
       categoria_nombre: p.categoria?.nombre ?? this.categorias.find((c) => c.id_categoria === p.id_categoria)?.nombre ?? '—',
       // Campo oculto (no está en `columns`) — solo para que el buscador de la tabla matchee por placa SENA.
       _placas: this.items.filter((i) => i.id_producto === p.id_producto).map((i) => i.placa_sena).filter(Boolean).join(' '),
@@ -305,7 +313,7 @@ export class MaterialesProductosComponent implements OnInit {
   nuevo(): void {
     if (!this.puedeCrear()) return;
     if (this.categorias.length === 0) {
-      this.toast.warn('Faltan datos', 'Creá al menos una categoría antes de registrar un producto.');
+      this.toast.warn('Faltan datos', 'Crea al menos una categoría antes de registrar un producto.');
       return;
     }
     this.editando = null;
@@ -402,7 +410,7 @@ export class MaterialesProductosComponent implements OnInit {
     const p = this.productos.find((x) => x.id_producto === fila.id_producto);
     const nombre = p?.nombre ?? 'este producto';
 
-    if (this.estadoFiltro === 'inactivos') {
+    if (p?.activo === false || fila.activo === false) {
       if (!(await this.confirm.ask(`¿Reactivar el producto "${nombre}"?`, { danger: false, acceptLabel: 'Reactivar' }))) return;
       try {
         await this.api.activarProducto(fila.id_producto);
@@ -432,7 +440,7 @@ export class MaterialesProductosComponent implements OnInit {
     }
 
     if (!(await this.confirm.ask(
-      `¿Desactivar el producto "${nombre}"? Sale de las listas y los selects; su histórico (kardex, préstamos, lotes) queda intacto y podés reactivarlo.`,
+      `¿Desactivar el producto "${nombre}"? Sale de las listas y los selects; su histórico (kardex, préstamos, lotes) queda intacto y puedes reactivarlo.`,
       { acceptLabel: 'Desactivar' },
     ))) return;
     try {

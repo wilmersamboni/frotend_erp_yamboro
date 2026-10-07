@@ -142,7 +142,7 @@ export interface TableRowLink {
                       @if (col === statusColumn) {
                         <app-status-badge [value]="row[col]" />
                       } @else {
-                        {{ row[col] ?? '—' }}
+                        {{ valorCelda(row[col]) }}
                       }
                     </td>
                   }
@@ -165,14 +165,14 @@ export interface TableRowLink {
                             }
                           }
                         }
-                        @if (canEdit) {
-                          <button (click)="edit.emit(row); $event.stopPropagation()"
+                        @if (rowCanEdit(row)) {
+                          <button type="button" (click)="edit.emit(row); $event.stopPropagation()"
                             class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-[#39A900] hover:text-[#39A900] transition-colors">
                             Editar
                           </button>
                         }
                         @if (rowCanDelete(row)) {
-                          <button (click)="delete.emit(row); $event.stopPropagation()"
+                          <button type="button" (click)="delete.emit(row); $event.stopPropagation()"
                             class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600 bg-white hover:border-red-400 hover:text-red-600 transition-colors">
                             {{ rowDeleteLabel(row) }}
                           </button>
@@ -219,7 +219,10 @@ export class AdminTableComponent implements DoCheck {
   @Input() rows:      any[]    = [];
   @Input() columns:   string[] = [];
   @Input() loading  = false;
-  @Input() canEdit  = true;
+  /** Booleano para toda la tabla, o `(row) => boolean` cuando la tabla mezcla
+   *  filas en distinto estado (ej. fichas activas y desactivadas: solo las
+   *  activas se editan). */
+  @Input() canEdit: boolean | ((row: any) => boolean) = true;
   /** Puede ser un booleano fijo para toda la tabla, o una función `(row) =>
    *  boolean` cuando la tabla mezcla filas en distinto estado (ej. Ítems
    *  activos e inactivos a la vez) y el botón debe decidirse por fila. */
@@ -228,6 +231,10 @@ export class AdminTableComponent implements DoCheck {
    *  También acepta una función `(row) => string` para variar el texto por fila
    *  (ver `canDelete`). */
   @Input() deleteLabel: string | ((row: any) => string) = 'Eliminar';
+
+  rowCanEdit(row: any): boolean {
+    return typeof this.canEdit === 'function' ? this.canEdit(row) : this.canEdit;
+  }
 
   rowCanDelete(row: any): boolean {
     return typeof this.canDelete === 'function' ? this.canDelete(row) : this.canDelete;
@@ -304,6 +311,13 @@ export class AdminTableComponent implements DoCheck {
 
   /** Columna a renderizar como píldora de estado (app-status-badge) en vez de texto plano. */
   @Input() statusColumn: string | null = null;
+
+  /** Los campos sí/no se ven como «Sí»/«No» y no como `true`/`false`; lo vacío, como «—». */
+  valorCelda(v: unknown): unknown {
+    if (v === true) return 'Sí';
+    if (v === false) return 'No';
+    return v ?? '—';
+  }
 
   /** Muestra una columna de checkboxes (selección múltiple) a la izquierda. */
   @Input() checkable = false;

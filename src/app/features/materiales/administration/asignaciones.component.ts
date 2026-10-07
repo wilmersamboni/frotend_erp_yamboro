@@ -16,12 +16,12 @@ import { OpcionConsumo, OpcionDevolutivo, Asignacion, ConsumoAsignacion, CreateA
 import { ElegirPlacasAsignacionModalComponent } from '../ui/elegir-placas-asignacion-modal.component';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
-import { AlertComponent } from '../../../shared/ui/alert.component';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
 import { EsperaDirective } from '../../../shared/directives/espera.directive';
 import { PageSizeSelectComponent } from '../../../shared/components/page-size-select.component';
 import { TableFilterComponent } from '../../../shared/components/table-filter.component';
 import { CargasSecundarias } from '../data-access/cargas-secundarias';
+import { BodegasInactivasAvisoComponent, BodegasInactivasEtiquetaComponent } from '../ui/bodegas-inactivas.component';
 import { AvisoCargasComponent } from '../ui/aviso-cargas.component';
 import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
 
@@ -54,14 +54,17 @@ interface Ficha {
 @Component({
   selector: 'app-materiales-asignaciones',
   standalone: true,
-  imports: [AvisoCargasComponent, EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, ElegirPlacasAsignacionModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent, TableFilterComponent],
+  imports: [BodegasInactivasEtiquetaComponent, BodegasInactivasAvisoComponent, AvisoCargasComponent, EsperaDirective, DialogDirective, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, ElegirPlacasAsignacionModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent, TableFilterComponent],
   template: `
     <div class="p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
         <span>Materiales</span><span aria-hidden="true">/</span><span>Operación</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Asignaciones</span>
       </nav>
       <div class="flex items-center justify-between mb-5">
-        <h1 class="text-xl font-bold text-gray-800">Entregas a fichas<span class="block text-xs font-normal text-gray-400">Equipos que vuelven y material de consumo que se queda en la ficha</span></h1>
+        <div class="flex flex-wrap items-center gap-3">
+          <h1 class="text-xl font-bold text-gray-800">Entregas a Fichas<span class="block text-xs font-normal text-gray-400">antes «Asignaciones»</span></h1>
+          <app-bodegas-inactivas-etiqueta [bodegas]="bodegasInactivas()" [abierto]="avisoBodegasAbierto()" (alternar)="avisoBodegasAbierto.set(!avisoBodegasAbierto())" />
+        </div>
         <button (click)="nuevo()"
           class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
           style="background-color: var(--accent-brand)">
@@ -71,12 +74,7 @@ interface Ficha {
 
       <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
 
-      @if (bodegasInactivas().length > 0) {
-        <app-alert class="mb-4" variante="advertencia" [titulo]="bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas'">
-          <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
-          — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
-        </app-alert>
-      }
+      <app-bodegas-inactivas-aviso [bodegas]="bodegasInactivas()" [abierto]="avisoBodegasAbierto()" />
 
       @if (loading) {
         <app-loading-skeleton variant="table" [rows]="6" [columns]="5" [showToolbar]="false" label="Cargando asignaciones" />
@@ -724,6 +722,9 @@ export class MaterialesAsignacionesComponent implements OnInit {
    *  plan 2026-09-18) — el backend rechazaría la creación igual. */
   /** Banner general de la pantalla — lista todas las bodegas inactivas del
    *  tenant (ver plan 2026-09-18). */
+  /** El aviso de bodegas inactivas se abre/cierra desde la etiqueta junto al título. */
+  readonly avisoBodegasAbierto = signal(false);
+
   bodegasInactivas(): Sitio[] {
     return this.sitios.filter((s) => !s.estado);
   }

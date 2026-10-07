@@ -45,7 +45,7 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
       </nav>
       <div class="flex items-center justify-between gap-2 mb-5">
         <div class="flex items-center gap-2">
-          <h1 class="text-xl font-bold text-gray-800">Material que se gasta<span class="block text-xs font-normal text-gray-400">antes «Lotes»</span></h1>
+          <h1 class="text-xl font-bold text-gray-800">Material que se Gasta<span class="block text-xs font-normal text-gray-400">antes «Lotes»</span></h1>
         @if (idProductoFiltro) {
           <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#39A900]/10 text-[#2d8000] border border-[#39A900]/20">
             Filtrando por producto

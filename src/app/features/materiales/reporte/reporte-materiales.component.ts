@@ -102,7 +102,7 @@ const AYUDA_VISTA: Record<Vista, string> = {
           </span>
           <div class="min-w-0">
             <nav aria-label="Migas de pan" class="mb-0.5 text-xs" style="color: var(--text-muted)">Materiales / Inventario</nav>
-            <h1 class="text-xl sm:text-2xl font-bold" style="color: var(--text)">Reporte general de materiales</h1>
+            <h1 class="text-xl sm:text-2xl font-bold" style="color: var(--text)">Reporte General de Materiales</h1>
             <p class="text-sm mt-0.5" style="color: var(--text-muted)">Todo lo que hay en el centro: qué es, dónde está y quién lo cuida.</p>
           </div>
         </div>
@@ -266,7 +266,9 @@ const AYUDA_VISTA: Record<Vista, string> = {
           <!-- ── ¿Qué hay? (por producto) ── -->
           @case ('productos') {
             <div class="card overflow-hidden">
-              <div class="overflow-x-auto">
+              <!-- relative: un <span class="sr-only"> (absolute) dentro de la tabla se escapa
+                   del scroll si el contenedor no está posicionado, y ensancha la página en celular. -->
+              <div class="relative overflow-x-auto">
                 <table class="w-full text-sm">
                   <thead>
                     <tr class="text-left text-xs" style="background: var(--surface2); color: var(--text-muted)">
@@ -439,7 +441,9 @@ const AYUDA_VISTA: Record<Vista, string> = {
           <!-- ── Lista de equipos ── -->
           @case ('unidades') {
             <div class="card overflow-hidden">
-              <div class="overflow-x-auto">
+              <!-- relative: un <span class="sr-only"> (absolute) dentro de la tabla se escapa
+                   del scroll si el contenedor no está posicionado, y ensancha la página en celular. -->
+              <div class="relative overflow-x-auto">
                 <table class="w-full text-sm">
                   <thead>
                     <tr class="text-left text-xs" style="background: var(--surface2); color: var(--text-muted)">
@@ -489,7 +493,9 @@ const AYUDA_VISTA: Record<Vista, string> = {
           <!-- ── Material de consumo ── -->
           @case ('consumibles') {
             <div class="card overflow-hidden">
-              <div class="overflow-x-auto">
+              <!-- relative: un <span class="sr-only"> (absolute) dentro de la tabla se escapa
+                   del scroll si el contenedor no está posicionado, y ensancha la página en celular. -->
+              <div class="relative overflow-x-auto">
                 <table class="w-full text-sm">
                   <thead>
                     <tr class="text-left text-xs" style="background: var(--surface2); color: var(--text-muted)">

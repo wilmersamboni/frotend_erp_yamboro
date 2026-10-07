@@ -27,7 +27,7 @@ const base = {
 
 const consumo = {
   ...base,
-  codigo: 'SAL-000001',
+  codigo: 'SAL-20261006-001',
   clase: 'CONSUMO',
   con_regreso: false,
   tipo_destino: 'TERCERO',
@@ -44,7 +44,7 @@ const consumo = {
 /** Devolutivos con cuentadante: reporte de póliza. */
 const conCuentadante = {
   ...base,
-  codigo: 'SAL-000003',
+  codigo: 'SAL-20261006-003',
   clase: 'DEVOLUTIVO',
   con_regreso: true,
   tipo_destino: 'PROPIO',
@@ -59,7 +59,7 @@ const conCuentadante = {
 /** Lo de San Agustín: cable (consumible) + repetidor y rack sin cuentadante. */
 const mixta = {
   ...base,
-  codigo: 'SAL-000010',
+  codigo: 'SAL-20261006-010',
   clase: 'MIXTA',
   con_regreso: false,
   tipo_destino: 'TERCERO',
@@ -125,7 +125,7 @@ describe('Descarga de salidas: dos formatos', () => {
   it('hoja de San Agustín: mismo encabezado, filas de material y firmas de coordinador, solicitante y tercero', async () => {
     const x = await excelGenerado(consumo);
     expect(x.hojas).toEqual(['Hoja1']);
-    expect(x.nombre).toBe('Salida-SAL-000001.xlsx');
+    expect(x.nombre).toBe('Salida-SAL-20261006-001.xlsx');
     const t = x.texto();
     expect(t).toContain('Material de consumo enviados a San Agustín');
     for (const enc of ['ITEM', 'DESCRIPCION', 'Registro Sena', 'CANT.', 'Registro Fotografico']) expect(t).toContain(enc);
@@ -178,7 +178,7 @@ describe('Descarga de salidas: dos formatos', () => {
   it('devolutivos con cuentadante: reporte de póliza calcado del formato, sin la hoja de San Agustín', async () => {
     const x = await excelGenerado(conCuentadante);
     expect(x.hojas).toEqual(['T.MERCANCÍAS']);
-    expect(x.nombre).toBe('Poliza-SAL-000003.xlsx');
+    expect(x.nombre).toBe('Poliza-SAL-20261006-003.xlsx');
     const t = x.texto();
     expect(t.some((v) => v.includes('REPORTE TRANSPORTE DE MERCANCÍAS PÓLIZA No  1234567890'))).toBe(true);
     expect(t).toContain('900000000001 / SN-PRUEBA-01');
@@ -191,7 +191,7 @@ describe('Descarga de salidas: dos formatos', () => {
   it('una salida mixta vieja baja con las dos hojas: equipos en la póliza y consumibles en San Agustín', async () => {
     const x = await excelGenerado({ ...mixta, lugar_destino: 'San Agustín', medio_transporte: 'Camioneta' } as SalidaDetalle);
     expect(x.hojas).toEqual(['T.MERCANCÍAS', 'Hoja1']);
-    expect(x.nombre).toBe('Salida-Poliza-SAL-000010.xlsx');
+    expect(x.nombre).toBe('Salida-Poliza-SAL-20261006-010.xlsx');
     expect(x.texto(0)).toContain('9528100001');
     expect(x.texto(1)).toContain('Cable UTP categoría 6');
     expect(x.texto(1)).not.toContain('9528100001');

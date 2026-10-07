@@ -54,7 +54,7 @@ type Tramo = { t: string; b?: boolean };
             <div class="rp-banda-logo"><img src="/img/logo.png" alt=""></div>
             <div class="rp-banda-titulo">
               <p class="rp-sobre">Reporte estadístico · Etapa productiva</p>
-              <h1>Panel de control</h1>
+              <h1>Panel de Control</h1>
               <p class="rp-banda-sub">Estado de la etapa productiva de los aprendices</p>
             </div>
             <dl class="rp-banda-meta">

@@ -41,7 +41,7 @@ type Vista = 'cargando' | 'listado' | 'error';
 
         @if (vista() === 'listado') {
           <div data-anim="cabecera" class="mb-5">
-            <h1 class="text-lg font-bold text-gray-900">Encuestas de satisfacción</h1>
+            <h1 class="text-lg font-bold text-gray-900">Encuestas de Satisfacción</h1>
             <p class="text-sm text-gray-500 mt-1">Ficha {{ encuestas()[0]?.numeroFicha }}</p>
             <p class="text-xs text-gray-400 mt-2">Elige un instructor para responder. Tu respuesta es completamente anónima.</p>
           </div>

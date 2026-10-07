@@ -87,8 +87,9 @@ export const PANTALLAS_MATERIALES: PantallaMateriales[] = [
   { id: 'ingresos', label: 'Llegada de material', path: 'materiales/ingresos', seccion: 'Inventario', acceso: { tipo: 'ingresos' } },
   { id: 'reporte', label: 'Reporte de materiales', path: 'materiales/reporte', seccion: 'Inventario', acceso: { tipo: 'gestor', servicio: 'materiales.existencias.ver' } },
   // Quién responde por cada devolutivo (2026-10-05): "Mis bienes a cargo" para cualquiera
-  // que llegue; la pestaña de asignar la decide `puedeGestionarCatalogo` dentro de la pantalla.
-  { id: 'cuentadante', label: 'Cuentadante', path: 'materiales/cuentadante', seccion: 'Inventario', acceso: servicio('materiales.items.ver') },
+  // que use Materiales —un instructor cuentadante no trae `items.ver`—; las pestañas de
+  // gestión las decide `puedeGestionarCatalogo` dentro de la pantalla.
+  { id: 'cuentadante', label: 'Cuentadante', path: 'materiales/cuentadante', seccion: 'Inventario', acceso: { tipo: 'cualquiera', servicios: SERVICIOS_ENTRADA } },
   { id: 'items', label: 'Equipos con placa', path: 'materiales/items', seccion: 'Inventario', acceso: servicio('materiales.items.ver') },
   { id: 'lotes', label: 'Material que se gasta', path: 'materiales/lotes', seccion: 'Inventario', acceso: servicio('materiales.lotes.ver') },
   { id: 'productos', label: 'Catálogo de productos', path: 'materiales/productos', seccion: 'Catálogo', acceso: servicio('materiales.productos.ver'), cubiertaPorMiBodega: true },

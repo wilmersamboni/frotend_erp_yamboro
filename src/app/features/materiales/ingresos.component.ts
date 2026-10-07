@@ -42,7 +42,7 @@ const ESTADO_REPARTO: Record<string, string> = { POR_REPARTIR: 'Por repartir', P
 
 /**
  * Ingresos de material a la sede (2026-10-05). Cada ingreso es un documento
- * (ING-000001) con proveedor, soporte, bodega y quién recibió; sus líneas
+ * (ING-20261006-001) con proveedor, soporte, bodega y quién recibió; sus líneas
  * crean las unidades o lotes en la bodega. Desde el detalle se ve qué placas
  * o lote generó cada línea y se puede anular mientras nada se haya movido.
  *
@@ -58,8 +58,8 @@ const ESTADO_REPARTO: Record<string, string> = { POR_REPARTIR: 'Por repartir', P
     <div class="p-6">
       <div class="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
-          <h1 class="text-xl font-bold text-gray-800">Llegada de material<span class="block text-xs font-normal text-gray-400">antes «Ingresos»</span></h1>
-          <p class="text-sm text-gray-500 mt-0.5">Lo que llega a la sede: el formato GIL-F-014 que llega a cada área y se reparte a sus bodegas, o la compra o donación que entra directo a una bodega.</p>
+          <h1 class="text-xl font-bold text-gray-800">Llegada de Material<span class="block text-xs font-normal text-gray-400">antes «Ingresos»</span></h1>
+          <p class="text-sm text-gray-500 mt-0.5">Lo que llega a la sede: de qué proveedor, con qué soporte, quién lo recibió y en qué bodega quedó.</p>
         </div>
         <div class="flex flex-wrap gap-2">
           @if (areas.length) {

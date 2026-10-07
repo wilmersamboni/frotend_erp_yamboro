@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AdminTableComponent, TableRowLink } from '../../shared/components/admin-table.component';
 import { AdminModalComponent } from '../tenant-administration/ui/admin-modal.component';
@@ -11,10 +11,10 @@ import { BarcodeScannerComponent } from '../../shared/scanner/barcode-scanner.co
 import { SyncQueueService } from '../../core/offline/sync-queue.service';
 import { OfflineSnapshotService } from '../../core/offline/offline-snapshot.service';
 import { NetworkStatusService } from '../../core/offline/network-status.service';
-import { AlertComponent } from '../../shared/ui/alert.component';
 import { SearchableSelectComponent, SSOption } from '../../shared/components/searchable-select.component';
 import { DialogDirective } from '../../shared/directives/dialog.directive';
 import { CargasSecundarias } from './data-access/cargas-secundarias';
+import { BodegasInactivasAvisoComponent, BodegasInactivasEtiquetaComponent } from './ui/bodegas-inactivas.component';
 import { AvisoCargasComponent } from './ui/aviso-cargas.component';
 import { MaterialesScreenPolicy } from './ui/materiales-screen-policy';
 
@@ -59,14 +59,17 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
 @Component({
   selector: 'app-materiales-items',
   standalone: true,
-  imports: [AvisoCargasComponent, DialogDirective, AlertComponent, SearchableSelectComponent, FormsModule, AdminTableComponent, AdminModalComponent, BarcodeScannerComponent],
+  imports: [BodegasInactivasEtiquetaComponent, BodegasInactivasAvisoComponent, AvisoCargasComponent, DialogDirective, SearchableSelectComponent, FormsModule, AdminTableComponent, AdminModalComponent, BarcodeScannerComponent],
   template: `
     <div class="p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
         <span>Materiales</span><span aria-hidden="true">/</span><span>Inventario</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Ítems</span>
       </nav>
       <div class="flex items-center justify-between mb-4">
-        <h1 class="text-xl font-bold text-gray-800">Equipos con placa<span class="block text-xs font-normal text-gray-400">antes «Ítems»</span></h1>
+        <div class="flex flex-wrap items-center gap-3">
+          <h1 class="text-xl font-bold text-gray-800">Equipos con Placa<span class="block text-xs font-normal text-gray-400">antes «Ítems»</span></h1>
+          <app-bodegas-inactivas-etiqueta [bodegas]="bodegasInactivas()" [abierto]="avisoBodegasAbierto()" (alternar)="avisoBodegasAbierto.set(!avisoBodegasAbierto())" />
+        </div>
         @if (puedeEditar() && opcionesProductoPlacas.length > 0) {
           <div class="flex gap-2">
             @if (red.alcanzable() && productosConPlacasPendientes.length > 0) {
@@ -85,12 +88,7 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
 
       <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
 
-      @if (bodegasInactivas().length > 0) {
-        <app-alert class="mb-4" variante="advertencia" [titulo]="bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas'">
-          <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
-          — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
-        </app-alert>
-      }
+      <app-bodegas-inactivas-aviso [bodegas]="bodegasInactivas()" [abierto]="avisoBodegasAbierto()" />
 
       <app-admin-table
         [rows]="filas"
@@ -261,6 +259,9 @@ export class MaterialesItemsComponent implements OnInit {
   // bodega inactiva (2026-09-18), aunque sí lo viera en Solicitudes.
   puedeVerSitios = computed(() => this.acceso.puedeListar('sitios'));
 
+  /** El aviso de bodegas inactivas es una etiqueta junto al título que se despliega al tocarla (pedido del dueño, 2026-10-06). */
+  readonly avisoBodegasAbierto = signal(false);
+
   /**
    * Navegación cruzada (ítem 4): desde un ítem, ir directo a su historial de
    * movimientos/novedades. Kardex y Novedades NO se unificaron (ítem 5) —
@@ -271,13 +272,13 @@ export class MaterialesItemsComponent implements OnInit {
   readonly rowLinks: TableRowLink[] = [
     {
       label: 'Kardex',
-      routerLink: () => [this.auth.isAdmin() ? '/materiales/kardex' : '/instructor/materiales/kardex'],
+      routerLink: () => ['/materiales/kardex'],
       queryParams: (r) => ({ id_item: r.id_item }),
       visible: () => this.auth.isAdmin() || this.auth.cargo() === 'instructor',
     },
     {
       label: 'Novedades',
-      routerLink: () => [this.auth.isAdmin() ? '/materiales/novedades' : '/instructor/materiales/novedades'],
+      routerLink: () => ['/materiales/novedades'],
       queryParams: (r) => ({ id_item: r.id_item }),
       visible: () => this.auth.isAdmin() || this.auth.cargo() === 'instructor',
     },
