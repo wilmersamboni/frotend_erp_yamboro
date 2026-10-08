@@ -14,18 +14,18 @@ const inv: InventarioCuentadante = {
   bienes: [
     bien({ id_item: 'a', producto_nombre: 'Router inalámbrico', marca: 'TP-Link', modelo: 'AX55', placa_sena: '900000000001',
       serial: 'SN-PRUEBA-01', estado: 'FUERA_DE_SEDE', ubicacion: 'Fuera de la sede (SAL-20261006-008)', en_poder_de: 'Pitalito' }),
-    bien({ id_item: 'b', producto_nombre: 'Repetidor', estado: 'DAÑADO', novedad: 'Daño reportado' }),
+    bien({ id_item: 'b', producto_nombre: 'Repetidor', placa_sena: '900000000002', estado: 'DAÑADO', novedad: 'Daño reportado' }),
   ],
 };
 
 describe('inventario de fin de año del cuentadante', () => {
-  it('una fila dice qué es, dónde está, quién lo tiene y su estado; sin placa queda marcado', () => {
+  it('una fila dice qué es, dónde está, quién lo tiene y su estado', () => {
     expect(filaInventario(inv.bienes[0], 1)).toEqual([
       1, '900000000001', 'Router inalámbrico', 'TP-Link / AX55', 'SN-PRUEBA-01', 'Fuera de la sede (SAL-20261006-008)', 'Pitalito', 'Fuera de la sede',
     ]);
-    const sinPlaca = filaInventario(inv.bienes[1], 2);
-    expect(sinPlaca[1]).toBe('SIN PLACA');
-    expect(sinPlaca[7]).toBe('Dañado · Daño reportado');
+    const danado = filaInventario(inv.bienes[1], 2);
+    expect(danado[1]).toBe('900000000002');
+    expect(danado[7]).toBe('Dañado · Daño reportado');
   });
 
   it('arma la hoja con encabezado del cuentadante, tabla, columnas para verificar y firmas', async () => {
@@ -39,10 +39,10 @@ describe('inventario de fin de año del cuentadante', () => {
     expect(texto('A4')).toBe('Cuentadante: Ana María Pérez Gómez');
     expect(texto('E4')).toBe('Documento: C.C. 1000000001');
     expect(texto('H4')).toBe('Cargo: Instructor');
-    expect(texto('H5')).toBe('Sin placa SENA: 1');
+    expect(texto('H5')).toBe('Fuera de la bodega: 1');
     expect(ws.getCell('I7').value).toBe('¿Lo verificó?\n(Sí / No)');
     expect(ws.getCell('B8').value).toBe('900000000001');
-    expect(ws.getCell('B9').value).toBe('SIN PLACA');
+    expect(ws.getCell('B9').value).toBe('900000000002');
     expect(ws.getCell('I8').dataValidation).toMatchObject({ type: 'list', formulae: ['"Sí,No"'] });
     expect(ws.getCell('J9').dataValidation).toMatchObject({ formulae: ['"B,R,M"'] });
     const valores: string[] = [];

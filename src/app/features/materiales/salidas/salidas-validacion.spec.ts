@@ -16,18 +16,24 @@ const OPCIONES: OpcionesSalida = {
 };
 
 function crear() {
-  const crearSalida = vi.fn().mockResolvedValue({ codigo: 'SAL-20261006-001' });
+  const crearSalida = vi.fn().mockResolvedValue({
+    id_salida: 's1',
+    codigo: 'SAL-20261006-001',
+    lineas: [{ id_linea: 'linea-1', id_lote: 'lote-1', producto_nombre: 'Cable UTP' }],
+  });
+  const subirFoto = vi.fn().mockResolvedValue({});
+  const toast = { ok: vi.fn(), warn: vi.fn(), error: vi.fn(), httpError: vi.fn() };
   TestBed.configureTestingModule({
     providers: [
-      { provide: MaterialesApiService, useValue: { crearSalida, listarSalidas: vi.fn().mockResolvedValue([]) } },
+      { provide: MaterialesApiService, useValue: { crearSalida, subirFotoLineaSalida: subirFoto, listarSalidas: vi.fn().mockResolvedValue([]) } },
       { provide: AuthService, useValue: { isAdmin: () => false, tieneServicio: () => true, user: () => ({ id: 'yo' }) } },
-      { provide: ToastService, useValue: { ok: vi.fn(), warn: vi.fn(), httpError: vi.fn() } },
+      { provide: ToastService, useValue: toast },
       { provide: ConfirmService, useValue: { ask: vi.fn() } },
     ],
   });
   const c = TestBed.runInInjectionContext(() => new MaterialesSalidasComponent());
   c.opciones.set(OPCIONES);
-  return { c, crearSalida };
+  return { c, crearSalida, subirFoto, toast };
 }
 
 describe('Salidas: validación del formulario', () => {
@@ -121,7 +127,7 @@ describe('Salidas: validación del formulario', () => {
     expect(c.err('con_regreso')).toBe('');
   });
 
-  it('devolutivo (regrese o no, con o sin cuentadante): pide destino, transporte, jefe y valor asegurado de cada unidad', () => {
+  it('devolutivo (regrese o no): pide destino y transporte; ni jefe ni valor asegurado (van a mano / es el cuentadante)', () => {
     for (const regresa of [true, false]) {
       TestBed.resetTestingModule();
       const { c } = crear();
@@ -135,12 +141,33 @@ describe('Salidas: validación del formulario', () => {
       expect(c.conPoliza()).toBe(true);
       expect(c.err('lugar_destino')).toBeTruthy();
       expect(c.err('medio_transporte')).toBeTruthy();
-      expect(c.err('id_jefe_inmediato')).toBe('Elige el jefe inmediato.');
-      expect(c.err('l0_valor')).toBe('Escribe el valor asegurado de esta unidad.'); // sin cuentadante también
-      expect(c.err('l1_valor')).toBe('Escribe el valor asegurado de esta unidad.');
-      c.f.lineas[0].valor = 0;
       expect(c.err('l0_valor')).toBe('');
+      expect(c.err('l1_valor')).toBe('');
+      // El jefe inmediato (y quien aprueba) es el cuentadante del equipo elegido.
+      expect(c.quienAprueba()).toBe('Otra Persona, cuentadante de los equipos');
     }
+  });
+
+  it('devolutivo: no deja mezclar equipos de cuentadantes distintos en una salida', () => {
+    const { c } = crear();
+    c.intento = true;
+    c.elegirClase('DEVOLUTIVO');
+    c.opciones.set({ ...c.opciones()!, unidades: [...c.opciones()!.unidades, { ...c.opciones()!.unidades[1], id_item: 'item-cu2', id_cuentadante: 'u-8', cuentadante_nombre: 'Otro' }] });
+    c.f.lineas = [
+      { clave: 'item-cu', cantidad: 1, valor: null, serial: '' },
+      { clave: 'item-cu2', cantidad: 1, valor: null, serial: '' },
+    ];
+    expect(c.err('l0_cuentadante')).toBe('');
+    expect(c.err('l1_cuentadante')).toContain('otro cuentadante');
+  });
+
+  it('devolutivo sin cuentadante o pedido por el propio cuentadante: aprueba el administrador', () => {
+    const { c } = crear();
+    c.elegirClase('DEVOLUTIVO');
+    c.f.lineas = [{ clave: 'item-1', cantidad: 1, valor: null, serial: '' }];
+    expect(c.quienAprueba()).toBe('el administrador');
+    c.opciones.set({ ...c.opciones()!, unidades: c.opciones()!.unidades.map((u) => (u.id_item === 'item-1' ? { ...u, id_cuentadante: 'yo', cuentadante_nombre: 'Yo' } : u)) });
+    expect(c.quienAprueba()).toContain('tú eres el cuentadante');
   });
 
   it('consumibles: sin datos de póliza', () => {
@@ -156,11 +183,24 @@ describe('Salidas: validación del formulario', () => {
     expect(c.tiposClase.map((t) => t.value)).toEqual(['CONSUMO', 'DEVOLUTIVO']);
   });
 
-  it('con todo correcto envía y manda solo lo que corresponde', async () => {
-    const { c, crearSalida } = crear();
+  it('consumible: la foto es obligatoria; un devolutivo no la pide', () => {
+    const { c } = crear();
+    c.intento = true;
+    c.f.lineas = [{ clave: 'lote-1', cantidad: 1, valor: null, serial: '' }];
+    expect(c.err('l0_foto')).toBe('Toma la foto del material.');
+    c.f.lineas[0].foto = new Blob(['x'], { type: 'image/jpeg' });
+    expect(c.err('l0_foto')).toBe('');
+    c.elegirClase('DEVOLUTIVO');
+    c.f.lineas = [{ clave: 'item-1', cantidad: 1, valor: null, serial: '' }];
+    expect(c.err('l0_foto')).toBe('');
+  });
+
+  it('con todo correcto envía y manda solo lo que corresponde, y después sube la foto de cada material', async () => {
+    const { c, crearSalida, subirFoto } = crear();
+    const foto = new Blob(['x'], { type: 'image/jpeg' });
     c.f.id_sitio = 'sitio-1';
     c.f.motivo = 'Cable para la práctica de redes en San Agustín';
-    c.f.lineas = [{ clave: 'lote-1', cantidad: 5, valor: null, serial: '' }];
+    c.f.lineas = [{ clave: 'lote-1', cantidad: 5, valor: null, serial: '', foto }];
     await c.guardarNueva();
     expect(crearSalida).toHaveBeenCalledWith({
       clase: 'CONSUMO',
@@ -169,5 +209,18 @@ describe('Salidas: validación del formulario', () => {
       motivo: 'Cable para la práctica de redes en San Agustín',
       lineas: [{ id_lote: 'lote-1', cantidad: 5 }],
     });
+    expect(subirFoto).toHaveBeenCalledWith('s1', 'linea-1', foto);
+  });
+
+  it('si una foto no sube, la salida queda creada y se avisa qué falta', async () => {
+    const { c, subirFoto, toast } = crear();
+    subirFoto.mockRejectedValue(new Error('sin red'));
+    c.f.id_sitio = 'sitio-1';
+    c.f.motivo = 'Cable para la práctica de redes en San Agustín';
+    c.f.lineas = [{ clave: 'lote-1', cantidad: 5, valor: null, serial: '', foto: new Blob(['x']) }];
+    await c.guardarNueva();
+    expect(toast.ok).not.toHaveBeenCalled();
+    expect(toast.warn.mock.calls[0][1]).toContain('«Cable UTP»');
+    expect(c.nueva()).toBe(false);
   });
 });

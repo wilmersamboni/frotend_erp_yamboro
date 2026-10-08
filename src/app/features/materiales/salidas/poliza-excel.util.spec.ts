@@ -19,11 +19,13 @@ const salida = {
   sitio_nombre: 'Bodega Tecnoparque',
   sede_nombre: 'Sede Yamboró',
   solicitante_nombre: 'Ana María Pérez Gómez',
-  jefe_nombre: 'Carlos Andrés Rojas Díaz',
+  jefe_nombre: 'Carlos Andrés Rojas Díaz', // el cuentadante de los equipos
   solicitante_cargo: 'instructor',
-  jefe_cargo: 'coordinador',
+  jefe_cargo: 'instructor',
   tipo_destino: 'PROPIO',
   aprueba_nombre: 'Carlos Andrés Rojas Díaz',
+  regional_nombre: 'Otra regional', // la bodega dice otra cosa: manda "Datos de la póliza"
+  centro_nombre: 'Otro centro',
   lugar_destino: 'Pitalito',
   medio_transporte: 'Automóvil',
   fecha: '2026-07-28T10:00:00',
@@ -65,24 +67,25 @@ describe('reporte de póliza (Formato Transporte de Mercancías)', () => {
     expect(ws.getCell('B10').value).toBe('Centro de Gestión y Desarrollo Sostenible Surcolombiano Yamboró');
     expect(ws.getCell('B11').value).toBe('Tecnoparque');
     expect(String(ws.getCell('E10').value)).toContain('$2.000.000.000');
-    // Tabla del bien.
+    // Tabla del bien: lo del sistema lleno (placa del equipo + serial del formulario); descripción y valor, a mano.
     expect(ws.getCell('A13').value).toBe('FECHA DESPACHO\ndd/mm/aaaa');
     expect(ws.getCell('A13').fill).toMatchObject({ fgColor: { argb: 'FFE2EFDA' } });
     expect(ws.getCell('A15').value).toEqual(new Date(Date.UTC(2026, 6, 28))); // fecha real de Excel, sin correrse un día
     expect(ws.getCell('B15').value).toBe('SEDE YAMBORÓ'); // origen = sede de la bodega
     expect(ws.getCell('C15').value).toBe('PITALITO');
     expect(ws.getCell('D15').value).toBe('AUTOMÓVIL');
-    expect(String(ws.getCell('E15').value)).toContain('WORKSTATION HP Z2 G9');
+    expect(ws.getCell('E15').value).toBeNull();
     expect(ws.getCell('F15').value).toBe('900000000001 / SN-PRUEBA-01');
-    expect(ws.getCell('G15').value).toBe(6611712);
-    // Firmas: quien despacha (B/C) y jefe inmediato (E/F), como el formato; nada más.
+    expect(ws.getCell('G15').value).toBeNull();
+    expect(ws.getRow(15).height).toBe(45);
+    // Firmas: quien despacha (B/C) y jefe inmediato = cuentadante (E/F), como el formato; nada más.
     expect(ws.getCell('B17').value).toBe('FIRMA ');
     expect(ws.getCell('B18').value).toBe('NOMBRE');
     expect(ws.getCell('C18').value).toBe('Ana María Pérez Gómez');
     expect(ws.getCell('C19').value).toBe('Instructor');
     expect(ws.getCell('E18').value).toBe('NOMBRE JEFE INMEDIATO');
     expect(ws.getCell('F18').value).toBe('Carlos Andrés Rojas Díaz');
-    expect(ws.getCell('F19').value).toBe('Coordinador');
+    expect(ws.getCell('F19').value).toBe('Instructor');
     // Notas.
     expect(ws.getCell('A22').value).toBe('NOTAS:');
     expect(String(ws.getCell('A26').value)).toContain('$17,000,000,000');

@@ -6,6 +6,16 @@ import type { ConfigSalida, SalidaDetalle } from '../data-access/materiales-api.
  * "Formato Transporte de Mercancías" (SENA / Howden): mismos anchos, altos,
  * textos, colores, bordes y logos. Es el formato de los devolutivos; los
  * consumibles van en la hoja de San Agustín.
+ *
+ * Qué llena el sistema y qué se llena a mano (decisión del dueño, 2026-10-08):
+ *  - Fijos, de "Datos de la póliza": regional, centro de formación, dependencia y límite por despacho.
+ *  - Del sistema: fecha, lugar de origen, lugar de destino y medio de transporte.
+ *  - PLACA / SERIAL: la placa sale del equipo y el serial, si se escribió en el formulario (opcional);
+ *    si no, se escribe a mano en el Excel.
+ *  - A MANO (salen de una página del SENA a la que el sistema no tiene acceso): descripción del bien
+ *    asegurado y valor asegurado. Esas celdas salen vacías, una fila por equipo.
+ *  - Jefe inmediato = el cuentadante de los equipos.
+ * El documento ya diligenciado y firmado se adjunta a la salida (registro del documento terminado).
  */
 
 // Colores del formato oficial.
@@ -25,26 +35,15 @@ type Lado = { style: 'thin' | 'medium' | 'thick'; color: { argb: string } };
 const lado = (style: Lado['style'], argb = NEGRO): Lado => ({ style, color: { argb } });
 
 /**
- * "Descripción del bien asegurado" como en el formato: nombre y especificaciones,
- * y MODELO y MARCA en renglones aparte separados por una línea en blanco.
- */
-export function descripcionBien(l: Linea): string {
-  const partes = [[l.producto_nombre.toUpperCase(), l.descripcion].filter(Boolean).join(' / ')];
-  if (l.modelo) partes.push(`MODELO: ${l.modelo}`);
-  if (l.marca) partes.push(`MARCA : ${l.marca}`);
-  return partes.join('\n\n');
-}
-
-/**
- * Regional, centro de formación, sede y dependencia de la salida: primero lo de la
- * bodega (sede → centro → departamento, que resuelve el backend) y, si falta, lo
- * escrito en "Datos de la póliza".
+ * Regional, centro de formación, sede y dependencia de la salida. Regional, centro y dependencia son
+ * fijos del formato: salen de "Datos de la póliza" (decisión del dueño, 2026-10-08) y solo si están
+ * vacíos se usa lo de la bodega (sede → centro → departamento, que resuelve el backend).
  */
 export function ubicacionSalida(s: SalidaDetalle, config: ConfigSalida): { regional: string; centro: string; sede: string; dependencia: string } {
   const t = (...v: (string | null | undefined)[]): string => v.map((x) => x?.trim()).find((x) => !!x) ?? '';
   return {
-    regional: t(s.regional_nombre, config.regional),
-    centro: t(s.centro_nombre, config.centro_formacion),
+    regional: t(config.regional, s.regional_nombre),
+    centro: t(config.centro_formacion, s.centro_nombre),
     sede: t(s.sede_nombre),
     dependencia: t(config.dependencia, s.area_nombre),
   };
@@ -63,12 +62,8 @@ function fechaExcel(iso: string): Date {
   return new Date(Date.UTC(y, m - 1, d));
 }
 
-/** Alto de la fila de un bien: la descripción envuelve en la columna E (≈ 38 caracteres por línea, Arial 9). */
-function altoFilaBien(desc: string, placa: string): number {
-  const lineasDesc = desc.split('\n').reduce((a, seg) => a + Math.max(1, Math.ceil(seg.length / 38)), 0);
-  const lineas = Math.max(lineasDesc, Math.ceil(placa.length / 34), 1);
-  return Math.max(30, lineas * 12 + 12);
-}
+/** Alto de la fila de un bien: espacio para escribir a mano la descripción, la placa/serial y el valor. */
+const ALTO_FILA_BIEN = 45;
 
 interface Estilo {
   fondo?: string;
@@ -202,24 +197,26 @@ export async function agregarHojaPoliza(wb: Workbook, salida: SalidaDetalle, lin
   const destino = (salida.lugar_destino || salida.dest_sede || '').toUpperCase();
   const medio = (salida.medio_transporte ?? '').toUpperCase();
   let fila = 15;
+  // Una fila por equipo; descripción y valor (de la página del SENA) se escriben a mano.
   for (const l of lineas) {
-    const desc = descripcionBien(l);
-    const placa = [l.placa_sena, l.serial].filter(Boolean).join(' / ') || 'SIN PLACA';
     bloque(ws, fila, 1, fila, 1, fecha, { h: 'left', numFmt: 'dd/mm/yyyy' });
     bloque(ws, fila, 2, fila, 2, origen, {});
     bloque(ws, fila, 3, fila, 3, destino, {});
     bloque(ws, fila, 4, fila, 4, medio, {});
-    bloque(ws, fila, 5, fila, 5, desc, { fuente: 'Microsoft Sans Serif', negrita: true, tam: 9 });
-    bloque(ws, fila, 6, fila, 6, placa, { h: 'center' });
-    bloque(ws, fila, 7, fila, 7, l.valor_unitario ?? 0, { h: 'center', numFmt: MONEDA, envolver: false });
-    alto(fila, altoFilaBien(desc, placa));
+    // Placa del equipo + serial si se escribió en el formulario; si falta algo, se completa a mano en el Excel.
+    const placaSerial = [l.placa_sena?.trim(), l.serial?.trim()].filter(Boolean).join(' / ');
+    bloque(ws, fila, 5, fila, 5, null, { fuente: 'Microsoft Sans Serif', negrita: true, tam: 9 });
+    bloque(ws, fila, 6, fila, 6, placaSerial || null, { h: 'center' });
+    bloque(ws, fila, 7, fila, 7, null, { h: 'center', numFmt: MONEDA, envolver: false });
+    alto(fila, ALTO_FILA_BIEN);
     fila += 1;
   }
   bordes(ws, 13, 1, fila - 1, ULTIMA_COL, { top: lado('thin'), left: lado('thin'), bottom: lado('thin'), right: lado('thin') });
   alto(fila, 30.75);
   fila += 1;
 
-  // ── Firmas: quien despacha (B/C) y jefe inmediato (E/F:G), FIRMA · NOMBRE · CARGO ──
+  // ── Firmas: quien despacha (B/C) y jefe inmediato (E/F:G), FIRMA · NOMBRE · CARGO.
+  //    El jefe inmediato es el CUENTADANTE de los equipos (2026-10-08), no el coordinador. ──
   const etqFirma: Estilo = { fondo: AZUL_BANDA, color: BLANCO, negrita: true, h: 'left' };
   const valFirma: Estilo = { fondo: GRIS, color: TINTA_FIRMA, negrita: true, h: 'left' };
   const firmas: [string, string, string][][] = [
@@ -230,7 +227,7 @@ export async function agregarHojaPoliza(wb: Workbook, salida: SalidaDetalle, lin
     ],
     [
       ['FIRMA ', '', ''],
-      ['NOMBRE JEFE INMEDIATO', salida.jefe_nombre ?? salida.aprueba_nombre ?? '', ''],
+      ['NOMBRE JEFE INMEDIATO', salida.jefe_nombre ?? '', ''],
       ['CARGO', cargoLegible(salida.jefe_cargo), ''],
     ],
   ];
@@ -282,7 +279,7 @@ export async function agregarHojaPoliza(wb: Workbook, salida: SalidaDetalle, lin
   alto(fila++, 22.5);
   bloque(ws, fila, 1, fila, 4, notaRica('Despachos Urbanos:   ', 'Desde cualquier parte de la ciudad hasta su destino final en la misma.'), { fondo: VERDE, negrita: true, tam: 11, fuente: 'Arial Nova', h: 'justify' });
   alto(fila++, 22.5);
-  bloque(ws, fila, 1, fila, 3, `Presupuesto anual de movilización: La suma de ${presupuesto}\n\nSin Aplicación de deducibles`, { fondo: VERDE, negrita: true, tam: 11, fuente: 'Arial Nova', h: 'justify', v: 'top' });
+  bloque(ws, fila, 1, fila, 3, `Presupuesto anual de movilización: La suma de ${presupuesto}`, { fondo: VERDE, negrita: true, tam: 11, fuente: 'Arial Nova', h: 'justify', v: 'top' });
   bloque(ws, fila, 4, fila, 4, null, { fondo: VERDE });
   alto(fila++, 22.5);
   bloque(ws, fila, 1, fila, 4, null, { fondo: VERDE });
