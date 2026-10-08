@@ -8,8 +8,8 @@ import { ESTADO_LEGIBLE, marcaModelo } from './cuentadante-formato';
  * formato fijo conocido para este documento, así que es propio: qué bienes
  * tiene a cargo, dónde está cada uno según el sistema, y columnas en blanco
  * para que el cuentadante marque si lo vio, en qué estado lo encontró y sus
- * observaciones, más las firmas. Un devolutivo sin placa sale como "SIN PLACA":
- * todos deben tenerla, pero al arrancar algunos todavía no la tienen.
+ * observaciones, más las firmas. Solo trae equipos con placa SENA: el
+ * cuentadante solo responde por esos (decisión del dueño, 2026-10-07).
  */
 
 const borde = { style: 'thin' as const, color: { argb: 'FF808080' } };
@@ -39,7 +39,7 @@ export const estadoLegible = (b: BienACargo): string =>
 /** Fila de la tabla, en el orden de `COLUMNAS` (sin las tres de verificación). */
 export function filaInventario(b: BienACargo, n: number): (string | number)[] {
   const descripcion = [b.producto_nombre, b.descripcion].filter((v) => v && v.trim()).join(' — ');
-  return [n, b.placa_sena?.trim() || 'SIN PLACA', descripcion, marcaModelo(b), b.serial ?? '', b.ubicacion, b.en_poder_de ?? '', estadoLegible(b)];
+  return [n, b.placa_sena?.trim() ?? '', descripcion, marcaModelo(b), b.serial ?? '', b.ubicacion, b.en_poder_de ?? '', estadoLegible(b)];
 }
 
 const cargoLegible = (c: string | null): string =>
@@ -84,13 +84,13 @@ export async function construirInventarioCuentadante(inv: InventarioCuentadante,
     };
     ws.getCell(fila, col).alignment = { vertical: 'middle' };
   };
-  const sinPlaca = bienes.filter((b) => !b.placa_sena?.trim()).length;
+  const fuera = bienes.filter((b) => ['PRESTADO', 'FUERA_DE_SEDE', 'SALIDO'].includes(b.estado)).length;
   dato(4, 1, 4, 'Cuentadante', c.nombre ?? '');
   dato(4, 5, 7, 'Documento', c.cedula ? `C.C. ${c.cedula}` : '');
   dato(4, 8, N_COL, 'Cargo', cargoLegible(c.cargo));
   dato(5, 1, 4, 'Fecha de corte', hoy.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }));
   dato(5, 5, 7, 'Total de bienes', String(bienes.length));
-  dato(5, 8, N_COL, 'Sin placa SENA', String(sinPlaca));
+  dato(5, 8, N_COL, 'Fuera de la bodega', String(fuera));
 
   // Encabezado de la tabla.
   const encabezado = ws.getRow(7);
@@ -109,7 +109,7 @@ export async function construirInventarioCuentadante(inv: InventarioCuentadante,
     filaInventario(b, i + 1).forEach((v, j) => (fila.getCell(j + 1).value = v));
     for (let j = 1; j <= N_COL; j++) {
       const celda = fila.getCell(j);
-      celda.font = { name: 'Arial', size: 9, bold: j === 2 && !b.placa_sena?.trim() };
+      celda.font = { name: 'Arial', size: 9 };
       celda.alignment = { vertical: 'middle', wrapText: true, horizontal: j === 1 || j === 9 || j === 10 ? 'center' : 'left' };
       celda.border = BORDES;
     }

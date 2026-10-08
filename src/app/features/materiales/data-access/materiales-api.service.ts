@@ -235,6 +235,10 @@ export interface SalidaResumen {
   fecha_regreso: string | null;
   fecha: string;
   lineas_count: number;
+  /** Documento ya diligenciado y firmado que se adjuntó (registro del documento terminado). */
+  documento_nombre?: string | null;
+  documento_fecha?: string | null;
+  documento_subido_por?: string | null;
 }
 
 export interface LineaSalida {
@@ -327,7 +331,10 @@ export interface IngresoDevolutivo {
   sitio_nombre: string | null;
   id_cuentadante: string | null;
   cuentadante_nombre: string | null;
+  /** Unidades CON placa todavía sin cuentadante. */
   sin_asignar: number;
+  /** Unidades sin placa SENA: el cuentadante solo responde por equipos con placa (2026-10-07). */
+  sin_placa: number;
   /** Solo si entró por el módulo de ingresos (ING-20261006-001). */
   numero_ingreso: string | null;
   proveedor_nombre: string | null;
@@ -370,7 +377,9 @@ export interface GrupoSinIngreso {
   id_sitio: string | null;
   sitio_nombre: string | null;
   unidades: number;
+  /** Unidades CON placa todavía sin cuentadante (las únicas que se pueden asignar). */
   sin_asignar: number;
+  /** Unidades sin placa SENA: esperan la placa para tener cuentadante. */
   sin_placa: number;
 }
 
@@ -388,7 +397,6 @@ export interface ResumenCuentadante {
   nombre: string | null;
   cargo: string | null;
   bienes: number;
-  sin_placa: number;
   fuera_de_bodega: number;
   con_novedad: number;
 }
@@ -1335,6 +1343,15 @@ export class MaterialesApiService {
     fd.append('foto', foto, foto.type === 'image/png' ? 'foto.png' : 'foto.jpg');
     return this.unwrap(this.http.put<Envelope<SalidaDetalle>>(`${BASE}/materiales/salidas/${id}/lineas/${idLinea}/foto`, fd));
   }
+  /** Adjunta (o reemplaza) el documento ya diligenciado y firmado de una salida aprobada. */
+  subirDocumentoSalida(id: string, archivo: File) {
+    const fd = new FormData();
+    fd.append('documento', archivo, archivo.name);
+    return this.unwrap(this.http.put<Envelope<SalidaDetalle>>(`${BASE}/materiales/salidas/${id}/documento`, fd));
+  }
+  descargarDocumentoSalida(id: string): Promise<Blob> {
+    return firstValueFrom(this.http.get(`${BASE}/materiales/salidas/${id}/documento`, { responseType: 'blob' }));
+  }
   /** Por HttpClient (blob): así viajan la sesión y la cabecera x-tenant. */
   fotoLineaSalida(id: string, idLinea: string): Promise<Blob> {
     return firstValueFrom(this.http.get(`${BASE}/materiales/salidas/${id}/lineas/${idLinea}/foto`, { responseType: 'blob' }));
@@ -1360,7 +1377,7 @@ export class MaterialesApiService {
   /** Asigna el cuentadante a todas las unidades de un ingreso. */
   asignarCuentadante(idIngreso: string, idCuentadante: string, motivo?: string) {
     return this.unwrap(
-      this.http.put<Envelope<{ actualizados: number }>>(`${BASE}/materiales/cuentadante/ingresos/${idIngreso}`, {
+      this.http.put<Envelope<{ actualizados: number; sin_placa: number }>>(`${BASE}/materiales/cuentadante/ingresos/${idIngreso}`, {
         id_cuentadante: idCuentadante,
         motivo: motivo?.trim() || undefined,
       }),

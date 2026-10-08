@@ -43,11 +43,33 @@ describe('vista previa del Excel', () => {
     const fecha = celdas.find((c) => c.texto.includes('FECHA DESPACHO'))!;
     expect(fecha.rowspan).toBe(2); // A13:A14
     expect(celdas.some((c) => c.texto === '28/07/2026')).toBe(true);
-    expect(celdas.some((c) => c.texto === '$ 6.611.712')).toBe(true);
+    expect(celdas.some((c) => c.texto === 'PITALITO')).toBe(true); // destino, del sistema
     // Ninguna fila dibuja más columnas de las que tiene la hoja.
     for (const [i, f] of v.filas.entries()) {
       const ocupadas = f.celdas.reduce((s, c) => s + c.colspan, 0);
       expect(ocupadas, `fila ${i + 1}`).toBeLessThanOrEqual(7);
     }
+  });
+});
+
+describe('vista previa de un Excel editado a mano (documento firmado)', () => {
+  it('pinta los colores de tema con su aclarado y ubica imágenes ancladas de esquina a esquina', async () => {
+    const ExcelJS = (await import('exceljs')).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('T.MERCANCÍAS');
+    ws.getCell('A1').value = 'Huila';
+    // Verde del formato: accent6 (índice 9) aclarado 80 %, como lo guarda Excel.
+    ws.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { theme: 9, tint: 0.7999816888943144 } as never };
+    const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='), (c) => c.charCodeAt(0)).buffer;
+    const id = wb.addImage({ buffer: png, extension: 'png' } as never);
+    ws.addImage(id, 'A2:B4'); // ancla de dos esquinas (sin `ext`)
+    const v = hojaAVista(wb);
+    const celda = v.filas[0].celdas[0];
+    // Excel lo muestra como #E2EFDA; el cálculo puede diferir en 1 por redondeo.
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(celda.estilo['background'].slice(i, i + 2), 16));
+    for (const [v, esperado] of [[r, 0xe2], [g, 0xef], [b, 0xda]]) expect(Math.abs(v - esperado)).toBeLessThanOrEqual(2);
+    expect(v.imagenes).toHaveLength(1);
+    expect(v.imagenes[0].width).toBeGreaterThan(0);
+    expect(v.imagenes[0].height).toBeGreaterThan(0);
   });
 });

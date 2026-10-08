@@ -156,7 +156,7 @@ describe('Descarga de salidas: dos formatos', () => {
     } as unknown as SalidaDetalle;
     const x = await excelGenerado(sinCuentadante);
     expect(x.hojas).toEqual(['T.MERCANCÍAS']);
-    expect(x.texto()).toContain('900000000001 / SN-PRUEBA-01');
+    expect(x.texto()).toContain('PITALITO'); // destino, del sistema
   });
 
   it('hoja de consumibles sin cuadrícula: tabla y firmas en un solo recuadro', async () => {
@@ -182,8 +182,9 @@ describe('Descarga de salidas: dos formatos', () => {
     expect(x.nombre).toBe('Poliza-SAL-20261006-003.xlsx');
     const t = x.texto();
     expect(t.some((v) => v.includes('REPORTE TRANSPORTE DE MERCANCÍAS PÓLIZA No  1234567890'))).toBe(true);
+    // Placa del equipo + serial del formulario; descripción y valor asegurado van a mano (2026-10-08).
     expect(t).toContain('900000000001 / SN-PRUEBA-01');
-    expect(t).toContain('SIN PLACA');
+    expect(t).not.toContain('SIN PLACA'); // sin placa ni serial la celda queda vacía, para escribirla a mano
     expect(t).toContain('NOMBRE JEFE INMEDIATO');
     expect(t).toContain('Carlos Rojas');
     expect(t).toContain('NOTAS:');
@@ -193,19 +194,19 @@ describe('Descarga de salidas: dos formatos', () => {
     const x = await excelGenerado({ ...mixta, lugar_destino: 'San Agustín', medio_transporte: 'Camioneta' } as SalidaDetalle);
     expect(x.hojas).toEqual(['T.MERCANCÍAS', 'Hoja1']);
     expect(x.nombre).toBe('Salida-Poliza-SAL-20261006-010.xlsx');
-    expect(x.texto(0)).toContain('9528100001');
+    expect(x.texto(0)).toContain('SAN AGUSTÍN'); // destino de la póliza (la placa va a mano)
     expect(x.texto(1)).toContain('Cable UTP categoría 6');
     expect(x.texto(1)).not.toContain('9528100001');
   });
 
-  it('centro de formación: sale de la bodega; "Datos de la póliza" solo si la bodega no tiene sede', async () => {
+  it('regional, centro y dependencia son fijos: salen de "Datos de la póliza"; la bodega solo si están vacíos', async () => {
     const conSede = { ...conCuentadante, centro_nombre: 'Centro Agroempresarial', sede_nombre: 'Sede La Plata' } as unknown as SalidaDetalle;
     const t = (await excelGenerado(conSede)).texto();
-    expect(t).toContain('Centro Agroempresarial');
-    expect(t).not.toContain('Centro Yamboró');
-    expect(t).toContain('SEDE LA PLATA'); // lugar de origen
-    expect((await excelGenerado(conCuentadante)).texto()).toContain('Centro Yamboró');
-    expect(ubicacionSalida({ ...conSede, regional_nombre: 'Huila' } as SalidaDetalle, { ...config, regional: 'Otra' }).regional).toBe('Huila');
+    expect(t).toContain('Centro Yamboró');
+    expect(t).not.toContain('Centro Agroempresarial');
+    expect(t).toContain('SEDE LA PLATA'); // lugar de origen: del sistema
+    expect(ubicacionSalida({ ...conSede, regional_nombre: 'Huila' } as SalidaDetalle, { ...config, regional: 'Otra' }).regional).toBe('Otra');
+    expect(ubicacionSalida(conSede, { ...config, centro_formacion: null }).centro).toBe('Centro Agroempresarial');
   });
 
   it('firmantes de la hoja de consumibles: coordinador, quien solicita y, si aplica, el tercero', () => {
