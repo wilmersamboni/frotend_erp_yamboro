@@ -3,6 +3,8 @@ import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AdminTableComponent, TableRowLink } from '../../shared/components/admin-table.component';
 import { DialogDirective } from '../../shared/directives/dialog.directive';
+import { SearchableSelectComponent, SSOption } from '../../shared/components/searchable-select.component';
+import { PersonaService } from '../../core/services/persona.service';
 import { ToastService, mensajeDeError } from '../../core/services/toast.service';
 import { ExportColumn, TableExportService } from '../../shared/services/table-export.service';
 import {
@@ -53,7 +55,7 @@ const ESTADO_REPARTO: Record<string, string> = { POR_REPARTIR: 'Por repartir', P
 @Component({
   selector: 'app-materiales-ingresos',
   standalone: true,
-  imports: [FormsModule, AdminTableComponent, DialogDirective, IngresoFormModalComponent, FormatoGilModalComponent],
+  imports: [FormsModule, AdminTableComponent, DialogDirective, IngresoFormModalComponent, FormatoGilModalComponent, SearchableSelectComponent],
   template: `
     <div class="p-6">
       <div class="flex flex-wrap items-end justify-between gap-3 mb-5">
@@ -71,7 +73,7 @@ const ESTADO_REPARTO: Record<string, string> = { POR_REPARTIR: 'Por repartir', P
       </div>
 
       <app-admin-table
-        addLabel="Compra o donación a bodega"
+        addLabel="Compra o donación"
         (add)="formOpen = true"
         [rows]="filas"
         [searchable]="true"
@@ -88,7 +90,7 @@ const ESTADO_REPARTO: Record<string, string> = { POR_REPARTIR: 'Por repartir', P
         [rowLinks]="acciones" />
     </div>
 
-    <app-ingreso-form-modal [open]="formOpen" [sitios]="bodegas" (closed)="formOpen = false" (guardado)="onGuardado($event)" />
+    <app-ingreso-form-modal [open]="formOpen" [sitios]="bodegas" [areas]="areas" (closed)="formOpen = false" (guardado)="onGuardado($event)" />
     <app-formato-gil-modal [open]="formatoOpen" [areas]="areas" (closed)="formatoOpen = false" (guardado)="onFormatoGuardado($event)" />
 
     @if (detalle; as d) {
@@ -97,7 +99,7 @@ const ESTADO_REPARTO: Record<string, string> = { POR_REPARTIR: 'Por repartir', P
           <div class="flex items-start justify-between shrink-0 px-4 pt-4 pb-3 sm:px-6 sm:pt-6">
             <div>
               <h2 class="text-lg font-bold text-gray-800">
-                {{ d.modalidad === 'FORMATO_AREA' ? 'Formato GIL-F-014 ·' : 'Ingreso' }} {{ d.codigo }}
+                {{ esFormatoGil(d) ? 'Formato GIL-F-014 ·' : d.modalidad === 'FORMATO_AREA' ? 'Llegada al área ·' : 'Ingreso' }} {{ d.codigo }}
                 @if (d.estado_reparto && d.estado === 'REGISTRADO') {
                   <span class="ml-2 align-middle text-[11px] font-semibold px-2 py-0.5 rounded-full border"
                     [class]="d.estado_reparto === 'REPARTIDO' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-amber-50 text-amber-700 border-amber-200'">{{ estadoRepartoTxt(d) }}</span>
@@ -111,16 +113,20 @@ const ESTADO_REPARTO: Record<string, string> = { POR_REPARTIR: 'Por repartir', P
 
           <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-2 sm:px-6 space-y-4">
             <dl class="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm">
-              @if (d.modalidad === 'FORMATO_AREA') {
+              @if (esFormatoGil(d)) {
                 <div><dt class="text-xs text-gray-400">Área</dt><dd class="text-gray-800 font-semibold">{{ d.area_nombre || '—' }}</dd></div>
                 <div><dt class="text-xs text-gray-400">Coordinador de área</dt><dd class="text-gray-800">{{ d.coordinador_nombre || '—' }}</dd></div>
-                <div><dt class="text-xs text-gray-400">Cuentadante</dt><dd class="text-gray-800">{{ d.cuentadante_nombre || '—' }}</dd></div>
                 @if (d.ficha_codigo) { <div><dt class="text-xs text-gray-400">Ficha</dt><dd class="text-gray-800">{{ d.ficha_codigo }}</dd></div> }
               } @else {
                 <div><dt class="text-xs text-gray-400">Tipo</dt><dd class="text-gray-800">{{ tipoTxt(d.tipo_ingreso) }}</dd></div>
                 <div><dt class="text-xs text-gray-400">Proveedor</dt><dd class="text-gray-800">{{ d.proveedor_nombre || '—' }}@if (d.proveedor_documento) { <span class="text-gray-400"> · {{ d.proveedor_documento }}</span> }</dd></div>
-                <div><dt class="text-xs text-gray-400">Bodega</dt><dd class="text-gray-800">{{ d.sitio_nombre || '—' }}</dd></div>
+                @if (d.modalidad === 'FORMATO_AREA') {
+                  <div><dt class="text-xs text-gray-400">Área</dt><dd class="text-gray-800 font-semibold">{{ d.area_nombre || '—' }}</dd></div>
+                } @else {
+                  <div><dt class="text-xs text-gray-400">Bodega</dt><dd class="text-gray-800">{{ d.sitio_nombre || '—' }}</dd></div>
+                }
               }
+              <div><dt class="text-xs text-gray-400">Cuentadante</dt><dd class="text-gray-800">{{ d.cuentadante_nombre || '—' }}</dd></div>
               <div><dt class="text-xs text-gray-400">Soporte</dt><dd class="text-gray-800">{{ soporteTxt(d) || '—' }}</dd></div>
               <div><dt class="text-xs text-gray-400">Fecha del soporte</dt><dd class="text-gray-800">{{ d.fecha_soporte || '—' }}</dd></div>
               <div><dt class="text-xs text-gray-400">Llegó</dt><dd class="text-gray-800">{{ d.fecha_ingreso }}</dd></div>
@@ -217,7 +223,7 @@ const ESTADO_REPARTO: Record<string, string> = { POR_REPARTIR: 'Por repartir', P
                 </ul>
               } @else {
                 <p class="text-xs text-gray-400 rounded-xl border border-dashed border-gray-200 p-3">
-                  Sin archivos. {{ d.estado !== 'REGISTRADO' ? '' : d.modalidad === 'FORMATO_AREA' ? 'Adjunta el PDF o la foto del formato GIL-F-014 firmado.' : 'Adjunta la foto o el PDF de la factura o remisión que respalda este ingreso.' }}
+                  Sin archivos. {{ d.estado !== 'REGISTRADO' ? '' : esFormatoGil(d) ? 'Adjunta el PDF o la foto del formato GIL-F-014 firmado.' : 'Adjunta la foto o el PDF de la factura o remisión que respalda este ingreso.' }}
                 </p>
               }
             </div>
@@ -226,10 +232,17 @@ const ESTADO_REPARTO: Record<string, string> = { POR_REPARTIR: 'Por repartir', P
               <div class="rounded-xl border border-[#39A900]/30 bg-[#39A900]/5 p-3 space-y-3">
                 <div>
                   <h3 class="text-sm font-bold text-gray-800">Repartir a las bodegas de {{ d.area_nombre }}</h3>
-                  <p class="text-xs text-gray-500">Puedes repartir solo una parte y terminar después. Los equipos quedan a cargo del cuentadante del formato.</p>
+                  <p class="text-xs text-gray-500">Puedes repartir solo una parte y terminar después. Solo los equipos con placa SENA quedan a cargo del cuentadante del formato; los que se repartan sin placa quedan sin cuentadante.</p>
                 </div>
                 @if (!bodegasDelArea(d).length) {
                   <p class="text-xs text-red-600">El área no tiene bodegas activas. Crea una en Sitios antes de repartir.</p>
+                }
+                @if (pideCuentadante(d)) {
+                  <div class="rounded-lg bg-white border border-amber-200 p-2.5">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Cuentadante <span class="text-gray-400 font-normal">(obligatorio si escribes placas SENA)</span></label>
+                    <app-ss [options]="opcionesCuentadante" placeholder="— Buscar instructor o habilitado —" [(ngModel)]="idCuentadanteReparto"></app-ss>
+                    <p class="text-[11px] text-gray-400 mt-1">El formato no tiene cuentadante. Quien elijas queda a cargo de los equipos con placa y se guarda en el formato.</p>
+                  </div>
                 }
                 @for (l of lineasPendientes(d); track l.id_linea) {
                   <div class="rounded-lg bg-white border border-gray-200 p-2.5 space-y-2">
@@ -281,7 +294,11 @@ const ESTADO_REPARTO: Record<string, string> = { POR_REPARTIR: 'Por repartir', P
             } @else { <span></span> }
             <div class="flex gap-2">
               @if (d.modalidad === 'FORMATO_AREA' && d.estado === 'REGISTRADO' && d.estado_reparto !== 'REPARTIDO' && !repartiendo) {
-                <button type="button" (click)="abrirReparto(d)" class="px-4 py-2 text-sm font-semibold text-white rounded-lg" style="background-color: var(--accent-brand)">Repartir a bodegas</button>
+                @if (puedeRepartir(d)) {
+                  <button type="button" (click)="abrirReparto(d)" class="px-4 py-2 text-sm font-semibold text-white rounded-lg" style="background-color: var(--accent-brand)">Repartir a bodegas</button>
+                } @else {
+                  <span class="self-center text-xs text-amber-700">Queda por repartir: lo reparte el líder del área.</span>
+                }
               }
               <button (click)="detalle = null" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">Cerrar</button>
             </div>
@@ -319,6 +336,10 @@ export class MaterialesIngresosComponent implements OnInit {
   formatoOpen = false;
   repartiendo = false;
   reparto: Record<string, FilaReparto[]> = {};
+  /** Cuentadante elegido al repartir, cuando el formato no trae uno y van equipos con placa. */
+  idCuentadanteReparto = '';
+  opcionesCuentadante: SSOption[] = [];
+  private readonly personaApi = inject(PersonaService);
   readonly campoChico = 'w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]';
 
   detalle: IngresoMaterialDetalle | null = null;
@@ -406,9 +427,9 @@ export class MaterialesIngresosComponent implements OnInit {
       .filter((i) => !this.filtroEstado || i.estado === this.filtroEstado)
       .map((i) => ({
         ...i,
-        tipo_txt: i.modalidad === 'FORMATO_AREA' ? 'Formato GIL-F-014' : this.tipoTxt(i.tipo_ingreso),
+        tipo_txt: this.esFormatoGil(i) ? 'Formato GIL-F-014' : this.tipoTxt(i.tipo_ingreso),
         soporte_txt: this.soporteTxt(i) || '—',
-        origen_txt: i.modalidad === 'FORMATO_AREA' ? (i.proveedor_nombre ?? 'Sede central') : (i.proveedor_nombre ?? '—'),
+        origen_txt: this.esFormatoGil(i) ? (i.proveedor_nombre ?? 'Sede central') : (i.proveedor_nombre ?? '—'),
         destino_txt: i.modalidad === 'FORMATO_AREA' ? `Área ${i.area_nombre ?? '—'}` : (i.sitio_nombre ?? '—'),
         valor_txt: i.valor_total !== null ? this.pesos(i.valor_total) : '—',
         estado_txt: i.estado === 'ANULADO' ? 'Anulado' : i.estado_reparto ? this.estadoRepartoTxt(i) : 'Registrado',
@@ -431,6 +452,16 @@ export class MaterialesIngresosComponent implements OnInit {
     return i.estado_reparto === 'PARCIAL' ? `${base} (${i.cantidad_repartida}/${i.cantidad_total})` : base;
   }
 
+  /** Formato GIL-F-014 (por su soporte); una compra o donación al área también es `FORMATO_AREA`. */
+  esFormatoGil(i: IngresoMaterial): boolean {
+    return i.modalidad === 'FORMATO_AREA' && i.tipo_soporte === 'GIL_F_014';
+  }
+
+  /** Solo el líder del área (o admin / permiso personal) reparte; el encargado de bodega lo deja pendiente. */
+  puedeRepartir(d: IngresoMaterial): boolean {
+    return !!this.areas.find((a) => a.id_area === d.id_area)?.puede_repartir;
+  }
+
   bodegasDelArea(d: IngresoMaterial): { id_sitio: string; nombre: string }[] {
     return this.areas.find((a) => a.id_area === d.id_area)?.bodegas ?? [];
   }
@@ -439,7 +470,28 @@ export class MaterialesIngresosComponent implements OnInit {
     return d.lineas.filter((l) => l.cantidad - l.cantidad_repartida > 0);
   }
 
+  /** Equipos por repartir en un formato sin cuentadante: se pide al poner placas. */
+  pideCuentadante(d: IngresoMaterialDetalle): boolean {
+    return !d.id_cuentadante && this.lineasPendientes(d).some((l) => l.tipo_material === 'DEVOLUTIVO');
+  }
+
+  /** Misma regla que el formato: instructor o habilitado en Usuarios. Se carga una sola vez. */
+  private async cargarCuentadantes(): Promise<void> {
+    if (this.opcionesCuentadante.length) return;
+    const personas: any[] = await this.personaApi.listarResponsablesBodega().catch(() => []);
+    this.opcionesCuentadante = personas
+      .filter((u) => u.persona?.cargo === 'instructor' || u.puedeSerCuentadante === true)
+      .map((u) => ({
+        value: u.idUsuario,
+        label: [`${u.persona?.nombre ?? ''} ${u.persona?.apellido ?? ''}`.trim(), u.persona?.documento ?? u.persona?.cedula, u.persona?.cargo]
+          .filter(Boolean)
+          .join(' — '),
+      }));
+  }
+
   abrirReparto(d: IngresoMaterialDetalle): void {
+    this.idCuentadanteReparto = '';
+    if (this.pideCuentadante(d)) void this.cargarCuentadantes();
     const bodegas = this.bodegasDelArea(d);
     this.reparto = {};
     for (const l of this.lineasPendientes(d)) {
@@ -483,9 +535,14 @@ export class MaterialesIngresosComponent implements OnInit {
       this.toast.warn('Nada que repartir', 'Elige una bodega y la cantidad en al menos un bien.');
       return;
     }
+    const hayPlacas = repartos.some((r) => r.placas_sena?.length);
+    if (hayPlacas && !d.id_cuentadante && !this.idCuentadanteReparto) {
+      this.toast.warn('Falta el cuentadante', 'Vas a repartir equipos con placa SENA: elige quién queda a cargo.');
+      return;
+    }
     this.trabajando = true;
     try {
-      this.detalle = await this.api.repartirIngreso(d.id_ingreso, repartos);
+      this.detalle = await this.api.repartirIngreso(d.id_ingreso, repartos, hayPlacas ? this.idCuentadanteReparto || null : null);
       this.repartiendo = false;
       this.toast.ok('Reparto registrado', this.detalle.estado_reparto === 'REPARTIDO' ? 'Todo el formato quedó en las bodegas.' : 'Lo que falta queda pendiente.');
       await this.cargar();
@@ -500,13 +557,15 @@ export class MaterialesIngresosComponent implements OnInit {
     this.formatoOpen = false;
     await this.cargar();
     this.detalle = det;
-    this.abrirReparto(det);
+    if (this.puedeRepartir(det)) this.abrirReparto(det);
   }
 
   async onGuardado(det: IngresoMaterialDetalle): Promise<void> {
     this.formOpen = false;
     await this.cargar();
     this.detalle = det;
+    // Compra o donación al área: quien reparte sigue de una vez con el reparto.
+    if (det.modalidad === 'FORMATO_AREA' && this.puedeRepartir(det)) this.abrirReparto(det);
   }
 
   async anular(d: IngresoMaterialDetalle): Promise<void> {

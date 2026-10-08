@@ -1,5 +1,8 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TuiDay } from '@taiga-ui/cdk';
+import { DateInputComponent } from '../../../shared/components/date-input.component';
+import { TuiDayCache } from '../../../shared/utils/tui-day.util';
 import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
 import {
@@ -7,7 +10,9 @@ import {
   LucideIconData, MapPin, Package, PackagePlus, Plus, Receipt, RefreshCw, School, ShoppingCart, Trash2, Upload, X,
 } from 'lucide-angular';
 import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
+import { PersonaService } from '../../../core/services/persona.service';
 import {
+  AreaIngreso,
   IngresoMaterialDetalle,
   MaterialesApiService,
   Producto,
@@ -46,6 +51,8 @@ interface LineaForm {
   placasTexto: string;
   codigo_lote: string;
   fecha_vencimiento: string;
+  /** Uno por línea: un TuiDayCache compartido alternaría fechas y recrearía el TuiDay en cada render. */
+  cacheVence: TuiDayCache;
 }
 
 /** Hoy en hora local (AAAA-MM-DD) — `toISOString()` daría mañana después de las 7 pm en Colombia. */
@@ -83,11 +90,17 @@ export function tamanoLegible(bytes: number): string {
  * (2026-10-05). Cabecera (tipo, proveedor, bodega, soporte, fechas, quién
  * recibió) + líneas con fichas del catálogo. El backend lo guarda todo en una
  * transacción: el documento, las unidades/lotes en la bodega y su kardex.
+ *
+ * Destino (2026-10-08): como en Yamboro el material llega a las áreas, por
+ * defecto queda en el ÁREA por repartir (mismo camino que el formato GIL-F-014:
+ * placas y lotes se ponen al repartir); "directo a una bodega" sigue disponible.
+ * Los equipos que entran con placa SENA piden cuentadante (instructor o
+ * habilitado en Usuarios); sin placa y los consumibles no llevan.
  */
 @Component({
   selector: 'app-ingreso-form-modal',
   standalone: true,
-  imports: [DialogDirective, FormsModule, SearchableSelectComponent, LucideAngularModule],
+  imports: [DialogDirective, FormsModule, SearchableSelectComponent, LucideAngularModule, DateInputComponent],
   styles: [`
     .boton-primario { background-color: var(--accent-brand); }
     .boton-primario:hover { filter: brightness(.96); }
@@ -210,7 +223,8 @@ export function tamanoLegible(bytes: number): string {
                     </div>
                     <div>
                       <label class="block text-sm font-medium text-gray-700 mb-1">Fecha del documento</label>
-                      <input type="date" [(ngModel)]="fechaSoporte" [class]="campo" />
+                      <app-date-input placeholder="DD/MM/AAAA" [clearable]="true"
+                        [ngModel]="cacheSoporte.get(fechaSoporte)" (ngModelChange)="fechaSoporte = aIso($event)"></app-date-input>
                     </div>
                   </div>
               <label class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-7 text-center transition"
@@ -237,16 +251,48 @@ export function tamanoLegible(bytes: number): string {
               @case (3) {
                 <div class="flex items-center gap-3">
                   <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600"><lucide-icon [img]="ic.MapPin" [size]="20"></lucide-icon></span>
-                  <div><h3 class="text-base font-bold text-gray-900">¿Dónde y cuándo llegó?</h3><p class="text-sm text-gray-500">La bodega que lo guarda y el día que entró.</p></div>
+                  <div><h3 class="text-base font-bold text-gray-900">¿Dónde y cuándo llegó?</h3><p class="text-sm text-gray-500">Si queda en el área para repartir o entra directo a una bodega, y el día que llegó.</p></div>
                 </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Bodega que lo recibe <span class="text-red-500">*</span></label>
-                  <app-ss [options]="opcionesSitio" placeholder="— Selecciona la bodega —" [(ngModel)]="idSitio"></app-ss>
-                </div>
+                @if (areas.length && opcionesSitio.length) {
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <button type="button" (click)="destino = 'AREA'" class="rounded-2xl border-2 p-3.5 text-left transition"
+                      [class]="destino === 'AREA' ? 'border-[#39A900] bg-[#39A900]/5 shadow-sm' : 'border-gray-100 bg-white hover:border-gray-300'">
+                      <span class="block text-sm font-semibold text-gray-900">Al área, por repartir</span>
+                      <span class="block text-[11px] text-gray-500 leading-snug">Lo normal: llega al área y el líder lo reparte a sus bodegas.</span>
+                    </button>
+                    <button type="button" (click)="destino = 'BODEGA'" class="rounded-2xl border-2 p-3.5 text-left transition"
+                      [class]="destino === 'BODEGA' ? 'border-[#39A900] bg-[#39A900]/5 shadow-sm' : 'border-gray-100 bg-white hover:border-gray-300'">
+                      <span class="block text-sm font-semibold text-gray-900">Directo a una bodega</span>
+                      <span class="block text-[11px] text-gray-500 leading-snug">Cuando ya se sabe en qué bodega queda todo.</span>
+                    </button>
+                  </div>
+                }
+                @if (destino === 'AREA') {
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Área a la que llegó <span class="text-red-500">*</span></label>
+                    <app-ss [options]="opcionesArea" placeholder="— Selecciona el área —" [(ngModel)]="idArea"></app-ss>
+                    @if (areaElegida(); as a) {
+                      <p class="text-[11px] mt-1" [class]="a.puede_repartir ? 'text-gray-400' : 'text-amber-700'">
+                        {{ a.puede_repartir ? 'Al registrar sigues con el reparto a sus bodegas; las placas y los lotes se ponen ahí.' : 'Queda por repartir: lo reparte el líder del área cuando vuelva.' }}
+                      </p>
+                    }
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Cuentadante <span class="text-gray-400 font-normal text-xs">(opcional)</span></label>
+                    <app-ss [options]="opcionesCuentadante" placeholder="— Buscar instructor o habilitado —" [(ngModel)]="idCuentadante"></app-ss>
+                    <p class="text-[11px] text-gray-400 mt-1">Responde por los equipos que se repartan con placa SENA; si no lo eliges, se pide al repartir.</p>
+                  </div>
+                } @else {
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Bodega que lo recibe <span class="text-red-500">*</span></label>
+                    <app-ss [options]="opcionesSitio" placeholder="— Selecciona la bodega —" [(ngModel)]="idSitio"></app-ss>
+                  </div>
+                }
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Día en que llegó <span class="text-red-500">*</span></label>
-                    <input type="date" [(ngModel)]="fechaIngreso" [max]="hoy" [class]="campo" />
+                    <app-date-input placeholder="DD/MM/AAAA" [max]="hoyTuiDay"
+                      [ngModel]="cacheIngreso.get(fechaIngreso)" (ngModelChange)="fechaIngreso = aIso($event)"></app-date-input>
                   </div>
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">¿Quién lo recibió? <span class="text-gray-400 font-normal text-xs">(si no fuiste tú)</span></label>
@@ -293,21 +339,27 @@ export function tamanoLegible(bytes: number): string {
                           <input type="number" min="0" step="1" [(ngModel)]="l.valor_unitario" placeholder="$" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
                         </div>
                         @if (p.tipo_material !== 'DEVOLUTIVO') {
+                          @if (destino === 'BODEGA') {
                           <div>
                             <label class="block text-[11px] font-medium text-gray-500 mb-0.5">Código de lote</label>
                             <input type="text" [(ngModel)]="l.codigo_lote" maxlength="60" [placeholder]="'Auto: ' + sugerirCodigo(p.nombre)" title="Déjalo vacío y se genera solo, o escribe el tuyo" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
                           </div>
+                          }
                           @if (p.tipo_material === 'PERECEDERO') {
                             <div>
                               <label class="block text-[11px] font-medium text-gray-500 mb-0.5">Vence <span class="text-red-500">*</span></label>
-                              <input type="date" [min]="fechaIngreso || hoy" [(ngModel)]="l.fecha_vencimiento" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
+                              <app-date-input placeholder="DD/MM/AAAA" [min]="cacheLimite.get(fechaIngreso || hoy)"
+                                [ngModel]="l.cacheVence.get(l.fecha_vencimiento)" (ngModelChange)="l.fecha_vencimiento = aIso($event)"></app-date-input>
                             </div>
                           }
                         } @else {
                           <div class="col-span-2 flex items-end text-[11px] text-gray-400 pb-2">Devolutivo · {{ p.tipo_material === 'DEVOLUTIVO' && p.usa_placa_sena !== false ? 'cada unidad lleva placa SENA' : 'se identifica con el SKU de la ficha' }}</div>
                         }
                       </div>
-                      @if (p.tipo_material === 'DEVOLUTIVO' && p.usa_placa_sena !== false) {
+                      @if (p.tipo_material === 'DEVOLUTIVO' && p.usa_placa_sena !== false && destino === 'AREA') {
+                        <p class="pl-10 text-[11px] text-gray-400">Las placas SENA se ponen al repartir a cada bodega.</p>
+                      }
+                      @if (p.tipo_material === 'DEVOLUTIVO' && p.usa_placa_sena !== false && destino === 'BODEGA') {
                         <div class="pl-10">
                           <textarea rows="2" [(ngModel)]="l.placasTexto" placeholder="Placas SENA (opcional): una por línea o separadas por coma"
                             class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]"></textarea>
@@ -322,6 +374,13 @@ export function tamanoLegible(bytes: number): string {
                 class="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 py-3 text-sm font-semibold text-gray-600 transition hover:border-[#39A900] hover:text-[#2d8000]">
                 <lucide-icon [img]="ic.Plus" [size]="18"></lucide-icon> Agregar otro producto
               </button>
+              @if (destino === 'BODEGA' && hayPlacas) {
+                <div class="mt-4 rounded-2xl border border-amber-200 bg-amber-50/40 p-4">
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Cuentadante <span class="text-red-500">*</span></label>
+                  <app-ss [options]="opcionesCuentadante" placeholder="— Buscar instructor o habilitado —" [(ngModel)]="idCuentadante"></app-ss>
+                  <p class="text-[11px] text-gray-500 mt-1">Escribiste placas SENA: quien elijas queda a cargo de esos equipos. Los que entran sin placa no llevan cuentadante.</p>
+                </div>
+              }
             </section>
 
               }
@@ -386,16 +445,27 @@ export function tamanoLegible(bytes: number): string {
 export class IngresoFormModalComponent implements OnChanges {
   private readonly api = inject(MaterialesApiService);
   private readonly toast = inject(ToastService);
+  private readonly personaApi = inject(PersonaService);
 
   @Input() open = false;
   /** Bodegas donde el usuario puede registrar ingresos (las que gestiona). */
   @Input() sitios: Sitio[] = [];
+  /** Áreas donde puede registrar llegadas (con sus bodegas y si reparte). */
+  @Input() areas: AreaIngreso[] = [];
   @Output() closed = new EventEmitter<void>();
   @Output() guardado = new EventEmitter<IngresoMaterialDetalle>();
 
   readonly tiposIngreso = TIPOS_INGRESO;
   readonly tiposSoporte = TIPOS_SOPORTE;
   readonly hoy = hoyLocal();
+  // <app-date-input> (calendario de Taiga) trabaja con TuiDay; el formulario sigue en 'yyyy-MM-dd'.
+  readonly hoyTuiDay = TuiDayCache.fromIso(this.hoy);
+  readonly cacheSoporte = new TuiDayCache();
+  readonly cacheIngreso = new TuiDayCache();
+  readonly cacheLimite = new TuiDayCache();
+  aIso(day: TuiDay | null): string {
+    return TuiDayCache.toIso(day);
+  }
   readonly pesos = (v: number) => pesos.format(v);
   readonly tamano = tamanoLegible;
   readonly maxSoportes = MAX_SOPORTES;
@@ -410,7 +480,13 @@ export class IngresoFormModalComponent implements OnChanges {
 
   tipoIngreso: TipoIngreso = 'COMPRA';
   idProveedor = '';
+  /** AREA: queda por repartir (modalidad FORMATO_AREA); BODEGA: entra directo. */
+  destino: 'AREA' | 'BODEGA' = 'AREA';
+  idArea = '';
   idSitio = '';
+  idCuentadante = '';
+  /** Misma regla que la pantalla de cuentadante: instructor o habilitado en Usuarios. */
+  opcionesCuentadante: SSOption[] = [];
   tipoSoporte: TipoSoporte | '' = 'FACTURA';
   numeroSoporte = '';
   fechaSoporte = '';
@@ -456,7 +532,8 @@ export class IngresoFormModalComponent implements OnChanges {
   private errorDelPaso(paso: number): string | null {
     if (paso === 1 && this.tipoIngreso === 'COMPRA' && !this.idProveedor) return 'Una compra necesita el proveedor. Búscalo o créalo.';
     if (paso === 3) {
-      if (!this.idSitio) return 'Elige la bodega que recibe el material.';
+      if (this.destino === 'AREA' && !this.idArea) return 'Elige el área a la que llegó el material.';
+      if (this.destino === 'BODEGA' && !this.idSitio) return 'Elige la bodega que recibe el material.';
       if (!this.fechaIngreso) return 'Escribe el día en que llegó.';
       if (this.fechaIngreso > this.hoy) return 'El día de llegada no puede ser futuro.';
     }
@@ -481,14 +558,33 @@ export class IngresoFormModalComponent implements OnChanges {
       if (this.sobranPlacas(l)) return `${pos}: ${this.resumenPlacas(l)}`;
       if (p.tipo_material === 'PERECEDERO' && !l.fecha_vencimiento) return `${pos}: falta la fecha de vencimiento.`;
     }
+    if (this.destino === 'BODEGA' && this.hayPlacas && !this.idCuentadante) {
+      return 'Escribiste placas SENA: elige el cuentadante que queda a cargo de esos equipos.';
+    }
     return null;
+  }
+
+  /** ¿Alguna línea de equipo trae placas? (solo cuenta en "directo a una bodega"). */
+  get hayPlacas(): boolean {
+    return this.lineasValidas.some((l) => this.ficha(l)?.tipo_material === 'DEVOLUTIVO' && this.placas(l).length > 0);
+  }
+
+  get opcionesArea(): SSOption[] {
+    return this.areas.map((a) => ({ value: a.id_area, label: `${a.nombre} (${a.bodegas.length} bodega${a.bodegas.length === 1 ? '' : 's'})` }));
+  }
+
+  areaElegida(): AreaIngreso | null {
+    return this.areas.find((a) => a.id_area === this.idArea) ?? null;
   }
 
   /** El ingreso dicho en palabras, para confirmar sin leer formularios. */
   frase(): string {
     const tipo = (TIPOS_INGRESO.find((t) => t.value === this.tipoIngreso)?.label ?? '').toLowerCase();
     const prov = this.proveedores.find((p) => p.id_proveedor === this.idProveedor)?.nombre;
-    const bodega = this.sitios.find((s) => s.id_sitio === this.idSitio)?.nombre ?? 'la bodega';
+    const bodega =
+      this.destino === 'AREA'
+        ? `el área ${this.areaElegida()?.nombre ?? ''} (queda por repartir a sus bodegas)`
+        : this.sitios.find((s) => s.id_sitio === this.idSitio)?.nombre ?? 'la bodega';
     const soporte = this.tipoSoporte
       ? ` con ${(TIPOS_SOPORTE.find((t) => t.value === this.tipoSoporte)?.label ?? '').toLowerCase()}${this.numeroSoporte.trim() ? ' ' + this.numeroSoporte.trim() : ''}`
       : ' sin documento de respaldo';
@@ -500,6 +596,7 @@ export class IngresoFormModalComponent implements OnChanges {
   detalleLinea(l: LineaForm): string {
     const p = this.ficha(l);
     if (!p) return '';
+    if (this.destino === 'AREA') return 'Por repartir';
     if (p.tipo_material === 'DEVOLUTIVO') {
       const n = this.placas(l).length;
       return n ? `${n} con placa · ${Number(l.cantidad) - n} sin placa todavía` : 'Sin placas todavía';
@@ -522,6 +619,10 @@ export class IngresoFormModalComponent implements OnChanges {
   private reiniciar(): void {
     this.tipoIngreso = 'COMPRA';
     this.idProveedor = '';
+    // Por defecto al área (así llega en Yamboro); sin áreas, directo a la bodega.
+    this.destino = this.areas.length ? 'AREA' : 'BODEGA';
+    this.idArea = this.areas.length === 1 ? this.areas[0].id_area : '';
+    this.idCuentadante = '';
     this.idSitio = this.opcionesSitio.length === 1 ? this.opcionesSitio[0].value : '';
     this.tipoSoporte = 'FACTURA';
     this.numeroSoporte = '';
@@ -540,7 +641,21 @@ export class IngresoFormModalComponent implements OnChanges {
   private async cargar(): Promise<void> {
     this.cargandoCatalogo = true;
     try {
-      [this.catalogo, this.proveedores] = await Promise.all([this.api.catalogoProductos(), this.api.listarProveedores()]);
+      const [catalogo, proveedores, personas] = await Promise.all([
+        this.api.catalogoProductos(),
+        this.api.listarProveedores(),
+        this.personaApi.listarResponsablesBodega().catch(() => [] as any[]),
+      ]);
+      this.catalogo = catalogo;
+      this.proveedores = proveedores;
+      this.opcionesCuentadante = personas
+        .filter((u: any) => u.persona?.cargo === 'instructor' || u.puedeSerCuentadante === true)
+        .map((u: any) => ({
+          value: u.idUsuario,
+          label: [`${u.persona?.nombre ?? ''} ${u.persona?.apellido ?? ''}`.trim(), u.persona?.documento ?? u.persona?.cedula, u.persona?.cargo]
+            .filter(Boolean)
+            .join(' — '),
+        }));
     } catch (e) {
       this.toast.httpError(e, 'No se pudo cargar el catálogo o los proveedores.');
     } finally {
@@ -568,7 +683,7 @@ export class IngresoFormModalComponent implements OnChanges {
   }
 
   agregarLinea(): void {
-    this.lineas = [...this.lineas, { key: this.siguienteKey++, id_producto: '', cantidad: null, valor_unitario: null, placasTexto: '', codigo_lote: '', fecha_vencimiento: '' }];
+    this.lineas = [...this.lineas, { key: this.siguienteKey++, id_producto: '', cantidad: null, valor_unitario: null, placasTexto: '', codigo_lote: '', fecha_vencimiento: '', cacheVence: new TuiDayCache() }];
   }
 
   quitarLinea(l: LineaForm): void {
@@ -672,10 +787,12 @@ export class IngresoFormModalComponent implements OnChanges {
     this.saving = true;
     this.error = null;
     try {
+      const alArea = this.destino === 'AREA';
       const det = await this.api.registrarIngreso({
+        ...(alArea ? { modalidad: 'FORMATO_AREA' as const, id_area: this.idArea } : { id_sitio: this.idSitio }),
+        id_cuentadante: (alArea || this.hayPlacas) && this.idCuentadante ? this.idCuentadante : undefined,
         tipo_ingreso: this.tipoIngreso,
         id_proveedor: this.idProveedor || null,
-        id_sitio: this.idSitio,
         tipo_soporte: this.tipoSoporte || null,
         numero_soporte: this.tipoSoporte ? this.numeroSoporte.trim() || null : null,
         fecha_soporte: this.tipoSoporte ? this.fechaSoporte || null : null,
@@ -684,18 +801,24 @@ export class IngresoFormModalComponent implements OnChanges {
         observaciones: this.observaciones.trim() || null,
         lineas: usadas.map((l) => {
           const p = this.ficha(l)!;
-          const placas = p.tipo_material === 'DEVOLUTIVO' ? this.placas(l) : [];
+          // Al área: placas y lotes se ponen al repartir a cada bodega.
+          const placas = p.tipo_material === 'DEVOLUTIVO' && !alArea ? this.placas(l) : [];
           return {
             id_producto: l.id_producto,
             cantidad: Number(l.cantidad),
             valor_unitario: l.valor_unitario !== null && `${l.valor_unitario}` !== '' ? Number(l.valor_unitario) : null,
             placas_sena: placas.length ? placas : undefined,
-            codigo_lote: p.tipo_material !== 'DEVOLUTIVO' ? l.codigo_lote.trim() || null : null,
+            codigo_lote: p.tipo_material !== 'DEVOLUTIVO' && !alArea ? l.codigo_lote.trim() || null : null,
             fecha_vencimiento: p.tipo_material === 'PERECEDERO' ? l.fecha_vencimiento : null,
           };
         }),
       });
-      this.toast.ok(`Ingreso ${det.codigo} registrado`, `${det.cantidad_total} en total entraron a ${det.sitio_nombre ?? 'la bodega'}.`);
+      this.toast.ok(
+        `Ingreso ${det.codigo} registrado`,
+        alArea
+          ? `${det.cantidad_total} en total quedaron en el área ${det.area_nombre ?? ''}, por repartir.`
+          : `${det.cantidad_total} en total entraron a ${det.sitio_nombre ?? 'la bodega'}.`,
+      );
       // El ingreso ya quedó: si el archivo falla, se avisa y se adjunta desde el detalle.
       if (this.soportes.length) {
         try {

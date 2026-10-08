@@ -1,7 +1,10 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
+import { TuiDay } from '@taiga-ui/cdk';
 import { FormsModule } from '@angular/forms';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
 import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
+import { DateInputComponent } from '../../../shared/components/date-input.component';
+import { TuiDayCache } from '../../../shared/utils/tui-day.util';
 import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
 import { PersonaService } from '../../../core/services/persona.service';
 import { ErpCatalogoService } from '../../schedules/data-access/erp-catalogo.service';
@@ -16,6 +19,8 @@ interface LineaFormato {
   cantidad_solicitada: number | null;
   cantidad: number | null;
   fecha_vencimiento: string;
+  /** Uno por línea: un TuiDayCache compartido alternaría fechas y recrearía el TuiDay en cada render. */
+  cacheVence: TuiDayCache;
 }
 
 /**
@@ -29,7 +34,7 @@ interface LineaFormato {
 @Component({
   selector: 'app-formato-gil-modal',
   standalone: true,
-  imports: [FormsModule, DialogDirective, SearchableSelectComponent],
+  imports: [FormsModule, DialogDirective, SearchableSelectComponent, DateInputComponent],
   template: `
     @if (open) {
       <div appDialog class="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 overflow-y-auto p-2 sm:p-4" (click)="cerrar()">
@@ -56,11 +61,13 @@ interface LineaFormato {
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-gray-600 mb-1">Fecha de la solicitud (en el formato)</label>
-                  <input type="date" [(ngModel)]="fechaSoporte" [max]="fechaIngreso || hoy" [class]="campo" />
+                  <app-date-input placeholder="DD/MM/AAAA" [clearable]="true" [max]="cacheLimite.get(fechaIngreso || hoy)"
+                    [ngModel]="cacheSoporte.get(fechaSoporte)" (ngModelChange)="fechaSoporte = aIso($event)"></app-date-input>
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-gray-600 mb-1">Día en que llegó a Yamboro <span class="text-red-500">*</span></label>
-                  <input type="date" [(ngModel)]="fechaIngreso" [max]="hoy" [class]="campo" />
+                  <app-date-input placeholder="DD/MM/AAAA" [max]="hoyTuiDay"
+                    [ngModel]="cacheIngreso.get(fechaIngreso)" (ngModelChange)="fechaIngreso = aIso($event)"></app-date-input>
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-gray-600 mb-1">Jefe de oficina o coordinador de área</label>
@@ -69,7 +76,7 @@ interface LineaFormato {
                 <div>
                   <label class="block text-xs font-medium text-gray-600 mb-1">Servidor público a quien se asigna (cuentadante)</label>
                   <app-ss [options]="opcionesCuentadante" placeholder="— Buscar persona —" [(ngModel)]="idCuentadante"></app-ss>
-                  <p class="text-[11px] text-gray-400 mt-1">Los equipos que se repartan quedan a su cargo. Solo instructores o personas habilitadas como cuentadante en Usuarios.</p>
+                  <p class="text-[11px] text-gray-400 mt-1">Opcional. Responde solo por los equipos que se repartan con placa SENA (si se ponen placas, se pide al repartir). Instructores o habilitados en Usuarios.</p>
                 </div>
                 <div class="sm:col-span-2">
                   <label class="block text-xs font-medium text-gray-600 mb-1">Código de grupo o ficha de caracterización (si lo trae)</label>
@@ -108,7 +115,8 @@ interface LineaFormato {
                     @if (ficha(l)?.tipo_material === 'PERECEDERO') {
                       <div>
                         <label class="block text-[11px] font-medium text-gray-500 mb-0.5">Vence <span class="text-red-500">*</span></label>
-                        <input type="date" [min]="fechaIngreso || hoy" [(ngModel)]="l.fecha_vencimiento" [class]="campoChico" />
+                        <app-date-input placeholder="DD/MM/AAAA" [min]="cacheLimite.get(fechaIngreso || hoy)"
+                          [ngModel]="l.cacheVence.get(l.fecha_vencimiento)" (ngModelChange)="l.fecha_vencimiento = aIso($event)"></app-date-input>
                       </div>
                     }
                   </div>
@@ -171,6 +179,14 @@ export class FormatoGilModalComponent implements OnChanges {
   readonly campo = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]';
   readonly campoChico = 'w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]';
   readonly hoy = hoyLocal();
+  // <app-date-input> (calendario de Taiga) trabaja con TuiDay; el formulario sigue en 'yyyy-MM-dd'.
+  readonly hoyTuiDay = TuiDayCache.fromIso(this.hoy);
+  readonly cacheSoporte = new TuiDayCache();
+  readonly cacheIngreso = new TuiDayCache();
+  readonly cacheLimite = new TuiDayCache();
+  aIso(day: TuiDay | null): string {
+    return TuiDayCache.toIso(day);
+  }
   readonly aceptaSoporte = ACEPTA_SOPORTE;
   readonly tamano = tamanoLegible;
 
@@ -253,7 +269,7 @@ export class FormatoGilModalComponent implements OnChanges {
   }
 
   agregarLinea(): void {
-    this.lineas = [...this.lineas, { key: this.siguienteKey++, id_producto: '', codigo_sena: '', cantidad_solicitada: null, cantidad: null, fecha_vencimiento: '' }];
+    this.lineas = [...this.lineas, { key: this.siguienteKey++, id_producto: '', codigo_sena: '', cantidad_solicitada: null, cantidad: null, fecha_vencimiento: '', cacheVence: new TuiDayCache() }];
   }
 
   quitarLinea(i: number): void {
