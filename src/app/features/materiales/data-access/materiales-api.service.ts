@@ -1081,6 +1081,8 @@ export type IngresoMaterialDetalle = IngresoMaterial & { lineas: LineaIngresoMat
 export interface AreaIngreso {
   id_area: string;
   nombre: string;
+  /** Solo su líder (o admin / permiso personal) reparte; el encargado de bodega registra y deja por repartir. */
+  puede_repartir: boolean;
   bodegas: { id_sitio: string; nombre: string }[];
 }
 /** Parte de una línea del formato que va a una bodega del área. */
@@ -1772,12 +1774,17 @@ export class MaterialesApiService {
   /** ¿Puede registrar llegadas de material y a qué bodegas? No responde 403 a quien no puede. */
   accesoIngresos() {
     return this.unwrap(
-      this.http.get<Envelope<{ puede: boolean; bodegas: Sitio[]; areas: AreaIngreso[] }>>(`${BASE}/materiales/ingresos/acceso`),
+      this.http.get<Envelope<{ puede: boolean; pleno: boolean; bodegas: Sitio[]; areas: AreaIngreso[] }>>(`${BASE}/materiales/ingresos/acceso`),
     );
   }
   /** Formato GIL-F-014: reparte lo que llegó a las bodegas del área. */
-  repartirIngreso(id: string, repartos: (RepartoLineaDto & { id_linea: string })[]) {
-    return this.unwrap(this.http.post<Envelope<IngresoMaterialDetalle>>(`${BASE}/materiales/ingresos/${id}/reparto`, { repartos }));
+  repartirIngreso(id: string, repartos: (RepartoLineaDto & { id_linea: string })[], idCuentadante?: string | null) {
+    return this.unwrap(
+      this.http.post<Envelope<IngresoMaterialDetalle>>(`${BASE}/materiales/ingresos/${id}/reparto`, {
+        repartos,
+        ...(idCuentadante ? { id_cuentadante: idCuentadante } : {}),
+      }),
+    );
   }
   listarIngresos() {
     return this.unwrap(this.http.get<Envelope<IngresoMaterial[]>>(`${BASE}/materiales/ingresos`));

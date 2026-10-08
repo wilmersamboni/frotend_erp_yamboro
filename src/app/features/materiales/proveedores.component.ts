@@ -53,8 +53,8 @@ const VACIO: ProveedorDto = {
         [columns]="['nombre', 'documento_txt', 'municipio_nombre', 'contacto_txt', 'ingresos', 'estado_txt']"
         [columnLabels]="{ nombre: 'Proveedor', documento_txt: 'Documento', municipio_nombre: 'Municipio', contacto_txt: 'Contacto', ingresos: 'Ingresos', estado_txt: 'Estado' }"
         [loading]="loading"
-        [canEdit]="true"
-        [canDelete]="true"
+        [canEdit]="pleno"
+        [canDelete]="pleno"
         [deleteLabel]="etiquetaEstado"
         (edit)="editar($event)"
         (delete)="alternarEstado($event)" />
@@ -162,9 +162,13 @@ export class MaterialesProveedoresComponent implements OnInit {
   municipios: Municipio[] = [];
   opcionesMunicipio: SSOption[] = [];
 
+  /** Edita y desactiva: líder, admin o permiso personal. El encargado de bodega solo crea (2026-10-08). */
+  pleno = false;
+
   ngOnInit(): void {
     void this.cargar();
     void this.cargarMunicipios();
+    void this.api.accesoIngresos().then((a) => (this.pleno = a.pleno)).catch(() => (this.pleno = false));
   }
 
   /** Municipios de la tabla del ERP (el proveedor guarda el id, no texto libre). */
