@@ -18,6 +18,38 @@ export type EstadoNovedad = 'PENDIENTE' | 'EN_PROCESO' | 'RESUELTA';
 export interface Categoria {
   id_categoria: string;
   nombre: string;
+  /** Qué características técnicas piden sus equipos ('COMPUTO' o null). */
+  plantilla_caracteristicas?: string | null;
+}
+
+/** Campo de característica técnica que define el sistema (backend: caracteristicas-equipo.ts). */
+export interface CampoCaracteristica {
+  clave: string;
+  etiqueta: string;
+  grupo: string;
+  tipo: 'TEXTO' | 'NUMERO' | 'OPCION';
+  unidad?: string;
+  opciones?: string[];
+  ayuda?: string;
+}
+
+/** Un registro del historial de características de un equipo (backend: ItemsService.historialCaracteristicas). */
+export interface RegistroCaracteristicas {
+  id_historial: string;
+  fecha: string;
+  registrado_por: string | null;
+  motivo: string | null;
+  /** Con qué características llegó el equipo. */
+  inicial: boolean;
+  cambios: { clave: string; campo: string; antes: string | null; despues: string | null }[];
+  /** Quién lo tuvo fuera de la bodega desde el registro anterior (préstamos y salidas). */
+  lo_tuvieron: { tipo: 'PRESTAMO' | 'SALIDA' | 'FICHA'; persona: string | null; desde: string; hasta: string | null; referencia: string | null }[];
+}
+
+export interface PlantillaCaracteristicas {
+  codigo: string;
+  nombre: string;
+  campos: CampoCaracteristica[];
 }
 
 export interface Unspsc {
@@ -86,6 +118,15 @@ export interface Lote {
   id_sitio?: string | null;
   id_responsable?: string | null;
   producto?: { id_producto: string; nombre: string; SKU: string | null; tipo_material: string; unidad_medida?: string };
+  /** Características del lote (campos propios: nombre → valor); `{}` si no tiene. */
+  caracteristicas?: Record<string, string>;
+}
+
+/** Para llenar características: campos ya usados en la ficha y su categoría, lo último registrado y la lista sugerida. */
+export interface SugerenciasCaracteristicas {
+  campos: { campo: string; usos: number }[];
+  ultimas: Record<string, string> | null;
+  plantilla: string | null;
 }
 
 export interface CreateLoteDto {
@@ -109,6 +150,8 @@ export interface Item {
   /** Soft-delete por ítem (independiente de `producto.activo`, 2026-09-18) — false = fuera de circulación. */
   activo?: boolean;
   producto?: Producto;
+  /** Características técnicas de ESTA unidad (procesador, RAM…); `{}` si no tiene. */
+  caracteristicas?: Record<string, string>;
 }
 
 export interface CreateCategoriaDto {
@@ -353,6 +396,8 @@ export interface BienACargo {
   descripcion: string | null;
   /** Último serial anotado en una salida (el ítem no lo guarda aparte). */
   serial: string | null;
+  /** Características técnicas de la unidad (procesador, RAM…). */
+  caracteristicas?: Record<string, string> | null;
   id_sitio: string | null;
   sitio_nombre: string | null;
   fecha_ingreso: string | null;
@@ -512,6 +557,8 @@ export interface AgregarExistenciasDto {
   codigo_lote?: string;
   /** AAAA-MM-DD, obligatoria para PERECEDERO. */
   fecha_vencimiento?: string;
+  /** Solo DEVOLUTIVO de una categoría con plantilla: se copian a todas las unidades del alta. */
+  caracteristicas?: Record<string, string>;
 }
 
 export interface CreateProductoDto {
@@ -1530,6 +1577,22 @@ export class MaterialesApiService {
   }
   actualizarItem(id: string, dto: UpdateItemDto) {
     return this.unwrap(this.http.patch<Envelope<Item>>(`${BASE}/items/${id}`, dto));
+  }
+  /** Campos de características técnicas por plantilla (los define el backend). */
+  plantillasCaracteristicas() {
+    return this.unwrap(this.http.get<Envelope<Record<string, PlantillaCaracteristicas>>>(`${BASE}/items/caracteristicas/plantillas`));
+  }
+  actualizarCaracteristicasItem(id: string, caracteristicas: Record<string, string>, motivo?: string) {
+    return this.unwrap(this.http.patch<Envelope<Item>>(`${BASE}/items/${id}/caracteristicas`, { caracteristicas, motivo }));
+  }
+  actualizarCaracteristicasLote(id: string, caracteristicas: Record<string, string>) {
+    return this.unwrap(this.http.patch<Envelope<Lote>>(`${BASE}/lotes/${id}/caracteristicas`, { caracteristicas }));
+  }
+  sugerenciasCaracteristicas(idProducto: string) {
+    return this.unwrap(this.http.get<Envelope<SugerenciasCaracteristicas>>(`${BASE}/productos/${idProducto}/caracteristicas/sugerencias`));
+  }
+  historialCaracteristicasItem(id: string) {
+    return this.unwrap(this.http.get<Envelope<RegistroCaracteristicas[]>>(`${BASE}/items/${id}/caracteristicas/historial`));
   }
   actualizarEstadoItem(id: string, estado: EstadoItem) {
     return this.unwrap(this.http.patch<Envelope<Item>>(`${BASE}/items/${id}/estado`, { estado }));

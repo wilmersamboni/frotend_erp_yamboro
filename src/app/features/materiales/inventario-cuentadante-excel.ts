@@ -2,6 +2,7 @@ import type { Workbook } from 'exceljs';
 import type { BienACargo, InventarioCuentadante } from './data-access/materiales-api.service';
 import { descargarLibro } from './salidas/salida-export.util';
 import { ESTADO_LEGIBLE, marcaModelo } from './cuentadante-formato';
+import { resumenCaracteristicas } from './caracteristicas-equipo.util';
 
 /*
  * Inventario de fin de año del cuentadante (2026-10-06). El SENA no tiene un
@@ -38,7 +39,8 @@ export const estadoLegible = (b: BienACargo): string =>
 
 /** Fila de la tabla, en el orden de `COLUMNAS` (sin las tres de verificación). */
 export function filaInventario(b: BienACargo, n: number): (string | number)[] {
-  const descripcion = [b.producto_nombre, b.descripcion].filter((v) => v && v.trim()).join(' — ');
+  // Las características técnicas (procesador, RAM…) van en la descripción para no cambiar las columnas del formato.
+  const descripcion = [b.producto_nombre, b.descripcion, resumenCaracteristicas(b.caracteristicas)].filter((v) => v && v.trim()).join(' — ');
   return [n, b.placa_sena?.trim() ?? '', descripcion, marcaModelo(b), b.serial ?? '', b.ubicacion, b.en_poder_de ?? '', estadoLegible(b)];
 }
 
