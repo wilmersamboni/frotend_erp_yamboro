@@ -21,6 +21,8 @@ import { FotosSalida, construirExcel, descargarLibro, lineasPorFormato } from '.
 import { achicarFoto, fotoParaExcel } from './foto-salida';
 import { HojaVista, hojaAVista } from './vista-previa-excel';
 import type { Workbook } from 'exceljs';
+import { AvisoVenceAntesComponent, LoteSugerido } from '../ui/aviso-vence-antes.component';
+import { LoteVencimiento, idsVencenPrimero, loteQueVenceAntes, sufijoVencimiento } from '../lotes-vencimiento.util';
 
 type TipoLinea = 'lote' | 'item';
 
@@ -70,7 +72,7 @@ const MEDIOS = ['Automóvil', 'Camioneta', 'Camión', 'Bus', 'Moto', 'Otro'];
 @Component({
   selector: 'app-materiales-salidas',
   standalone: true,
-  imports: [DialogDirective, FormsModule, SearchableSelectComponent],
+  imports: [AvisoVenceAntesComponent, DialogDirective, FormsModule, SearchableSelectComponent],
   template: `
     <div class="p-4 md:p-6 space-y-4">
       <!-- Encabezado -->
@@ -501,6 +503,9 @@ const MEDIOS = ['Automóvil', 'Camioneta', 'Camión', 'Bus', 'Moto', 'Otro'];
                         [placeholder]="tipoLinea(l) === 'lote' ? '— Selecciona el lote —' : '— Selecciona la unidad —'"
                         [tone]="err('l' + $index + '_clave') ? 'danger' : ''" [(ngModel)]="l.clave" (ngModelChange)="alCambiarLote(l)"></app-ss>
                       @if (err('l' + $index + '_clave'); as m) { <p class="text-xs text-red-500 mt-1">{{ m }}</p> }
+                      @if (tipoLinea(l) === 'lote' && l.clave) {
+                        <app-aviso-vence-antes [sugerido]="loteSugerido(l)" [fechaElegido]="vencimientoLote(l.clave)" (usar)="usarLoteSugerido(l)" />
+                      }
                     </div>
                     @if (tipoLinea(l) === 'lote') {
                       <div [attr.data-error]="err('l' + $index + '_cantidad') ? 'true' : null" class="max-w-xs">
@@ -792,12 +797,17 @@ export class MaterialesSalidasComponent implements OnInit {
   readonly esAdmin = computed(() => this.auth.isAdmin());
   readonly puedeCrear = computed(() => this.auth.tieneServicio('materiales.solicitudes.crear'));
   readonly opcionesSitio = computed<SSOption[]>(() => this.sitios().map((s) => ({ value: s.id_sitio, label: s.nombre })));
-  readonly opcionesLote = computed<SSOption[]>(() =>
-    (this.opciones()?.lotes ?? []).map((l) => ({
-      value: l.id_lote,
-      label: `${l.producto_nombre}${l.codigo_lote ? ' · lote ' + l.codigo_lote : ''}${l.fecha_vencimiento ? ' · vence ' + l.fecha_vencimiento : ''} — ${l.libres} ${l.unidad_medida ?? ''} libres`,
-    })),
+  /** Lotes de la bodega elegida para comparar vencimientos (el backend ya los ordena por producto y vencimiento). */
+  private readonly lotesVencimiento = computed<LoteVencimiento[]>(() =>
+    (this.opciones()?.lotes ?? []).map((l) => ({ id: l.id_lote, id_producto: l.id_producto, fecha_vencimiento: l.fecha_vencimiento, libres: l.libres })),
   );
+  readonly opcionesLote = computed<SSOption[]>(() => {
+    const primeros = idsVencenPrimero(this.lotesVencimiento());
+    return (this.opciones()?.lotes ?? []).map((l) => ({
+      value: l.id_lote,
+      label: `${l.producto_nombre}${l.codigo_lote ? ' · lote ' + l.codigo_lote : ''}${sufijoVencimiento(l.fecha_vencimiento, primeros.has(l.id_lote))} — ${l.libres} ${l.unidad_medida ?? ''} libres`,
+    }));
+  });
   /** Unidades con o sin placa: una sin placa se reconoce por SKU, modelo y código. */
   readonly opcionesItem = computed<SSOption[]>(() =>
     (this.opciones()?.unidades ?? []).map((u) => {
@@ -1004,6 +1014,28 @@ export class MaterialesSalidasComponent implements OnInit {
       l.cantidad = max;
       l.ajustada = true;
     }
+  }
+
+  /** Otro lote del mismo producto que vence antes que el de esta línea (y no está en otra línea), o null. */
+  private sugeridoPara(l: LineaForm) {
+    if (!l.clave) return null;
+    const enOtras = this.f.lineas.filter((o) => o !== l && this.tipoLinea(o) === 'lote' && o.clave).map((o) => o.clave!);
+    return loteQueVenceAntes(l.clave, this.lotesVencimiento(), enOtras);
+  }
+  loteSugerido(l: LineaForm): LoteSugerido | null {
+    const s = this.sugeridoPara(l);
+    if (!s) return null;
+    const lote = this.opciones()?.lotes.find((x) => x.id_lote === s.id);
+    return { codigo: lote?.codigo_lote ?? null, fecha_vencimiento: s.fecha_vencimiento, libres: s.libres, unidad: lote?.unidad_medida ?? null };
+  }
+  usarLoteSugerido(l: LineaForm): void {
+    const s = this.sugeridoPara(l);
+    if (!s) return;
+    l.clave = s.id;
+    this.alCambiarLote(l);
+  }
+  vencimientoLote(idLote: string | null): string | null {
+    return this.opciones()?.lotes.find((l) => l.id_lote === idLote)?.fecha_vencimiento ?? null;
   }
 
   libresLote(idLote: string | null): number | null {

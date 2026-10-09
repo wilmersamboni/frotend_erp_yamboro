@@ -34,10 +34,13 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
  * antes los botones se mostraban siempre, confiando en que el admin fuera el
  * único que pudiera llegar a verlos.
  */
+import { EditarCaracteristicasModalComponent, ObjetivoCaracteristicas } from '../ui/editar-caracteristicas-modal.component';
+import { resumenCaracteristicas } from '../caracteristicas-equipo.util';
+
 @Component({
   selector: 'app-materiales-lotes',
   standalone: true,
-  imports: [AvisoCargasComponent, FormsModule, AdminTableComponent, AdminModalComponent, DialogDirective],
+  imports: [EditarCaracteristicasModalComponent, AvisoCargasComponent, FormsModule, AdminTableComponent, AdminModalComponent, DialogDirective],
   template: `
     <div class="p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
@@ -67,7 +70,7 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
         [rows]="filas"
         [searchable]="true"
         [searchPlaceholder]="'Buscar por producto, código de lote, sitio…'"
-        [columns]="['producto_nombre', 'codigo_lote', 'disponible', 'unidad_medida', 'vence', 'sitio_nombre', 'estado']"
+        [columns]="['producto_nombre', 'codigo_lote', 'disponible', 'unidad_medida', 'vence', 'caracteristicas_resumen', 'sitio_nombre', 'estado']"
         [columnLabels]="columnLabels"
         [loading]="loading"
         [canEdit]="puedeEditar()"
@@ -97,6 +100,9 @@ const OPCIONES_ESTADO: OpcionSelect[] = [
         </div>
       </div>
     }
+
+    <!-- Características del lote (campos propios: nombre + valor, 2026-10-09). Se abre solo al registrar un lote. -->
+    <app-editar-caracteristicas-modal [objetivo]="caracObjetivo" (cerrado)="caracObjetivo = null" (guardado)="onCaracteristicasGuardadas($event)" />
 
     <app-admin-modal
       [open]="modalOpen"
@@ -151,7 +157,7 @@ export class MaterialesLotesComponent implements OnInit {
   get columnLabels(): Record<string, string> {
     const u = this.productoDelForm?.unidad_medida;
     return {
-      producto_nombre: 'Producto', codigo_lote: 'Código lote', disponible: 'Disponible',
+      producto_nombre: 'Producto', codigo_lote: 'Código lote', disponible: 'Disponible', caracteristicas_resumen: 'Características',
       unidad_medida: 'Unidad', vence: 'Vence', sitio_nombre: 'Sitio', estado: 'Estado',
       id_producto: 'Producto', id_sitio: 'Sitio',
       cantidad_inicial: u ? `Cantidad inicial (en ${u})` : 'Cantidad inicial',
@@ -188,6 +194,11 @@ export class MaterialesLotesComponent implements OnInit {
   motivoBaja = '';
   errorBaja: string | null = null;
   readonly accionesFila: TableRowLink[] = [
+    {
+      label: 'Características',
+      onClick: (row) => this.abrirCaracteristicas(row),
+      visible: () => this.puedeEditar(),
+    },
     {
       label: 'Dar de baja',
       onClick: (row) => this.abrirBaja(row),
@@ -291,7 +302,30 @@ export class MaterialesLotesComponent implements OnInit {
         disponible: `${l.cantidad_disponible} / ${l.cantidad_inicial}`,
         vence: l.fecha_vencimiento ? String(l.fecha_vencimiento).slice(0, 10) : '—',
         sitio_nombre: this.sitios.find((s) => s.id_sitio === l.id_sitio)?.nombre ?? '—',
+        caracteristicas_resumen: resumenCaracteristicas(l.caracteristicas) || '—',
       }));
+  }
+
+  // ── Características del lote (2026-10-09): campos propios, sin historial (un lote se consume) ──
+  caracObjetivo: ObjetivoCaracteristicas | null = null;
+
+  abrirCaracteristicas(row: { id_lote: string }): void {
+    const l = this.lotes.find((x) => x.id_lote === row.id_lote);
+    if (!l) return;
+    this.caracObjetivo = {
+      tipo: 'lote',
+      id: l.id_lote,
+      id_producto: l.id_producto,
+      titulo: `${l.producto?.nombre ?? 'Lote'} · ${l.codigo_lote || 'sin código'}`,
+      codigoPlantilla: null,
+      caracteristicas: { ...(l.caracteristicas ?? {}) },
+    };
+  }
+
+  onCaracteristicasGuardadas(c: Record<string, string>): void {
+    const id = this.caracObjetivo?.id;
+    this.lotes = this.lotes.map((l) => (l.id_lote === id ? { ...l, caracteristicas: c } : l));
+    this.caracObjetivo = null;
   }
 
   private readonly exportColumns: ExportColumn<any>[] = [
@@ -416,8 +450,13 @@ export class MaterialesLotesComponent implements OnInit {
           fecha_vencimiento: fechaVenc,
           id_sitio: form['id_sitio'] || undefined,
         };
-        await this.api.crearLote(dto);
-        this.toast.ok('Lote registrado');
+        const creado = await this.api.crearLote(dto);
+        this.toast.ok('Lote registrado', 'Si quieres, agrégale sus características (opcional).');
+        this.modalOpen = false;
+        await this.cargar();
+        // Paso siguiente al registrar: las características del lote nuevo (se puede cerrar sin llenar nada).
+        if (this.puedeEditar()) this.abrirCaracteristicas(creado);
+        return;
       }
       this.modalOpen = false;
       await this.cargar();

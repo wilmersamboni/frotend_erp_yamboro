@@ -7,7 +7,7 @@ import { ToastService } from '../../../core/services/toast.service';
 import { MaterialesSalidasComponent } from './salidas.component';
 
 const OPCIONES: OpcionesSalida = {
-  lotes: [{ id_lote: 'lote-1', producto_nombre: 'Cable UTP', codigo_lote: 'L1', unidad_medida: 'METRO', libres: 10, fecha_vencimiento: null }],
+  lotes: [{ id_lote: 'lote-1', id_producto: 'p-1', producto_nombre: 'Cable UTP', codigo_lote: 'L1', unidad_medida: 'METRO', libres: 10, fecha_vencimiento: null }],
   unidades: [
     { id_item: 'item-1', producto_nombre: 'Repetidor', marca: null, modelo: null, placa_sena: null, codigo_sku: null, codigo: 'AB12', id_cuentadante: null, cuentadante_nombre: null, puede_despachar: true },
     { id_item: 'item-cu', producto_nombre: 'Workstation', marca: 'HP', modelo: null, placa_sena: '9528', codigo_sku: null, codigo: 'CD34', id_cuentadante: 'u-9', cuentadante_nombre: 'Otra Persona', puede_despachar: true },
@@ -99,7 +99,7 @@ describe('Salidas: validación del formulario', () => {
     expect(c.err('l0_cantidad')).toContain('entero');
     // Al cambiar a un lote con menos saldo, la cantidad baja a ese máximo.
     l.cantidad = 9;
-    c.opciones.set({ ...c.opciones()!, lotes: [...c.opciones()!.lotes, { id_lote: 'lote-2', producto_nombre: 'Conector', codigo_lote: null, unidad_medida: 'UNIDAD', libres: 3, fecha_vencimiento: null }] });
+    c.opciones.set({ ...c.opciones()!, lotes: [...c.opciones()!.lotes, { id_lote: 'lote-2', id_producto: 'p-2', producto_nombre: 'Conector', codigo_lote: null, unidad_medida: 'UNIDAD', libres: 3, fecha_vencimiento: null }] });
     l.clave = 'lote-2';
     c.alCambiarLote(l);
     expect(l.cantidad).toBe(3);

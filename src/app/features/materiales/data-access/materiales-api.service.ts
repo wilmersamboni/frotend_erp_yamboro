@@ -340,7 +340,7 @@ export interface CrearSalidaDto {
 
 /** Lo que se puede sacar de una bodega (lotes de consumibles, unidades con o sin placa, posibles jefes). */
 export interface OpcionesSalida {
-  lotes: { id_lote: string; producto_nombre: string; codigo_lote: string | null; unidad_medida: string | null; libres: number; fecha_vencimiento: string | null }[];
+  lotes: { id_lote: string; id_producto: string; producto_nombre: string; codigo_lote: string | null; unidad_medida: string | null; libres: number; fecha_vencimiento: string | null }[];
   unidades: {
     id_item: string;
     producto_nombre: string;

@@ -68,7 +68,15 @@ interface FilaPropia {
   imports: [FormsModule],
   template: `
     <div class="space-y-4">
-      @if (plantilla) {
+      @if (plantilla && !sugeridosVisibles) {
+        <!-- La categoría trae una lista (ej. cómputo), pero no todo lo de esa categoría es un computador
+             (una pinza amperimétrica puede estar ahí): la lista se ofrece, no se impone. -->
+        <button type="button" (click)="abrirSugeridos = true"
+          class="w-full text-left px-3 py-2 rounded-lg border border-dashed border-gray-300 text-xs text-gray-600 hover:border-[#39A900] hover:text-[#2d8000]">
+          + Usar los campos de {{ plantilla.nombre.toLowerCase() }} <span class="text-gray-400">({{ resumenSugeridos }})</span>
+        </button>
+      }
+      @if (plantilla && sugeridosVisibles) {
         <div class="space-y-3">
           @for (g of gruposVisibles; track g.grupo) {
             <fieldset>
@@ -107,7 +115,7 @@ interface FilaPropia {
 
       <!-- Campos propios: el usuario define el nombre y el valor. -->
       <div>
-        @if (plantilla) {
+        @if (plantilla && sugeridosVisibles) {
           <p class="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1">Otros campos</p>
         }
         @if (filas.length) {
@@ -127,7 +135,7 @@ interface FilaPropia {
               @if (errorFila(i); as e) { <p class="text-[11px] text-red-500 -mt-1">{{ e }}</p> }
             }
           </div>
-        } @else if (!plantilla) {
+        } @else if (!plantilla || !sugeridosVisibles) {
           <p class="text-xs text-gray-400">Agrega los campos que tenga este producto (ej: Microcontrolador, Pines GPIO, Voltaje).</p>
         }
         <datalist [id]="idLista">
@@ -181,7 +189,26 @@ export class CamposCaracteristicasComponent implements OnChanges {
       this.filas = camposPropios(this.valores ?? {}).map((p) => ({ ...p }));
       this.clavesPropias = this.filas.map((f) => f.campo);
       this.ocultos = new Set();
+      this.abrirSugeridos = false;
     }
+  }
+
+  /** El usuario pidió la lista sugerida con el botón. */
+  abrirSugeridos = false;
+
+  /**
+   * La lista sugerida se muestra solo si se pidió o si la unidad ya tiene algún valor en ella (también al copiar de
+   * la última vez). Antes salía siempre que la categoría tuviera lista, y una pinza amperimétrica guardada en
+   * "Equipos de cómputo" pedía procesador y RAM.
+   */
+  get sugeridosVisibles(): boolean {
+    return this.abrirSugeridos || this.grupos.some((g) => g.campos.some((c) => this.valores?.[c.clave] != null && this.valores[c.clave] !== ''));
+  }
+
+  /** "procesador, RAM, almacenamiento…" para el botón. */
+  get resumenSugeridos(): string {
+    const g = this.grupos.map((x) => x.grupo.toLowerCase().replace(/^ram$/, 'RAM'));
+    return g.length > 3 ? `${g.slice(0, 3).join(', ')}…` : g.join(', ');
   }
 
   get gruposVisibles() {
