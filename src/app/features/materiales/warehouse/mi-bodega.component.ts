@@ -18,6 +18,8 @@ import {
 import { CargasSecundarias } from '../data-access/cargas-secundarias';
 import { AvisoCargasComponent } from '../ui/aviso-cargas.component';
 import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
+import { TarjetaMaterialComponent } from '../ui/tarjeta-material.component';
+import { PlantillasCaracteristicasService } from '../ui/caracteristicas-equipo.component';
 
 type Tab = 'productos' | 'items';
 
@@ -55,7 +57,7 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
 @Component({
   selector: 'app-mi-bodega',
   standalone: true,
-  imports: [AvisoCargasComponent, FormsModule, RouterLink, AdminTableComponent, AdminModalComponent, ProductoFormModalComponent, AgregarExistenciasModalComponent, FichasPedidasPanelComponent, DialogDirective],
+  imports: [TarjetaMaterialComponent, AvisoCargasComponent, FormsModule, RouterLink, AdminTableComponent, AdminModalComponent, ProductoFormModalComponent, AgregarExistenciasModalComponent, FichasPedidasPanelComponent, DialogDirective],
   template: `
     <div class="p-6 space-y-5">
       <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
@@ -171,6 +173,8 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
             [canDelete]="puedeGestionarActivoProd"
             [deleteLabel]="etiquetaActivoProd"
             [rowLinks]="rowLinksProducto"
+            [selectable]="true"
+            (rowSelected)="verProducto($event)"
             (edit)="editarProd($event)"
             (delete)="eliminarProd($event)" />
         }
@@ -186,11 +190,25 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
             [canEdit]="puedeEditarItem()"
             [canDelete]="canGestionarActivoItem"
             [deleteLabel]="labelActivoItem"
+            [selectable]="true"
+            (rowSelected)="verItem($event)"
             (edit)="editarItem($event)"
             (delete)="toggleActivoItem($event)" />
         }
       }
     </div>
+
+    <!-- Tarjeta con la información del producto o del ítem al tocar su fila (2026-10-09). -->
+    <app-tarjeta-material
+      [producto]="tarjeta()?.producto ?? null"
+      [item]="tarjeta()?.item ?? null"
+      [unidades]="tarjeta()?.unidades ?? sinUnidades"
+      [lotes]="tarjeta()?.lotes ?? sinLotes"
+      [bodegaNombre]="bodegaActual()?.nombre ?? null"
+      [puedeEditarItem]="puedeEditarItem()"
+      [puedeEditarLote]="puedeEditarLote()"
+      (caracteristicasGuardadas)="onCaracteristicasGuardadas($event)"
+      (closed)="tarjeta.set(null)" />
 
     <!-- Producto: mismo formulario único que usa /materiales/productos (no una
          versión reducida propia) — ver docblock de <app-producto-form-modal>. -->
@@ -371,6 +389,43 @@ export class MiBodegaComponent implements OnInit {
   );
   form: Record<string, any> = {};
 
+  // ── Tarjeta de información (clic en una fila) ──
+  tarjeta = signal<{ producto: Producto; item: Item | null; unidades: Item[]; lotes: Lote[] } | null>(null);
+  readonly sinUnidades: Item[] = [];
+  private readonly plantillasCarac = inject(PlantillasCaracteristicasService);
+  puedeEditarLote = computed(() => this.auth.tieneServicio('materiales.lotes.editar'));
+
+  /** La tarjeta ya cambió el objeto; se refrescan las listas para que la tabla y el resto lo vean. */
+  onCaracteristicasGuardadas(e: { tipo: 'item' | 'lote'; id: string; caracteristicas: Record<string, string> }): void {
+    if (e.tipo === 'item') {
+      this.items.update((l) => l.map((i) => (i.id_item === e.id ? { ...i, caracteristicas: e.caracteristicas } : i)));
+    } else {
+      this.lotes.update((l) => l.map((x) => (x.id_lote === e.id ? { ...x, caracteristicas: e.caracteristicas } : x)));
+    }
+  }
+  readonly sinLotes: Lote[] = [];
+
+  private abrirTarjeta(producto: Producto | undefined, item: Item | null): void {
+    if (!producto) return;
+    const sitio = this.bodegaSel();
+    this.tarjeta.set({
+      producto,
+      item,
+      unidades: this.itemsDe(producto.id_producto).filter((i) => i.id_sitio === sitio),
+      lotes: this.lotesDe(producto.id_producto).filter((l) => l.id_sitio === sitio),
+    });
+  }
+
+  verProducto(fila: any): void {
+    this.abrirTarjeta(this.productos().find((p) => p.id_producto === fila.id_producto), null);
+  }
+
+  verItem(fila: any): void {
+    const item = this.items().find((i) => i.id_item === fila.id_item);
+    if (!item) return;
+    this.abrirTarjeta(this.productos().find((p) => p.id_producto === item.id_producto) ?? item.producto, item);
+  }
+
   private itemsDe = (idProducto: string) => this.items().filter((i) => i.id_producto === idProducto);
   private lotesDe = (idProducto: string) => this.lotes().filter((l) => l.id_producto === idProducto && l.estado === 'ACTIVO');
 
@@ -543,6 +598,8 @@ export class MiBodegaComponent implements OnInit {
   }));
 
   ngOnInit(): void {
+    // Las listas sugeridas de características llegan antes de que alguien toque una fila: la tarjeta pinta al instante.
+    this.plantillasCarac.precargar();
     this.cargar();
   }
 

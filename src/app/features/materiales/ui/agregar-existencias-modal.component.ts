@@ -1,10 +1,12 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
 import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
 import { MaterialesApiService, Producto, Sitio, UnidadMedida } from '../data-access/materiales-api.service';
 import { codigoLoteSugerido } from '../codigo-lote.util';
+import { CamposCaracteristicasComponent, PlantillasCaracteristicasService, valoresLimpios } from './caracteristicas-equipo.component';
+import { PlantillaCaracteristicas } from '../data-access/materiales-api.service';
 
 const ETIQUETA_TIPO: Record<string, { texto: string; clases: string }> = {
   CONSUMO: { texto: 'Consumo · se gasta', clases: 'bg-green-50 text-green-700 border-green-200' },
@@ -32,7 +34,7 @@ function hoyLocal(): string {
 @Component({
   selector: 'app-agregar-existencias-modal',
   standalone: true,
-  imports: [DialogDirective, FormsModule, SearchableSelectComponent],
+  imports: [DialogDirective, FormsModule, SearchableSelectComponent, CamposCaracteristicasComponent],
   template: `
     @if (open) {
       <div appDialog class="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 overflow-y-auto p-2 sm:p-4" (click)="closed.emit()">
@@ -40,12 +42,27 @@ function hoyLocal(): string {
           <div class="flex items-start justify-between shrink-0 px-4 pt-4 pb-3 sm:px-6 sm:pt-6">
             <div>
               <h2 class="text-lg font-bold text-gray-800">Agregar al inventario</h2>
-              <p class="text-xs text-gray-400 mt-0.5">Elegí el producto del catálogo y digitá cuántas unidades tiene la bodega.</p>
+              <p class="text-xs text-gray-400 mt-0.5">{{ ayudaPaso }}</p>
             </div>
             <button aria-label="Cerrar" (click)="closed.emit()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 
+          <!-- Paso a paso (2026-10-09, pedido del dueño): producto → cantidad → características. -->
+          <ol class="shrink-0 flex items-center gap-1.5 px-4 sm:px-6 pb-3 text-xs">
+            @for (s of pasos; track s.n; let ultimo = $last) {
+              <li class="flex items-center gap-1.5" [class.flex-1]="!ultimo">
+                <span class="w-6 h-6 rounded-full grid place-items-center font-semibold shrink-0"
+                  [class]="paso === s.n ? 'bg-[#39A900] text-white' : paso > s.n ? 'bg-[#39A900]/15 text-[#2d8000]' : 'bg-gray-100 text-gray-400'">
+                  {{ paso > s.n ? '✓' : s.n }}
+                </span>
+                <span class="whitespace-nowrap" [class]="paso === s.n ? 'font-semibold text-gray-800' : 'text-gray-400'">{{ s.label }}</span>
+                @if (!ultimo) { <span class="flex-1 h-px bg-gray-200 mx-1"></span> }
+              </li>
+            }
+          </ol>
+
           <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-2 sm:px-6 space-y-4">
+            @if (paso === 1) {
             <!-- Bodega -->
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Bodega <span class="text-red-500">*</span></label>
@@ -123,6 +140,21 @@ function hoyLocal(): string {
                   <div><dt class="text-gray-400">Categoría</dt><dd class="text-gray-700 font-medium truncate">{{ p.categoria?.nombre || '—' }}</dd></div>
                 </dl>
               </div>
+            }
+            }
+
+            @if (paso > 1 && producto; as p) {
+              <!-- Recordatorio compacto de lo elegido en el paso 1 -->
+              <div class="flex items-center justify-between gap-2 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
+                <div class="min-w-0">
+                  <p class="text-sm font-semibold text-gray-800 truncate">{{ p.nombre }}</p>
+                  <p class="text-[11px] text-gray-500 truncate">{{ marcaModelo(p) }} · {{ nombreSitio(sitioFijo ?? idSitio) }}</p>
+                </div>
+                <span class="shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full border" [class]="tipo(p).clases">{{ tipo(p).texto }}</span>
+              </div>
+            }
+
+            @if (paso === 2 && producto; as p) {
 
               <!-- Cantidad -->
               <div>
@@ -174,20 +206,49 @@ function hoyLocal(): string {
               }
             }
 
+            @if (paso === 3 && producto) {
+              <!-- Características: van en cada unidad (devolutivo) o en el lote (consumible); todas opcionales. -->
+              <div>
+                <p class="text-xs text-gray-500 mb-3">
+                  {{ esDevolutivo
+                    ? 'Se copian a ' + ((cantidad || 0) > 1 ? 'las ' + cantidad + ' unidades' : 'la unidad') + '. Si alguna viene distinta, se corrige después desde la bodega o Equipos con placa.'
+                    : 'Se guardan en este lote.' }}
+                </p>
+                @if (copiado) {
+                  <div class="mb-3 flex items-start justify-between gap-2 rounded-lg bg-amber-50 border border-amber-100 px-3 py-2 text-xs text-amber-800">
+                    <span>Copiado de la última vez que entró este producto. Revísalo antes de agregar.</span>
+                    <button type="button" (click)="empezarVacio()" class="shrink-0 font-semibold hover:underline">Empezar vacío</button>
+                  </div>
+                }
+                <app-campos-caracteristicas #editor [plantilla]="esDevolutivo ? plantilla : null" [valores]="caracteristicas" [sugeridos]="sugeridos" />
+              </div>
+            }
+
             @if (error) {
               <p class="text-red-600 text-xs p-2 bg-red-50 rounded-lg">{{ error }}</p>
             }
           </div>
 
           <div class="shrink-0 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 border-t border-gray-100 px-4 py-4 sm:px-6 mt-2">
-            <button (click)="closed.emit()" class="w-full sm:w-auto px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
-            <button (click)="guardar()" [disabled]="saving || !producto"
-              [style.opacity]="(saving || !producto) ? 0.6 : 1"
-              [style.cursor]="(saving || !producto) ? 'not-allowed' : 'pointer'"
-              class="w-full sm:w-auto px-5 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-              style="background-color: var(--accent-brand)">
-              {{ saving ? 'Agregando…' : textoBoton }}
-            </button>
+            <button (click)="closed.emit()" class="w-full sm:w-auto sm:mr-auto px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">Cancelar</button>
+            @if (paso > 1) {
+              <button (click)="atras()" [disabled]="saving"
+                class="w-full sm:w-auto px-4 py-2 text-sm font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">Atrás</button>
+            }
+            @if (paso < 3) {
+              <button (click)="siguiente()" [disabled]="!producto && paso === 1"
+                class="w-full sm:w-auto px-5 py-2 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60"
+                style="background-color: var(--accent-brand)">Siguiente</button>
+            } @else {
+              <button (click)="guardar(true)" [disabled]="saving"
+                class="w-full sm:w-auto px-4 py-2 text-sm font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">Omitir</button>
+              <button (click)="guardar()" [disabled]="saving"
+                [style.opacity]="saving ? 0.6 : 1"
+                class="w-full sm:w-auto px-5 py-2 text-white text-sm font-medium rounded-lg transition-colors"
+                style="background-color: var(--accent-brand)">
+                {{ saving ? 'Agregando…' : textoBoton }}
+              </button>
+            }
           </div>
         </div>
       </div>
@@ -197,6 +258,80 @@ function hoyLocal(): string {
 export class AgregarExistenciasModalComponent implements OnChanges {
   private readonly api = inject(MaterialesApiService);
   private readonly toast = inject(ToastService);
+  private readonly plantillas = inject(PlantillasCaracteristicasService);
+
+  /** Lista sugerida de características de la categoría de la ficha elegida (solo devolutivos de cómputo). */
+  plantilla: PlantillaCaracteristicas | null = null;
+  caracteristicas: Record<string, any> = {};
+  /** Campos propios ya usados en esta ficha y su categoría, y lo último registrado (para "copiar de la última vez"). */
+  sugeridos: string[] = [];
+  private ultimas: Record<string, string> | null = null;
+  private prefillHecho = false;
+  copiado = false;
+  @ViewChild('editor') editor?: CamposCaracteristicasComponent;
+
+  // ── Paso a paso ──
+  readonly pasos = [
+    { n: 1, label: 'Producto' },
+    { n: 2, label: 'Cantidad' },
+    { n: 3, label: 'Características' },
+  ];
+  paso = 1;
+
+  get ayudaPaso(): string {
+    if (this.paso === 1) return 'Elige la bodega y el producto del catálogo.';
+    if (this.paso === 2) return 'Cuántas unidades llegan y sus datos.';
+    return 'Opcional: procesador, RAM o los campos que tenga este producto.';
+  }
+
+  siguiente(): void {
+    const e = this.paso === 1 ? this.errorPaso1() : this.errorPaso2();
+    if (e) {
+      this.error = e;
+      return;
+    }
+    this.error = null;
+    this.paso++;
+    if (this.paso === 3) this.prellenar();
+  }
+
+  atras(): void {
+    this.error = null;
+    if (this.paso > 1) this.paso--;
+  }
+
+  private errorPaso1(): string | null {
+    if (!(this.sitioFijo ?? this.idSitio)) return 'Elegí la bodega.';
+    if (!this.producto) return 'Elegí el producto.';
+    return null;
+  }
+
+  private errorPaso2(): string | null {
+    const p = this.producto;
+    const cantidad = Number(this.cantidad);
+    if (!p) return 'Elegí el producto.';
+    if (!Number.isInteger(cantidad) || cantidad < 1) return 'La cantidad debe ser un número entero de 1 en adelante.';
+    if (this.esDevolutivo && cantidad > 500) return 'Se pueden agregar hasta 500 ítems por vez.';
+    if (this.esDevolutivo && this.sobranPlacas) return this.resumenPlacas;
+    if (p.tipo_material === 'PERECEDERO' && !this.fechaVencimiento) return 'Un producto perecedero necesita la fecha de vencimiento.';
+    return null;
+  }
+
+  /** Al llegar al paso 3 por primera vez: si este producto ya entró antes con características, se copian. */
+  private prellenar(): void {
+    if (this.prefillHecho) return;
+    this.prefillHecho = true;
+    const vacio = !Object.values(this.caracteristicas).some((v) => `${v ?? ''}`.trim());
+    if (this.ultimas && vacio) {
+      this.caracteristicas = { ...this.ultimas };
+      this.copiado = true;
+    }
+  }
+
+  empezarVacio(): void {
+    this.caracteristicas = {};
+    this.copiado = false;
+  }
 
   @Input() open = false;
   /** Bodegas entre las que se puede elegir (las que el usuario gestiona). */
@@ -283,6 +418,8 @@ export class AgregarExistenciasModalComponent implements OnChanges {
       this.idProducto = this.productoInicial?.id_producto ?? '';
       this.pidiendo = false;
       this.limpiarCampos();
+      // Si ya vienen la ficha y la bodega (p. ej. recién creada la ficha, o desde Mi Bodega), se arranca en Cantidad.
+      this.paso = this.productoInicial && (this.sitioFijo || this.idSitio) ? 2 : 1;
       void this.cargarCatalogo();
     } else if (changes['productoInicial'] && this.open && this.productoInicial) {
       this.idProducto = this.productoInicial.id_producto;
@@ -300,6 +437,36 @@ export class AgregarExistenciasModalComponent implements OnChanges {
     this.codigoLote = '';
     this.fechaVencimiento = '';
     this.error = null;
+    this.caracteristicas = {};
+    this.copiado = false;
+    this.prefillHecho = false;
+    void this.cargarPlantilla();
+  }
+
+  private async cargarPlantilla(): Promise<void> {
+    const p = this.producto;
+    this.sugeridos = [];
+    this.ultimas = null;
+    if (!p) return;
+    const codigo = p.tipo_material === 'DEVOLUTIVO' ? p.categoria?.plantilla_caracteristicas : null;
+    void this.api.sugerenciasCaracteristicas(p.id_producto)
+      .then((s) => {
+        if (this.producto !== p) return;
+        this.sugeridos = s.campos.map((c) => c.campo);
+        this.ultimas = s.ultimas;
+      })
+      .catch(() => undefined); // sin sugerencias se llena igual
+    const ya = this.plantillas.deSync(codigo);
+    if (ya !== undefined) {
+      this.plantilla = ya;
+      return;
+    }
+    try {
+      const pl = await this.plantillas.de(codigo);
+      if (this.producto === p) this.plantilla = pl;
+    } catch {
+      this.plantilla = null; // sin lista sugerida se puede registrar igual, con campos propios
+    }
   }
 
   private async cargarCatalogo(): Promise<void> {
@@ -311,6 +478,8 @@ export class AgregarExistenciasModalComponent implements OnChanges {
       if (ini && !this.catalogo.some((p) => p.id_producto === ini.id_producto)) {
         this.catalogo = [ini, ...this.catalogo];
       }
+      // La ficha preseleccionada recién ahora tiene sus datos: su plantilla de características.
+      void this.cargarPlantilla();
     } catch (e) {
       this.toast.httpError(e, 'No se pudo cargar el catálogo de productos.');
     } finally {
@@ -380,16 +549,16 @@ export class AgregarExistenciasModalComponent implements OnChanges {
     return `Agregar ${c} ${this.esDevolutivo ? (c === 1 ? 'ítem' : 'ítems') : this.producto.unidad_medida.toLowerCase()}`;
   }
 
-  async guardar(): Promise<void> {
+  /** `omitir` = agregar sin características (botón "Omitir" del paso 3). */
+  async guardar(omitir = false): Promise<void> {
     const p = this.producto;
     if (!p) return;
     const idSitio = this.sitioFijo ?? this.idSitio;
     const cantidad = Number(this.cantidad);
-    if (!idSitio) { this.error = 'Elegí la bodega.'; return; }
-    if (!Number.isInteger(cantidad) || cantidad < 1) { this.error = 'La cantidad debe ser un número entero de 1 en adelante.'; return; }
-    if (this.esDevolutivo && cantidad > 500) { this.error = 'Se pueden agregar hasta 500 ítems por vez.'; return; }
-    if (this.esDevolutivo && this.sobranPlacas) { this.error = this.resumenPlacas; return; }
-    if (p.tipo_material === 'PERECEDERO' && !this.fechaVencimiento) { this.error = 'Un producto perecedero necesita la fecha de vencimiento.'; return; }
+    const e = this.errorPaso1() ?? this.errorPaso2();
+    if (e) { this.error = e; return; }
+    if (!omitir && this.editor?.hayErrores) { this.error = 'Revisa los campos marcados en rojo.'; return; }
+    const caracteristicas = omitir ? {} : valoresLimpios(this.caracteristicas);
 
     this.saving = true;
     this.error = null;
@@ -401,6 +570,7 @@ export class AgregarExistenciasModalComponent implements OnChanges {
         placas_sena: placas.length ? placas : undefined,
         codigo_lote: !this.esDevolutivo && this.codigoLote.trim() ? this.codigoLote.trim() : undefined,
         fecha_vencimiento: p.tipo_material === 'PERECEDERO' ? this.fechaVencimiento : undefined,
+        caracteristicas: Object.keys(caracteristicas).length ? caracteristicas : undefined,
       });
       // Mínimo de esta bodega, si lo escribió (no frena el ingreso si falla).
       if (this.minimoBodega !== null && `${this.minimoBodega}` !== '' && Number(this.minimoBodega) >= 0) {
