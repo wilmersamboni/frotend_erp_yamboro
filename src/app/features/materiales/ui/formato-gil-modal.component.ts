@@ -1,4 +1,5 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
+import { puedeSerCuentadante } from '../cuentadante-formato';
 import { TuiDay } from '@taiga-ui/cdk';
 import { FormsModule } from '@angular/forms';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
@@ -76,7 +77,7 @@ interface LineaFormato {
                 <div>
                   <label class="block text-xs font-medium text-gray-600 mb-1">Servidor público a quien se asigna (cuentadante)</label>
                   <app-ss [options]="opcionesCuentadante" placeholder="— Buscar persona —" [(ngModel)]="idCuentadante"></app-ss>
-                  <p class="text-[11px] text-gray-400 mt-1">Opcional. Responde solo por los equipos que se repartan con placa SENA (si se ponen placas, se pide al repartir). Instructores o habilitados en Usuarios.</p>
+                  <p class="text-[11px] text-gray-400 mt-1">Opcional. Responde solo por los equipos que se repartan con placa SENA (si se ponen placas, se pide al repartir). Instructores, administradores o habilitados en Usuarios.</p>
                 </div>
                 <div class="sm:col-span-2">
                   <label class="block text-xs font-medium text-gray-600 mb-1">Código de grupo o ficha de caracterización (si lo trae)</label>
@@ -204,7 +205,7 @@ export class FormatoGilModalComponent implements OnChanges {
 
   catalogo: Producto[] = [];
   opcionesPersona: SSOption[] = [];
-  /** Misma regla que la pantalla de cuentadante: instructor o habilitado en Usuarios (`puedeSerCuentadante`). */
+  /** Misma regla que la pantalla de cuentadante: instructor, administrador o habilitado en Usuarios (`puedeSerCuentadante`). */
   opcionesCuentadante: SSOption[] = [];
   opcionesFicha: SSOption[] = [];
   cargando = false;
@@ -262,7 +263,7 @@ export class FormatoGilModalComponent implements OnChanges {
     });
     this.opcionesPersona = personas.map(opcion);
     this.opcionesCuentadante = personas
-      .filter((u: any) => u.persona?.cargo === 'instructor' || u.puedeSerCuentadante === true)
+      .filter((u: any) => puedeSerCuentadante(u))
       .map(opcion);
     this.opcionesFicha = fichas.map((f: any) => ({ value: f.idCurso, label: `${f.codigo}${f.programa ? ' — ' + f.programa : ''}` }));
     this.cargando = false;

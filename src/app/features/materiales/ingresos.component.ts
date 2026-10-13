@@ -1,4 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
+import { puedeSerCuentadante } from './cuentadante-formato';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AdminTableComponent, TableRowLink } from '../../shared/components/admin-table.component';
@@ -240,7 +241,7 @@ const ESTADO_REPARTO: Record<string, string> = { POR_REPARTIR: 'Por repartir', P
                 @if (pideCuentadante(d)) {
                   <div class="rounded-lg bg-white border border-amber-200 p-2.5">
                     <label class="block text-xs font-medium text-gray-700 mb-1">Cuentadante <span class="text-gray-400 font-normal">(obligatorio si escribes placas SENA)</span></label>
-                    <app-ss [options]="opcionesCuentadante" placeholder="— Buscar instructor o habilitado —" [(ngModel)]="idCuentadanteReparto"></app-ss>
+                    <app-ss [options]="opcionesCuentadante" placeholder="— Buscar instructor, administrador o habilitado —" [(ngModel)]="idCuentadanteReparto"></app-ss>
                     <p class="text-[11px] text-gray-400 mt-1">El formato no tiene cuentadante. Quien elijas queda a cargo de los equipos con placa y se guarda en el formato.</p>
                   </div>
                 }
@@ -480,7 +481,7 @@ export class MaterialesIngresosComponent implements OnInit {
     if (this.opcionesCuentadante.length) return;
     const personas: any[] = await this.personaApi.listarResponsablesBodega().catch(() => []);
     this.opcionesCuentadante = personas
-      .filter((u) => u.persona?.cargo === 'instructor' || u.puedeSerCuentadante === true)
+      .filter((u) => puedeSerCuentadante(u))
       .map((u) => ({
         value: u.idUsuario,
         label: [`${u.persona?.nombre ?? ''} ${u.persona?.apellido ?? ''}`.trim(), u.persona?.documento ?? u.persona?.cedula, u.persona?.cargo]

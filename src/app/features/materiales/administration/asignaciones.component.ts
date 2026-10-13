@@ -23,6 +23,8 @@ import { TableFilterComponent } from '../../../shared/components/table-filter.co
 import { CargasSecundarias } from '../data-access/cargas-secundarias';
 import { BodegasInactivasAvisoComponent, BodegasInactivasEtiquetaComponent } from '../ui/bodegas-inactivas.component';
 import { AvisoCargasComponent } from '../ui/aviso-cargas.component';
+import { AvisoVenceAntesComponent, LoteSugerido } from '../ui/aviso-vence-antes.component';
+import { LoteVencimiento, compararVencimiento, idsVencenPrimero, loteQueVenceAntes, sufijoVencimiento } from '../lotes-vencimiento.util';
 import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
 
 /** `valor`: 'p:<id_producto>' (unidades devolutivas) o 'l:<id_lote>' (consumo de ese lote). */
@@ -54,7 +56,7 @@ interface Ficha {
 @Component({
   selector: 'app-materiales-asignaciones',
   standalone: true,
-  imports: [BodegasInactivasEtiquetaComponent, BodegasInactivasAvisoComponent, AvisoCargasComponent, EsperaDirective, DialogDirective, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, ElegirPlacasAsignacionModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent, TableFilterComponent],
+  imports: [AvisoVenceAntesComponent, BodegasInactivasEtiquetaComponent, BodegasInactivasAvisoComponent, AvisoCargasComponent, EsperaDirective, DialogDirective, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, ElegirPlacasAsignacionModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent, TableFilterComponent],
   template: `
     <div class="p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
@@ -333,6 +335,9 @@ interface Ficha {
               {{ disponibleDe(linea) }} {{ unidadDe(linea) }} disponible(s){{ disponibleDe(linea) < linea.cantidad ? ' — cantidad excede el stock' : '' }}
               · {{ esConsumo(linea) ? 'consumo: no se devuelve' : 'devolutivo: queda pendiente de devolver' }}
             </p>
+            @if (esConsumo(linea)) {
+              <app-aviso-vence-antes [sugerido]="loteSugerido(linea)" [fechaElegido]="vencimientoDe(linea)" (usar)="usarLoteSugerido(linea)" />
+            }
           }
         </div>
         <input type="number" [(ngModel)]="linea.cantidad" min="1"
@@ -591,17 +596,52 @@ export class MaterialesAsignacionesComponent implements OnInit {
     return idL ? (this.loteDe(idL)?.disponibles ?? 0) : 0;
   }
 
+  /** Lotes de consumo de la bodega elegida, para comparar vencimientos. */
+  private lotesVencimiento(): LoteVencimiento[] {
+    return this.opcionesCons
+      .filter((o) => o.id_sitio === this.idSitioAsig)
+      .map((o) => ({ id: o.id_lote, id_producto: o.id_producto, id_sitio: o.id_sitio, fecha_vencimiento: o.fecha_vencimiento, libres: o.disponibles }));
+  }
+
+  /** Otro lote del mismo producto que vence antes que el de esta línea (y no está en otra línea), o null. */
+  private sugeridoPara(linea: LineaAsignacionForm) {
+    const idL = idDe(linea.valor, 'l');
+    if (!idL) return null;
+    const enOtras = this.lineas.filter((l) => l !== linea).map((l) => idDe(l.valor, 'l')).filter((x): x is string => !!x);
+    return loteQueVenceAntes(idL, this.lotesVencimiento(), enOtras);
+  }
+
+  loteSugerido(linea: LineaAsignacionForm): LoteSugerido | null {
+    const s = this.sugeridoPara(linea);
+    if (!s) return null;
+    const o = this.loteDe(s.id);
+    return { codigo: o?.codigo_lote ?? null, fecha_vencimiento: s.fecha_vencimiento, libres: s.libres, unidad: o?.unidad_medida ?? null };
+  }
+
+  usarLoteSugerido(linea: LineaAsignacionForm): void {
+    const s = this.sugeridoPara(linea);
+    if (s) linea.valor = 'l:' + s.id;
+  }
+
+  vencimientoDe(linea: LineaAsignacionForm): string | null {
+    const idL = idDe(linea.valor, 'l');
+    return idL ? (this.loteDe(idL)?.fecha_vencimiento ?? null) : null;
+  }
+
   opcionesProductoLinea(linea:LineaAsignacionForm){
     const usados = new Set(this.lineas.filter((l) => l !== linea).map((l) => l.valor).filter(Boolean));
     if (!this.idSitioAsig) return [];
     const devolutivos = this.opcionesDev
       .filter((o) => o.id_sitio === this.idSitioAsig && !usados.has('p:' + o.id_producto))
       .map((o) => ({ value: 'p:' + o.id_producto, label: `${o.nombre}${o.marca ? ' · ' + o.marca : ''} — equipo (${o.disponibles} disp.)` }));
+    // Lotes de un mismo producto ordenados por vencimiento, y el que vence primero marcado (2026-10-09).
+    const primeros = idsVencenPrimero(this.lotesVencimiento());
     const consumo = this.opcionesCons
       .filter((o) => o.id_sitio === this.idSitioAsig && !usados.has('l:' + o.id_lote))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre) || compararVencimiento(a.fecha_vencimiento, b.fecha_vencimiento))
       .map((o) => ({
         value: 'l:' + o.id_lote,
-        label: `${o.nombre}${o.marca ? ' · ' + o.marca : ''} — consumo${o.codigo_lote ? ', lote ' + o.codigo_lote : ''}${o.fecha_vencimiento ? ', vence ' + o.fecha_vencimiento : ''} (${o.disponibles} ${o.unidad_medida ?? ''} disp.)`.replace(' )', ')'),
+        label: `${o.nombre}${o.marca ? ' · ' + o.marca : ''} — consumo${o.codigo_lote ? ', lote ' + o.codigo_lote : ''}${sufijoVencimiento(o.fecha_vencimiento, primeros.has(o.id_lote))} (${o.disponibles} ${o.unidad_medida ?? ''} disp.)`.replace(' )', ')'),
       }));
     return [...devolutivos, ...consumo];
   }
