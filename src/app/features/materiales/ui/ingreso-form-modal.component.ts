@@ -1,4 +1,5 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
+import { puedeSerCuentadante } from '../cuentadante-formato';
 import { FormsModule } from '@angular/forms';
 import { TuiDay } from '@taiga-ui/cdk';
 import { DateInputComponent } from '../../../shared/components/date-input.component';
@@ -279,7 +280,7 @@ export function tamanoLegible(bytes: number): string {
                   </div>
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Cuentadante <span class="text-gray-400 font-normal text-xs">(opcional)</span></label>
-                    <app-ss [options]="opcionesCuentadante" placeholder="— Buscar instructor o habilitado —" [(ngModel)]="idCuentadante"></app-ss>
+                    <app-ss [options]="opcionesCuentadante" placeholder="— Buscar instructor, administrador o habilitado —" [(ngModel)]="idCuentadante"></app-ss>
                     <p class="text-[11px] text-gray-400 mt-1">Responde por los equipos que se repartan con placa SENA; si no lo eliges, se pide al repartir.</p>
                   </div>
                 } @else {
@@ -377,7 +378,7 @@ export function tamanoLegible(bytes: number): string {
               @if (destino === 'BODEGA' && hayPlacas) {
                 <div class="mt-4 rounded-2xl border border-amber-200 bg-amber-50/40 p-4">
                   <label class="block text-sm font-medium text-gray-700 mb-1">Cuentadante <span class="text-red-500">*</span></label>
-                  <app-ss [options]="opcionesCuentadante" placeholder="— Buscar instructor o habilitado —" [(ngModel)]="idCuentadante"></app-ss>
+                  <app-ss [options]="opcionesCuentadante" placeholder="— Buscar instructor, administrador o habilitado —" [(ngModel)]="idCuentadante"></app-ss>
                   <p class="text-[11px] text-gray-500 mt-1">Escribiste placas SENA: quien elijas queda a cargo de esos equipos. Los que entran sin placa no llevan cuentadante.</p>
                 </div>
               }
@@ -485,7 +486,7 @@ export class IngresoFormModalComponent implements OnChanges {
   idArea = '';
   idSitio = '';
   idCuentadante = '';
-  /** Misma regla que la pantalla de cuentadante: instructor o habilitado en Usuarios. */
+  /** Misma regla que la pantalla de cuentadante: instructor, administrador o habilitado en Usuarios. */
   opcionesCuentadante: SSOption[] = [];
   tipoSoporte: TipoSoporte | '' = 'FACTURA';
   numeroSoporte = '';
@@ -649,7 +650,7 @@ export class IngresoFormModalComponent implements OnChanges {
       this.catalogo = catalogo;
       this.proveedores = proveedores;
       this.opcionesCuentadante = personas
-        .filter((u: any) => u.persona?.cargo === 'instructor' || u.puedeSerCuentadante === true)
+        .filter((u: any) => puedeSerCuentadante(u))
         .map((u: any) => ({
           value: u.idUsuario,
           label: [`${u.persona?.nombre ?? ''} ${u.persona?.apellido ?? ''}`.trim(), u.persona?.documento ?? u.persona?.cedula, u.persona?.cargo]

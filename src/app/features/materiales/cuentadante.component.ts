@@ -10,7 +10,7 @@ import {
   ResumenCuentadante,
   UnidadSinIngreso,
 } from './data-access/materiales-api.service';
-import { ESTADO_LEGIBLE, marcaModelo } from './cuentadante-formato';
+import { ESTADO_LEGIBLE, marcaModelo, puedeSerCuentadante } from './cuentadante-formato';
 import { PersonaService } from '../../core/services/persona.service';
 import { ToastService } from '../../core/services/toast.service';
 import { SearchableSelectComponent, SSOption } from '../../shared/components/searchable-select.component';
@@ -143,7 +143,7 @@ type Pestana = 'mis-bienes' | 'cuentadantes' | 'ingresos' | 'anterior';
           <p class="text-sm text-gray-500 py-8 text-center">No hay material anterior al módulo pendiente de asignar.</p>
         } @else {
           <p class="text-xs text-gray-500">
-            Equipos que ya estaban registrados antes de existir el cuentadante. Abre una ficha, marca las unidades y elige el instructor
+            Equipos que ya estaban registrados antes de existir el cuentadante. Abre una ficha, marca las unidades y elige la persona
             que responde por ellas; puedes repartirlas entre varios. Solo se asignan las que tienen placa SENA; a las demás ponles la placa
             en Equipos con Placa y vuelve aquí.
           </p>
@@ -405,7 +405,7 @@ export class MaterialesCuentadanteComponent implements OnInit {
   }
 
   /**
-   * Personas elegibles: instructores activos más las cuentas que el administrador habilitó como
+   * Personas elegibles: instructores y administradores (2026-10-09) más las cuentas que el administrador habilitó como
    * cuentadante en Usuarios (`puedeSerCuentadante`, 2026-10-07; el backend aplica la misma regla).
    * Un aprendiz nunca aparece, tenga o no la marca.
    * Se toman del mismo endpoint de datos mínimos que los responsables de bodega, que no exige
@@ -416,7 +416,7 @@ export class MaterialesCuentadanteComponent implements OnInit {
       const usuarios = await this.personaApi.listarResponsablesBodega();
       this.candidatos.set(
         usuarios
-          .filter((u: any) => u.persona?.cargo === 'instructor' || (u.puedeSerCuentadante === true && u.persona?.cargo !== 'aprendiz'))
+          .filter((u: any) => puedeSerCuentadante(u))
           .map((u: any) => ({
             value: u.idUsuario,
             label: `${u.persona?.nombre ?? ''} ${u.persona?.apellido ?? ''}`.trim(),
