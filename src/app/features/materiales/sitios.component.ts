@@ -6,7 +6,7 @@ import { OpcionSelect } from '../tenant-administration/services/admin.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService, mensajeDeError } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
-import { Item, MaterialesApiService, Sitio } from './data-access/materiales-api.service';
+import { Item, MaterialesApiService, ResumenExistencias, Sitio, TipoMaterial } from './data-access/materiales-api.service';
 import { PersonaService } from '../../core/services/persona.service';
 import { DialogDirective } from '../../shared/directives/dialog.directive';
 import { CargasSecundarias } from './data-access/cargas-secundarias';
@@ -32,6 +32,37 @@ const OPCIONES_TIPO: OpcionSelect[] = [
   { label: 'Laboratorio', value: 'LABORATORIO' },
   { label: 'Otro', value: 'OTRO' },
 ];
+
+const OPCIONES_TIPO_INVENTARIO: { label: string; value: TipoMaterial | '' }[] = [
+  { label: 'Todo', value: '' },
+  { label: 'Devolutivos', value: 'DEVOLUTIVO' },
+  { label: 'Consumibles', value: 'CONSUMO' },
+  { label: 'Perecederos', value: 'PERECEDERO' },
+];
+
+const ETIQUETAS_ESTADO_ITEM: Record<string, string> = {
+  DISPONIBLE: 'disponible',
+  PRESTADO: 'prestado',
+  DAÑADO: 'dañado',
+  PERDIDO: 'perdido',
+  EN_MANTENIMIENTO: 'en mantenimiento',
+};
+
+interface DetalleInventario {
+  texto: string;
+  tono: 'ok' | 'aviso' | 'malo';
+}
+
+/** Renglón del diálogo "Qué hay en el sitio": un producto y su cantidad allí. */
+interface FilaInventario {
+  id_producto: string;
+  nombre: string;
+  tipo_material: TipoMaterial;
+  marcaModelo: string;
+  cantidad: number;
+  unidad: string;
+  detalles: DetalleInventario[];
+}
 
 /**
  * Sitios de almacenamiento (bodegas/ambientes/laboratorios). `id_responsable`
@@ -90,26 +121,77 @@ const OPCIONES_TIPO: OpcionSelect[] = [
     @if (verItemsAbierto) {
       <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="verItemsAbierto = false">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
-          <div class="flex items-center justify-between mb-5">
-            <h2 class="text-lg font-bold text-gray-800">Ítems en "{{ sitioSeleccionado?.nombre }}"</h2>
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <h2 class="text-lg font-bold text-gray-800">Qué hay en "{{ sitioSeleccionado?.nombre }}"</h2>
+              <p class="text-xs text-gray-500 mt-0.5">{{ inventarioDelSitio().length }} producto(s) distintos</p>
+            </div>
             <button aria-label="Cerrar" (click)="verItemsAbierto = false" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
-          @if (itemsDelSitioSeleccionado().length === 0) {
-            <p class="text-sm text-gray-400 py-6 text-center">Este sitio no tiene ítems.</p>
+
+          @if (inventarioDelSitio().length > 0) {
+            <div class="flex flex-wrap gap-2 mb-3">
+              @for (t of tiposInventario; track t.value) {
+                @if (!t.value || cuentaPorTipo(t.value) > 0) {
+                  <button type="button" (click)="tipoInventario = t.value"
+                    class="px-3 py-1 rounded-full text-xs border transition-colors"
+                    [class.bg-gray-800]="tipoInventario === t.value" [class.text-white]="tipoInventario === t.value" [class.border-gray-800]="tipoInventario === t.value"
+                    [class.border-gray-200]="tipoInventario !== t.value" [class.text-gray-600]="tipoInventario !== t.value">
+                    {{ t.label }} ({{ t.value ? cuentaPorTipo(t.value) : inventarioDelSitio().length }})
+                  </button>
+                }
+              }
+            </div>
+          }
+
+          @if (!puedeVerExistencias()) {
+            <p class="text-xs text-gray-400 mb-2">Solo se muestran los equipos con placa: no tienes permiso para ver el material que se gasta.</p>
+          }
+
+          @if (inventarioFiltrado().length === 0) {
+            <p class="text-sm text-gray-400 py-6 text-center">Este sitio no tiene material registrado.</p>
           } @else {
-            <div class="divide-y divide-gray-50">
-              @for (i of itemsDelSitioSeleccionado(); track i.id_item) {
-                <div class="py-2.5 flex items-center justify-between text-sm">
-                  <div>
-                    <p class="font-medium text-gray-800">{{ i.producto?.nombre ?? i.codigo_sku }}</p>
-                    <p class="text-xs text-gray-500 font-mono">{{ i.codigo_sku }}{{ i.placa_sena ? ' — ' + i.placa_sena : '' }}</p>
+            <div class="divide-y divide-gray-100">
+              @for (f of inventarioFiltrado(); track f.id_producto) {
+                <div class="py-2.5 text-sm">
+                  <div class="flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                      <p class="font-medium text-gray-800 truncate">{{ f.nombre }}</p>
+                      <p class="text-xs text-gray-500">
+                        <span class="inline-block px-1.5 rounded text-[10px] font-semibold uppercase mr-1"
+                          [class.bg-blue-50]="f.tipo_material === 'DEVOLUTIVO'" [class.text-blue-700]="f.tipo_material === 'DEVOLUTIVO'"
+                          [class.bg-gray-100]="f.tipo_material === 'CONSUMO'" [class.text-gray-600]="f.tipo_material === 'CONSUMO'"
+                          [class.bg-orange-50]="f.tipo_material === 'PERECEDERO'" [class.text-orange-700]="f.tipo_material === 'PERECEDERO'">{{ etiquetaTipo(f.tipo_material) }}</span>
+                        {{ f.marcaModelo }}
+                      </p>
+                    </div>
+                    <div class="text-right shrink-0">
+                      <p class="text-lg font-bold text-gray-800 leading-tight">{{ f.cantidad }}</p>
+                      <p class="text-[11px] text-gray-500">{{ f.unidad }}</p>
+                    </div>
                   </div>
-                  <span class="px-2 py-1 rounded-full text-xs"
-                    [class.bg-green-100]="i.estado === 'DISPONIBLE'" [class.text-green-700]="i.estado === 'DISPONIBLE'"
-                    [class.bg-amber-100]="i.estado === 'PRESTADO'" [class.text-amber-700]="i.estado === 'PRESTADO'"
-                    [class.bg-red-100]="i.estado === 'DAÑADO' || i.estado === 'PERDIDO'" [class.text-red-700]="i.estado === 'DAÑADO' || i.estado === 'PERDIDO'">
-                    {{ i.estado }}
-                  </span>
+                  @if (f.detalles.length > 0) {
+                    <div class="flex flex-wrap gap-1.5 mt-1.5">
+                      @for (d of f.detalles; track d.texto) {
+                        <span class="px-2 py-0.5 rounded-full text-[11px]"
+                          [class.bg-green-50]="d.tono === 'ok'" [class.text-green-700]="d.tono === 'ok'"
+                          [class.bg-amber-50]="d.tono === 'aviso'" [class.text-amber-700]="d.tono === 'aviso'"
+                          [class.bg-red-50]="d.tono === 'malo'" [class.text-red-700]="d.tono === 'malo'">{{ d.texto }}</span>
+                      }
+                    </div>
+                  }
+                  @if (f.tipo_material === 'DEVOLUTIVO' && placasDe(f.id_producto).length > 0) {
+                    <button type="button" class="text-[11px] text-blue-600 hover:underline mt-1" (click)="alternarPlacas(f.id_producto)">
+                      {{ placasAbiertas.has(f.id_producto) ? 'Ocultar placas' : 'Ver placas' }}
+                    </button>
+                    @if (placasAbiertas.has(f.id_producto)) {
+                      <div class="mt-1 pl-2 border-l-2 border-gray-100 space-y-0.5">
+                        @for (i of placasDe(f.id_producto); track i.id_item) {
+                          <p class="text-xs text-gray-500 font-mono">{{ i.placa_sena || i.codigo_sku }} <span class="font-sans text-gray-400">— {{ etiquetaEstadoItem(i.estado) }}</span></p>
+                        }
+                      </div>
+                    }
+                  }
                 </div>
               }
             </div>
@@ -177,10 +259,18 @@ export class MaterialesSitiosComponent implements OnInit {
     tipo_personalizado: 'Ej: Auditorio, Taller',
   };
 
-  /** "Ver ítems" — diálogo aparte, sin backend nuevo. */
+  /** "Qué hay en el sitio" — diálogo aparte, sin backend nuevo. */
   items: Item[] = [];
+  /** Producto × bodega con cantidades de los tres tipos (`GET /existencias`). */
+  existencias: ResumenExistencias[] = [];
   verItemsAbierto = false;
   sitioSeleccionado: Sitio | null = null;
+  readonly tiposInventario = OPCIONES_TIPO_INVENTARIO;
+  tipoInventario: TipoMaterial | '' = '';
+  /** Productos devolutivos con la lista de placas desplegada. */
+  placasAbiertas = new Set<string>();
+
+  puedeVerExistencias = computed(() => this.auth.tieneServicio('materiales.existencias.ver'));
 
   puedeCrear = computed(() => this.auth.tieneServicio('materiales.sitios.crear'));
   puedeEditar = computed(() => this.auth.tieneServicio('materiales.sitios.editar'));
@@ -291,8 +381,89 @@ export class MaterialesSitiosComponent implements OnInit {
     return this.items.filter((i) => i.id_sitio === this.sitioSeleccionado!.id_sitio);
   }
 
+  /**
+   * Un renglón por producto con su cantidad en el sitio. Devolutivos cuentan
+   * unidades (ítems); consumibles y perecederos, el saldo de sus lotes activos
+   * — mismo criterio que `ExistenciasRepository` usa para el stock. Sin
+   * `materiales.existencias.ver` se arma solo con los devolutivos, agrupando
+   * `items` (que esta pantalla ya carga).
+   */
+  inventarioDelSitio(): FilaInventario[] {
+    const sitio = this.sitioSeleccionado;
+    if (!sitio) return [];
+    const filas = this.puedeVerExistencias()
+      ? this.existencias.filter((e) => e.id_sitio === sitio.id_sitio).map((e) => this.filaDesdeExistencia(e))
+      : this.filasDesdeItems(this.itemsDelSitioSeleccionado());
+    const orden: Record<string, number> = { DEVOLUTIVO: 0, CONSUMO: 1, PERECEDERO: 2 };
+    return filas
+      .filter((f) => f.cantidad > 0 || f.detalles.length > 0)
+      .sort((a, b) => orden[a.tipo_material] - orden[b.tipo_material] || a.nombre.localeCompare(b.nombre));
+  }
+
+  inventarioFiltrado(): FilaInventario[] {
+    const filas = this.inventarioDelSitio();
+    return this.tipoInventario ? filas.filter((f) => f.tipo_material === this.tipoInventario) : filas;
+  }
+
+  cuentaPorTipo(tipo: TipoMaterial | ''): number {
+    return this.inventarioDelSitio().filter((f) => f.tipo_material === tipo).length;
+  }
+
+  private filaDesdeExistencia(e: ResumenExistencias): FilaInventario {
+    const marcaModelo = [e.marca, e.modelo].filter(Boolean).join(' · ');
+    const detalles: DetalleInventario[] = [];
+    if (e.tipo_material === 'DEVOLUTIVO') {
+      if (e.prestados) detalles.push({ texto: `${e.prestados} prestado(s)`, tono: 'aviso' });
+      if (e.mantenimiento) detalles.push({ texto: `${e.mantenimiento} en mantenimiento`, tono: 'aviso' });
+      if (e.danados) detalles.push({ texto: `${e.danados} dañado(s)`, tono: 'malo' });
+      if (e.perdidos) detalles.push({ texto: `${e.perdidos} perdido(s)`, tono: 'malo' });
+      // `total` incluye prestados/dañados: la cantidad grande es lo que está físicamente disponible.
+      if (e.total !== e.disponibles) detalles.unshift({ texto: `${e.total} en total`, tono: 'ok' });
+      return { id_producto: e.id_producto, nombre: e.nombre, tipo_material: e.tipo_material, marcaModelo, cantidad: e.disponibles, unidad: e.disponibles === 1 ? 'disponible' : 'disponibles', detalles };
+    }
+    if (e.lotes_por_vencer) detalles.push({ texto: `${e.lotes_por_vencer} lote(s) vencen en ≤ 30 días`, tono: 'malo' });
+    if (e.stock_minimo && e.lote_disponible < e.stock_minimo) detalles.push({ texto: `Bajo el mínimo (${e.stock_minimo})`, tono: 'aviso' });
+    return { id_producto: e.id_producto, nombre: e.nombre, tipo_material: e.tipo_material, marcaModelo, cantidad: e.lote_disponible, unidad: e.unidad_medida || 'unidades', detalles };
+  }
+
+  private filasDesdeItems(items: Item[]): FilaInventario[] {
+    const porProducto = new Map<string, Item[]>();
+    for (const i of items) porProducto.set(i.id_producto, [...(porProducto.get(i.id_producto) ?? []), i]);
+    return [...porProducto.entries()].map(([id_producto, grupo]) => {
+      const p = grupo[0].producto;
+      const contar = (estado: string) => grupo.filter((i) => i.estado === estado).length;
+      return this.filaDesdeExistencia({
+        id_producto, nombre: p?.nombre ?? grupo[0].codigo_sku, sku: p?.SKU ?? null,
+        marca: p?.marca ?? null, modelo: p?.modelo ?? null, tipo_material: 'DEVOLUTIVO',
+        unidad_medida: p?.unidad_medida ?? '', id_sitio: grupo[0].id_sitio ?? null, sitio_nombre: null,
+        disponibles: contar('DISPONIBLE'), prestados: contar('PRESTADO'), danados: contar('DAÑADO'),
+        perdidos: contar('PERDIDO'), mantenimiento: contar('EN_MANTENIMIENTO'), total: grupo.length,
+        lote_disponible: 0, lote_total: 0, lotes_por_vencer: 0,
+      });
+    });
+  }
+
+  placasDe(idProducto: string): Item[] {
+    return this.itemsDelSitioSeleccionado().filter((i) => i.id_producto === idProducto);
+  }
+
+  alternarPlacas(idProducto: string): void {
+    if (this.placasAbiertas.has(idProducto)) this.placasAbiertas.delete(idProducto);
+    else this.placasAbiertas.add(idProducto);
+  }
+
+  etiquetaTipo(tipo: TipoMaterial): string {
+    return OPCIONES_TIPO_INVENTARIO.find((t) => t.value === tipo)?.label ?? tipo;
+  }
+
+  etiquetaEstadoItem(estado: string): string {
+    return ETIQUETAS_ESTADO_ITEM[estado] ?? estado;
+  }
+
   verItems(fila: any): void {
     this.sitioSeleccionado = this.sitios.find((s) => s.id_sitio === fila.id_sitio) ?? null;
+    this.tipoInventario = '';
+    this.placasAbiertas.clear();
     this.verItemsAbierto = true;
   }
 
@@ -306,7 +477,7 @@ export class MaterialesSitiosComponent implements OnInit {
     this.loading = true;
     this.secundarias.reiniciar();
     try {
-      const [sitios, responsables, centros, areas, items] = await Promise.all([
+      const [sitios, responsables, centros, areas, items, existencias] = await Promise.all([
         this.api.listarSitios(),
         // `usuarios.gestionar` (ERP-wide) es admin-only — un líder de área
         // con `materiales.sitios.crear/editar` (2026-09-18) no lo tiene, y
@@ -319,12 +490,14 @@ export class MaterialesSitiosComponent implements OnInit {
         this.personaApi.listarCentros(),
         this.secundarias.cargar('áreas', () => this.personaApi.listarAreas()),
         this.api.listarItems(),
+        this.secundarias.cargar('existencias', () => this.api.obtenerExistencias(), this.puedeVerExistencias()),
       ]);
       this.sitios = sitios;
       this.responsables = responsables;
       this.centros = centros;
       this.areas = areas;
       this.items = items;
+      this.existencias = existencias;
     } catch (e) {
       this.toast.httpError(e, 'No se pudieron cargar los sitios.');
     } finally {
