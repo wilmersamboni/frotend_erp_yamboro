@@ -7,6 +7,7 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
 import { TuiDay } from '@taiga-ui/cdk';
 import { TuiDayCache } from '../../../shared/utils/tui-day.util';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
+import { hoyIsoLocal } from '../../../core/utils/horarios.util';
 
 /**
  * Modal genérico para crear/editar registros.
@@ -252,7 +253,7 @@ export class AdminModalComponent {
       candidatosIso.push(String(this.form[otroCampo]).slice(0, 10));
     }
     if (this.minDateToday.includes(col)) {
-      candidatosIso.push(new Date().toISOString().slice(0, 10));
+      candidatosIso.push(hoyIsoLocal());
     }
     if (candidatosIso.length === 0) return null;
     const maxIso = candidatosIso.reduce((a, b) => (a > b ? a : b));

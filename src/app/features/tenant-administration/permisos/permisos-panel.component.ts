@@ -518,6 +518,9 @@ export class PermisosPanelComponent implements OnChanges {
   }
 
   async toggle(servicioId: string): Promise<void> {
+    // F10: un doble clic disparaba dos mutaciones sobre el mismo permiso.
+    if (this.procesandoAccionMasiva()) return;
+    this.procesandoAccionMasiva.set(true);
     const nuevoActivo = !this.activo(servicioId);
     try {
       if (this.modo === 'rol') {
@@ -527,15 +530,29 @@ export class PermisosPanelComponent implements OnChanges {
       } else {
         const rolId = this.rolDelUsuario()?.idRol;
         if (!rolId) { this.toast.warn('Esta persona no tiene un rol reconocido'); return; }
-        const existenteExc = this.permisoExcepcion(servicioId);
-        if (existenteExc) await this.permisosSvc.revocar(existenteExc.idPermiso);
-        await this.permisosSvc.otorgar(rolId, servicioId, this.usuarioFila.idUsuario, nuevoActivo);
+        await this.reemplazarExcepcion(rolId, servicioId, nuevoActivo);
       }
       await this.recargarPermisos();
       this.toast.ok('Permiso actualizado');
     } catch (e) {
       this.toast.httpError(e, 'No se pudo actualizar el permiso');
+    } finally {
+      this.procesandoAccionMasiva.set(false);
     }
+  }
+
+  /**
+   * Cambia la excepción personal de un servicio. Si ya existe, se actualiza su
+   * `activo` con un solo PATCH (atómico: nunca queda sin excepción a mitad de
+   * camino); si no existe, se crea (F10).
+   */
+  private async reemplazarExcepcion(rolId: string, servicioId: string, nuevoActivo: boolean): Promise<void> {
+    const previa = this.permisoExcepcion(servicioId);
+    if (previa) {
+      await this.permisosSvc.cambiarActivo(previa.idPermiso, nuevoActivo);
+      return;
+    }
+    await this.permisosSvc.otorgar(rolId, servicioId, this.usuarioFila.idUsuario, nuevoActivo);
   }
 
   async quitarExcepcion(servicioId: string): Promise<void> {
@@ -568,6 +585,22 @@ export class PermisosPanelComponent implements OnChanges {
 
   /** Clic en un peldaño de la escalera: deja exactamente los servicios de ese nivel y los de abajo activos, y el resto inactivos. */
   async elegirNivel(r: RecursoUI, nivelObjetivo: number): Promise<void> {
+    if (this.procesandoAccionMasiva()) return;
+    // F10: bajar un ROL a "sin acceso" le quita el recurso a todas las personas de ese cargo.
+    if (nivelObjetivo === 0 && this.modo === 'rol' && this.nivelActual(r) > 0) {
+      const confirmado = await new Promise<boolean>((resolve) => {
+        this.confirmSvc.confirm({
+          message: `Se le va a quitar TODO el acceso a «${r.label}» al rol completo: afecta a todas las personas con ese cargo.`,
+          header: 'Quitar acceso al rol',
+          icon: 'pi pi-exclamation-triangle',
+          rejectButtonProps: { label: 'Cancelar', severity: 'secondary', outlined: true },
+          acceptButtonProps: { label: 'Sí, quitar', severity: 'danger' },
+          accept: () => resolve(true),
+          reject: () => resolve(false),
+        });
+      });
+      if (!confirmado) return;
+    }
     const cambios: { idServicio: string; deseado: boolean }[] = [];
     r.pasos.forEach((paso, i) => {
       const deseado = i < nivelObjetivo;
@@ -586,9 +619,7 @@ export class PermisosPanelComponent implements OnChanges {
     } else {
       const rolId = this.rolDelUsuario()?.idRol;
       if (!rolId) { this.toast.warn('Esta persona no tiene un rol reconocido'); return; }
-      const existenteExc = this.permisoExcepcion(servicioId);
-      if (existenteExc) await this.permisosSvc.revocar(existenteExc.idPermiso);
-      await this.permisosSvc.otorgar(rolId, servicioId, this.usuarioFila.idUsuario, deseado);
+      await this.reemplazarExcepcion(rolId, servicioId, deseado);
     }
   }
 

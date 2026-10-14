@@ -41,6 +41,11 @@ export class PermisosGestionService {
     return firstValueFrom(this.http.delete<void>(`${BASE}/${idPermiso}`));
   }
 
+  /** Cambia solo `activo` de una fila existente: un único UPDATE, sin ventana entre borrar y crear. */
+  cambiarActivo(idPermiso: string, activo: boolean): Promise<Permiso> {
+    return firstValueFrom(this.http.patch<Permiso>(`${BASE}/${idPermiso}`, { activo }));
+  }
+
   /** Otorga varios servicios de una vez (botones "activar todo el módulo" / "activar todos"). */
   otorgarLote(rolId: string, servicioIds: string[], usuarioId?: string): Promise<{ creados: number; reactivados: number; sinCambios: number }> {
     return firstValueFrom(

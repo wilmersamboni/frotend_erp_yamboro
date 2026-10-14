@@ -132,7 +132,8 @@ export class HorariosHomeComponent implements OnInit {
 
     const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
     this.eventosProximos = eventos.filter((e: any) => {
-      const f = e.fechaInicio ? new Date(e.fechaInicio) : null;
+      // 'YYYY-MM-DD' se lee como UTC y en Colombia caía el día anterior: se fija a medianoche LOCAL.
+      const f = e.fechaInicio ? new Date(`${String(e.fechaInicio).slice(0, 10)}T00:00:00`) : null;
       return !!f && f >= hoy;
     }).length;
 

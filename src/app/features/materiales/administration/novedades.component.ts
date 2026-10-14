@@ -290,6 +290,8 @@ export class MaterialesNovedadesComponent implements OnInit {
   novedades: Novedad[] = [];
   items: Item[] = [];
   sitios: Sitio[] = [];
+  /** Bodegas que gestiona el usuario (responsable o líder del área), según el backend. */
+  private sitiosACargoIds = new Set<string>();
   usuarios: any[] = [];
   loading = false;
   saving = false;
@@ -402,6 +404,9 @@ export class MaterialesNovedadesComponent implements OnInit {
   esResponsableDelSitio(n: Novedad): boolean {
     if (this.auth.isAdmin()) return true;
     const idSitio = n.item?.id_sitio;
+    // F11: también gestiona quien lidera el área de la bodega (el backend la incluye
+    // en "sitios a cargo"); mirar solo `id_responsable` le ocultaba los botones.
+    if (idSitio && this.sitiosACargoIds.has(idSitio)) return true;
     const sitio = idSitio ? this.sitios.find((s) => s.id_sitio === idSitio) : undefined;
     return !!sitio?.id_responsable && sitio.id_responsable === this.auth.user()?.id;
   }
@@ -452,12 +457,14 @@ export class MaterialesNovedadesComponent implements OnInit {
     try {
       // M9 — solo `listarNovedades()` es crítico; una secundaria que falle no
       // debe tumbar la tabla entera (pero tampoco pasar por "no hay datos").
-      const [novedades, items, sitios, usuarios] = await Promise.all([
+      const [novedades, items, sitios, usuarios, aCargo] = await Promise.all([
         this.api.listarNovedades(),
         this.secundarias.cargar('ítems', () => this.api.listarItems(), this.acceso.puedeListar('items')),
         this.secundarias.cargar('bodegas', () => this.api.listarSitios(), this.acceso.puedeListar('sitios')),
         this.secundarias.cargar('usuarios', () => this.personaApi.listarUsuarios()),
+        this.secundarias.cargar('bodegas a cargo', () => this.api.sitiosACargo()),
       ]);
+      this.sitiosACargoIds = new Set(aCargo.map((x) => x.id_sitio));
       this.novedades = novedades;
       this.items = items;
       this.sitios = sitios;

@@ -11,7 +11,14 @@ export class NotificacionesRealtimeService {
   private socket: Socket | null = null;
 
   conectar(): Socket {
-    if (this.socket?.connected) return this.socket;
+    // F8: con `connected` como criterio, una llamada mientras el socket aún
+    // conectaba creaba un segundo `io()` y el primero quedaba huérfano (y vivo
+    // incluso tras cerrar sesión). El socket es un singleton: se reutiliza
+    // conectando o conectado, y solo se reactiva si el servidor lo cortó.
+    if (this.socket) {
+      if (!this.socket.active) this.socket.connect();
+      return this.socket;
+    }
     this.socket = io({
       path: '/api/socket.io',
       withCredentials: true,
