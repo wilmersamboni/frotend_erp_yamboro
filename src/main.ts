@@ -9,7 +9,7 @@ const SPLASH_LOGIN_DURATION_MS = 1100;
 const SPLASH_SESSION_DURATION_MS = 210;
 
 const tieneSesionGuardada = Boolean(
-  localStorage.getItem('user') || localStorage.getItem('tenant_admin_token'),
+  localStorage.getItem('user') || localStorage.getItem('tenant_admin_sesion'),
 );
 const splashDurationMs = tieneSesionGuardada
   ? SPLASH_SESSION_DURATION_MS

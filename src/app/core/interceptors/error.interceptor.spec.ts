@@ -79,18 +79,20 @@ describe('errorInterceptor', () => {
     expect(navigateSpy).not.toHaveBeenCalled();
   });
 
-  it('401 en el panel admin (/api/admin/*): limpia el token root en vez de la sesión del ERP', () => {
+  it('401 en el panel admin (/api/admin/*): cierra la sesión root en vez de la sesión del ERP', () => {
+    // Marcador de sesión del panel (el token vive en la cookie httpOnly, H10).
     localStorage.setItem(
-      'tenant_admin_token',
-      // JWT falso con payload {"sub":"r1","correo":"root@x"} — solo para que isAuthenticated() sea true
-      'x.' + btoa(JSON.stringify({ sub: 'r1', correo: 'root@x' })) + '.y',
+      'tenant_admin_sesion',
+      JSON.stringify({ id: 'r1', correo: 'root@x', expiraEn: Date.now() + 60_000 }),
     );
     const navigateSpy = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
 
     http.get('/api/admin/tenants').subscribe({ error: () => {} });
     httpMock.expectOne('/api/admin/tenants').flush({}, { status: 401, statusText: 'Unauthorized' });
+    // logout() le pide al backend borrar la cookie.
+    httpMock.expectOne('/api/admin/auth/logout').flush({});
 
-    expect(localStorage.getItem('tenant_admin_token')).toBeNull();
+    expect(localStorage.getItem('tenant_admin_sesion')).toBeNull();
     expect(navigateSpy).toHaveBeenCalledWith(['/login']);
   });
 
