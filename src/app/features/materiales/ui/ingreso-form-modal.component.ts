@@ -64,17 +64,18 @@ function hoyLocal(): string {
 
 const pesos = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
 
-/** Mismas reglas que el backend (ingresos.controller): PDF o foto, 10 MB c/u, 5 por ingreso. */
+/** Mismas reglas que el backend (ingresos.controller): PDF, Word, Excel o foto, 10 MB c/u, 5 por ingreso. */
 export const MAX_SOPORTES = 5;
-export const ACEPTA_SOPORTE = '.pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp';
-const EXT_SOPORTE = /\.(pdf|png|jpe?g|webp)$/i;
+/** PDF, Word, Excel o foto: mismo criterio que el backend (decisión 0.1 del plan de seguridad 2026-10). */
+export const ACEPTA_SOPORTE = '.pdf,.docx,.xlsx,.png,.jpg,.jpeg,.webp';
+const EXT_SOPORTE = /\.(pdf|docx|xlsx|png|jpe?g|webp)$/i;
 
 /** Filtra los archivos elegidos; devuelve los válidos y, si hubo descartes, el porqué. */
 export function filtrarSoportes(elegidos: File[], yaTiene: number): { validos: File[]; aviso: string | null } {
   const validos: File[] = [];
   const motivos: string[] = [];
   for (const f of elegidos) {
-    if (!EXT_SOPORTE.test(f.name)) motivos.push(`«${f.name}» no es PDF ni imagen`);
+    if (!EXT_SOPORTE.test(f.name)) motivos.push(`«${f.name}» no es PDF, Word, Excel ni imagen`);
     else if (f.size > 10 * 1024 * 1024) motivos.push(`«${f.name}» pesa más de 10 MB`);
     else if (yaTiene + validos.length >= MAX_SOPORTES) motivos.push(`«${f.name}» pasa el tope de ${MAX_SOPORTES} soportes`);
     else validos.push(f);

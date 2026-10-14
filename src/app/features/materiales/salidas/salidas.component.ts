@@ -338,7 +338,7 @@ const MEDIOS = ['Automóvil', 'Camioneta', 'Camión', 'Bus', 'Moto', 'Otro'];
                       <label class="relative px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer focus-within:ring-2 focus-within:ring-[#39A900]/40"
                         [class]="d.documento_nombre ? 'border border-gray-200 text-gray-700 bg-white hover:border-gray-400' : 'text-white bg-[#39A900] hover:bg-[#2d8000]'">
                         {{ subiendoDocumento() ? 'Subiendo…' : d.documento_nombre ? 'Reemplazar' : 'Adjuntar documento firmado' }}
-                        <input type="file" class="sr-only" accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx" [disabled]="subiendoDocumento()"
+                        <input type="file" class="sr-only" accept=".pdf,.docx,.xlsx,.jpg,.jpeg,.png,.webp" [disabled]="subiendoDocumento()"
                           (change)="adjuntarDocumento(d, $any($event.target))" />
                       </label>
                     </div>
@@ -1228,8 +1228,8 @@ export class MaterialesSalidasComponent implements OnInit {
 
   ayudaDocumento(d: SalidaDetalle): string {
     return d.clase === 'CONSUMO'
-      ? 'Descarga la hoja, fírmala y adjúntala (PDF, foto o Excel) para que quede el registro.'
-      : 'Descarga la póliza, escribe la descripción y el valor asegurado (de la página del SENA) y el serial si faltaba, fírmala y adjúntala (PDF, foto o Excel).';
+      ? 'Descarga la hoja, fírmala y adjúntala (PDF, Word, Excel o foto) para que quede el registro.'
+      : 'Descarga la póliza, escribe la descripción y el valor asegurado (de la página del SENA) y el serial si faltaba, fírmala y adjúntala (PDF, Word, Excel o foto).';
   }
 
   async adjuntarDocumento(d: SalidaDetalle, input: HTMLInputElement): Promise<void> {

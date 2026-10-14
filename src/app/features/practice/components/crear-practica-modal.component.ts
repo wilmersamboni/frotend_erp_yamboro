@@ -6,6 +6,7 @@ import {
 import { FormsModule, FormControl, ReactiveFormsModule } from '@angular/forms';
 import { PracticaService, MatriculaService, PersonaService } from '../../../core/services';
 import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
+import { ACCEPT_DOCUMENTOS, problemaDocumento } from '../../../shared/utils/archivos-permitidos';
 import { FileUploadZoneComponent } from '../../../shared/components/file-upload-zone.component';
 import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
 import { DateInputComponent } from '../../../shared/components/date-input.component';
@@ -37,7 +38,7 @@ import { DialogDirective } from '../../../shared/directives/dialog.directive';
   template: `
     <!-- Input FUERA de @if para que @ViewChild lo encuentre siempre en el DOM -->
     <input #fileInput type="file" multiple style="display:none"
-           accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.zip"
+           [accept]="acceptDocumentos"
            (change)="onArchivosSeleccionados($event)" />
 
     @if (isOpen) {
@@ -184,7 +185,7 @@ import { DialogDirective } from '../../../shared/directives/dialog.directive';
               <!-- Zona de archivos -->
               <app-file-upload-zone
                 [multiple]="true"
-                [hint]="'PDF, Word, Excel, imágenes · Máx. 10MB c/u · Hasta 20 archivos'"
+                [hint]="'PDF, Word (.docx) o Excel (.xlsx) · Máx. 10MB c/u · Hasta 20 archivos'"
                 [files]="archivosSeleccionados"
                 (filesChange)="archivosSeleccionados = $event"
                 (clickZone)="abrirSelectorArchivos()"
@@ -324,6 +325,7 @@ export class CrearPracticaModalComponent implements OnChanges, OnInit {
   /* ── Archivos ─────────────────────────────────────────────────── */
   @ViewChild('fileInput') fileInputRef!: ElementRef<HTMLInputElement>;
   archivosSeleccionados: File[] = [];
+  readonly acceptDocumentos = ACCEPT_DOCUMENTOS;
 
   /* ── Modelo formulario ────────────────────────────────────────── */
   form = {
@@ -456,7 +458,12 @@ export class CrearPracticaModalComponent implements OnChanges, OnInit {
   onArchivosSeleccionados(event: Event): void {
     const input = event.target as HTMLInputElement;
     const nuevos = Array.from(input.files ?? []);
-    this.archivosSeleccionados = [...this.archivosSeleccionados, ...nuevos];
+    // Mismo criterio que el backend (decisión 0.1): solo PDF, Word y Excel.
+    const rechazados = nuevos.filter((f) => problemaDocumento(f));
+    if (rechazados.length) {
+      this.toast.warn('Archivo no permitido', `${rechazados.map((f) => f.name).join(', ')}: ${problemaDocumento(rechazados[0])}`);
+    }
+    this.archivosSeleccionados = [...this.archivosSeleccionados, ...nuevos.filter((f) => !problemaDocumento(f))];
     input.value = '';
   }
 

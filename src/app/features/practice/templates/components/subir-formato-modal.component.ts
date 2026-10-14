@@ -7,6 +7,7 @@ import { ApiService } from '../../../../core/services/api.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { FileUploadZoneComponent } from '../../../../shared/components/file-upload-zone.component';
 import { SearchableSelectComponent, SSOption } from '../../../../shared/components/searchable-select.component';
+import { ACCEPT_DOCUMENTOS, problemaDocumento } from '../../../../shared/utils/archivos-permitidos';
 
 export interface TipoFormato { value: string; label: string; icon: string; }
 
@@ -25,7 +26,7 @@ export interface TipoFormato { value: string; label: string; icon: string; }
   template: `
     <!-- Input FUERA del panel — siempre en el DOM para que @ViewChild lo encuentre -->
     <input #fileInput type="file" style="display:none"
-           accept="application/pdf,.doc,.docx,image/*"
+           [accept]="acceptDocumentos"
            (change)="onFileChange($event)" />
 
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-[fadeInUp_0.25s_ease_both]">
@@ -57,7 +58,7 @@ export interface TipoFormato { value: string; label: string; icon: string; }
         <div class="sm:col-span-2 space-y-1.5">
           <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Archivo</label>
           <app-file-upload-zone
-            [hint]="'PDF, DOC, DOCX, Imagen'"
+            [hint]="'PDF, Word (.docx) o Excel (.xlsx) · máx. 10 MB'"
             [files]="archivos"
             (filesChange)="archivos = $event"
             (clickZone)="abrirSelector()"
@@ -96,6 +97,7 @@ export class SubirFormatoModalComponent {
   @ViewChild('fileInput') fileInputRef!: ElementRef<HTMLInputElement>;
 
   uploading = signal(false);
+  readonly acceptDocumentos = ACCEPT_DOCUMENTOS;
 
   archivos:        File[] = [];
   nombreFormato    = '';
@@ -131,6 +133,8 @@ export class SubirFormatoModalComponent {
   async handleUpload(): Promise<void> {
     const archivo = this.archivos[0];
     if (!archivo)                   { this.toast.warn('Campo requerido', 'Selecciona un archivo.'); return; }
+    const problema = problemaDocumento(archivo);
+    if (problema)                   { this.toast.warn('Archivo no permitido', problema); return; }
     if (!this.nombreFormato.trim()) { this.toast.warn('Campo requerido', 'Escribe un nombre descriptivo.'); return; }
     if (!this.tipoSeleccionado)     { this.toast.warn('Campo requerido', 'Selecciona el tipo de formato.'); return; }
 

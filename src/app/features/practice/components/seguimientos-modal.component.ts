@@ -9,6 +9,7 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state.comp
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
 import { log } from '../../../core/utils/log';
+import { ACCEPT_DOCUMENTOS, problemaDocumento } from '../../../shared/utils/archivos-permitidos';
 
 @Component({
   selector: 'app-seguimientos-modal',
@@ -302,7 +303,7 @@ export class SeguimientosModalComponent implements OnChanges {
     this.pendingActaItem = item;
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'application/pdf';
+    input.accept = ACCEPT_DOCUMENTOS;
     input.onchange = (e: any) => this.onActaFileChange(e);
     input.click();
   }
@@ -310,6 +311,12 @@ export class SeguimientosModalComponent implements OnChanges {
   async onActaFileChange(event: any): Promise<void> {
     const file: File | undefined = event.target?.files?.[0];
     if (!file || !this.pendingActaItem) return;
+    const problema = problemaDocumento(file);
+    if (problema) {
+      this.pendingActaItem = null;
+      this.toast.warn('Archivo no permitido', problema);
+      return;
+    }
     const targetId = this.pendingActaItem.id;
     this.pendingActaItem = null;
     try {
@@ -321,7 +328,7 @@ export class SeguimientosModalComponent implements OnChanges {
       this.seguimientos.update(list =>
         list.map(s => s.id === targetId ? { ...s, actas_pdf: filename } : s)
       );
-      this.toast.ok('Acta subida', 'El acta PDF fue cargada correctamente.');
+      this.toast.ok('Acta subida', 'El acta fue cargada correctamente.');
       // Recarga para confirmar lo que quedó en BD
       await this.cargarSeguimientos();
     } catch (e: any) { this.toast.httpError(e, 'Error al subir el acta.'); }
