@@ -18,6 +18,38 @@ export type EstadoNovedad = 'PENDIENTE' | 'EN_PROCESO' | 'RESUELTA';
 export interface Categoria {
   id_categoria: string;
   nombre: string;
+  /** Qué características técnicas piden sus equipos ('COMPUTO' o null). */
+  plantilla_caracteristicas?: string | null;
+}
+
+/** Campo de característica técnica que define el sistema (backend: caracteristicas-equipo.ts). */
+export interface CampoCaracteristica {
+  clave: string;
+  etiqueta: string;
+  grupo: string;
+  tipo: 'TEXTO' | 'NUMERO' | 'OPCION';
+  unidad?: string;
+  opciones?: string[];
+  ayuda?: string;
+}
+
+/** Un registro del historial de características de un equipo (backend: ItemsService.historialCaracteristicas). */
+export interface RegistroCaracteristicas {
+  id_historial: string;
+  fecha: string;
+  registrado_por: string | null;
+  motivo: string | null;
+  /** Con qué características llegó el equipo. */
+  inicial: boolean;
+  cambios: { clave: string; campo: string; antes: string | null; despues: string | null }[];
+  /** Quién lo tuvo fuera de la bodega desde el registro anterior (préstamos y salidas). */
+  lo_tuvieron: { tipo: 'PRESTAMO' | 'SALIDA' | 'FICHA'; persona: string | null; desde: string; hasta: string | null; referencia: string | null }[];
+}
+
+export interface PlantillaCaracteristicas {
+  codigo: string;
+  nombre: string;
+  campos: CampoCaracteristica[];
 }
 
 export interface Unspsc {
@@ -86,6 +118,15 @@ export interface Lote {
   id_sitio?: string | null;
   id_responsable?: string | null;
   producto?: { id_producto: string; nombre: string; SKU: string | null; tipo_material: string; unidad_medida?: string };
+  /** Características del lote (campos propios: nombre → valor); `{}` si no tiene. */
+  caracteristicas?: Record<string, string>;
+}
+
+/** Para llenar características: campos ya usados en la ficha y su categoría, lo último registrado y la lista sugerida. */
+export interface SugerenciasCaracteristicas {
+  campos: { campo: string; usos: number }[];
+  ultimas: Record<string, string> | null;
+  plantilla: string | null;
 }
 
 export interface CreateLoteDto {
@@ -109,6 +150,8 @@ export interface Item {
   /** Soft-delete por ítem (independiente de `producto.activo`, 2026-09-18) — false = fuera de circulación. */
   activo?: boolean;
   producto?: Producto;
+  /** Características técnicas de ESTA unidad (procesador, RAM…); `{}` si no tiene. */
+  caracteristicas?: Record<string, string>;
 }
 
 export interface CreateCategoriaDto {
@@ -190,6 +233,228 @@ export interface FilaConfirmada {
   fecha_vencimiento?: string | null;
   placas_sena?: string[];
   fila_origen?: number;
+}
+
+/** Salida de material: consumible (permanente) o devolutivo (despacho con póliza). */
+/** MIXTA = la misma salida lleva consumibles (lotes) y devolutivos (unidades); el backend la deduce de las líneas. */
+export type ClaseSalida = 'CONSUMO' | 'DEVOLUTIVO' | 'MIXTA';
+export type TipoDestinoSalida = 'PROPIO' | 'TERCERO';
+export type EstadoSalida = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'CANCELADA' | 'REGRESADA';
+
+export interface SalidaResumen {
+  id_salida: string;
+  numero: number;
+  codigo: string;
+  clase: ClaseSalida;
+  estado: EstadoSalida;
+  /** Solo true en un devolutivo que va y regresa (póliza). Consumible o devolutivo permanente: false. */
+  con_regreso: boolean;
+  id_sitio: string;
+  sitio_nombre: string | null;
+  /** Ubicación de la bodega (sede → centro → regional), resuelta por el backend para los encabezados de los Excel. */
+  sede_nombre?: string | null;
+  centro_nombre?: string | null;
+  area_nombre?: string | null;
+  regional_nombre?: string | null;
+  id_usuario_solicita: string;
+  solicitante_nombre: string | null;
+  /** Cargo crudo (instructor, administrador_erp…), para las firmas del reporte. */
+  solicitante_cargo?: string | null;
+  tipo_destino: TipoDestinoSalida;
+  dest_nombre: string | null;
+  dest_documento: string | null;
+  dest_cargo: string | null;
+  dest_sede: string | null;
+  lugar_destino: string | null;
+  medio_transporte: string | null;
+  id_jefe_inmediato: string | null;
+  jefe_nombre: string | null;
+  jefe_cargo?: string | null;
+  motivo: string;
+  valor_total: number | null;
+  aprueba_nombre: string | null;
+  fecha_aprobacion: string | null;
+  motivo_rechazo: string | null;
+  fecha_regreso: string | null;
+  fecha: string;
+  lineas_count: number;
+  /** Documento ya diligenciado y firmado que se adjuntó (registro del documento terminado). */
+  documento_nombre?: string | null;
+  documento_fecha?: string | null;
+  documento_subido_por?: string | null;
+}
+
+export interface LineaSalida {
+  id_linea: string;
+  id_producto: string;
+  producto_nombre: string;
+  marca: string | null;
+  modelo: string | null;
+  descripcion: string | null;
+  unidad_medida: string | null;
+  id_lote: string | null;
+  codigo_lote: string | null;
+  id_item: string | null;
+  placa_sena: string | null;
+  serial: string | null;
+  cantidad: number;
+  valor_unitario: number | null;
+  nota: string | null;
+  id_cuentadante: string | null;
+  cuentadante_nombre: string | null;
+  /** Línea de consumo: ¿ya tiene su foto (obligatoria)? Se baja con `fotoLineaSalida`. */
+  tiene_foto?: boolean;
+}
+
+export interface SalidaDetalle extends SalidaResumen {
+  lineas: LineaSalida[];
+  /** Solo en `GET /salidas/:id`: ¿me toca aprobar o rechazar esta? */
+  puede_resolver?: boolean;
+}
+
+export interface LineaSalidaDto {
+  id_lote?: string;
+  id_item?: string;
+  cantidad?: number;
+  valor_unitario?: number;
+  serial?: string;
+  nota?: string;
+}
+
+export interface CrearSalidaDto {
+  clase: ClaseSalida;
+  /** Obligatorio en devolutivos: true = va y regresa (póliza); false = sale para siempre, como un consumible. */
+  con_regreso?: boolean;
+  id_sitio: string;
+  tipo_destino: TipoDestinoSalida;
+  dest_nombre?: string;
+  dest_documento?: string;
+  dest_cargo?: string;
+  dest_sede?: string;
+  lugar_destino?: string;
+  medio_transporte?: string;
+  id_jefe_inmediato?: string;
+  motivo: string;
+  lineas: LineaSalidaDto[];
+}
+
+/** Lo que se puede sacar de una bodega (lotes de consumibles, unidades con o sin placa, posibles jefes). */
+export interface OpcionesSalida {
+  lotes: { id_lote: string; id_producto: string; producto_nombre: string; codigo_lote: string | null; unidad_medida: string | null; libres: number; fecha_vencimiento: string | null }[];
+  unidades: {
+    id_item: string;
+    producto_nombre: string;
+    marca: string | null;
+    modelo: string | null;
+    placa_sena: string | null;
+    codigo_sku: string | null;
+    /** Últimos 4 del id: identifica una unidad sin placa. */
+    codigo: string;
+    id_cuentadante: string | null;
+    cuentadante_nombre: string | null;
+    puede_despachar: boolean;
+  }[];
+  jefes: { id_usuario: string; nombre: string; cargo: string | null }[];
+}
+
+/** Encabezado del reporte de póliza (por tenant). */
+export type ConfigSalida = Record<
+  'poliza_numero' | 'limite_despacho' | 'presupuesto_anual' | 'regional' | 'centro_formacion' | 'dependencia',
+  string | null
+>;
+
+/** Cuentadante de devolutivos — un ingreso a bodega (las unidades que entraron juntas). */
+export interface IngresoDevolutivo {
+  id_ingreso: string;
+  fecha_ingreso: string;
+  id_producto: string;
+  producto_nombre: string;
+  unidades: number;
+  id_sitio: string | null;
+  sitio_nombre: string | null;
+  id_cuentadante: string | null;
+  cuentadante_nombre: string | null;
+  /** Unidades CON placa todavía sin cuentadante. */
+  sin_asignar: number;
+  /** Unidades sin placa SENA: el cuentadante solo responde por equipos con placa (2026-10-07). */
+  sin_placa: number;
+  /** Solo si entró por el módulo de ingresos (ING-20261006-001). */
+  numero_ingreso: string | null;
+  proveedor_nombre: string | null;
+}
+
+/** Ítem del que el usuario actual es cuentadante, esté donde esté. */
+export interface BienACargo {
+  id_item: string;
+  placa_sena: string | null;
+  codigo_sku: string | null;
+  estado: string;
+  id_producto: string;
+  producto_nombre: string;
+  marca: string | null;
+  modelo: string | null;
+  descripcion: string | null;
+  /** Último serial anotado en una salida (el ítem no lo guarda aparte). */
+  serial: string | null;
+  /** Características técnicas de la unidad (procesador, RAM…). */
+  caracteristicas?: Record<string, string> | null;
+  id_sitio: string | null;
+  sitio_nombre: string | null;
+  fecha_ingreso: string | null;
+  /** Dónde está físicamente: bodega, préstamo, ficha o fuera de la sede. */
+  ubicacion: string;
+  /** Quién lo tiene si no está en la bodega. */
+  en_poder_de: string | null;
+  /** Daño o problema reportado sin resolver. */
+  novedad: string | null;
+}
+
+/** Bienes de un cuentadante + encabezado del inventario de fin de año. */
+export interface InventarioCuentadante {
+  cuentadante: { id_usuario: string; nombre: string | null; cedula: string | null; cargo: string | null };
+  bienes: BienACargo[];
+}
+
+/** Ficha + bodega de material anterior al módulo (sin ingreso registrado). */
+export interface GrupoSinIngreso {
+  id_producto: string;
+  producto_nombre: string;
+  id_sitio: string | null;
+  sitio_nombre: string | null;
+  unidades: number;
+  /** Unidades CON placa todavía sin cuentadante (las únicas que se pueden asignar). */
+  sin_asignar: number;
+  /** Unidades sin placa SENA: esperan la placa para tener cuentadante. */
+  sin_placa: number;
+}
+
+export interface UnidadSinIngreso {
+  id_item: string;
+  placa_sena: string | null;
+  codigo_sku: string | null;
+  estado: string;
+  id_cuentadante: string | null;
+  cuentadante_nombre: string | null;
+}
+
+export interface ResumenCuentadante {
+  id_cuentadante: string;
+  nombre: string | null;
+  cargo: string | null;
+  bienes: number;
+  fuera_de_bodega: number;
+  con_novedad: number;
+}
+
+export interface HistorialCuentadante {
+  id_historial: string;
+  id_item: string;
+  placa_sena: string | null;
+  cuentadante_anterior_nombre: string | null;
+  cuentadante_nuevo_nombre: string | null;
+  asigna_nombre: string | null;
+  motivo: string | null;
+  fecha: string;
 }
 
 /** "Pedir ficha al líder" — pedido de un encargado para que el líder cree una ficha del catálogo. */
@@ -292,6 +557,8 @@ export interface AgregarExistenciasDto {
   codigo_lote?: string;
   /** AAAA-MM-DD, obligatoria para PERECEDERO. */
   fecha_vencimiento?: string;
+  /** Solo DEVOLUTIVO de una categoría con plantilla: se copian a todas las unidades del alta. */
+  caracteristicas?: Record<string, string>;
 }
 
 export interface CreateProductoDto {
@@ -670,7 +937,34 @@ export interface Acta {
   solicitud?: Solicitud;
 }
 
-export type EstadoAsignacion = 'ACTIVA' | 'ANULADA' | 'DEVUELTA';
+/** ENTREGADA = solo material de consumo: salió para la ficha y no queda nada por devolver. */
+export type EstadoAsignacion = 'ACTIVA' | 'ANULADA' | 'DEVUELTA' | 'ENTREGADA';
+
+/** Consumible entregado a una ficha (por lote), con lo que ya volvió como sobrante. */
+export interface ConsumoAsignacion {
+  id_asignacion_consumo: string;
+  id_lote: string;
+  id_producto: string;
+  producto_nombre: string | null;
+  codigo_lote: string | null;
+  unidad_medida: string | null;
+  cantidad: number;
+  cantidad_reintegrada: number;
+}
+
+/** Lote de consumo que se puede entregar a una ficha (`GET materiales/asignaciones/opciones/consumo`). */
+export interface OpcionConsumo {
+  id_lote: string;
+  id_producto: string;
+  nombre: string;
+  marca: string | null;
+  codigo_lote: string | null;
+  unidad_medida: string | null;
+  fecha_vencimiento: string | null;
+  id_sitio: string;
+  sitio_nombre: string;
+  disponibles: number;
+}
 
 export interface Asignacion {
   id_asignacion: string;
@@ -684,6 +978,8 @@ export interface Asignacion {
   fecha_devolucion?: string | null;
   producto?: Producto;
   lineas?: { id_producto: string; producto_nombre: string | null; cantidad: number; id_items: string[] }[];
+  /** Material de consumo de la misma entrega (2026-10-06). */
+  consumos?: ConsumoAsignacion[];
   /** Resueltos por el backend vía SQL directo a `cursos` — no dependen de que
    *  el `GET /api/cursos` del cliente (recortado por RLS a "mis cursos")
    *  incluya la ficha de esta asignación, que puede ser de otro instructor. */
@@ -695,7 +991,8 @@ export interface CreateAsignacionDto {
   id_curso: string;
   /** Bodega de la que salen las unidades (catálogo único). */
   id_sitio?: string;
-  lineas:{id_producto:string, cantidad:number, id_items?: string[]}[],
+  /** `id_producto` = unidades devolutivas; `id_lote` = consumo de ese lote. */
+  lineas: { id_producto?: string; id_lote?: string; cantidad: number; id_items?: string[] }[];
   observacion?: string;
   fecha_devolucion?: string;
 }
@@ -713,6 +1010,10 @@ export interface Kardex {
   id_lote?: string | null;
   id_usuario: string;
   item?: Item;
+  /** Foto del producto y la referencia al registrar el movimiento: sigue ahí aunque el lote se elimine. */
+  id_producto?: string | null;
+  producto_nombre?: string | null;
+  referencia?: string | null;
 }
 
 // ── Proveedores e ingreso de materiales (2026-10-05) ───────────────────
@@ -748,17 +1049,32 @@ export interface ProveedorDto {
   activo?: boolean;
 }
 export type TipoIngreso = 'COMPRA' | 'DONACION' | 'COMODATO' | 'TRASLADO_CENTRO' | 'REPOSICION' | 'OTRO';
-export type TipoSoporte = 'FACTURA' | 'REMISION' | 'ORDEN_COMPRA' | 'CONTRATO' | 'ACTA' | 'OTRO';
+export type TipoSoporte = 'FACTURA' | 'REMISION' | 'ORDEN_COMPRA' | 'CONTRATO' | 'ACTA' | 'GIL_F_014' | 'OTRO';
+/** DIRECTO: a una bodega. FORMATO_AREA: formato GIL-F-014 al área, se reparte después (2026-10-06). */
+export type ModalidadIngreso = 'DIRECTO' | 'FORMATO_AREA';
+export type EstadoRepartoIngreso = 'POR_REPARTIR' | 'PARCIAL' | 'REPARTIDO';
 export interface IngresoMaterial {
   id_ingreso: string;
   numero: number;
-  /** ING-000001 */
+  /** ING-20261006-001 */
   codigo: string;
+  modalidad: ModalidadIngreso;
+  id_area: string | null;
+  area_nombre: string | null;
+  id_coordinador: string | null;
+  coordinador_nombre: string | null;
+  id_cuentadante: string | null;
+  cuentadante_nombre: string | null;
+  id_curso: string | null;
+  ficha_codigo: string | null;
+  cantidad_repartida: number;
+  /** Solo formato por área. */
+  estado_reparto: EstadoRepartoIngreso | null;
   tipo_ingreso: TipoIngreso;
   id_proveedor: string | null;
   proveedor_nombre: string | null;
   proveedor_documento: string | null;
-  id_sitio: string;
+  id_sitio: string | null;
   sitio_nombre: string | null;
   tipo_soporte: TipoSoporte | null;
   numero_soporte: string | null;
@@ -790,8 +1106,13 @@ export interface LineaIngresoMaterial {
   codigo_lote: string | null;
   fecha_vencimiento: string | null;
   observacion: string | null;
+  codigo_sena: string | null;
+  cantidad_solicitada: number | null;
+  cantidad_repartida: number;
+  repartos: { id_reparto: string; id_sitio: string; sitio_nombre: string; cantidad: number; fecha: string; registra_nombre: string | null }[];
   unidades: { id_item: string; placa_sena: string | null; codigo_sku: string | null; estado: string; id_sitio: string | null }[];
   lote: { id_lote: string; codigo_lote: string | null; cantidad_disponible: number; estado: string } | null;
+  lotes: { id_lote: string; codigo_lote: string | null; cantidad_disponible: number; estado: string; id_sitio: string | null }[];
 }
 /** Archivo que respalda el ingreso (foto o PDF de la factura, remisión…). */
 export interface SoporteIngreso {
@@ -803,9 +1124,27 @@ export interface SoporteIngreso {
   subido_por: string | null;
 }
 export type IngresoMaterialDetalle = IngresoMaterial & { lineas: LineaIngresoMaterial[]; soportes: SoporteIngreso[] };
+/** Área a la que puede llegar un formato GIL-F-014, con las bodegas a las que se reparte. */
+export interface AreaIngreso {
+  id_area: string;
+  nombre: string;
+  /** Solo su líder (o admin / permiso personal) reparte; el encargado de bodega registra y deja por repartir. */
+  puede_repartir: boolean;
+  bodegas: { id_sitio: string; nombre: string }[];
+}
+/** Parte de una línea del formato que va a una bodega del área. */
+export interface RepartoLineaDto {
+  id_sitio: string;
+  cantidad: number;
+  placas_sena?: string[];
+  codigo_lote?: string | null;
+}
 export interface LineaIngresoDto {
   id_producto: string;
   cantidad: number;
+  codigo_sena?: string | null;
+  cantidad_solicitada?: number | null;
+  reparto?: RepartoLineaDto[];
   valor_unitario?: number | null;
   placas_sena?: string[];
   codigo_lote?: string | null;
@@ -813,9 +1152,14 @@ export interface LineaIngresoDto {
   observacion?: string | null;
 }
 export interface RegistrarIngresoDto {
-  tipo_ingreso: TipoIngreso;
+  modalidad?: ModalidadIngreso;
+  tipo_ingreso?: TipoIngreso;
   id_proveedor?: string | null;
-  id_sitio: string;
+  id_sitio?: string;
+  id_area?: string;
+  id_coordinador?: string;
+  id_cuentadante?: string;
+  id_curso?: string;
   tipo_soporte?: TipoSoporte | null;
   numero_soporte?: string | null;
   fecha_soporte?: string | null;
@@ -989,6 +1333,14 @@ export class MaterialesApiService {
       this.http.get<Envelope<{ id_producto: string; stock_minimo: number }[]>>(`${BASE}/productos/minimos`, { params: { id_sitio: idSitio } }),
     );
   }
+  /** Mínimos propios de varias bodegas en un solo pedido (las bodegas virtuales `amb-…` el backend las ignora). */
+  minimosBodegas(idsSitio: string[]) {
+    return this.unwrap(
+      this.http.get<Envelope<{ id_sitio: string; id_producto: string; stock_minimo: number }[]>>(`${BASE}/productos/minimos/bodegas`, {
+        params: { ids: idsSitio.join(',') },
+      }),
+    );
+  }
   /** `stockMinimo = null` vuelve al mínimo de la ficha. */
   fijarMinimoBodega(idProducto: string, idSitio: string, stockMinimo: number | null) {
     return this.unwrap(
@@ -1006,6 +1358,122 @@ export class MaterialesApiService {
       this.http.get<Envelope<{ puede_gestionar: boolean }>>(`${BASE}/productos/catalogo/gestion`),
     );
     return !!r?.puede_gestionar;
+  }
+  // ── Salidas de material ──
+  listarSalidas(estado?: string) {
+    return this.unwrap(
+      this.http.get<Envelope<SalidaResumen[]>>(`${BASE}/materiales/salidas`, { params: estado ? { estado } : {} }),
+    );
+  }
+  bodegasSalida() {
+    return this.unwrap(this.http.get<Envelope<{ id_sitio: string; nombre: string; tipo: string | null }[]>>(`${BASE}/materiales/salidas/bodegas`));
+  }
+  opcionesSalida(idSitio: string) {
+    return this.unwrap(this.http.get<Envelope<OpcionesSalida>>(`${BASE}/materiales/salidas/opciones`, { params: { id_sitio: idSitio } }));
+  }
+  obtenerSalida(id: string) {
+    return this.unwrap(this.http.get<Envelope<SalidaDetalle>>(`${BASE}/materiales/salidas/${id}`));
+  }
+  crearSalida(dto: CrearSalidaDto) {
+    return this.unwrap(this.http.post<Envelope<SalidaDetalle>>(`${BASE}/materiales/salidas`, dto));
+  }
+  aprobarSalida(id: string) {
+    return this.unwrap(this.http.patch<Envelope<SalidaDetalle>>(`${BASE}/materiales/salidas/${id}/aprobar`, {}));
+  }
+  rechazarSalida(id: string, motivo: string) {
+    return this.unwrap(this.http.patch<Envelope<SalidaDetalle>>(`${BASE}/materiales/salidas/${id}/rechazar`, { motivo }));
+  }
+  cancelarSalida(id: string) {
+    return this.unwrap(this.http.patch<Envelope<SalidaDetalle>>(`${BASE}/materiales/salidas/${id}/cancelar`, {}));
+  }
+  /** Pone o cambia la foto de un material de consumo (solo quien pidió la salida, mientras está pendiente). */
+  subirFotoLineaSalida(id: string, idLinea: string, foto: Blob) {
+    const fd = new FormData();
+    fd.append('foto', foto, foto.type === 'image/png' ? 'foto.png' : 'foto.jpg');
+    return this.unwrap(this.http.put<Envelope<SalidaDetalle>>(`${BASE}/materiales/salidas/${id}/lineas/${idLinea}/foto`, fd));
+  }
+  /** Adjunta (o reemplaza) el documento ya diligenciado y firmado de una salida aprobada. */
+  subirDocumentoSalida(id: string, archivo: File) {
+    const fd = new FormData();
+    fd.append('documento', archivo, archivo.name);
+    return this.unwrap(this.http.put<Envelope<SalidaDetalle>>(`${BASE}/materiales/salidas/${id}/documento`, fd));
+  }
+  descargarDocumentoSalida(id: string): Promise<Blob> {
+    return firstValueFrom(this.http.get(`${BASE}/materiales/salidas/${id}/documento`, { responseType: 'blob' }));
+  }
+  /** Por HttpClient (blob): así viajan la sesión y la cabecera x-tenant. */
+  fotoLineaSalida(id: string, idLinea: string): Promise<Blob> {
+    return firstValueFrom(this.http.get(`${BASE}/materiales/salidas/${id}/lineas/${idLinea}/foto`, { responseType: 'blob' }));
+  }
+  registrarRegresoSalida(id: string) {
+    return this.unwrap(this.http.patch<Envelope<SalidaDetalle>>(`${BASE}/materiales/salidas/${id}/regreso`, {}));
+  }
+  datosPolizaSalida(id: string) {
+    return this.unwrap(
+      this.http.get<Envelope<{ config: ConfigSalida; salida: SalidaDetalle }>>(`${BASE}/materiales/salidas/${id}/poliza`),
+    );
+  }
+  obtenerConfigSalida() {
+    return this.unwrap(this.http.get<Envelope<ConfigSalida>>(`${BASE}/materiales/salidas/config`));
+  }
+  guardarConfigSalida(config: Partial<ConfigSalida>) {
+    return this.unwrap(this.http.put<Envelope<ConfigSalida>>(`${BASE}/materiales/salidas/config`, config));
+  }
+  /** Ingresos de devolutivos con su cuentadante. Solo administrador_erp y líderes de área (403 al resto). */
+  listarIngresosCuentadante() {
+    return this.unwrap(this.http.get<Envelope<IngresoDevolutivo[]>>(`${BASE}/materiales/cuentadante/ingresos`));
+  }
+  /** Asigna el cuentadante a todas las unidades de un ingreso. */
+  asignarCuentadante(idIngreso: string, idCuentadante: string, motivo?: string) {
+    return this.unwrap(
+      this.http.put<Envelope<{ actualizados: number; sin_placa: number }>>(`${BASE}/materiales/cuentadante/ingresos/${idIngreso}`, {
+        id_cuentadante: idCuentadante,
+        motivo: motivo?.trim() || undefined,
+      }),
+    );
+  }
+  historialCuentadante(idIngreso: string) {
+    return this.unwrap(
+      this.http.get<Envelope<HistorialCuentadante[]>>(`${BASE}/materiales/cuentadante/ingresos/${idIngreso}/historial`),
+    );
+  }
+  /** "Mis bienes a cargo": ítems de los que soy cuentadante. */
+  misBienesACargo() {
+    return this.unwrap(this.http.get<Envelope<BienACargo[]>>(`${BASE}/materiales/cuentadante/mis-bienes`));
+  }
+  /** Material anterior al módulo (sin ingreso), por ficha y bodega. Solo gestores. */
+  listarSinIngresoCuentadante() {
+    return this.unwrap(this.http.get<Envelope<GrupoSinIngreso[]>>(`${BASE}/materiales/cuentadante/sin-ingreso`));
+  }
+  unidadesSinIngresoCuentadante(idProducto: string, idSitio: string | null) {
+    return this.unwrap(
+      this.http.get<Envelope<UnidadSinIngreso[]>>(`${BASE}/materiales/cuentadante/sin-ingreso/unidades`, {
+        params: { id_producto: idProducto, ...(idSitio ? { id_sitio: idSitio } : {}) },
+      }),
+    );
+  }
+  /** Asigna el cuentadante a unidades puntuales. */
+  asignarCuentadanteItems(idsItem: string[], idCuentadante: string, motivo?: string) {
+    return this.unwrap(
+      this.http.put<Envelope<{ actualizados: number }>>(`${BASE}/materiales/cuentadante/items`, {
+        ids_item: idsItem,
+        id_cuentadante: idCuentadante,
+        motivo: motivo?.trim() || undefined,
+      }),
+    );
+  }
+  /** Mis bienes con nombre/cédula/cargo, para el inventario de fin de año. */
+  miInventarioCuentadante() {
+    return this.unwrap(this.http.get<Envelope<InventarioCuentadante>>(`${BASE}/materiales/cuentadante/mi-inventario`));
+  }
+  /** Resumen por cuentadante. Solo administrador_erp y líderes de área. */
+  listarCuentadantes() {
+    return this.unwrap(this.http.get<Envelope<ResumenCuentadante[]>>(`${BASE}/materiales/cuentadante/cuentadantes`));
+  }
+  inventarioDeCuentadante(idUsuario: string) {
+    return this.unwrap(
+      this.http.get<Envelope<InventarioCuentadante>>(`${BASE}/materiales/cuentadante/cuentadantes/${idUsuario}/inventario`),
+    );
   }
   /** La bodega declara cuántas unidades tiene de una ficha: DEVOLUTIVO → ítems, CONSUMO/PERECEDERO → lote. */
   agregarExistencias(idProducto: string, dto: AgregarExistenciasDto) {
@@ -1090,6 +1558,10 @@ export class MaterialesApiService {
   eliminarLote(id: string) {
     return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/lotes/${id}`));
   }
+  /** Deja el lote en 0 (DADO_DE_BAJA) con su motivo, sin borrar su historia. */
+  darDeBajaLote(id: string, motivo: string) {
+    return this.unwrap(this.http.patch<Envelope<Lote>>(`${BASE}/lotes/${id}/baja`, { motivo }));
+  }
 
   // ── Items ──────────────────────────────────────────────────────────
   listarItems(idProducto?: string) {
@@ -1105,6 +1577,22 @@ export class MaterialesApiService {
   }
   actualizarItem(id: string, dto: UpdateItemDto) {
     return this.unwrap(this.http.patch<Envelope<Item>>(`${BASE}/items/${id}`, dto));
+  }
+  /** Campos de características técnicas por plantilla (los define el backend). */
+  plantillasCaracteristicas() {
+    return this.unwrap(this.http.get<Envelope<Record<string, PlantillaCaracteristicas>>>(`${BASE}/items/caracteristicas/plantillas`));
+  }
+  actualizarCaracteristicasItem(id: string, caracteristicas: Record<string, string>, motivo?: string) {
+    return this.unwrap(this.http.patch<Envelope<Item>>(`${BASE}/items/${id}/caracteristicas`, { caracteristicas, motivo }));
+  }
+  actualizarCaracteristicasLote(id: string, caracteristicas: Record<string, string>) {
+    return this.unwrap(this.http.patch<Envelope<Lote>>(`${BASE}/lotes/${id}/caracteristicas`, { caracteristicas }));
+  }
+  sugerenciasCaracteristicas(idProducto: string) {
+    return this.unwrap(this.http.get<Envelope<SugerenciasCaracteristicas>>(`${BASE}/productos/${idProducto}/caracteristicas/sugerencias`));
+  }
+  historialCaracteristicasItem(id: string) {
+    return this.unwrap(this.http.get<Envelope<RegistroCaracteristicas[]>>(`${BASE}/items/${id}/caracteristicas/historial`));
   }
   actualizarEstadoItem(id: string, estado: EstadoItem) {
     return this.unwrap(this.http.patch<Envelope<Item>>(`${BASE}/items/${id}/estado`, { estado }));
@@ -1290,6 +1778,12 @@ export class MaterialesApiService {
   crearAsignacion(dto: CreateAsignacionDto) {
     return this.unwrap(this.http.post<Envelope<Asignacion>>(`${BASE}/materiales/asignaciones`, dto));
   }
+  opcionesConsumoAsignacion() {
+    return this.unwrap(this.http.get<Envelope<OpcionConsumo[]>>(`${BASE}/materiales/asignaciones/opciones/consumo`));
+  }
+  reintegrarConsumo(id: string, dto: { lineas: { id_asignacion_consumo: string; cantidad: number }[]; observacion?: string }) {
+    return this.unwrap(this.http.post<Envelope<Asignacion>>(`${BASE}/materiales/asignaciones/${id}/reintegro`, dto));
+  }
   anularAsignacion(id: string) {
     return this.unwrap(this.http.patch<Envelope<Asignacion>>(`${BASE}/materiales/asignaciones/${id}/anular`, {}));
   }
@@ -1339,6 +1833,21 @@ export class MaterialesApiService {
   }
   actualizarProveedor(id: string, dto: ProveedorDto) {
     return this.unwrap(this.http.patch<Envelope<Proveedor>>(`${BASE}/materiales/proveedores/${id}`, dto));
+  }
+  /** ¿Puede registrar llegadas de material y a qué bodegas? No responde 403 a quien no puede. */
+  accesoIngresos() {
+    return this.unwrap(
+      this.http.get<Envelope<{ puede: boolean; pleno: boolean; bodegas: Sitio[]; areas: AreaIngreso[] }>>(`${BASE}/materiales/ingresos/acceso`),
+    );
+  }
+  /** Formato GIL-F-014: reparte lo que llegó a las bodegas del área. */
+  repartirIngreso(id: string, repartos: (RepartoLineaDto & { id_linea: string })[], idCuentadante?: string | null) {
+    return this.unwrap(
+      this.http.post<Envelope<IngresoMaterialDetalle>>(`${BASE}/materiales/ingresos/${id}/reparto`, {
+        repartos,
+        ...(idCuentadante ? { id_cuentadante: idCuentadante } : {}),
+      }),
+    );
   }
   listarIngresos() {
     return this.unwrap(this.http.get<Envelope<IngresoMaterial[]>>(`${BASE}/materiales/ingresos`));

@@ -51,7 +51,7 @@ type Vista = 'cargando' | 'formulario' | 'error' | 'ya-respondida';
 
         @if (vista() === 'formulario' && formulario()) {
           <div data-anim="cabecera" class="mb-5">
-            <h1 class="text-lg font-bold text-gray-900">Encuesta de satisfacción</h1>
+            <h1 class="text-lg font-bold text-gray-900">Encuesta de Satisfacción</h1>
             <p class="text-sm text-gray-500 mt-1">
               Ficha {{ formulario()!.numeroFicha }} — Instructor {{ formulario()!.instructorNombre }}
             </p>

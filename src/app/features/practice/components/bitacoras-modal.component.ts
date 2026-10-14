@@ -11,6 +11,7 @@ import { NotificacionService } from '../../../core/services/notificacion.service
 import { ToastService } from '../../../core/services/toast.service';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
 import { log } from '../../../core/utils/log';
+import { ACCEPT_DOCUMENTOS, problemaDocumento } from '../../../shared/utils/archivos-permitidos';
 
 /**
  * Equivalente a ModalBitacoras.tsx + BitacorasCard.tsx de React.
@@ -22,7 +23,7 @@ import { log } from '../../../core/utils/log';
   imports: [DialogDirective, FormsModule, PdfViewerModule, DecimalPipe],
   template: `
     <!-- Input oculto FUERA de cualquier bloque @if — accesible via ViewChild -->
-    <input #pdfInput type="file" accept="application/pdf" style="display:none"
+    <input #pdfInput type="file" [accept]="acceptDocumentos" style="display:none"
       (change)="onPdfFileChange($event)" />
 
     @if (isOpen && alumno) {
@@ -153,7 +154,7 @@ import { log } from '../../../core/utils/log';
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                             </svg>
-                            <span>Subir PDF</span>
+                            <span>Subir documento</span>
                           } @else {
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -359,6 +360,7 @@ export class BitacorasModalComponent implements OnChanges, OnInit {
   uploadingId          = signal<string | null>(null);
   uploadError          = signal('');
   private pendingUploadItem: any = null;
+  readonly acceptDocumentos = ACCEPT_DOCUMENTOS;
 
   constructor(
     private seguimientoSvc: SeguimientoService,
@@ -476,6 +478,11 @@ onDocumentClick(): void {
     try {
       const blob = await this.seguimientoSvc.descargarArchivo('bitacoras', item.bitacora_pdf);
       this.pdfBlob.set(blob);
+      // Word/Excel no se previsualizan: se ofrece "Descargar" (pdfBlob ya está).
+      if (!/\.pdf$/i.test(item.bitacora_pdf)) {
+        this.pdfError.set('Este documento es Word o Excel: no se puede previsualizar. Usa "Descargar".');
+        return;
+      }
       this.pdfData.set(new Uint8Array(await blob.arrayBuffer()));
     } catch {
       this.pdfError.set('No se pudo cargar el PDF.');
@@ -588,6 +595,14 @@ toggleDropdown(item: any, event: MouseEvent): void {
   async onPdfFileChange(event: Event): Promise<void> {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (!file || !this.pendingUploadItem) return;
+    // Mismo criterio que el backend (politica-archivos.ts): mensaje claro
+    // antes de subir en vez de un 400 genérico.
+    const problema = problemaDocumento(file);
+    if (problema) {
+      this.toast.error('Archivo no permitido', problema);
+      this.pendingUploadItem = null;
+      return;
+    }
     const item = this.pendingUploadItem;
     const id   = item.id ?? item.id_bitacora;
     this.uploadingId.set(id);
@@ -615,7 +630,7 @@ toggleDropdown(item: any, event: MouseEvent): void {
     } catch (e: any) {
       // Antes sin toast (auditoría 2026-09-16) — mismo problema que
       // cambiarEstado() de arriba, ahora también avisa con un toast.
-      this.toast.httpError(e, 'No se pudo subir el PDF de la bitácora.');
+      this.toast.httpError(e, 'No se pudo subir el documento de la bitácora.');
       await this.cargarBitacoras();
     } finally {
       this.uploadingId.set(null);

@@ -4,33 +4,50 @@ import { Router } from '@angular/router';
 import { Observable, firstValueFrom, tap } from 'rxjs';
 import { AdminAuthUser, AdminLoginRequest, AdminLoginResponse } from './admin-auth.model';
 
-const TOKEN_KEY = 'tenant_admin_token';
+/**
+ * Marcador de sesión del panel root: solo id, correo y vencimiento, para
+ * saber qué mostrar sin pedirle nada al backend. El token NO se guarda acá
+ * (plan de seguridad 2026-10, H10): vive en la cookie httpOnly `root_token`
+ * que pone el backend, y que ningún script de la página puede leer — antes
+ * estaba en localStorage, al alcance de cualquier XSS del mismo origen.
+ */
+export const SESION_ADMIN_KEY = 'tenant_admin_sesion';
+/** Clave vieja (token en claro). Se borra al iniciar por si quedó de antes. */
+const TOKEN_VIEJO_KEY = 'tenant_admin_token';
+
+interface SesionAdmin extends AdminAuthUser {
+  expiraEn: number;
+}
 
 @Injectable({ providedIn: 'root' })
 export class AdminAuthService {
-  private readonly tokenSignal = signal<string | null>(this.leerToken());
-  private readonly userSignal = signal<AdminAuthUser | null>(this.decodificarUsuario(this.leerToken()));
+  private readonly sesionSignal = signal<SesionAdmin | null>(this.leerSesion());
 
-  readonly isAuthenticated = computed(() => !!this.tokenSignal());
-  readonly currentUser = computed(() => this.userSignal());
+  readonly isAuthenticated = computed(() => {
+    const s = this.sesionSignal();
+    return !!s && s.expiraEn > Date.now();
+  });
+  readonly currentUser = computed<AdminAuthUser | null>(() => {
+    const s = this.sesionSignal();
+    return s ? { id: s.id, correo: s.correo } : null;
+  });
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(private http: HttpClient, private router: Router) {
+    localStorage.removeItem(TOKEN_VIEJO_KEY);
+  }
 
   login(credenciales: AdminLoginRequest): Observable<AdminLoginResponse> {
     return this.http
-      .post<AdminLoginResponse>('/api/admin/auth/login', credenciales)
+      .post<AdminLoginResponse>('/api/admin/auth/login', credenciales, { withCredentials: true })
       .pipe(tap((resp) => this.guardarSesion(resp)));
   }
 
   logout(): void {
-    localStorage.removeItem(TOKEN_KEY);
-    this.tokenSignal.set(null);
-    this.userSignal.set(null);
+    // La cookie es httpOnly: solo el backend puede borrarla.
+    this.http.post('/api/admin/auth/logout', {}, { withCredentials: true }).subscribe({ error: () => undefined });
+    localStorage.removeItem(SESION_ADMIN_KEY);
+    this.sesionSignal.set(null);
     this.router.navigate(['/login']);
-  }
-
-  getToken(): string | null {
-    return this.tokenSignal();
   }
 
   // El id sale del propio token (req.rootUser.sub en el backend) — nunca se
@@ -46,20 +63,15 @@ export class AdminAuthService {
   }
 
   private guardarSesion(resp: AdminLoginResponse): void {
-    localStorage.setItem(TOKEN_KEY, resp.token);
-    this.tokenSignal.set(resp.token);
-    this.userSignal.set(this.decodificarUsuario(resp.token));
+    const sesion: SesionAdmin = { id: resp.id, correo: resp.correo, expiraEn: resp.expiraEn };
+    localStorage.setItem(SESION_ADMIN_KEY, JSON.stringify(sesion));
+    this.sesionSignal.set(sesion);
   }
 
-  private leerToken(): string | null {
-    return localStorage.getItem(TOKEN_KEY);
-  }
-
-  private decodificarUsuario(token: string | null): AdminAuthUser | null {
-    if (!token) return null;
+  private leerSesion(): SesionAdmin | null {
     try {
-      const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-      return { id: payload.sub, correo: payload.correo };
+      const s = JSON.parse(localStorage.getItem(SESION_ADMIN_KEY) ?? 'null') as SesionAdmin | null;
+      return s && typeof s.expiraEn === 'number' && s.expiraEn > Date.now() ? s : null;
     } catch {
       return null;
     }

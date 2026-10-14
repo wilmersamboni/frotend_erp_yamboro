@@ -21,13 +21,10 @@ function resolveTenant(): string | null {
 }
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  // Rutas del panel admin → Bearer token
+  // Rutas del panel admin → cookie httpOnly `root_token` (H10). Antes iba un
+  // Bearer leído de localStorage, al alcance de cualquier script de la página.
   if (req.url.includes('/admin/')) {
-    const token = localStorage.getItem('tenant_admin_token');
-    if (token) {
-      return next(req.clone({ setHeaders: { Authorization: `Bearer ${token}` } }));
-    }
-    return next(req);
+    return next(req.clone({ withCredentials: true }));
   }
 
   // Rutas del ERP principal → x-tenant header + cookie de sesión

@@ -82,7 +82,7 @@ type FilaRevision = FilaImportacion & { id_categoria: string; id_sitio: string }
 
         <div class="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-5">
           <div class="min-w-0">
-            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Importar productos</h1>
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Importar Productos</h1>
             <p class="text-sm text-gray-500 mt-1">
               Carga masiva desde Excel o CSV. Siempre revisás un resumen antes de que se registre nada.
             </p>

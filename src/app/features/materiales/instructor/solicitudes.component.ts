@@ -35,7 +35,10 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
 import { PageSizeSelectComponent } from '../../../shared/components/page-size-select.component';
 import { TableFilterComponent } from '../../../shared/components/table-filter.component';
 import { CargasSecundarias } from '../data-access/cargas-secundarias';
+import { BodegasInactivasAvisoComponent, BodegasInactivasEtiquetaComponent } from '../ui/bodegas-inactivas.component';
 import { AvisoCargasComponent } from '../ui/aviso-cargas.component';
+import { AvisoVenceAntesComponent, LoteSugerido } from '../ui/aviso-vence-antes.component';
+import { LoteVencimiento, compararVencimiento, idsVencenPrimero, loteQueVenceAntes, sufijoVencimiento } from '../lotes-vencimiento.util';
 
 /**
  * Línea del modal "Nueva solicitud" — `p:<id_producto>@<id_sitio>` producto
@@ -66,14 +69,17 @@ interface LineaForm {
 @Component({
   selector: 'app-materiales-solicitudes-usuario',
   standalone: true,
-  imports: [AvisoCargasComponent, EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent, TableFilterComponent],
+  imports: [AvisoVenceAntesComponent, BodegasInactivasEtiquetaComponent, BodegasInactivasAvisoComponent, AvisoCargasComponent, EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent, TableFilterComponent],
   template: `
     <div class="p-4 sm:p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
         <span>Materiales</span><span aria-hidden="true">/</span><span>Operación</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Solicitudes</span>
       </nav>
       <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
-        <h1 class="text-xl font-bold text-gray-800">{{ esInstructor || esAdmin ? 'Pedidos y préstamos' : 'Mis pedidos' }}<span class="block text-xs font-normal text-gray-400">antes «Solicitudes»</span></h1>
+        <div class="flex flex-wrap items-center gap-3">
+          <h1 class="text-xl font-bold text-gray-800">{{ esInstructor || esAdmin ? 'Pedidos y Préstamos' : 'Mis Pedidos' }}<span class="block text-xs font-normal text-gray-400">antes «Solicitudes»</span></h1>
+          <app-bodegas-inactivas-etiqueta [bodegas]="bodegasInactivas()" [abierto]="avisoBodegasAbierto()" (alternar)="avisoBodegasAbierto.set(!avisoBodegasAbierto())" />
+        </div>
         <button (click)="nuevo()"
           class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
           style="background-color: var(--accent-brand)">
@@ -83,12 +89,7 @@ interface LineaForm {
 
       <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
 
-      @if (bodegasInactivas().length > 0) {
-        <app-alert class="mb-4" variante="advertencia" [titulo]="bodegasInactivas().length === 1 ? 'Bodega inactiva' : 'Bodegas inactivas'">
-          <strong>{{ bodegasInactivas().map(s => s.nombre).join(', ') }}</strong>
-          — no se pueden gestionar sus productos, ítems, lotes, solicitudes ni traslados mientras estén así.
-        </app-alert>
-      }
+      <app-bodegas-inactivas-aviso [bodegas]="bodegasInactivas()" [abierto]="avisoBodegasAbierto()" />
 
       @if (datosGuardadosDe) {
         <app-alert class="mb-4" variante="advertencia" titulo="Sin conexión">
@@ -300,7 +301,7 @@ interface LineaForm {
                   <div class="mt-2">
                     <app-ss [options]="opcionesFicha" placeholder="— Selecciona la ficha —"
                       [(ngModel)]="idCursoSeleccionado"></app-ss>
-                    <p class="text-xs text-gray-400 mt-1">Al entregarse, el material queda asignado a esta ficha (no a vos) — se devuelve desde Asignaciones, no desde Devoluciones.</p>
+                    <p class="text-xs text-gray-400 mt-1">Al entregarse, todo queda registrado en Entregas a fichas a nombre de esta ficha (no a tu nombre). Los equipos se devuelven desde ahí; el material de consumo no se devuelve, solo se puede reintegrar lo que sobre.</p>
                   </div>
                 }
               </div>
@@ -346,6 +347,9 @@ interface LineaForm {
                             [class.text-gray-400]="disponibleDe(linea) >= linea.cantidad">
                             {{ disponibleDe(linea) }} disponible(s){{ disponibleDe(linea) < linea.cantidad ? ' — cantidad excede el stock' : '' }}
                           </p>
+                          @if (linea.ref.startsWith('l:')) {
+                            <app-aviso-vence-antes [sugerido]="loteSugerido(linea)" [fechaElegido]="vencimientoDe(linea)" (usar)="usarLoteSugerido(linea)" />
+                          }
                         }
                       </div>
                       <input type="number" [(ngModel)]="linea.cantidad" min="1"
@@ -772,6 +776,9 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
 
   /** Banner general de la pantalla — lista todas las bodegas inactivas del
    *  tenant, no solo la de una fila puntual (ver plan 2026-09-18). */
+  /** El aviso de bodegas inactivas se abre/cierra desde la etiqueta junto al título. */
+  readonly avisoBodegasAbierto = signal(false);
+
   bodegasInactivas(): Sitio[] {
     return this.sitios.filter((s) => !s.estado);
   }
@@ -878,14 +885,56 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
       // Con paso "Bodega" la bodega ya está elegida arriba; sin él, va en el label.
       label: `${o.nombre}${o.marca ? ' · ' + o.marca : ''}${this.pasoBodega ? '' : ' — ' + o.sitio_nombre} (${o.disponibles} disp.)`,
     }));
-    const lotes = this.lotesDeBodega().map((l) => ({
-      ref: `l:${l.id_lote}`,
-      sitio: this.parseRef(`l:${l.id_lote}`).sitio,
-      // La cantidad SIEMPRE con su unidad — un "250" pelado no dice si son
-      // kg, litros o unidades (reporte QA 2026-09-11).
-      label: `${l.producto?.nombre ?? 'Lote'}${l.codigo_lote ? ' · ' + l.codigo_lote : ''} (lote, ${l.cantidad_disponible} ${(l.producto?.unidad_medida ?? l.unidad_medida ?? '').toLowerCase() || 'und'})`,
-    }));
+    // Lotes de un mismo producto ordenados por vencimiento, y el que vence primero marcado (2026-10-09).
+    const primeros = idsVencenPrimero(this.lotesVencimiento());
+    const lotes = [...this.lotesDeBodega()]
+      .sort((a, b) => (a.producto?.nombre ?? '').localeCompare(b.producto?.nombre ?? '') || compararVencimiento(a.fecha_vencimiento, b.fecha_vencimiento))
+      .map((l) => ({
+        ref: `l:${l.id_lote}`,
+        sitio: this.parseRef(`l:${l.id_lote}`).sitio,
+        // La cantidad SIEMPRE con su unidad — un "250" pelado no dice si son
+        // kg, litros o unidades (reporte QA 2026-09-11).
+        label: `${l.producto?.nombre ?? 'Lote'}${l.codigo_lote ? ' · ' + l.codigo_lote : ''} (lote, ${l.cantidad_disponible} ${(l.producto?.unidad_medida ?? l.unidad_medida ?? '').toLowerCase() || 'und'})${sufijoVencimiento(l.fecha_vencimiento, primeros.has(l.id_lote))}`,
+      }));
     return [...prods, ...lotes];
+  }
+
+  private lotesVencimiento(): LoteVencimiento[] {
+    return this.lotesDeBodega().map((l) => ({
+      id: l.id_lote,
+      id_producto: l.id_producto,
+      id_sitio: l.id_sitio ?? null,
+      fecha_vencimiento: l.fecha_vencimiento ?? null,
+      libres: l.cantidad_disponible - (l.cantidad_reservada ?? 0),
+    }));
+  }
+
+  /** Otro lote del mismo producto que vence antes que el de esta línea (y no está en otra línea), o null. */
+  loteSugerido(linea: LineaForm): LoteSugerido | null {
+    const r = this.parseRef(linea.ref);
+    if (r.tipo !== 'l') return null;
+    const enOtras = this.lineas.filter((l) => l !== linea && l.ref.startsWith('l:')).map((l) => l.ref.slice(2));
+    const s = loteQueVenceAntes(r.id, this.lotesVencimiento(), enOtras);
+    if (!s) return null;
+    const lote = this.lotes.find((l) => l.id_lote === s.id);
+    return {
+      codigo: lote?.codigo_lote ?? null,
+      fecha_vencimiento: s.fecha_vencimiento,
+      libres: s.libres,
+      unidad: lote?.producto?.unidad_medida ?? lote?.unidad_medida ?? null,
+    };
+  }
+
+  vencimientoDe(linea: LineaForm): string | null {
+    const r = this.parseRef(linea.ref);
+    return r.tipo === 'l' ? this.lotes.find((l) => l.id_lote === r.id)?.fecha_vencimiento ?? null : null;
+  }
+
+  usarLoteSugerido(linea: LineaForm): void {
+    const r = this.parseRef(linea.ref);
+    const enOtras = this.lineas.filter((l) => l !== linea && l.ref.startsWith('l:')).map((l) => l.ref.slice(2));
+    const s = loteQueVenceAntes(r.id, this.lotesVencimiento(), enOtras);
+    if (s) linea.ref = `l:${s.id}`;
   }
 
   opcionesDisponibles(): { ref: string; label: string }[] {

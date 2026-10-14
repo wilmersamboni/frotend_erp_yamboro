@@ -127,7 +127,7 @@ const ACCION_VISUAL: Record<string, { icono: string; bg: string; fg: string }> =
       <!-- Encabezado -->
       <header class="rg-head">
         <div>
-          <h1 class="dash-title">Resumen general</h1>
+          <h1 class="dash-title">Resumen General</h1>
           <p class="rg-sub"><b>{{ hoyTexto }}</b> · cómo están los centros y qué se ha hecho en este panel</p>
         </div>
         <div class="rg-acciones">

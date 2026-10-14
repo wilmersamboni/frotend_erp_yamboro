@@ -231,7 +231,10 @@ import { log } from '../../../core/utils/log';
             @if (admin.activeTab() === 'roles' && rolSeleccionado()) {
               <app-permisos-panel modo="rol" [rolFila]="rolSeleccionado()" />
             }
-            @if (admin.activeTab() === 'usuarios' && usuarioSeleccionado()) {
+            <!-- Solo con permisos.gestionar: desde la decisión 1.10 del plan de
+                 seguridad 2026-10 el rol 'administrador' ya no lo tiene (solo
+                 administrador_erp), y sin él el panel respondería 403. -->
+            @if (admin.activeTab() === 'usuarios' && usuarioSeleccionado() && auth.tieneServicio('permisos.gestionar')) {
               <app-permisos-panel modo="usuario" [usuarioFila]="usuarioSeleccionado()" />
             }
 

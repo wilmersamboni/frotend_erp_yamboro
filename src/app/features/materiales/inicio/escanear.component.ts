@@ -96,7 +96,7 @@ interface Reciente {
             <lucide-icon [img]="i.ScanLine" [size]="30"></lucide-icon>
           </span>
           <div>
-            <h1 class="text-2xl font-bold text-gray-900">Escanear placa</h1>
+            <h1 class="text-2xl font-bold text-gray-900">Escanear Placa</h1>
             <p class="text-sm text-gray-600">Apunta la cámara a la placa SENA y te decimos qué es y qué puedes hacer con él.</p>
           </div>
         </div>

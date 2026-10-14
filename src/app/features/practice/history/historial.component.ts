@@ -32,7 +32,7 @@ type Estado = 'idle' | 'loading' | 'success' | 'error';
           <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l2.5 2.5M3.05 11a9 9 0 1 1 .5 4M3 4v5h5"/></svg>
         </span>
         <p class="text-[11px] font-bold uppercase tracking-[0.16em] mb-1" style="color: var(--accent-text);">Consulta académica</p>
-        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Historial del aprendiz</h1>
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Historial del Aprendiz</h1>
         <p class="text-sm text-gray-500 mt-1.5 max-w-lg mx-auto">
           Busca por nombre o cédula para ver en un solo lugar sus matrículas, etapa práctica, bitácoras y observaciones.
         </p>

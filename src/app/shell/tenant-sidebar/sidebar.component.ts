@@ -30,6 +30,8 @@ interface NavLink  {
   /** Solo para quien gestiona Materiales: admin, encargado de ≥1 bodega o
    * líder de área (mismo criterio que `gestorMaterialesGuard`). */
   soloGestorMateriales?: boolean;
+  /** Solo para quien registra llegadas/proveedores (mismo criterio que `gestorIngresosGuard`). */
+  soloGestorIngresos?: boolean;
   /** Servicio del sistema de permisos dinámico que también habilita este link,
    * aunque el cargo no esté en `roles` (ver AuthService.tieneServicio). OR con
    * `roles` — pensado para poblaciones DISTINTAS (ej. `roles` = admin,
@@ -71,6 +73,8 @@ const ICONOS_MATERIALES: Record<string, string> = {
   'vencimientos': `<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
   'existencias': `<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>`,
   'items': `<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375C2.754 3.75 2.25 4.254 2.25 4.875v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>`,
+  'salidas': `<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>`,
+  'cuentadante': `<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z"/></svg>`,
   'lotes': `<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3zM6 6h.008v.008H6V6z"/></svg>`,
   'productos': `<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`,
   'bodegas': `<svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21"/></svg>`,
@@ -289,6 +293,8 @@ export class SidebarComponent implements OnChanges, OnInit {
   esResponsableBodega = signal(false);
   /** ¿Puede alimentar el catálogo (administrador_erp o líder de área)? Gate del Reporte de materiales. */
   esGestorCatalogo = signal(false);
+  /** ¿Registra llegadas de material y proveedores? Gate de esas dos pantallas. */
+  esGestorIngresos = signal(false);
 
   ngOnInit(): void {
     this.materialesApi
@@ -299,6 +305,10 @@ export class SidebarComponent implements OnChanges, OnInit {
       .puedeGestionarCatalogo?.()
       .then((puede) => this.esGestorCatalogo.set(puede))
       .catch(() => this.esGestorCatalogo.set(false));
+    this.materialesApi
+      .accesoIngresos?.()
+      .then((r) => this.esGestorIngresos.set(!!r?.puede))
+      .catch(() => this.esGestorIngresos.set(false));
   }
 
   @Input() open = false;
@@ -532,6 +542,8 @@ export class SidebarComponent implements OnChanges, OnInit {
         return { ...base, soloResponsableBodega: true };
       case 'gestor':
         return { ...base, servicios: [p.acceso.servicio], soloGestorMateriales: true };
+      case 'ingresos':
+        return { ...base, soloGestorIngresos: true };
       case 'cualquiera':
         return { ...base, servicios: p.acceso.servicios };
     }
@@ -601,6 +613,7 @@ export class SidebarComponent implements OnChanges, OnInit {
           if (l.soloResponsableBodega && (this.auth.isAdmin() || !this.esResponsableBodega())) return false;
           if (l.ocultarSiResponsableBodega && !this.auth.isAdmin() && this.esResponsableBodega()) return false;
           if (l.soloGestorMateriales && !this.auth.isAdmin() && !this.esResponsableBodega() && !this.esGestorCatalogo()) return false;
+          if (l.soloGestorIngresos && !this.esGestorIngresos()) return false;
           return true;
         }),
       }))

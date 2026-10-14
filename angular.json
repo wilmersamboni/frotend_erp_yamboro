@@ -42,6 +42,7 @@
               "raf",
               "rgbcolor",
               "exceljs",
+              "jszip",
               "lottie-web",
               "leaflet",
               "html2canvas"

@@ -78,7 +78,7 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
       </nav>
       <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
         <div class="flex flex-wrap items-center gap-2">
-          <h1 class="text-xl font-bold text-gray-800">Daños y problemas<span class="block text-xs font-normal text-gray-400">antes «Novedades»</span></h1>
+          <h1 class="text-xl font-bold text-gray-800">Daños y Problemas<span class="block text-xs font-normal text-gray-400">antes «Novedades»</span></h1>
           @if (idItemFiltro) {
             <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#39A900]/10 text-[#2d8000] border border-[#39A900]/20">
               Filtrando por ítem
