@@ -167,6 +167,13 @@
 }
 .btn-primary:hover:not(:disabled) { opacity: .88; }
 .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+.btn-secondary {
+  padding: 10px 18px; background: transparent; color: var(--accent-brand);
+  border: 1px solid var(--accent-brand); border-radius: 10px; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: opacity .15s; white-space: nowrap;
+}
+.btn-secondary:hover:not(:disabled) { opacity: .8; }
+.btn-secondary:disabled { opacity: .5; cursor: not-allowed; }
 
 .btn-danger {
   padding: 10px 24px; background: var(--err-bg); color: var(--err-text);

@@ -158,7 +158,35 @@ interface MiAcceso {
                   </div>
                   <div class="form-field">
                     <label>Correo electrónico</label>
-                    <input type="email" [(ngModel)]="perfil.correo" placeholder="correo@ejemplo.com" />
+                    <!-- El correo se cambia con verificación (H21): es la llave de "recuperar contraseña". -->
+                    <div style="display:flex;gap:8px;align-items:center">
+                      <input type="email" [value]="perfil.correo" disabled class="disabled" placeholder="Sin correo" style="flex:1" />
+                      @if (!cambioCorreo.abierto) {
+                        <button type="button" class="btn-secondary" (click)="abrirCambioCorreo()">Cambiar</button>
+                      }
+                    </div>
+                    @if (cambioCorreo.abierto) {
+                      <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+                        @if (!cambioCorreo.codigoEnviado) {
+                          <input type="email" [(ngModel)]="cambioCorreo.nuevo" placeholder="nuevo-correo@ejemplo.com" />
+                          <div style="display:flex;gap:8px">
+                            <button type="button" class="btn-primary" (click)="enviarCodigoCorreo()" [disabled]="cambioCorreo.enviando || !cambioCorreo.nuevo.trim()">
+                              {{ cambioCorreo.enviando ? 'Enviando…' : 'Enviar código' }}
+                            </button>
+                            <button type="button" class="btn-secondary" (click)="cerrarCambioCorreo()">Cancelar</button>
+                          </div>
+                        } @else {
+                          <small>Escribe el código de 6 dígitos que enviamos a <strong>{{ cambioCorreo.nuevo }}</strong>.</small>
+                          <input type="text" inputmode="numeric" maxlength="6" [(ngModel)]="cambioCorreo.codigo" placeholder="000000" />
+                          <div style="display:flex;gap:8px">
+                            <button type="button" class="btn-primary" (click)="confirmarCambioCorreo()" [disabled]="cambioCorreo.enviando || cambioCorreo.codigo.length !== 6">
+                              {{ cambioCorreo.enviando ? 'Confirmando…' : 'Confirmar' }}
+                            </button>
+                            <button type="button" class="btn-secondary" (click)="cerrarCambioCorreo()">Cancelar</button>
+                          </div>
+                        }
+                      </div>
+                    }
                   </div>
                   <div class="form-field">
                     <label>Teléfono</label>
@@ -642,9 +670,9 @@ perfil: {
       // mismo motivo que antes para no mandar el objeto completo (TOCTOU,
       // auditoría 2026-09-16): el backend mergea parcial.
       await firstValueFrom(
+        // Sin `correo`: se cambia aparte, con verificación (H21).
         this.http.patch(`/api/personas/mi-perfil`, {
           nombre:    this.perfil.nombre,
-          correo:    this.perfil.correo,
           telefono:  this.perfil.telefono,
           direccion: this.perfil.direccion,
         })
@@ -655,6 +683,51 @@ perfil: {
     } catch (e: any) {
       this.toast.httpError(e, 'Error al guardar el perfil.');
     } finally { this.saving.set(false); }
+  }
+
+  // ── Cambio de correo con verificación (plan de seguridad 2026-10, H21) ──
+  cambioCorreo = { abierto: false, nuevo: '', codigoEnviado: false, codigo: '', enviando: false };
+
+  abrirCambioCorreo(): void {
+    this.cambioCorreo = { abierto: true, nuevo: '', codigoEnviado: false, codigo: '', enviando: false };
+  }
+
+  cerrarCambioCorreo(): void {
+    this.cambioCorreo = { abierto: false, nuevo: '', codigoEnviado: false, codigo: '', enviando: false };
+  }
+
+  async enviarCodigoCorreo(): Promise<void> {
+    this.cambioCorreo.enviando = true;
+    try {
+      const r: any = await firstValueFrom(
+        this.http.post('/api/personas/mi-perfil/correo/solicitar', { correo: this.cambioCorreo.nuevo.trim() }),
+      );
+      this.cambioCorreo.codigoEnviado = true;
+      this.toast.ok('Código enviado', r?.mensaje ?? 'Revisa tu nuevo correo.');
+    } catch (e: any) {
+      this.toast.httpError(e, 'No se pudo enviar el código.');
+    } finally { this.cambioCorreo.enviando = false; }
+  }
+
+  async confirmarCambioCorreo(): Promise<void> {
+    this.cambioCorreo.enviando = true;
+    try {
+      const r: any = await firstValueFrom(
+        this.http.post('/api/personas/mi-perfil/correo/confirmar', { codigo: this.cambioCorreo.codigo.trim() }),
+      );
+      this.perfil.correo = r?.correo ?? this.cambioCorreo.nuevo.trim().toLowerCase();
+      // El correo ya quedó guardado: se actualiza solo esa parte de la "firma"
+      // para no perder el aviso de otros cambios sin guardar.
+      try {
+        const firma = JSON.parse(this.perfilGuardado || '[]');
+        firma[1] = this.perfil.correo;
+        this.perfilGuardado = JSON.stringify(firma);
+      } catch { this.perfilGuardado = this.firmaPerfil(); }
+      this.cerrarCambioCorreo();
+      this.toast.ok('Correo actualizado', 'Tu nuevo correo quedó confirmado.');
+    } catch (e: any) {
+      this.toast.httpError(e, 'No se pudo confirmar el código.');
+    } finally { this.cambioCorreo.enviando = false; }
   }
 
   /** Quita la foto de perfil: vuelven las iniciales en Ajustes y en el navbar. */
