@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { AdminAuthService, SESION_ADMIN_KEY } from './admin-auth.service';
 
 describe('AdminAuthService (H10)', () => {
@@ -43,8 +43,12 @@ describe('AdminAuthService (H10)', () => {
 
   it('cerrar sesión le pide al backend borrar la cookie y limpia el marcador', () => {
     localStorage.setItem(SESION_ADMIN_KEY, JSON.stringify({ id: 'ru-1', correo: 'a', expiraEn: Date.now() + 60_000 }));
+    // Sin esto el router de prueba (sin rutas) rechaza '/login' y vitest lo
+    // reporta como error no manejado (falla el CI aunque los tests pasen).
+    const navigateSpy = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     const svc = TestBed.inject(AdminAuthService);
     svc.logout();
+    expect(navigateSpy).toHaveBeenCalledWith(['/login']);
     http.expectOne('/api/admin/auth/logout').flush({});
     expect(svc.isAuthenticated()).toBe(false);
     expect(localStorage.getItem(SESION_ADMIN_KEY)).toBeNull();
