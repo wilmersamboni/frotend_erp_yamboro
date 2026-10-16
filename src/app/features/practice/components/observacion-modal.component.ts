@@ -9,6 +9,7 @@ import { SeguimientoService } from '../../../core/services';
 import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
 import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
+import { hoyIsoLocal } from '../../../core/utils/horarios.util';
 
 @Component({
   selector: 'app-observacion-modal',
@@ -381,7 +382,7 @@ export class ObservacionModalComponent implements OnChanges {
         {
           descripcion:    this.texto.trim(),
           persona:        personaId,
-          fecha:          new Date().toISOString().substring(0, 10),
+          fecha:          hoyIsoLocal(),
           evidencia_foto,
         }
       );

@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
+import { reconectarSiElServidorCorta } from './reconexion-socket';
 import { environment } from '../../../../environments/environment';
 
 export interface EncuestaActualizadaEvent {
@@ -27,6 +28,7 @@ const IPV4_REGEX = /^\d{1,3}(\.\d{1,3}){3}$/;
 @Injectable({ providedIn: 'root' })
 export class EncuestasRealtimeService {
   private socket: Socket | null = null;
+  private detenerReconexion: (() => void) | null = null;
 
   // Mismo orden que auth.interceptor.ts: subdominio > tenant guardado de un
   // login previo > tenant fijo del despliegue (environment.defaultTenant =
@@ -60,6 +62,8 @@ export class EncuestasRealtimeService {
       transports: ['polling', 'websocket'],
       auth: { tenant: this.resolveTenant() },
     });
+    // S33: si el servidor corta por vencimiento del token, se reintenta con la cookie vigente.
+    this.detenerReconexion = reconectarSiElServidorCorta(this.socket);
     return this.socket;
   }
 
@@ -79,6 +83,8 @@ export class EncuestasRealtimeService {
 
   /** Solo para cerrar sesión de verdad — no usar desde el ciclo de vida de una página. */
   desconectar(): void {
+    this.detenerReconexion?.();
+    this.detenerReconexion = null;
     this.socket?.disconnect();
     this.socket = null;
   }
