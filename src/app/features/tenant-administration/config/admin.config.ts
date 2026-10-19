@@ -585,15 +585,9 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     servicioEscritura: 'practica.etapas.administrar',
     servicioEliminar: 'practica.etapas.administrar',
     usePatch: true,
+    // Las 4 modalidades base las crea el backend solas por centro; el campo es texto libre para agregar otra.
     campos: ['nombre'],
-    opcionesEstaticas: {
-      nombre: [
-        { label: 'Proyecto Productivo',      value: 'proyecto productivo'      },
-        { label: 'Pasantía',                 value: 'pasantia'                 },
-        { label: 'Monitoría',                value: 'monitoria'                },
-        { label: 'Contrato de Aprendizaje',  value: 'contrato de aprendizaje'  },
-      ],
-    },
+    placeholders: { nombre: 'Ej: Vinculación laboral' },
   },
 
  etapas: {
