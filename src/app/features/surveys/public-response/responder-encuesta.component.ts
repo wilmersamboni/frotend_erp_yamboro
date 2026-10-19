@@ -97,6 +97,18 @@ type Vista = 'cargando' | 'formulario' | 'error' | 'ya-respondida';
             }
           </div>
 
+          <div data-anim="pregunta" class="mt-4">
+            <label for="comentario" class="block text-sm font-medium text-gray-700 mb-1.5">
+              Comentario sobre el instructor <span class="font-normal text-gray-400">(opcional)</span>
+            </label>
+            <textarea id="comentario" rows="4" maxlength="1000"
+              [value]="comentario()" (input)="comentario.set($any($event.target).value)"
+              placeholder="Cuéntanos qué te gustó o qué se podría mejorar. Es anónimo."
+              class="w-full rounded-xl border border-gray-200 p-3 text-sm text-gray-800 placeholder:text-gray-400
+                     focus:outline-none focus:border-[#39A900] resize-y"></textarea>
+            <p class="text-right text-xs text-gray-400 mt-1 tabular-nums">{{ comentario().length }}/1000</p>
+          </div>
+
           @if (enviarError()) {
             <p class="text-xs text-red-600 mt-3">{{ enviarError() }}</p>
           }
@@ -155,6 +167,7 @@ export class ResponderEncuestaComponent implements OnInit {
   errorMensaje = signal('');
   enviarError  = signal('');
   enviando     = signal(false);
+  comentario   = signal('');
 
   mostrarModalGracias = signal(false);
 
@@ -227,7 +240,7 @@ export class ResponderEncuestaComponent implements OnInit {
         encuestaPreguntaId,
         valor,
       }));
-      await this.api.responder(this.token, respuestas);
+      await this.api.responder(this.token, respuestas, this.comentario().trim() || undefined);
       marcarEncuestaRespondida(this.token);
       this.mostrarModalGracias.set(true);
       if (!this.reducirMovimiento) {
