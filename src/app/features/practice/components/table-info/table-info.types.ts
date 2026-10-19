@@ -44,11 +44,11 @@ export const COLUMNS: Column[] = [
   { name: 'Email',            uid: 'email',            sortable: false },
   { name: 'Área',             uid: 'area',             sortable: false },
   { name: 'Programa',         uid: 'programa',         sortable: true  },
-  { name: 'Ficha',            uid: 'number',           sortable: false },
+  { name: 'Ficha',            uid: 'number',           sortable: true  },
   { name: 'Fecha Inicio',     uid: 'startDate',        sortable: false },
   { name: 'Fecha Fin',        uid: 'endDate',          sortable: true  },
   { name: 'Observación',      uid: 'observacion',      sortable: false },
-  { name: '% Práctica',  uid: 'avance',           sortable: true  },
+  { name: '% Práctica',       uid: 'avance',           sortable: true  },
   { name: 'Estado',           uid: 'estado',           sortable: false },
   { name: 'Acciones',         uid: 'actions',          sortable: false },
 ];
