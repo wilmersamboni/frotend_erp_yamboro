@@ -143,10 +143,10 @@ import { hoyIsoLocal } from '../../../core/utils/horarios.util';
                 } @else {
                   <!-- INPUT normal -->
                   <input
-                    [type]="tiposCampo[col] ?? 'text'"
+                    [type]="tiposCampo[col] || 'text'"
                     [(ngModel)]="form[col]"
                     [name]="col"
-                    [placeholder]="placeholders[col] ?? ''"
+                    [placeholder]="placeholders[col] || ''"
                     class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]" />
                 }
               </div>
