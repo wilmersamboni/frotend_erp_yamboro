@@ -1,4 +1,6 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { OpcionSelect } from '../services/admin.service';
 import { CoordenadasMapComponent } from '../components/coordenadas-map.component';
@@ -7,6 +9,7 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
 import { TuiDay } from '@taiga-ui/cdk';
 import { TuiDayCache } from '../../../shared/utils/tui-day.util';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
+import { ACCEPT_DOCUMENTOS, ACCEPT_FOTOS, problemaDocumento, problemaFoto } from '../../../shared/utils/archivos-permitidos';
 import { hoyIsoLocal } from '../../../core/utils/horarios.util';
 
 /**
@@ -68,6 +71,27 @@ import { hoyIsoLocal } from '../../../core/utils/horarios.util';
                   <app-ss [options]="opciones[col]" placeholder="— Selecciona —"
                           [ngModel]="form[col]"
                           (ngModelChange)="form[col] = $event; fieldChange.emit({ col, value: $event })"></app-ss>
+
+                } @else if (archivos[col]) {
+                  <!-- ARCHIVO: se sube al elegirlo; el campo guarda lo que devuelve el servidor -->
+                  <div class="flex flex-wrap items-center gap-2">
+                    <label class="px-3 py-2 border border-gray-200 rounded-lg text-sm cursor-pointer hover:bg-gray-50"
+                           [class.opacity-60]="subiendo()[col]">
+                      {{ subiendo()[col] ? 'Subiendo…' : (form[col] ? 'Cambiar archivo' : (archivos[col].tipo === 'foto' ? 'Elegir imagen' : 'Elegir documento')) }}
+                      <input type="file" class="hidden" [disabled]="subiendo()[col]"
+                             [attr.accept]="archivos[col].tipo === 'foto' ? aceptarFotos : aceptarDocumentos"
+                             (change)="elegirArchivo(col, $event)" />
+                    </label>
+                    @if (form[col]) {
+                      <span class="text-xs text-gray-500 break-all">{{ nombreArchivo(form[col]) }}</span>
+                      <button type="button" class="text-xs text-red-600 hover:underline" (click)="form[col] = ''">Quitar</button>
+                    } @else {
+                      <span class="text-xs text-gray-400">Ningún archivo seleccionado</span>
+                    }
+                  </div>
+                  @if (errorArchivo()[col]) {
+                    <p class="text-xs text-red-600 mt-1">{{ errorArchivo()[col] }}</p>
+                  }
 
                 } @else if (opciones[col]) {
                   <!-- Selector sin datos todavía (p. ej. aún no hay etapas): no se ofrece un cuadro libre
@@ -190,6 +214,49 @@ export class AdminModalComponent {
    * (Ronda 6). Los `<select>` (`app-ss`) no lo necesitan.
    */
   @Input() placeholders: Record<string, string> = {};
+
+  /** Campos que se llenan subiendo un archivo (ver `ModuloConfig.archivos`). */
+  @Input() archivos: Record<string, { endpoint: string; clave: string; tipo: 'documento' | 'foto' }> = {};
+
+  private readonly http = inject(HttpClient);
+  readonly aceptarDocumentos = ACCEPT_DOCUMENTOS;
+  readonly aceptarFotos = ACCEPT_FOTOS;
+  subiendo = signal<Record<string, boolean>>({});
+  errorArchivo = signal<Record<string, string>>({});
+
+  nombreArchivo(valor: string): string {
+    return String(valor).split('/').pop() ?? String(valor);
+  }
+
+  async elegirArchivo(col: string, ev: Event): Promise<void> {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    const cfg = this.archivos[col];
+    if (!file || !cfg) return;
+
+    const problema = cfg.tipo === 'foto' ? problemaFoto(file) : problemaDocumento(file);
+    this.errorArchivo.update((e) => ({ ...e, [col]: problema ?? '' }));
+    if (problema) return;
+
+    this.subiendo.update((s) => ({ ...s, [col]: true }));
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const resp: any = await firstValueFrom(this.http.post(cfg.endpoint, fd));
+      const valor = resp?.[cfg.clave];
+      if (!valor) throw new Error('El servidor no devolvió el archivo');
+      this.form[col] = valor;
+    } catch (e: any) {
+      const msg = e?.error?.message;
+      this.errorArchivo.update((er) => ({
+        ...er,
+        [col]: (Array.isArray(msg) ? msg.join(' ') : msg) || 'No se pudo subir el archivo. Intenta de nuevo.',
+      }));
+    } finally {
+      this.subiendo.update((s) => ({ ...s, [col]: false }));
+    }
+  }
 
   /**
    * @deprecated Ya no hace nada — todos los campos con `opciones` usan

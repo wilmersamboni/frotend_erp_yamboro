@@ -110,6 +110,8 @@ const RUTAS: Routes = [
           // roles y el servicio gatean a la MISMA gente). Con AND, un
           // instructor con el servicio nunca pasaba porque 'roles' ya lo
           // bloqueaba antes de que el servicio tuviera chance de rescatarlo.
+          // Mismo criterio de OR que 'migracion': admin por cargo, o quien tenga 'matriculas.gestionar'.
+          { path: 'juicios-evaluativos', title: 'Juicios Evaluativos | ERP', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['matriculas.gestionar'] }, loadComponent: () => import('./features/practice/juicios-evaluativos/juicios-evaluativos.component').then((m) => m.JuiciosEvaluativosComponent) },
           { path: 'migracion', title: 'Migración | ERP', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['practica.migracion'] }, loadComponent: () => import('./features/practice/migration/migration.component').then((m) => m.MigrationComponent) },
 
           // ── Horarios (portado de ChronoGest) ──────────────────────────────

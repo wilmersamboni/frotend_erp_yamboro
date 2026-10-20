@@ -20,3 +20,19 @@ export function problemaDocumento(file: File): string | null {
   }
   return null;
 }
+
+export const EXTENSIONES_FOTO = ['.jpg', '.jpeg', '.png', '.webp'];
+export const ACCEPT_FOTOS = EXTENSIONES_FOTO.join(',');
+export const MAX_FOTO_BYTES = 5 * 1024 * 1024;
+
+/** Igual que `problemaDocumento`, para fotos de evidencia (JPG, PNG o WEBP, máx. 5 MB). */
+export function problemaFoto(file: File): string | null {
+  const nombre = file.name.toLowerCase();
+  if (!EXTENSIONES_FOTO.some((ext) => nombre.endsWith(ext))) {
+    return 'Solo se aceptan imágenes JPG, PNG o WEBP.';
+  }
+  if (file.size > MAX_FOTO_BYTES) {
+    return 'La imagen supera el máximo de 5 MB.';
+  }
+  return null;
+}
