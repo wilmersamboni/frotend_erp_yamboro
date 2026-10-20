@@ -86,6 +86,11 @@ export interface ModuloConfig {
   /** Placeholder de ejemplo opcional por campo, para el `<input>` normal del modal. */
   placeholders?: Record<string, string>;
   /**
+   * Campos que se llenan subiendo un archivo en vez de escribir texto. El modal sube el archivo a
+   * `endpoint` (multipart, campo `file`) y guarda en el campo lo que el backend devuelve en `clave`.
+   */
+  archivos?: Record<string, { endpoint: string; clave: string; tipo: 'documento' | 'foto' }>;
+  /**
    * Para un campo de fecha, el nombre de OTRO campo de fecha cuyo valor actúa
    * como mínimo seleccionable (ej. `fechaFin` no puede ser anterior a
    * `fechaInicio`) — deshabilita esas fechas en el calendario y el backend
@@ -585,15 +590,9 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     servicioEscritura: 'practica.etapas.administrar',
     servicioEliminar: 'practica.etapas.administrar',
     usePatch: true,
+    // Las 4 modalidades base las crea el backend solas por centro; el campo es texto libre para agregar otra.
     campos: ['nombre'],
-    opcionesEstaticas: {
-      nombre: [
-        { label: 'Proyecto Productivo',      value: 'proyecto productivo'      },
-        { label: 'Pasantía',                 value: 'pasantia'                 },
-        { label: 'Monitoría',                value: 'monitoria'                },
-        { label: 'Contrato de Aprendizaje',  value: 'contrato de aprendizaje'  },
-      ],
-    },
+    placeholders: { nombre: 'Ej: Vinculación laboral' },
   },
 
  etapas: {
@@ -712,6 +711,9 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     usePatch: true,
     columnas: ['fecha', 'estado', 'bitacora_pdf'],
     campos: ['seguimientoId', 'fecha', 'bitacora_pdf', 'estado'],
+    archivos: {
+      bitacora_pdf: { endpoint: `${BASE2}/bitacoras/upload/documento`, clave: 'bitacora_pdf', tipo: 'documento' },
+    },
     selectores: {
       seguimientoId: { modulo: 'seguimientos', label: 'estado', value: 'id' },
     },
@@ -738,6 +740,9 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     usePatch: true,
     columnas: ['fecha', 'descripcion', 'persona', 'evidencia_foto'],
     campos: ['seguimientoId', 'fecha', 'descripcion', 'persona', 'evidencia_foto'],
+    archivos: {
+      evidencia_foto: { endpoint: `${BASE2}/observaciones/upload/evidencia`, clave: 'url', tipo: 'foto' },
+    },
     selectores: {
       seguimientoId: { modulo: 'seguimientos', label: 'estado', value: 'id' },
       persona:       { modulo: 'personas',     label: 'nombre', value: 'idPersona' },

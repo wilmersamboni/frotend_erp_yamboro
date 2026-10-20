@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
+import { reconectarSiElServidorCorta } from './reconexion-socket';
 
 /**
  * Conexión WS a backend-erp para recibir notificaciones al instante en vez
@@ -9,9 +10,17 @@ import { io, Socket } from 'socket.io-client';
 @Injectable({ providedIn: 'root' })
 export class NotificacionesRealtimeService {
   private socket: Socket | null = null;
+  private detenerReconexion: (() => void) | null = null;
 
   conectar(): Socket {
-    if (this.socket?.connected) return this.socket;
+    // F8: con `connected` como criterio, una llamada mientras el socket aún
+    // conectaba creaba un segundo `io()` y el primero quedaba huérfano (y vivo
+    // incluso tras cerrar sesión). El socket es un singleton: se reutiliza
+    // conectando o conectado, y solo se reactiva si el servidor lo cortó.
+    if (this.socket) {
+      if (!this.socket.active) this.socket.connect();
+      return this.socket;
+    }
     this.socket = io({
       path: '/api/socket.io',
       withCredentials: true,
@@ -21,6 +30,8 @@ export class NotificacionesRealtimeService {
       // 'websocket' se queda colgado en silencio, sin error ni fallback.
       transports: ['polling', 'websocket'],
     });
+    // S33: si el servidor corta por vencimiento del token, se reintenta con la cookie vigente.
+    this.detenerReconexion = reconectarSiElServidorCorta(this.socket);
     return this.socket;
   }
 
@@ -44,6 +55,8 @@ export class NotificacionesRealtimeService {
 
   /** Solo para cerrar sesión de verdad — no usar desde el ciclo de vida de una página. */
   desconectar(): void {
+    this.detenerReconexion?.();
+    this.detenerReconexion = null;
     this.socket?.disconnect();
     this.socket = null;
   }

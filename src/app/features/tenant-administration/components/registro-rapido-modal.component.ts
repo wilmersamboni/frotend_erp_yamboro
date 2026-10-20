@@ -605,6 +605,9 @@ export class RegistroRapidoModalComponent implements OnChanges {
     this.closed.emit();
   }
 
+  /** Persona ya creada en un intento previo (para no duplicarla si falló el acceso). */
+  private personaCreadaId: string | null = null;
+
   // ── Guardar ──────────────────────────────────────────────────
   async guardar(): Promise<void> {
     if (!this.validarPaso2()) return;
@@ -613,7 +616,10 @@ export class RegistroRapidoModalComponent implements OnChanges {
     this.error.set('');
 
     try {
-      // 1. Crear persona
+      // 1. Crear persona (solo si no se creó ya en un intento anterior: si
+      // `auth/register` falló, reintentar NO debe duplicarla ni chocar con su cédula).
+      let idPersona = this.personaCreadaId;
+      if (!idPersona) {
       const personaBody: any = {
         nombre:  this.s1.nombre.trim(),
         cargo:   this.cargo,
@@ -634,11 +640,13 @@ export class RegistroRapidoModalComponent implements OnChanges {
       // Extraer el UUID del idPersona — la respuesta puede tener distintas formas
       const raw       = Array.isArray(personaResp) ? personaResp[0] : personaResp;
       const dataObj   = raw?.data ?? raw;
-      const idPersona = String(
+      idPersona = String(
         dataObj?.idPersona ?? dataObj?.id_persona ?? dataObj?.id ?? ''
       ).trim();
 
       if (!idPersona) throw new Error('El servidor no devolvió el ID de la persona creada.');
+      this.personaCreadaId = idPersona;
+      }
 
       // 2. Crear usuario + credencial (auth/register)
       // Los IDs son UUIDs (strings) — NO convertir a Number
@@ -657,10 +665,14 @@ export class RegistroRapidoModalComponent implements OnChanges {
 
     } catch (e: any) {
       const msg = e?.error?.message ?? e?.error?.mensaje ?? e?.error?.error ?? e?.message ?? '';
-      this.error.set(
+      const texto =
         Array.isArray(msg) ? msg.join(' · ') :
         typeof msg === 'string' && msg ? msg :
-        'Ocurrió un error al crear el registro. Verifica los datos e inténtalo de nuevo.'
+        'Ocurrió un error al crear el registro. Verifica los datos e inténtalo de nuevo.';
+      this.error.set(
+        this.personaCreadaId
+          ? `La persona ya quedó registrada, pero no se pudo crear su acceso: ${texto} Corrige y vuelve a guardar: no se duplicará.`
+          : texto
       );
     } finally {
       this.guardando.set(false);

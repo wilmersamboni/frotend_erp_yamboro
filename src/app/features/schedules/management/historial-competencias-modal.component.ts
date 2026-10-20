@@ -10,6 +10,7 @@ import {
   diaPluralLabel, formatFechaCorta, calcHorasCompetencia, estadoResultadoInfo as estadoResultadoInfoUtil,
 } from '../../../core/utils/horarios.util';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
+import { hoyIsoLocal } from '../../../core/utils/horarios.util';
 
 /**
  * Modal "Historial de Competencias" — extraído de horarios.component.ts.
@@ -277,7 +278,7 @@ export class HistorialCompetenciasModalComponent {
   readonly formatFechaCorta = formatFechaCorta;
   readonly getDiaLabel = getDiaLabel;
   readonly calcHorasCompetencia = calcHorasCompetencia;
-  readonly hoyIso = new Date().toISOString().slice(0, 10);
+  readonly hoyIso = hoyIsoLocal();
 
   open        = signal(false);
   histLoading = signal(false);

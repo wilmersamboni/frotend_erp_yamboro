@@ -70,8 +70,8 @@ import { log } from '../../../../core/utils/log';
               [programas]="programas()"
               [selectedProgramas]="selectedProgramas()"
               [selectedStatuses]="selectedStatuses()"
-              [sortCol]="sortCol"
-              [sortDir]="sortDir"
+              [sortCol]="sortCol()"
+              [sortDir]="sortDir()"
               (sortChange)="sort($event)"
               (toggleArea)="toggleArea($event)"
               (clearAreas)="selectedAreas.set([]); resetPage()"
@@ -155,8 +155,8 @@ export class TableInfoComponent implements OnInit {
   rowsPerPage      = signal(10);
   page             = signal(1);
 
-  sortCol  = 'name';
-  sortDir: 'asc' | 'desc' = 'asc';
+  sortCol  = signal('name');
+  sortDir  = signal<'asc' | 'desc'>('asc');
   visibleCols = signal(new Set(INITIAL_VISIBLE_COLS));
 
   // ── Modales ────────────────────────────────────────────────────────────────
@@ -230,12 +230,9 @@ export class TableInfoComponent implements OnInit {
 
   paged = computed(() => {
     const start = (this.page() - 1) * this.rowsPerPage();
-    return [...this.filtered()].sort((a, b) => {
-      const fa = a[this.sortCol as keyof Aprendiz];
-      const fb = b[this.sortCol as keyof Aprendiz];
-      const cmp = fa < fb ? -1 : fa > fb ? 1 : 0;
-      return this.sortDir === 'desc' ? -cmp : cmp;
-    }).slice(start, start + this.rowsPerPage());
+    const col = this.sortCol() as keyof Aprendiz;
+    const signo = this.sortDir() === 'desc' ? -1 : 1;
+    return [...this.filtered()].sort((a, b) => signo * compararValores(a[col], b[col])).slice(start, start + this.rowsPerPage());
   });
 
   headerColumns = computed(() =>
@@ -309,10 +306,8 @@ export class TableInfoComponent implements OnInit {
 
   // ── Acciones de tabla ──────────────────────────────────────────────────────
   sort(col: string): void {
-    this.sortDir = this.sortCol === col
-      ? (this.sortDir === 'asc' ? 'desc' : 'asc')
-      : 'asc';
-    this.sortCol = col;
+    this.sortDir.set(this.sortCol() === col ? (this.sortDir() === 'asc' ? 'desc' : 'asc') : 'asc');
+    this.sortCol.set(col);
   }
 
   resetPage(): void { this.page.set(1); }
@@ -383,4 +378,14 @@ export class TableInfoComponent implements OnInit {
     );
   }
 
+}
+
+
+/** Números por valor, textos sin importar tildes/mayúsculas y con dígitos "naturales"; los vacíos van siempre al final del A-Z. */
+function compararValores(a: unknown, b: unknown): number {
+  const vacioA = a == null || a === '';
+  const vacioB = b == null || b === '';
+  if (vacioA || vacioB) return vacioA === vacioB ? 0 : vacioA ? 1 : -1;
+  if (typeof a === 'number' && typeof b === 'number') return a - b;
+  return String(a).localeCompare(String(b), 'es', { numeric: true, sensitivity: 'base' });
 }

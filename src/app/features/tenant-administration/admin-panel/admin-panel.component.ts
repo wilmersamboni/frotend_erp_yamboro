@@ -306,6 +306,7 @@ import { log } from '../../../core/utils/log';
         [parCoordenadas]="config[admin.activeTab()].parCoordenadas"
         [columnLabels]="config[admin.activeTab()].columnLabels ?? {}"
         [placeholders]="config[admin.activeTab()].placeholders ?? {}"
+        [archivos]="config[admin.activeTab()].archivos ?? {}"
         [minDateFields]="config[admin.activeTab()].minDateFields ?? {}"
         [saving]="admin.saving()"
         [error]="admin.modalError()"
