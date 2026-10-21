@@ -31,6 +31,33 @@ export class PermisosGestionService {
     return firstValueFrom(this.http.get<Permiso[]>(BASE));
   }
 
+  /** Filas de un rol (las del rol completo y las excepciones personales de sus usuarios). */
+  porRol(idRol: string): Promise<Permiso[]> {
+    return firstValueFrom(this.http.get<Permiso[]>(`${BASE}/rol/${idRol}`));
+  }
+
+  /** Excepciones personales de una cuenta. */
+  porUsuario(idUsuario: string): Promise<Permiso[]> {
+    return firstValueFrom(this.http.get<Permiso[]>(`${BASE}/usuario/${idUsuario}`));
+  }
+
+  /**
+   * Guarda de una vez, en una transacción, el borrador del panel de permisos.
+   * Sin `usuarioId` los cambios son del rol completo (`denegado` allí equivale a `heredar`).
+   */
+  aplicarCambios(
+    rolId: string,
+    cambios: { servicioId: string; estado: 'otorgado' | 'denegado' | 'heredar' }[],
+    usuarioId?: string,
+  ): Promise<{ otorgados: number; denegados: number; heredados: number }> {
+    return firstValueFrom(
+      this.http.post<{ otorgados: number; denegados: number; heredados: number }>(
+        `${BASE}/aplicar-cambios`,
+        usuarioId ? { rolId, usuarioId, cambios } : { rolId, cambios },
+      ),
+    );
+  }
+
   otorgar(rolId: string, servicioId: string, usuarioId?: string, activo = true): Promise<Permiso> {
     return firstValueFrom(
       this.http.post<Permiso>(BASE, usuarioId ? { rolId, servicioId, usuarioId, activo } : { rolId, servicioId }),

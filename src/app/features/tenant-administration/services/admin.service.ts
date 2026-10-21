@@ -28,7 +28,7 @@ export class AdminService {
   modalForm:    Record<string, any> = {};
 
   /** Datos crudos sin aplanar (UUIDs reales) — usado en edición y por paneles
-   *  que necesitan cruzar relaciones (ej. app-permisos-panel). */
+   *  que necesitan cruzar relaciones (ej. app-permisos-drawer). */
   rawData = signal<Record<string, any[]>>({});
 
   /** Opciones de selects para el modal activo: { campo → [{label, value}] } */
