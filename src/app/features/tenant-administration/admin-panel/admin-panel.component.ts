@@ -7,13 +7,13 @@ import { AuthService } from '../../../core/services/auth.service';
 import { CONFIG, MODULOS, MODULOS_EPSAS, MODULOS_PRACTICA, MODULOS_ADMIN, CATEGORIA_ORDEN, CATEGORIA_ICONOS, CATEGORIA_DESCRIPCIONES, Modulo } from '../config/admin.config';
 import { AdminService } from '../services/admin.service';
 import { ApiService } from '../../../core/services/api.service';
-import { AdminTableComponent } from '../../../shared/components/admin-table.component';
+import { AdminTableComponent, TableRowLink } from '../../../shared/components/admin-table.component';
 import { PageSizeSelectComponent } from '../../../shared/components/page-size-select.component';
 import { AdminModalComponent } from '../ui/admin-modal.component';
 import { RegistroRapidoModalComponent } from '../components/registro-rapido-modal.component';
 import { AdminInicioComponent } from '../components/admin-inicio.component';
 import { CrearPracticaModalComponent } from '../../practice/components/crear-practica-modal.component';
-import { PermisosPanelComponent } from '../permisos/permisos-panel.component';
+import { PermisosDrawerComponent } from '../permisos/permisos-drawer.component';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { EsperaDirective } from '../../../shared/directives/espera.directive';
@@ -22,7 +22,7 @@ import { log } from '../../../core/utils/log';
 @Component({
   selector: 'app-admin-panel',
   standalone: true,
-  imports: [EsperaDirective, FormsModule, LucideAngularModule, AdminTableComponent, AdminModalComponent, RegistroRapidoModalComponent, AdminInicioComponent, CrearPracticaModalComponent, PermisosPanelComponent, PageSizeSelectComponent],
+  imports: [EsperaDirective, FormsModule, LucideAngularModule, AdminTableComponent, AdminModalComponent, RegistroRapidoModalComponent, AdminInicioComponent, CrearPracticaModalComponent, PermisosDrawerComponent, PageSizeSelectComponent],
   providers: [AdminService],
   template: `
 
@@ -218,24 +218,20 @@ import { log } from '../../../core/utils/log';
               [canEdit]="puedeEscribir(admin.activeTab())"
               [canDelete]="puedeEliminar(admin.activeTab())"
               [columnLabels]="config[admin.activeTab()].columnLabels ?? {}"
-              [selectable]="admin.activeTab() === 'roles' || admin.activeTab() === 'usuarios'"
-              [selectedRow]="admin.activeTab() === 'roles' ? rolSeleccionado() : usuarioSeleccionado()"
-              [idKey]="config[admin.activeTab()].idKey"
+              [rowLinks]="rowLinksActivos()"
               (edit)="admin.editarFila($event)"
               (delete)="admin.eliminarFila($event)"
-              (rowSelected)="onRowSelected($event)"
             />
 
-            <!-- Permisos del rol / usuario seleccionado (ver plan "Adaptar la
-                 interfaz de permisos de SGM al ERP") -->
-            @if (admin.activeTab() === 'roles' && rolSeleccionado()) {
-              <app-permisos-panel modo="rol" [rolFila]="rolSeleccionado()" />
-            }
-            <!-- Solo con permisos.gestionar: desde la decisión 1.10 del plan de
-                 seguridad 2026-10 el rol 'administrador' ya no lo tiene (solo
-                 administrador_erp), y sin él el panel respondería 403. -->
-            @if (admin.activeTab() === 'usuarios' && usuarioSeleccionado() && auth.tieneServicio('permisos.gestionar')) {
-              <app-permisos-panel modo="usuario" [usuarioFila]="usuarioSeleccionado()" />
+            <!-- Permisos de la cuenta o del rol: panel lateral que se abre con el botón
+                 «Permisos» de cada fila. Solo con permisos.gestionar: desde la decisión 1.10
+                 del plan de seguridad 2026-10 el rol 'administrador' ya no lo tiene (solo
+                 administrador_erp), y sin él el backend respondería 403. -->
+            @if (permisosAbiertos(); as p) {
+              <app-permisos-drawer [modo]="p.modo"
+                [rolFila]="p.modo === 'rol' ? p.fila : null"
+                [usuarioFila]="p.modo === 'usuario' ? p.fila : null"
+                (cerrar)="permisosAbiertos.set(null)" />
             }
 
             <!-- Paginación -->
@@ -479,23 +475,26 @@ export class AdminPanelComponent implements OnInit {
   wizardOpen  = signal(false);
   wizardCargo = signal<'instructor' | 'aprendiz' | 'administrador'>('instructor');
 
-  // ── Panel de permisos embebido en Roles / Usuarios ───────────
-  // (ver plan "Adaptar la interfaz de permisos de SGM al ERP") — guarda la
-  // fila CRUDA (con UUIDs reales) del rol o usuario seleccionado, para que
-  // <app-permisos-panel> pueda cruzar rol/persona/servicio sin volver a pedir
-  // los datos que AdminService ya tiene en rawData().
-  rolSeleccionado     = signal<any>(null);
-  usuarioSeleccionado = signal<any>(null);
+  // ── Panel de permisos de Roles / Usuarios ────────────────────
+  // Panel lateral de permisos abierto (rol o cuenta). Recibe la fila SIN aplanar, tal como la
+  // trae el backend, para cruzar rol/persona/aplicativo sin volver a pedir lo que AdminService
+  // ya tiene en rawData().
+  permisosAbiertos = signal<{ modo: 'rol' | 'usuario'; fila: any } | null>(null);
 
-  onRowSelected(row: any): void {
+  /** Botón «Permisos» por fila, solo en Roles y Usuarios y solo para quien puede gestionar permisos. */
+  rowLinksActivos = computed<TableRowLink[]>(() => {
+    const tab = this.admin.activeTab();
+    if (tab !== 'roles' && tab !== 'usuarios') return [];
+    if (!this.auth.tieneServicio('permisos.gestionar')) return [];
+    return [{ label: 'Permisos', onClick: (row: any) => this.abrirPermisos(row) }];
+  });
+
+  abrirPermisos(row: any): void {
     const mod = this.admin.activeTab();
+    if (mod !== 'roles' && mod !== 'usuarios') return;
     const cfg = this.config[mod];
-    const raw = this.admin.rawData()[mod]?.find(r => r[cfg.idKey] === row[cfg.idKey]) ?? row;
-    if (mod === 'roles') {
-      this.rolSeleccionado.update(actual => (actual?.[cfg.idKey] === raw[cfg.idKey] ? null : raw));
-    } else if (mod === 'usuarios') {
-      this.usuarioSeleccionado.update(actual => (actual?.[cfg.idKey] === raw[cfg.idKey] ? null : raw));
-    }
+    const fila = this.admin.rawData()[mod]?.find(r => r[cfg.idKey] === row[cfg.idKey]) ?? row;
+    this.permisosAbiertos.set({ modo: mod === 'roles' ? 'rol' : 'usuario', fila });
   }
 
   constructor(
@@ -518,8 +517,7 @@ export class AdminPanelComponent implements OnInit {
     // tabla visible.
     effect(() => {
       this.admin.activeTab();
-      this.rolSeleccionado.set(null);
-      this.usuarioSeleccionado.set(null);
+      this.permisosAbiertos.set(null);
     }, { allowSignalWrites: true });
   }
 
@@ -532,6 +530,12 @@ export class AdminPanelComponent implements OnInit {
     }
     if (this.auth.perteneceAplicativo('Etapa Práctica')) {
       this.cargarAprendicesParaEtapa();
+    }
+
+    // Los accesos rápidos de la pantalla de inicio (matricular, crear curso, crear programa) abren un modal
+    // cuyos selectores necesitan personas, cursos, áreas, sedes…: se piden ya, de fondo, para que el clic no espere.
+    if (this.auth.isAdmin()) {
+      setTimeout(() => this.admin.precargarDependencias(['matriculas', 'cursos', 'programas']), 0);
     }
 
     // Deep-link a una pestaña puntual (p.ej. /admin?tab=etapas desde la

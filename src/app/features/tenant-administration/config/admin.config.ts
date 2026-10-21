@@ -155,7 +155,7 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
     listar: `${BASE}/roles`,
     crear: null, actualizar: null, eliminar: null,
     grupo: 'epsas', categoria: 'Seguridad y Acceso',
-    // Puerta de entrada al panel de permisos rol-wide (<app-permisos-panel
+    // Puerta de entrada al panel de permisos rol-wide (<app-permisos-drawer
     // modo="rol">, se embebe al seleccionar una fila) — sin esto nadie sin
     // cargo admin podía llegar a gestionar permisos aunque tuviera
     // permisos.gestionar otorgado. Ver plan "Ronda 3" (continuación).
@@ -776,7 +776,7 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
 /**
  * Módulos que NO aparecen como pestañas.
  * 'permisos': su función queda cubierta por el panel embebido en Roles y
- * Usuarios (<app-permisos-panel>, ver plan "Adaptar la interfaz de permisos
+ * Usuarios (<app-permisos-drawer>, ver plan "Adaptar la interfaz de permisos
  * de SGM al ERP") — el endpoint /permisos se sigue usando, solo deja de
  * tener una pantalla CRUD dedicada con IDs crudos.
  * 'credenciales': fusionada dentro de 'usuarios' — ver el módulo backend

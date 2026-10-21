@@ -2,17 +2,26 @@ import { SidebarComponent } from './sidebar.component';
 import { MATERIALS_ROUTES } from '../../features/materiales/materiales.routes';
 import { PANTALLAS_MATERIALES, datosRutaMateriales } from '../../features/materiales/materiales-acceso';
 
-/** Lo que trae cada cargo de fábrica (MATERIALES_INSTRUCTOR / MATERIALES_APRENDIZ en backend-erp). */
-const BASE_INSTRUCTOR = [
+/** Lo que trae el aprendiz de fábrica (MATERIALES_APRENDIZ en backend-erp). NO incluye los permisos propios de pantalla. */
+const BASE_APRENDIZ = [
   'materiales.productos.ver', 'materiales.existencias.ver', 'materiales.solicitudes.ver',
   'materiales.solicitudes.crear', 'materiales.devoluciones.ver', 'materiales.actas.ver',
 ];
+/** Permisos propios de pantalla (2026-10-21): los reciben los administradores y los bundles de encargado/líder; ni el instructor ni el aprendiz. */
+const PANTALLAS_PROPIAS = [
+  'materiales.salidas.ver', 'materiales.salidas.crear', 'materiales.cuentadante.ver', 'materiales.escaneo.usar', 'materiales.catalogo.ver',
+];
+/** Lo que trae el instructor de fábrica (MATERIALES_INSTRUCTOR): igual que el aprendiz en lo que a pantallas propias se refiere. */
+const BASE_INSTRUCTOR = [...BASE_APRENDIZ];
 /** Lo que suma el bundle de encargado de bodega, en lo que a pantallas se refiere. */
 const BUNDLE_ENCARGADO = [
+  ...PANTALLAS_PROPIAS,
   'materiales.items.ver', 'materiales.lotes.ver', 'materiales.categorias.ver', 'materiales.kardex.ver',
   'materiales.traslados.ver', 'materiales.novedades.ver', 'materiales.asignaciones.ver',
 ];
-const TODOS = PANTALLAS_MATERIALES.flatMap((p) => ('servicio' in p.acceso ? [p.acceso.servicio] : []));
+const TODOS = PANTALLAS_MATERIALES.flatMap((p) =>
+  'servicio' in p.acceso ? [p.acceso.servicio] : 'servicios' in p.acceso ? p.acceso.servicios : [],
+);
 
 function menuMateriales(opciones: {
   cargo: string;
@@ -21,6 +30,8 @@ function menuMateriales(opciones: {
   responsableBodega?: boolean;
   /** Lo que respondería `GET materiales/ingresos/acceso` (admin ERP, líder o permiso personal). */
   gestorIngresos?: boolean;
+  /** ¿Puede alimentar el catálogo (administrador_erp o líder de área)? */
+  gestorCatalogo?: boolean;
 }): string[] {
   const esAdmin = opciones.cargo === 'administrador' || opciones.cargo === 'administrador_erp';
   const auth = {
@@ -39,16 +50,17 @@ function menuMateriales(opciones: {
   );
   sidebar.esResponsableBodega.set(!!opciones.responsableBodega);
   sidebar.esGestorIngresos.set(!!opciones.gestorIngresos);
+  sidebar.esGestorCatalogo.set(!!opciones.gestorCatalogo);
   return sidebar.visibleGroups.find((g) => g.id === 'materiales')?.links.map((l) => l.label) ?? [];
 }
 
 describe('Sidebar: menú de Materiales según permisos efectivos', () => {
   it('instructor común: solo las pantallas de los servicios que trae de fábrica', () => {
     // Sin "Reporte de materiales": tiene existencias.ver pero no gestiona ninguna bodega ni área.
-    // Nombres de todos los días (2026-10-05); Inicio, Escanear placa y Cuentadante los ve todo el que usa Materiales
-    // (un instructor cuentadante tiene que poder ver y descargar sus bienes a cargo).
+    // Nombres de todos los días (2026-10-05). Escanear placa, Salidas, Cuentadante y Catálogo de productos tienen permiso
+    // propio (2026-10-21): un instructor común NO los ve; los ve si es encargado, líder o se los asignan.
     expect(menuMateriales({ cargo: 'instructor', servicios: BASE_INSTRUCTOR })).toEqual([
-      'Inicio', 'Escanear placa', 'Pedidos y préstamos', 'Salidas', 'Devoluciones', 'Fechas por vencer', '¿Qué hay y dónde?', 'Cuentadante', 'Catálogo de productos', 'Actas',
+      'Inicio', 'Pedidos y préstamos', 'Devoluciones', 'Fechas por vencer', '¿Qué hay y dónde?', 'Actas',
     ]);
   });
 
@@ -78,18 +90,33 @@ describe('Sidebar: menú de Materiales según permisos efectivos', () => {
     }
   });
 
-  it('Inicio, Escanear placa y Cuentadante: los ve quien tenga cualquier servicio de entrada, y nadie más', () => {
-    expect(menuMateriales({ cargo: 'instructor', servicios: ['materiales.solicitudes.crear'] })).toEqual(['Inicio', 'Escanear placa', 'Cuentadante']);
-    expect(menuMateriales({ cargo: 'instructor', servicios: ['materiales.actas.ver'] })).not.toContain('Inicio');
+  it('aprendiz común: sin Escanear placa, Salidas, Cuentadante ni Catálogo de productos (2026-10-21)', () => {
+    expect(menuMateriales({ cargo: 'aprendiz', servicios: BASE_APRENDIZ })).toEqual([
+      'Inicio', 'Pedidos y préstamos', 'Devoluciones', 'Fechas por vencer', '¿Qué hay y dónde?', 'Actas',
+    ]);
   });
 
-  it('Cuentadante no se le ofrece a un aprendiz (nunca puede serlo), aunque tenga servicios de entrada', () => {
-    expect(menuMateriales({ cargo: 'aprendiz', servicios: ['materiales.solicitudes.crear'] })).toEqual(['Inicio', 'Escanear placa']);
+  it('esas cuatro pantallas aparecen solo con su permiso propio, uno por uno', () => {
+    const casos: [string, string][] = [
+      ['materiales.escaneo.usar', 'Escanear placa'],
+      ['materiales.salidas.ver', 'Salidas'],
+      ['materiales.salidas.crear', 'Salidas'],
+      ['materiales.cuentadante.ver', 'Cuentadante'],
+      ['materiales.catalogo.ver', 'Catálogo de productos'],
+    ];
+    for (const [servicio, pantalla] of casos) {
+      const menu = menuMateriales({ cargo: 'aprendiz', servicios: [...BASE_APRENDIZ, servicio] });
+      expect([servicio, menu.includes(pantalla)]).toEqual([servicio, true]);
+      // y ninguna de las otras tres se cuela
+      for (const [, otra] of casos.filter(([, p]) => p !== pantalla)) {
+        expect([servicio, otra, menu.includes(otra)]).toEqual([servicio, otra, false]);
+      }
+    }
   });
 
-  it('la ruta de Cuentadante excluye al aprendiz y las demás no excluyen a nadie', () => {
-    expect(datosRutaMateriales('cuentadante').excluirRoles).toEqual(['aprendiz']);
-    expect(datosRutaMateriales('inicio').excluirRoles).toBeUndefined();
+  it('Inicio lo ve quien tenga cualquier servicio de entrada, y nadie más', () => {
+    expect(menuMateriales({ cargo: 'aprendiz', servicios: ['materiales.solicitudes.crear'] })).toEqual(['Inicio']);
+    expect(menuMateriales({ cargo: 'aprendiz', servicios: ['materiales.actas.ver'] })).not.toContain('Inicio');
   });
 
   it('administrador ERP: todo el menú, con "Bodegas" y sin "Mi Bodega"', () => {
@@ -140,12 +167,54 @@ describe('Rutas de Materiales: misma regla que el menú', () => {
   });
 
   it('conserva los casos especiales', () => {
-    expect(ruta('materiales/bodegas')?.data).toEqual({ roles: ['administrador', 'administrador_erp'], todasLasBodegas: true });
-    expect(ruta('materiales/asignaciones')?.data).toEqual({
+    // Bodegas: cargo administrador Y el servicio (2026-10-21; antes bastaba el cargo).
+    expect(ruta('materiales/bodegas')?.data).toEqual({
       roles: ['administrador', 'administrador_erp'],
-      servicios: ['materiales.asignaciones.ver'],
+      serviciosRequeridos: ['materiales.sitios.ver'],
+      todasLasBodegas: true,
     });
+    // Entregas a fichas: solo por permiso, sin abrirle la puerta a cualquier administrador.
+    expect(ruta('materiales/asignaciones')?.data).toEqual({ serviciosRequeridos: ['materiales.asignaciones.ver'] });
+    // Sitios: el permiso y además gestionar (administrador, encargado o líder).
+    expect(ruta('materiales/sitios')?.canActivate).toHaveLength(2);
     expect(ruta('materiales/productos')?.canActivate).toHaveLength(2);
     expect(ruta('mi-bodega')?.canActivate).toHaveLength(1);
+  });
+});
+
+describe('Bodegas, Entregas a fichas y Sitios exigen permiso, no solo cargo (2026-10-21)', () => {
+  it('un administrador sin permisos de Materiales no ve Bodegas ni Entregas a fichas', () => {
+    const menu = menuMateriales({ cargo: 'administrador', servicios: [], aplicativo: 'Etapa Práctica' });
+    expect(menu).not.toContain('Bodegas');
+    expect(menu).not.toContain('Entregas a fichas');
+    expect(menu).not.toContain('Sitios');
+  });
+
+  it('un administrador ve Bodegas solo con materiales.sitios.ver, y Entregas a fichas solo con materiales.asignaciones.ver', () => {
+    const conSitios = menuMateriales({ cargo: 'administrador', servicios: ['materiales.sitios.ver'], aplicativo: 'Etapa Práctica' });
+    expect(conSitios).toContain('Bodegas');
+    expect(conSitios).not.toContain('Entregas a fichas');
+
+    const conAsignaciones = menuMateriales({ cargo: 'administrador', servicios: ['materiales.asignaciones.ver'], aplicativo: 'Etapa Práctica' });
+    expect(conAsignaciones).toContain('Entregas a fichas');
+    expect(conAsignaciones).not.toContain('Bodegas');
+  });
+
+  it('Entregas a fichas por permiso lo ve también quien no es administrador', () => {
+    expect(menuMateriales({ cargo: 'instructor', servicios: ['materiales.asignaciones.ver'] })).toContain('Entregas a fichas');
+  });
+
+  it('Sitios con el permiso suelto, sin gestionar nada, no se muestra (la lista saldría vacía)', () => {
+    for (const cargo of ['instructor', 'aprendiz']) {
+      expect(menuMateriales({ cargo, servicios: ['materiales.sitios.ver'] })).not.toContain('Sitios');
+    }
+  });
+
+  it('Sitios lo ven el administrador, el encargado de bodega y el líder de área, siempre con el permiso', () => {
+    expect(menuMateriales({ cargo: 'administrador_erp', servicios: ['materiales.sitios.ver'] })).toContain('Sitios');
+    expect(menuMateriales({ cargo: 'instructor', servicios: ['materiales.sitios.ver'], responsableBodega: true })).toContain('Sitios');
+    expect(menuMateriales({ cargo: 'instructor', servicios: ['materiales.sitios.ver'], gestorCatalogo: true })).toContain('Sitios');
+    // y sin el permiso no, aunque gestione
+    expect(menuMateriales({ cargo: 'instructor', servicios: [], gestorCatalogo: true })).not.toContain('Sitios');
   });
 });
