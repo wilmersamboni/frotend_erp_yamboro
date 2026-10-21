@@ -58,6 +58,10 @@ export class AppComponent implements OnInit {
   }
 
   private actualizarVisibilidadBot(url: string): void {
-    this.mostrarBotFlotante.set(!url.startsWith('/responder/'));
+    // /m es el chat móvil de pantalla completa: ya ES el asistente, y
+    // dos chats montados a la vez cargarían el historial dos veces. Ojo con
+    // startsWith('/m'): también cubriría /materiales.
+    const esChatMovil = /^\/m(?:[/?#]|$)/.test(url);
+    this.mostrarBotFlotante.set(!url.startsWith('/responder/') && !esChatMovil);
   }
 }

@@ -56,6 +56,16 @@ const RUTAS: Routes = [
         canActivate: [authGuard],
         loadComponent: () => import('./features/dashboard/reporte-panel.component').then((m) => m.ReportePanelComponent),
       },
+      // Chat de pantalla completa para el celular (PWA): sin menú ni barra. Es el
+      // mismo asistente y la misma sesión que el widget del ERP (/api2/ia/chat),
+      // solo con otra pantalla. authGuard manda a iniciar sesión y regresa aquí
+      // (returnUrl), así que "instalar" /m abre directo el chat.
+      {
+        path: 'm',
+        title: 'Atlas | ERP',
+        canActivate: [authGuard],
+        loadComponent: () => import('./features/assistant/chat-movil.component').then((m) => m.ChatMovilComponent),
+      },
       {
         path: '',
         // authGuard en el padre cubre todas las rutas internas; corre antes que
