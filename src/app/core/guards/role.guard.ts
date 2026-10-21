@@ -30,6 +30,9 @@ import { AprendizContextService } from '../services/aprendiz-context.service';
  *   { path: 'encuestas', data: { roles: ['administrador', 'administrador_erp'], servicios: ['encuestas.gestionar'] } }
  *   { path: 'instructor/materiales/kardex', data: { roles: ['instructor'], serviciosRequeridos: ['materiales.kardex.ver'] } }
  *
+ * - `excluirRoles` (opcional) → cargos a los que se les niega la ruta aunque pasen por `roles`/`servicios`
+ *   (ej. Cuentadante: un aprendiz nunca puede serlo, así que la pantalla no le sirve).
+ *
  * - `soloAprendizConEtapa` (opcional, bool) → AND extra SOLO para cargo
  *   'aprendiz': la ruta solo se deja entrar si el aprendiz ya tiene una
  *   etapa práctica creada (`AprendizContextService`). No afecta a
@@ -45,6 +48,11 @@ export const roleGuard: CanActivateFn = async (route: ActivatedRouteSnapshot) =>
   const allowedRoles: string[] = route.data['roles'] ?? [];
   const allowedServicios: string[] = route.data['servicios'] ?? [];
   const serviciosRequeridos: string[] = route.data['serviciosRequeridos'] ?? [];
+  const excluirRoles: string[] = route.data['excluirRoles'] ?? [];
+
+  if (excluirRoles.length > 0 && auth.hasRole(excluirRoles)) {
+    return router.createUrlTree(['/']);
+  }
 
   const sinRestriccionRolServicio = allowedRoles.length === 0 && allowedServicios.length === 0;
   const pasaPorRolOServicio =

@@ -54,6 +54,8 @@ export interface PantallaMateriales {
   acceso: AccesoPantalla;
   /** `false` = tiene ruta pero no link propio en el menú (se llega desde otra pantalla). */
   enMenu?: boolean;
+  /** Cargos (`rolNombre`) a los que NO se les ofrece la pantalla aunque tengan el servicio: ni link ni ruta. */
+  ocultaACargos?: string[];
   /** "Mi Bodega" ya la cubre: el link se oculta a un no-admin que administra una bodega. */
   cubiertaPorMiBodega?: boolean;
 }
@@ -89,7 +91,8 @@ export const PANTALLAS_MATERIALES: PantallaMateriales[] = [
   // Quién responde por cada devolutivo (2026-10-05): "Mis bienes a cargo" para cualquiera
   // que use Materiales —un instructor cuentadante no trae `items.ver`—; las pestañas de
   // gestión las decide `puedeGestionarCatalogo` dentro de la pantalla.
-  { id: 'cuentadante', label: 'Cuentadante', path: 'materiales/cuentadante', seccion: 'Inventario', acceso: { tipo: 'cualquiera', servicios: SERVICIOS_ENTRADA } },
+  // Un aprendiz nunca puede ser cuentadante (decisión del dueño, 2026-10-07): para él la pantalla estaría siempre vacía.
+  { id: 'cuentadante', label: 'Cuentadante', path: 'materiales/cuentadante', seccion: 'Inventario', acceso: { tipo: 'cualquiera', servicios: SERVICIOS_ENTRADA }, ocultaACargos: ['aprendiz'] },
   { id: 'items', label: 'Equipos con placa', path: 'materiales/items', seccion: 'Inventario', acceso: servicio('materiales.items.ver') },
   { id: 'lotes', label: 'Material que se gasta', path: 'materiales/lotes', seccion: 'Inventario', acceso: servicio('materiales.lotes.ver') },
   { id: 'productos', label: 'Catálogo de productos', path: 'materiales/productos', seccion: 'Catálogo', acceso: servicio('materiales.productos.ver'), cubiertaPorMiBodega: true },
@@ -118,8 +121,18 @@ export function datosRutaMateriales(id: string): {
   roles?: string[];
   servicios?: string[];
   serviciosRequeridos?: string[];
+  excluirRoles?: string[];
 } {
-  const { acceso } = pantallaMateriales(id);
+  const { acceso, ocultaACargos } = pantallaMateriales(id);
+  const base = ocultaACargos?.length ? { excluirRoles: ocultaACargos } : {};
+  return { ...base, ...datosPorAcceso(acceso) };
+}
+
+function datosPorAcceso(acceso: AccesoPantalla): {
+  roles?: string[];
+  servicios?: string[];
+  serviciosRequeridos?: string[];
+} {
   switch (acceso.tipo) {
     case 'servicio':
       return { serviciosRequeridos: [acceso.servicio] };

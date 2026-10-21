@@ -1,6 +1,6 @@
 import { SidebarComponent } from './sidebar.component';
 import { MATERIALS_ROUTES } from '../../features/materiales/materiales.routes';
-import { PANTALLAS_MATERIALES } from '../../features/materiales/materiales-acceso';
+import { PANTALLAS_MATERIALES, datosRutaMateriales } from '../../features/materiales/materiales-acceso';
 
 /** Lo que trae cada cargo de fábrica (MATERIALES_INSTRUCTOR / MATERIALES_APRENDIZ en backend-erp). */
 const BASE_INSTRUCTOR = [
@@ -79,8 +79,17 @@ describe('Sidebar: menú de Materiales según permisos efectivos', () => {
   });
 
   it('Inicio, Escanear placa y Cuentadante: los ve quien tenga cualquier servicio de entrada, y nadie más', () => {
-    expect(menuMateriales({ cargo: 'aprendiz', servicios: ['materiales.solicitudes.crear'] })).toEqual(['Inicio', 'Escanear placa', 'Cuentadante']);
-    expect(menuMateriales({ cargo: 'aprendiz', servicios: ['materiales.actas.ver'] })).not.toContain('Inicio');
+    expect(menuMateriales({ cargo: 'instructor', servicios: ['materiales.solicitudes.crear'] })).toEqual(['Inicio', 'Escanear placa', 'Cuentadante']);
+    expect(menuMateriales({ cargo: 'instructor', servicios: ['materiales.actas.ver'] })).not.toContain('Inicio');
+  });
+
+  it('Cuentadante no se le ofrece a un aprendiz (nunca puede serlo), aunque tenga servicios de entrada', () => {
+    expect(menuMateriales({ cargo: 'aprendiz', servicios: ['materiales.solicitudes.crear'] })).toEqual(['Inicio', 'Escanear placa']);
+  });
+
+  it('la ruta de Cuentadante excluye al aprendiz y las demás no excluyen a nadie', () => {
+    expect(datosRutaMateriales('cuentadante').excluirRoles).toEqual(['aprendiz']);
+    expect(datosRutaMateriales('inicio').excluirRoles).toBeUndefined();
   });
 
   it('administrador ERP: todo el menú, con "Bodegas" y sin "Mi Bodega"', () => {

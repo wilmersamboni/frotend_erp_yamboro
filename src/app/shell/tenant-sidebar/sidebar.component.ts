@@ -32,6 +32,8 @@ interface NavLink  {
   soloGestorMateriales?: boolean;
   /** Solo para quien registra llegadas/proveedores (mismo criterio que `gestorIngresosGuard`). */
   soloGestorIngresos?: boolean;
+  /** Cargos que no ven este link aunque tengan el servicio (misma regla que `excluirRoles` de la ruta). */
+  ocultarACargos?: string[];
   /** Servicio del sistema de permisos dinámico que también habilita este link,
    * aunque el cargo no esté en `roles` (ver AuthService.tieneServicio). OR con
    * `roles` — pensado para poblaciones DISTINTAS (ej. `roles` = admin,
@@ -522,7 +524,7 @@ export class SidebarComponent implements OnChanges, OnInit {
 
   /** Traduce la regla de acceso de una pantalla de Materiales a un link del menú. */
   private linkMateriales(p: PantallaMateriales): NavLink {
-    const base = { label: p.label, href: `/${p.path}`, safeIcon: this.safe(ICONOS_MATERIALES[p.id] ?? '') };
+    const base = { label: p.label, href: `/${p.path}`, safeIcon: this.safe(ICONOS_MATERIALES[p.id] ?? ''), ocultarACargos: p.ocultaACargos };
     switch (p.acceso.tipo) {
       case 'servicio':
         // Sin `roles`: 100% por permiso, sea cual sea el cargo — misma
@@ -609,6 +611,7 @@ export class SidebarComponent implements OnChanges, OnInit {
           // por un instante y luego cambiarlo.
           if (esAprendiz && l.soloAprendizConEtapa && tieneEtapa !== true) return false;
           if (esAprendiz && l.soloAprendizSinEtapa && tieneEtapa !== false) return false;
+          if (l.ocultarACargos?.includes(cargo)) return false;
           if (l.soloResponsableBodega && (this.auth.isAdmin() || !this.esResponsableBodega())) return false;
           if (l.ocultarSiResponsableBodega && !this.auth.isAdmin() && this.esResponsableBodega()) return false;
           if (l.soloGestorMateriales && !this.auth.isAdmin() && !this.esResponsableBodega() && !this.esGestorCatalogo()) return false;
