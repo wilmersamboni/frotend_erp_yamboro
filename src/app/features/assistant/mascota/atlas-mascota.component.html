@@ -1,0 +1,19 @@
+<div class="escenario" [class.listo]="tres()" (pointerdown)="tocar()">
+  <div class="resplandor"></div>
+
+  <!-- Respaldo CSS: se ve mientras carga la escena 3D y si WebGL no está disponible o va lento. -->
+  <div class="orbe" [attr.data-estado]="estadoVisual()">
+    <span class="antena"></span>
+    <span class="cabeza">
+      <span class="visor">
+        <i class="ojo"></i><i class="ojo"></i>
+        <b class="boca"></b>
+      </span>
+    </span>
+    <span class="mano mano-i"></span>
+    <span class="mano mano-d"></span>
+    <span class="sombra"></span>
+  </div>
+
+  <canvas #lienzo class="lienzo"></canvas>
+</div>
