@@ -475,9 +475,7 @@ export class AdminPanelComponent implements OnInit {
   wizardOpen  = signal(false);
   wizardCargo = signal<'instructor' | 'aprendiz' | 'administrador'>('instructor');
 
-  // ── Panel de permisos embebido en Roles / Usuarios ───────────
-  // (ver plan "Adaptar la interfaz de permisos de SGM al ERP") — guarda la
-  // fila CRUDA (con UUIDs reales) del rol o usuario seleccionado, para que
+  // ── Panel de permisos de Roles / Usuarios ────────────────────
   // Panel lateral de permisos abierto (rol o cuenta). Recibe la fila SIN aplanar, tal como la
   // trae el backend, para cruzar rol/persona/aplicativo sin volver a pedir lo que AdminService
   // ya tiene en rawData().
@@ -532,6 +530,12 @@ export class AdminPanelComponent implements OnInit {
     }
     if (this.auth.perteneceAplicativo('Etapa Práctica')) {
       this.cargarAprendicesParaEtapa();
+    }
+
+    // Los accesos rápidos de la pantalla de inicio (matricular, crear curso, crear programa) abren un modal
+    // cuyos selectores necesitan personas, cursos, áreas, sedes…: se piden ya, de fondo, para que el clic no espere.
+    if (this.auth.isAdmin()) {
+      setTimeout(() => this.admin.precargarDependencias(['matriculas', 'cursos', 'programas']), 0);
     }
 
     // Deep-link a una pestaña puntual (p.ej. /admin?tab=etapas desde la
