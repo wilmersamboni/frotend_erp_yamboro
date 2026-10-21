@@ -540,7 +540,9 @@ export class SidebarComponent implements OnChanges, OnInit {
         // servicios de un aplicativo ajeno no le llegan en `mis-servicios`.
         return { ...base, servicios: [p.acceso.servicio], ocultarSiResponsableBodega: p.cubiertaPorMiBodega };
       case 'admin':
-        return { ...base, roles: CARGOS_ADMIN, aplicativo: 'Materiales' };
+        // Cargo administrador Y el servicio (servicioEstricto es un AND): un administrador sin el permiso no lo ve,
+        // ni siquiera si es del aplicativo Materiales. Misma condición que la ruta.
+        return { ...base, roles: CARGOS_ADMIN, servicioEstricto: p.acceso.servicio };
       case 'admin-o-servicio':
         return { ...base, roles: CARGOS_ADMIN, servicio: p.acceso.servicio, aplicativo: 'Materiales' };
       case 'responsable-bodega':

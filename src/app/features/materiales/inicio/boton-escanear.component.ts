@@ -4,7 +4,6 @@ import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs';
 import { LucideAngularModule, ScanLine } from 'lucide-angular';
 import { AuthService } from '../../../core/services/auth.service';
-import { SERVICIOS_ENTRADA } from '../materiales-acceso';
 
 /**
  * Botón flotante "Escanear" (2026-10-05): en todas las pantallas de
@@ -49,7 +48,7 @@ export class BotonEscanearComponent {
   readonly visible = computed(() => {
     const u = this.url().split('?')[0];
     const enMateriales = u.startsWith('/materiales/') || u === '/mi-bodega';
-    return enMateriales && u !== '/materiales/escanear' && SERVICIOS_ENTRADA.some((s) => this.auth.tieneServicio(s));
+    return enMateriales && u !== '/materiales/escanear' && this.auth.tieneServicio('materiales.escaneo.usar');
   });
 
   constructor() {

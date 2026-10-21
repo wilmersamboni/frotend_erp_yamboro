@@ -32,7 +32,7 @@ export const MATERIALS_ROUTES: Routes = [
   ruta('mi-bodega', () => import('./warehouse/mi-bodega.component').then((m) => m.MiBodegaComponent), { canActivate: [miBodegaGuard] }),
   ruta('bodegas', () => import('./warehouse/mi-bodega.component').then((m) => m.MiBodegaComponent), { data: { todasLasBodegas: true } }),
   ruta('categorias', () => import('./categorias.component').then((m) => m.MaterialesCategoriasComponent)),
-  ruta('sitios', () => import('./sitios.component').then((m) => m.MaterialesSitiosComponent)),
+  ruta('sitios', () => import('./sitios.component').then((m) => m.MaterialesSitiosComponent), { canActivate: [roleGuard, gestorMaterialesGuard] }),
   ruta('productos', () => import('./productos.component').then((m) => m.MaterialesProductosComponent), { canActivate: [roleGuard, productosGuard] }),
   ruta('existencias', () => import('./existencias.component').then((m) => m.MaterialesExistenciasComponent)),
   ruta('ingresos', () => import('./ingresos.component').then((m) => m.MaterialesIngresosComponent), { canActivate: [roleGuard, gestorIngresosGuard] }),
