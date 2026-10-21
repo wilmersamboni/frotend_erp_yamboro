@@ -1,22 +1,36 @@
-import {  OnDestroy, } from '@angular/core';
-import { AfterViewChecked, Component, ElementRef, HostListener, ViewChild, effect } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { AfterViewChecked, Component, ElementRef, ViewChild, effect, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ChatService } from '../../core/services/chat.service';
 import { ContactWidgetService } from '../../core/services/contact-widget.service';
 import { AuthService } from '../../core/services/auth.service';
+import { formatearMensajeChat } from '../../core/utils/chat-formato';
+import { AtlasMascotaComponent } from '../../features/assistant/mascota/atlas-mascota.component';
+import { sugerenciasAtlas } from '../../features/assistant/sugerencias-atlas';
+
+interface MensajeChat {
+  rol: 'usuario' | 'asistente';
+  texto: string;
+  /** Solo las respuestas del asistente: texto ya escapado y con formato (ver core/utils/chat-formato.ts). */
+  html: string;
+}
+
+const SALUDO =
+  '¡Hola! Soy **Atlas**, el asistente virtual del ERP. Puedo ayudarte con matrículas, cursos, horarios, prácticas empresariales, encuestas y ambientes. ¿En qué te ayudo?';
 
 /**
- * Solo dibuja la ventana de chat — el disparador vive en el sidebar
+ * Ventana de chat con Atlas dentro del ERP — el disparador vive en el sidebar
  * ("Contáctanos", junto a "Cerrar sesión"). Antes este componente también
  * era un ícono flotante de 150px fijo en toda la pantalla: tapaba tablas y
  * en móvil se comía media pantalla, así que se movió al sidebar.
+ *
+ * Misma imagen que el chat móvil (/m, features/assistant): Atlas en 3D, grande
+ * al empezar y como avatar de la cabecera cuando hay conversación. Es el mismo
+ * ChatService y el mismo endpoint; solo cambia la pantalla.
  */
 @Component({
   selector: 'app-floating-buttons',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule, AtlasMascotaComponent],
   templateUrl: './floating-buttons.html',
   styleUrls: ['./floating-buttons.css'],
 })
@@ -24,6 +38,23 @@ export class FloatingButtons implements AfterViewChecked {
 
   @ViewChild('mensajesContainer') private mensajesContainer?: ElementRef<HTMLElement>;
   @ViewChild('textareaMensaje') private textareaMensaje?: ElementRef<HTMLTextAreaElement>;
+
+  private mascota?: AtlasMascotaComponent;
+
+  /**
+   * El panel se dibuja la primera vez que se abre y DESPUÉS SE CONSERVA: cerrar solo lo oculta (y pausa a
+   * Atlas). Antes se destruía y se recreaba en cada apertura —los ~40 mensajes, el contexto WebGL, los
+   * shaders—, lo que bloqueaba la página ~360 ms cada vez. Si la primera apertura ocurre mientras Atlas
+   * contesta, tiene que arrancar pensando.
+   */
+  readonly haAbierto = signal(false);
+
+  @ViewChild(AtlasMascotaComponent)
+  set mascotaRef(mascota: AtlasMascotaComponent | undefined) {
+    this.mascota = mascota;
+    // Diferido: cambiar su estado en pleno ciclo de detección de este componente da NG0100 en desarrollo.
+    if (mascota) queueMicrotask(() => mascota.pensar(this.cargando));
+  }
 
   mensajeUsuario = '';
   cargando = false;
@@ -34,9 +65,7 @@ export class FloatingButtons implements AfterViewChecked {
   private ultimoConteoMensajes = 0;
   private ultimoCargando = false;
 
-  mensajes: { rol: 'usuario' | 'asistente', texto: string }[] = [
-    { rol: 'asistente', texto: '¡Hola! Soy **Atlas**, el asistente virtual del ERP. Puedo ayudarte con matrículas, cursos, horarios, prácticas empresariales, encuestas y ambientes. ¿En qué te ayudo?' }
-  ];
+  mensajes: MensajeChat[] = [this.crearMensaje('asistente', SALUDO)];
 
   // undefined = todavía no corrió el effect de abajo ni una vez (arranque
   // de la app) — distinto de null (sesión cerrada), para no disparar un
@@ -45,20 +74,17 @@ export class FloatingButtons implements AfterViewChecked {
 
   constructor(
     private chatService: ChatService,
-    private sanitizer: DomSanitizer,
-    public contactWidget: ContactWidgetService,
+    private contactWidget: ContactWidgetService,
     private auth: AuthService,
-    private elementRef: ElementRef<HTMLElement>,
   ) {
     // El disparador (botón "Contáctanos" del sidebar) solo prende/apaga el signal.
     effect(() => {
       if (this.contactWidget.chatAbierto()) {
-        // El panel usa *ngIf: al reabrir, Angular recrea el DOM del chat
-        // desde cero con scrollTop=0. ngAfterViewChecked solo reengancha el
-        // scroll cuando cambia la cantidad de mensajes, y al reabrir sigue
-        // siendo la misma conversación de antes — forzar el conteo a un
-        // valor imposible hace que el próximo ciclo lo detecte como cambio
-        // y sí vuelva a scrollear al final.
+        this.haAbierto.set(true);
+        // Al reabrir sigue siendo la misma conversación de antes y ngAfterViewChecked
+        // solo reengancha el scroll cuando cambia la cantidad de mensajes — forzar
+        // el conteo a un valor imposible hace que el próximo ciclo lo detecte como
+        // cambio y vuelva a scrollear al final.
         this.ultimoConteoMensajes = -1;
       }
     });
@@ -94,10 +120,9 @@ export class FloatingButtons implements AfterViewChecked {
       next: (historial) => {
         if (!historial?.mensajes.length) return;
         this.chatService.adoptarSession(historial.sessionId);
-        this.mensajes = historial.mensajes.map((m) => ({
-          rol: m.rol === 'asistente' ? 'asistente' : 'usuario',
-          texto: m.contenido,
-        }));
+        this.mensajes = historial.mensajes.map((m) =>
+          this.crearMensaje(m.rol === 'asistente' ? 'asistente' : 'usuario', m.contenido),
+        );
       },
       error: () => {
         // Silencioso a propósito — sin historial previo disponible, el saludo por defecto es una degradación aceptable.
@@ -105,20 +130,18 @@ export class FloatingButtons implements AfterViewChecked {
     });
   }
 
-  // /** Clic fuera de la ventana del chat (y fuera del botón que lo abre, ver sidebar.component.ts) la cierra. */
-  // @HostListener('document:click', ['$event'])
-  // onClickFuera(event: MouseEvent): void {
-  //   if (!this.chatAbierto) return;
-  //   const target = event.target as Node;
-  //   if (!this.elementRef.nativeElement.contains(target)) {
-  //     this.cerrarChat();
-  //   }
-  // }
-
-
-
   get chatAbierto(): boolean {
     return this.contactWidget.chatAbierto();
+  }
+
+  /** Atlas se muestra grande al empezar y pasa a avatar de la cabecera cuando ya hay conversación. */
+  get compacta(): boolean {
+    return this.mensajes.some((m) => m.rol === 'usuario');
+  }
+
+  /** Preguntas rápidas según el rol; desaparecen al empezar a conversar. */
+  get sugerencias(): string[] {
+    return this.compacta ? [] : sugerenciasAtlas(this.auth.isAdmin(), this.auth.cargo());
   }
 
   cerrarChat(): void {
@@ -127,15 +150,11 @@ export class FloatingButtons implements AfterViewChecked {
 
   /** Solo se usa para 'cambio-usuario' ahora — el cierre por inactividad se quitó a pedido del negocio. */
   private reiniciarConversacion(motivo: 'cambio-usuario') {
-    this.mensajes = [
-      {
-        rol: 'asistente',
-        texto: '¡Hola! Soy **Atlas**, el asistente virtual del ERP. Puedo ayudarte con matrículas, cursos, horarios, prácticas empresariales, encuestas y ambientes. ¿En qué te ayudo?'
-      }
-    ];
+    this.mensajes = [this.crearMensaje('asistente', SALUDO)];
 
     // Genera nuevo sessionId para que el backend empiece la conversación desde cero
     this.chatService.resetSession();
+    this.mascota?.saludar();
   }
 
   ngAfterViewChecked(): void {
@@ -164,41 +183,14 @@ export class FloatingButtons implements AfterViewChecked {
     this.enviar();
   }
 
-  formatearMensaje(texto: string): SafeHtml {
-    // Antes había un reemplazo adicional que insertaba un salto de párrafo
-    // después de CUALQUIER punto seguido de mayúscula, sin distinguir fin de
-    // oración de una abreviatura — partía nombres reales como "Lab. Salud 1"
-    // en dos líneas. Los saltos de párrafo reales ya vienen como '\n' en el
-    // texto del backend (ver el '\n' entre elementos de una lista), así que
-    // no hace falta adivinarlos a partir de la puntuación.
-    //
-    // El texto puede venir de un LLM o de un webhook externo (ver CLAUDE.md
-    // raíz) — se escapa ANTES de aplicar el markdown propio para que
-    // cualquier etiqueta HTML/JS que traiga quede como texto literal en vez
-    // de ejecutarse al pasar por bypassSecurityTrustHtml().
-    let html = this.escaparHtml(texto)
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/(\d+)\.\s(.+)/g, '<li><span class="paso-num">$1</span> $2</li>')
-      .replace(/(<li>.*<\/li>)/gs, '<ol>$1</ol>')
-      .replace(/\n/g, '<br>');
+  enviar(sugerencia?: string) {
+    const texto = (sugerencia ?? this.mensajeUsuario).trim();
+    if (!texto || this.cargando) return;
 
-    return this.sanitizer.bypassSecurityTrustHtml(html);
-  }
-
-  private escaparHtml(texto: string): string {
-    return texto
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-  }
-
-  enviar() {
-    if (!this.mensajeUsuario.trim() || this.cargando) return;
-
-    const texto = this.mensajeUsuario;
-    this.mensajes.push({ rol: 'usuario', texto });
+    this.mensajes.push(this.crearMensaje('usuario', texto));
     this.mensajeUsuario = '';
     this.cargando = true;
+    this.mascota?.pensar(true);
 
     // El textarea creció con el mensaje anterior — limpiar mensajeUsuario no
     // encoge por sí solo la altura inline que le puso ajustarAlturaTextarea().
@@ -207,21 +199,24 @@ export class FloatingButtons implements AfterViewChecked {
 
     this.chatService.sendMessage(texto).subscribe({
       next: (res) => {
-        this.mensajes.push({ rol: 'asistente', texto: res.reply || 'Sin respuesta' });
-        this.cargando = false;
+        this.mensajes.push(this.crearMensaje('asistente', res.reply || 'Sin respuesta'));
+        this.terminarEspera();
+        this.mascota?.celebrar();
       },
       error: () => {
-        this.mensajes.push({ rol: 'asistente', texto: 'Ocurrió un error, intenta de nuevo.' });
-        this.cargando = false;
+        this.mensajes.push(this.crearMensaje('asistente', 'Ocurrió un error, intenta de nuevo.'));
+        this.terminarEspera();
+        this.mascota?.fallar();
       }
     });
   }
+
+  private terminarEspera(): void {
+    this.cargando = false;
+    this.mascota?.pensar(false);
+  }
+
+  private crearMensaje(rol: MensajeChat['rol'], texto: string): MensajeChat {
+    return { rol, texto, html: rol === 'asistente' ? formatearMensajeChat(texto) : '' };
+  }
 }
-
-
-
-
-
-
-
-
