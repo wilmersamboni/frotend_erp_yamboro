@@ -38,7 +38,7 @@ import { DialogDirective } from '../../../../shared/directives/dialog.directive'
             </div>
             <div>
               <label for="nc-slug" class="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5">Identificador (slug) <span class="text-red-500">*</span></label>
-              <input id="nc-slug" type="text" formControlName="slug" placeholder="yamboro"
+              <input id="nc-slug" type="text" formControlName="slug" placeholder="yamboro" (input)="proponerDominio()"
                 class="w-full text-sm rounded-xl border outline-none px-3.5 py-2.5 transition-colors" style="background:var(--surface);color:var(--text);"
                 [class.border-red-400]="invalido('slug')" [class.border-gray-200]="!invalido('slug')" />
               <p class="mt-1 text-xs" [class.text-red-500]="invalido('slug')" [class.text-gray-400]="!invalido('slug')">
@@ -53,6 +53,12 @@ import { DialogDirective } from '../../../../shared/directives/dialog.directive'
               <p class="mt-1 text-xs" [class.text-red-500]="invalido('dominio')" [class.text-gray-400]="!invalido('dominio')">
                 La dirección con la que los usuarios del centro entran, en minúsculas y con al menos un punto.
               </p>
+              @if (dominioNoCoincide()) {
+                <p class="mt-1 text-xs text-amber-600">
+                  El primer tramo de la dirección no es el identificador (<b>{{ form.controls.slug.value }}</b>). Si el centro entra por
+                  subdominio, el sistema busca el tramo inicial como identificador y no lo encontrará.
+                </p>
+              }
             </div>
           </div>
 
@@ -100,6 +106,21 @@ export class TenantNuevoModalComponent {
       .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
       .replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
     this.form.controls.slug.setValue(slug);
+    this.proponerDominio();
+  }
+
+  /** Propone `<slug>.<base>` mientras la dirección no se haya escrito a mano; la base sale del host del panel. */
+  proponerDominio(): void {
+    if (this.form.controls.dominio.dirty) return;
+    const host = window.location.hostname;
+    const base = /^\d{1,3}(\.\d{1,3}){3}$/.test(host) ? '' : host;   // por IP no hay base de dominio
+    const slug = this.form.controls.slug.value;
+    this.form.controls.dominio.setValue(base && slug ? `${slug}.${base}` : '');
+  }
+
+  dominioNoCoincide(): boolean {
+    const { slug, dominio } = this.form.getRawValue();
+    return !!slug && !!dominio && dominio.split('.')[0] !== slug;
   }
 
   normalizarDominio(): void {
