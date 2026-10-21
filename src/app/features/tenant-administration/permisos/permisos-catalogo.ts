@@ -17,6 +17,10 @@ export interface ServicioCat {
 export interface PasoEscalera {
   servicios: ServicioCat[];
   label: string;
+  /** Columna de la matriz: 0 = Ver, 1 = Modificar (crear/editar), 2 = Control total (eliminar/administrar). */
+  posicion: number;
+  /** Su nombre no es el genérico de la columna (ej. «Ver listado»): la celda lo muestra con texto propio. */
+  especial: boolean;
 }
 
 /** Acción que no es un nivel de acceso (aprobar, subir, competencias...): se muestra como interruptor aparte. */
@@ -100,6 +104,9 @@ const SERVICIO_LABELS: Record<string, string> = {
   'practica.formatos.ver': 'Ver formatos', 'practica.formatos.gestionar': 'Gestionar formatos (subir, editar y eliminar)',
   'practica.migracion': 'Migrar datos de práctica',
   'practica.bitacoras.subir': 'Subir bitácoras',
+  'materiales.salidas.ver': 'Ver salidas de material', 'materiales.salidas.crear': 'Pedir y gestionar salidas de material',
+  'materiales.cuentadante.ver': 'Ver cuentadantes y bienes a cargo', 'materiales.escaneo.usar': 'Escanear placas de equipos',
+  'materiales.catalogo.ver': 'Ver la pantalla Catálogo de productos (necesita también «Ver productos»)',
   'horarios.competencias.ver': 'Ver competencias', 'horarios.competencias.gestionar': 'Crear y editar competencias',
   'horarios.eventos.ver': 'Ver eventos del calendario', 'horarios.eventos.gestionar': 'Crear y editar eventos del calendario',
   // Encuestas
@@ -112,7 +119,7 @@ const SERVICIO_LABELS: Record<string, string> = {
 };
 
 const RECURSO_LABELS: Record<string, string> = {
-  'materiales.sitios': 'Sitios y bodegas', 'materiales.productos': 'Catálogo de productos',
+  'materiales.sitios': 'Sitios y bodegas', 'materiales.productos': 'Productos',
   'materiales.items': 'Ítems individuales', 'materiales.existencias': 'Existencias',
   'materiales.categorias': 'Categorías', 'materiales.kardex': 'Historial de movimientos',
   'materiales.notificaciones': 'Notificaciones', 'materiales.solicitudes': 'Solicitudes y préstamos',
@@ -121,6 +128,7 @@ const RECURSO_LABELS: Record<string, string> = {
   'materiales.detalle-solicitud': 'Detalle de solicitudes', 'materiales.actas': 'Actas de entrega',
   'materiales.ingresos': 'Ingresos y proveedores', 'materiales.chequeos': 'Chequeos de devolución',
   'materiales.items-chequeo': 'Ítems de chequeo', 'materiales.lotes': 'Material que se gasta (lotes)',
+  'materiales.salidas': 'Salidas de material', 'materiales.cuentadante': 'Cuentadante', 'materiales.escaneo': 'Escanear placa', 'materiales.catalogo': 'Pantalla Catálogo de productos',
   'personas': 'Personas', 'matriculas': 'Matrículas', 'horarios': 'Horarios',
   'practica.empresas': 'Empresas', 'practica.formatos': 'Formatos', 'practica.migracion': 'Migración de datos',
   'practica': 'Migración de datos', 'practica.asignaciones': 'Asignaciones de instructor', 'practica.bitacoras': 'Bitácoras',
@@ -237,7 +245,7 @@ export function construirRecurso(recurso: string, items: ServicioCat[]): Recurso
     .map(([posicion, servicios]) => {
       const override = servicios.map(s => RUNGO_LABEL_OVERRIDE[s.nombre]).find(Boolean);
       const acciones = servicios.map(s => s.nombre.split('.').pop()!);
-      return { servicios, label: override ?? labelPasoGenerico(posicion, acciones) };
+      return { servicios, label: override ?? labelPasoGenerico(posicion, acciones), posicion, especial: !!override };
     });
 
   extras.sort((a, b) => a.label.localeCompare(b.label, 'es'));
@@ -327,4 +335,36 @@ export function efectivoDe(decision: Decision, delRol: boolean, modoRol: boolean
   if (decision === 'otorgado') return true;
   if (decision === 'denegado') return false;
   return delRol;
+}
+
+// ── Qué permisos del rol valen de verdad para una cuenta ────────────────────
+
+/** Roles que no quedan atados al aplicativo de su cuenta. Mismo criterio que `RebacGuard` (backend-epsas). */
+const ROLES_SIN_RESTRICCION_APLICATIVO = ['administrador_erp', 'instructor', 'aprendiz'];
+
+/**
+ * Servicios del núcleo del ERP que cualquier administrador usa sin importar su aplicativo.
+ * Copia de `SERVICIOS_ADMIN_SIN_RESTRICCION_APLICATIVO` en backend-epsas
+ * (`permisos.service.ts`): si cambia allá, hay que cambiarla aquí.
+ */
+const SERVICIOS_SIN_RESTRICCION_APLICATIVO = new Set([
+  'personas.ver', 'personas.gestionar', 'matriculas.ver', 'matriculas.gestionar',
+  'academico.gestionar', 'organizacion.gestionar', 'usuarios.gestionar', 'ambientes.gestionar',
+]);
+
+/**
+ * ¿El permiso que guarda el rol vale para esta cuenta? Un `administrador` solo usa los servicios de
+ * módulos de su propio aplicativo (más el núcleo del ERP): el rol es compartido por todos los
+ * administradores y guarda permisos de todos los módulos, pero el sistema filtra por aplicativo al
+ * comprobarlos. Una excepción personal sí se salta ese filtro, y por eso es como se le da un módulo ajeno.
+ */
+export function aplicaAlRol(
+  rolNombre: string,
+  nombreServicio: string,
+  aplicativoDelServicio: string | null | undefined,
+  aplicativoDeLaCuenta: string | null | undefined,
+): boolean {
+  if (ROLES_SIN_RESTRICCION_APLICATIVO.includes(rolNombre)) return true;
+  if (SERVICIOS_SIN_RESTRICCION_APLICATIVO.has(nombreServicio)) return true;
+  return !!aplicativoDeLaCuenta && aplicativoDelServicio === aplicativoDeLaCuenta;
 }

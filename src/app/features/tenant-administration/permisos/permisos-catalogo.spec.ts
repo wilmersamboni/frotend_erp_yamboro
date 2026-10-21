@@ -1,5 +1,5 @@
 import {
-  construirModulos, construirRecurso, decisionPara, efectivoDe, fraseServicio, nivelDe, normalizar, origenDe,
+  aplicaAlRol, construirModulos, construirRecurso, decisionPara, efectivoDe, fraseServicio, nivelDe, normalizar, origenDe,
   textoNivel, tieneHuecos,
 } from './permisos-catalogo';
 
@@ -93,6 +93,16 @@ describe('permisos-catalogo', () => {
         svc('practica.empresas.ver'), svc('practica.empresas.gestionar'), svc('practica.empresas.administrar'),
       ]);
       expect(e.pasos.map(p => p.label)).toEqual(['Ver detalle', 'Ver listado', 'Control total']);
+      expect(e.pasos.map(p => p.especial)).toEqual([true, true, false]);
+    });
+
+    it('cada peldaño sabe su columna de la matriz (Ver=0, Modificar=1, Control total=2), aunque falte alguna', () => {
+      expect(r.pasos.map(p => p.posicion)).toEqual([0, 1, 2]);
+      const sinBorrar = construirRecurso('materiales.actas', [svc('materiales.actas.ver'), svc('materiales.actas.crear')]);
+      expect(sinBorrar.pasos.map(p => p.posicion)).toEqual([0, 1]);
+      const soloControl = construirRecurso('x', [svc('x.ver'), svc('x.administrar')]);
+      expect(soloControl.pasos.map(p => p.posicion)).toEqual([0, 2]);
+      expect(soloControl.pasos.map(p => p.label)).toEqual(['Ver', 'Control total']);
     });
   });
 
@@ -113,5 +123,25 @@ describe('permisos-catalogo', () => {
 
   it('normalizar quita tildes y mayúsculas para buscar', () => {
     expect(normalizar('Matrículas')).toBe('matriculas');
+  });
+
+  describe('aplicaAlRol — el rol administrador solo vale en su aplicativo', () => {
+    it('un administrador usa los módulos de su aplicativo', () => {
+      expect(aplicaAlRol('administrador', 'practica.etapas.ver', 'app-practica', 'app-practica')).toBe(true);
+    });
+    it('un administrador NO usa los módulos de otro aplicativo (Materiales, Horarios)', () => {
+      expect(aplicaAlRol('administrador', 'materiales.productos.ver', 'app-materiales', 'app-practica')).toBe(false);
+    });
+    it('pero sí el núcleo del ERP (personas, matrículas, usuarios…) en cualquier aplicativo', () => {
+      expect(aplicaAlRol('administrador', 'personas.ver', 'app-erp', 'app-practica')).toBe(true);
+    });
+    it('administrador_erp, instructor y aprendiz no quedan atados a un aplicativo', () => {
+      for (const rol of ['administrador_erp', 'instructor', 'aprendiz']) {
+        expect(aplicaAlRol(rol, 'materiales.productos.ver', 'app-materiales', 'app-practica')).toBe(true);
+      }
+    });
+    it('una cuenta sin aplicativo no recibe nada que no sea del núcleo', () => {
+      expect(aplicaAlRol('administrador', 'materiales.productos.ver', 'app-materiales', null)).toBe(false);
+    });
   });
 });

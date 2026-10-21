@@ -7,8 +7,8 @@ import { AuthService } from '../../../core/services/auth.service';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton.component';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
 import {
-  Decision, ModuloUI, Origen, RecursoUI, ServicioCat,
-  construirModulos, decisionPara, efectivoDe, fraseServicio, nivelDe, normalizar, origenDe, textoNivel, tieneHuecos,
+  Decision, ModuloUI, Origen, PasoEscalera, RecursoUI, ServicioCat,
+  aplicaAlRol, construirModulos, decisionPara, efectivoDe, fraseServicio, nivelDe, normalizar, origenDe, textoNivel, tieneHuecos,
 } from './permisos-catalogo';
 
 type Filtro = 'todos' | 'tiene' | 'distintos';
@@ -16,7 +16,10 @@ type Filtro = 'todos' | 'tiene' | 'distintos';
 /** Todo lo que el panel necesita saber de un servicio para una cuenta (o rol), ya con el borrador aplicado. */
 interface EstadoServicio {
   efectivo: boolean;
+  /** Lo que el rol le da DE VERDAD a esta cuenta (descontando los módulos de otro aplicativo). */
   delRol: boolean;
+  /** El rol lo guarda, pero es de un módulo de otro aplicativo: no vale para esta cuenta. */
+  otroAplicativo: boolean;
   origen: Origen;
   /** Cómo estaba guardado antes del borrador. */
   origenAntes: Origen;
@@ -67,11 +70,11 @@ interface EstadoServicio {
                 <div class="pd-menu" role="menu">
                   <button type="button" role="menuitem" [disabled]="excepciones().size === 0 || guardando()" (click)="restablecer()">
                     <strong>Restablecer al rol</strong>
-                    <span>Borra sus {{ excepciones().size }} excepciones y vuelve a lo que da su rol.</span>
+                    <span>Borra sus {{ excepciones().size }} excepciones.</span>
                   </button>
                   <button type="button" role="menuitem" class="pd-menu-peligro" [disabled]="guardando()" (click)="accesoTotal()">
                     <strong>Dar acceso total…</strong>
-                    <span>Marca todos los permisos del sistema (no se aplica hasta que guardes).</span>
+                    <span>Marca todo; se aplica al guardar.</span>
                   </button>
                 </div>
               }
@@ -87,21 +90,20 @@ interface EstadoServicio {
           <div class="pd-carga"><app-loading-skeleton variant="form" [rows]="6" label="Cargando permisos" /></div>
         } @else {
 
-          <!-- ── Resumen ── -->
+          <!-- ── Resumen: una línea; las etiquetas solo aparecen si hay algo que avisar ── -->
           <div class="pd-resumen">
+            <span><b>{{ resumen().tiene }}</b> de {{ resumen().total }} permisos activos</span>
             @if (modo === 'usuario') {
-              <span class="pd-chip pd-origen-rol"><b>{{ resumen().delRol }}</b> del rol</span>
-              <span class="pd-chip pd-origen-extra"><b>{{ resumen().extras }}</b> extras personales</span>
-              <span class="pd-chip pd-origen-bloqueado"><b>{{ resumen().bloqueados }}</b> bloqueados</span>
-              <span class="pd-chip-nota">{{ resumen().tiene }} de {{ resumen().total }} permisos activos</span>
+              @if (resumen().extras > 0) { <span class="pd-tag pd-tag-extra">{{ resumen().extras }} {{ resumen().extras === 1 ? 'extra' : 'extras' }}</span> }
+              @if (resumen().bloqueados > 0) { <span class="pd-tag pd-tag-bloq">{{ resumen().bloqueados }} {{ resumen().bloqueados === 1 ? 'bloqueado' : 'bloqueados' }}</span> }
             } @else {
-              <span class="pd-chip pd-origen-rol"><b>{{ resumen().tiene }}</b> de {{ resumen().total }} permisos activos</span>
-              <span class="pd-chip-nota">Afecta a {{ personasConRol() }} {{ personasConRol() === 1 ? 'persona' : 'personas' }} con este rol</span>
+              <span class="pd-sep">·</span>
+              <span>afecta a {{ personasConRol() }} {{ personasConRol() === 1 ? 'persona' : 'personas' }}</span>
             }
           </div>
 
           @if (soloLectura()) {
-            <div class="pd-aviso" role="status">🔒 {{ soloLectura() }}</div>
+            <div class="pd-aviso" role="status">{{ soloLectura() }}</div>
           }
 
           <div class="pd-cuerpo">
@@ -125,90 +127,95 @@ interface EstadoServicio {
               <div class="pd-barra">
                 <label class="pd-buscar">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-                  <input type="search" data-no-dirty placeholder="Buscar un permiso, ej. aprobar traslados"
+                  <input type="search" data-no-dirty placeholder="Buscar un permiso"
                     [value]="busqueda()" (input)="busqueda.set($any($event.target).value)" />
                 </label>
                 <div class="pd-filtros" role="group" aria-label="Filtrar">
                   <button type="button" [class.activo]="filtro() === 'todos'" (click)="filtro.set('todos')">Todos</button>
-                  <button type="button" [class.activo]="filtro() === 'tiene'" (click)="filtro.set('tiene')">Los que tiene</button>
+                  <button type="button" [class.activo]="filtro() === 'tiene'" (click)="filtro.set('tiene')">Activos</button>
                   @if (modo === 'usuario') {
                     <button type="button" [class.activo]="filtro() === 'distintos'" (click)="filtro.set('distintos')">Distintos al rol</button>
                   }
                 </div>
               </div>
 
-              @if (modo === 'usuario') {
-                <div class="pd-leyenda" aria-hidden="true">
-                  <span><i class="pd-pt pd-origen-rol"></i>Del rol</span>
-                  <span><i class="pd-pt pd-origen-extra"></i>Extra personal</span>
-                  <span><i class="pd-pt pd-origen-bloqueado"></i>Bloqueado para esta cuenta</span>
-                </div>
-              }
-
               <div class="pd-lista">
+                @if (vista().length) {
+                  <!-- Encabezado fijo: las mismas tres columnas en todas las filas. -->
+                  <div class="pd-cabecera" aria-hidden="true">
+                    <div class="pd-cols">
+                      @for (h of COLUMNAS; track h.texto) { <span class="pd-cab" [title]="h.ayuda">{{ h.texto }}</span> }
+                    </div>
+                  </div>
+                }
+
                 @for (grupo of vista(); track grupo.modulo.nombre) {
                   <div class="pd-grupo">
                     <div class="pd-grupo-cab">
-                      <div>
-                        <h3>{{ grupo.modulo.etiqueta }}</h3>
-                        @if (grupo.modulo.descripcion) { <p>{{ grupo.modulo.descripcion }}</p> }
-                      </div>
+                      <h3>{{ grupo.modulo.etiqueta }}</h3>
                       @if (!soloLectura()) {
                         <div class="pd-grupo-acc">
                           <button type="button" (click)="marcarModulo(grupo.modulo, true)">Marcar todo</button>
+                          <span aria-hidden="true">·</span>
                           <button type="button" (click)="marcarModulo(grupo.modulo, false)">Quitar todo</button>
                         </div>
                       }
                     </div>
+
+                    @if (modo === 'usuario' && modulosAjenos().has(grupo.modulo.nombre)) {
+                      <p class="pd-ajeno">
+                        Esta cuenta es del aplicativo «{{ aplicativoNombre() }}»: los permisos de este módulo no vienen con su rol.
+                        Marca solo los que quieras darle.
+                      </p>
+                    }
 
                     @for (r of grupo.recursos; track r.recurso) {
                       <div class="pd-fila" [class.cambiada]="recursoCambiado(r)">
                         <div class="pd-fila-sup">
                           <div class="pd-fila-nombre">
                             <strong>{{ r.label }}</strong>
-                            @if (r.pasos.length) { <small>{{ textoRecurso(r) }}</small> }
+                            @if (notaRol(r)) { <small class="pd-nota">{{ notaRol(r) }}</small> }
                           </div>
 
                           @if (r.pasos.length) {
-                            <div class="pd-escalera" role="radiogroup" [attr.aria-label]="'Nivel de acceso a ' + r.label">
-                              <button type="button" role="radio" class="pd-escalon" [attr.aria-checked]="nivelActual(r) === 0"
-                                [class.activo]="nivelActual(r) === 0" [class.cero]="true" [disabled]="!!soloLectura()"
-                                (click)="elegirNivel(r, 0)">
-                                Sin acceso
-                                @if (marcaRol(r, 0)) { <span class="pd-marca">rol</span> }
-                              </button>
-                              @for (paso of r.pasos; track $index) {
-                                <button type="button" role="radio" class="pd-escalon" [attr.aria-checked]="nivelActual(r) === $index + 1"
-                                  [class.activo]="nivelActual(r) === $index + 1" [disabled]="!!soloLectura()"
-                                  [style.--nivel-color]="colorNivel($index)" [title]="titulosPaso(paso.servicios)"
-                                  (click)="elegirNivel(r, $index + 1)">
-                                  {{ paso.label }}
-                                  @if (marcaRol(r, $index + 1)) { <span class="pd-marca">rol</span> }
-                                </button>
+                            <div class="pd-cols" role="group" [attr.aria-label]="'Nivel de acceso a ' + r.label">
+                              @for (c of celdas(r); track c.col) {
+                                @if (c.paso) {
+                                  <button type="button" role="checkbox" class="pd-check" [class.on]="nivelActual(r) >= c.nivel"
+                                    [attr.aria-checked]="nivelActual(r) >= c.nivel" [disabled]="!!soloLectura()"
+                                    [attr.aria-label]="c.paso.label + ' · ' + r.label" [title]="tituloNivel(r, c.nivel)"
+                                    (click)="alternarColumna(r, c.nivel)">
+                                    <span class="pd-caja">
+                                      <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    </span>
+                                    @if (c.especial) { <span class="pd-cel-txt">{{ c.paso.label }}</span> }
+                                  </button>
+                                } @else {
+                                  <span class="pd-check pd-check-vacia" aria-hidden="true"></span>
+                                }
                               }
                             </div>
                           }
                         </div>
 
                         @if (huecos(r)) {
-                          <p class="pd-hueco">Tiene permisos sueltos que no siguen la escala (por ejemplo, puede eliminar pero no ver). Elige un nivel para ordenarlo.</p>
+                          <p class="pd-hueco">Tiene permisos sueltos que no siguen el orden (por ejemplo, puede eliminar pero no ver). Marca una casilla para ordenarlo.</p>
                         }
 
                         @if (r.extras.length) {
                           <ul class="pd-extras">
                             @for (ex of r.extras; track ex.servicio.idServicio) {
                               <li>
-                                <button type="button" role="switch" class="pd-switch" [attr.aria-checked]="est(ex.servicio.idServicio).efectivo"
-                                  [class.on]="est(ex.servicio.idServicio).efectivo" [disabled]="!!soloLectura()"
-                                  [attr.aria-label]="ex.label" (click)="alternar(ex.servicio)">
-                                  <span class="pd-switch-pista"><span class="pd-switch-bola"></span></span>
-                                  <span class="pd-switch-texto">{{ ex.label }}</span>
-                                </button>
-                                @if (modo === 'usuario' && est(ex.servicio.idServicio).origen !== 'no') {
-                                  <span class="pd-etiqueta" [class]="'pd-etiqueta pd-origen-' + est(ex.servicio.idServicio).origen">
-                                    {{ textoOrigen(est(ex.servicio.idServicio).origen) }}
+                                <button type="button" role="checkbox" class="pd-check pd-check-linea" [class.on]="est(ex.servicio.idServicio).efectivo"
+                                  [attr.aria-checked]="est(ex.servicio.idServicio).efectivo" [disabled]="!!soloLectura()"
+                                  (click)="alternar(ex.servicio)">
+                                  <span class="pd-caja">
+                                    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
                                   </span>
-                                }
+                                  <span class="pd-extra-txt">{{ ex.label }}</span>
+                                </button>
+                                @if (modo === 'usuario' && est(ex.servicio.idServicio).origen === 'extra') { <span class="pd-tag pd-tag-extra">Extra</span> }
+                                @if (modo === 'usuario' && est(ex.servicio.idServicio).origen === 'bloqueado') { <span class="pd-tag pd-tag-bloq">Bloqueado</span> }
                               </li>
                             }
                           </ul>
@@ -233,10 +240,8 @@ interface EstadoServicio {
                 <div class="pd-cambios" role="region" aria-label="Cambios sin guardar">
                   @for (c of cambios(); track c.id) {
                     <div class="pd-cambio">
-                      <span class="pd-cambio-nombre">{{ c.label }}</span>
-                      <span class="pd-cambio-flujo">
-                        <s>{{ c.antes }}</s> → <b>{{ c.despues }}</b>
-                      </span>
+                      <span>{{ c.label }}</span>
+                      <span class="pd-cambio-flujo"><s>{{ c.antes }}</s> → <b>{{ c.despues }}</b></span>
                     </div>
                   }
                 </div>
@@ -244,7 +249,7 @@ interface EstadoServicio {
               <div class="pd-pie-fila">
                 <button type="button" class="pd-link" [attr.aria-expanded]="verCambios()" (click)="verCambios.set(!verCambios())">
                   <b>{{ cambios().length }}</b> {{ cambios().length === 1 ? 'cambio sin guardar' : 'cambios sin guardar' }}
-                  · {{ verCambios() ? 'ocultar' : 'ver cuáles' }}
+                  · {{ verCambios() ? 'ocultar' : 'ver' }}
                 </button>
                 <div class="pd-pie-botones">
                   <button type="button" class="pd-btn" [disabled]="guardando()" (click)="descartar()">Descartar</button>
@@ -255,7 +260,7 @@ interface EstadoServicio {
               </div>
             } @else {
               <div class="pd-pie-fila">
-                <span class="pd-pie-nota">Sin cambios pendientes. Lo que marques se aplica solo al pulsar «Guardar cambios».</span>
+                <span class="pd-pie-nota">Sin cambios pendientes</span>
                 <div class="pd-pie-botones">
                   <button type="button" class="pd-btn" (click)="intentarCerrar()">Cerrar</button>
                 </div>
@@ -267,19 +272,20 @@ interface EstadoServicio {
     </div>
   `,
   styles: [`
-    .pd-fondo { position: fixed; inset: 0; z-index: 1090; display: flex; justify-content: flex-end; background: rgba(0,0,0,.5); }
+    .pd-fondo { position: fixed; inset: 0; z-index: 1090; display: flex; justify-content: flex-end; background: rgba(0,0,0,.45); }
     .pd-panel {
-      position: relative; display: flex; flex-direction: column; width: min(1060px, 100vw); height: 100%;
-      background: var(--surface); color: var(--text); box-shadow: -12px 0 40px rgba(0,0,0,.2);
+      position: relative; display: flex; flex-direction: column; width: min(980px, 100vw); height: 100%;
+      background: var(--surface); color: var(--text); box-shadow: -12px 0 40px rgba(0,0,0,.18);
     }
 
-    .pd-head { display: flex; align-items: center; gap: 14px; padding: 18px 22px; border-bottom: 1px solid var(--border); }
+    /* Encabezado */
+    .pd-head { display: flex; align-items: center; gap: 14px; padding: 18px 24px; border-bottom: 1px solid var(--border); }
     .pd-avatar {
-      flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+      flex: none; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center;
       background: var(--accent-soft); color: var(--accent-text); font-weight: 800; font-size: 15px;
     }
     .pd-head-texto { flex: 1; min-width: 0; }
-    .pd-head-texto h2 { margin: 0; font-size: 18px; font-weight: 800; line-height: 1.25; overflow-wrap: anywhere; }
+    .pd-head-texto h2 { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
     .pd-head-texto p { margin: 2px 0 0; font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere; }
     .pd-icono {
       flex: none; width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface);
@@ -288,124 +294,116 @@ interface EstadoServicio {
     .pd-icono:hover { background: var(--surface3); }
     .pd-menu-caja { position: relative; }
     .pd-menu {
-      position: absolute; right: 0; top: 42px; z-index: 5; width: 300px; padding: 6px; border-radius: 12px;
-      background: var(--surface); border: 1px solid var(--border-strong); box-shadow: 0 12px 30px rgba(0,0,0,.18);
+      position: absolute; right: 0; top: 42px; z-index: 5; width: 250px; padding: 6px; border-radius: 12px;
+      background: var(--surface); border: 1px solid var(--border-strong); box-shadow: 0 12px 30px rgba(0,0,0,.16);
     }
-    .pd-menu button {
-      display: block; width: 100%; text-align: left; padding: 9px 10px; border: none; background: none; border-radius: 8px;
-      cursor: pointer; font-family: inherit; color: var(--text);
-    }
+    .pd-menu button { display: block; width: 100%; text-align: left; padding: 9px 10px; border: none; background: none; border-radius: 8px; cursor: pointer; font-family: inherit; color: var(--text); }
     .pd-menu button:hover:not(:disabled) { background: var(--surface3); }
     .pd-menu button:disabled { opacity: .45; cursor: not-allowed; }
-    .pd-menu strong { display: block; font-size: 14px; }
-    .pd-menu span { display: block; margin-top: 2px; font-size: 12.5px; color: var(--text-muted); }
+    .pd-menu strong { display: block; font-size: 14px; font-weight: 600; }
+    .pd-menu span { display: block; margin-top: 1px; font-size: 12.5px; color: var(--text-muted); }
     .pd-menu-peligro strong { color: var(--err-text); }
 
     .pd-carga { padding: 24px; }
 
-    .pd-resumen { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 22px; border-bottom: 1px solid var(--border-soft); background: var(--surface2); }
-    .pd-chip { font-size: 13px; padding: 4px 11px; border-radius: 999px; border: 1px solid transparent; }
-    .pd-chip b { font-weight: 800; }
-    .pd-chip-nota { font-size: 13px; color: var(--text-muted); margin-left: 4px; }
+    /* Resumen y etiquetas: todo gris salvo lo excepcional */
+    .pd-resumen { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 24px; border-bottom: 1px solid var(--border); font-size: 13.5px; color: var(--text-muted); }
+    .pd-resumen b { color: var(--text); font-weight: 700; }
+    .pd-sep { color: var(--border-strong); }
+    .pd-tag { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; }
+    .pd-tag-extra { background: var(--accent-soft); color: var(--accent-text); }
+    .pd-tag-bloq { background: var(--err-bg); color: var(--err-text); }
+    .pd-aviso { margin: 12px 24px 0; padding: 9px 14px; border-radius: 10px; font-size: 13.5px; background: var(--surface2); color: var(--text-2); border: 1px solid var(--border); }
 
-    .pd-origen-rol { background: var(--surface3); color: var(--text-2); border-color: var(--border); }
-    .pd-origen-extra { background: var(--ok-bg); color: var(--ok-text); border-color: var(--ok-border); }
-    .pd-origen-bloqueado { background: var(--err-bg); color: var(--err-text); border-color: var(--err-border); }
-    .pd-origen-no { background: transparent; color: var(--text-faint); }
-
-    .pd-aviso { margin: 12px 22px 0; padding: 10px 14px; border-radius: 10px; font-size: 13.5px; background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn-border); }
-
-    /* La fila del grid debe poder encogerse (minmax(0,1fr)); sin esto crece con el contenido y la lista se desborda sobre la barra de guardado. */
-    .pd-cuerpo { flex: 1; min-height: 0; display: grid; grid-template-columns: 236px 1fr; grid-template-rows: minmax(0, 1fr); overflow: hidden; }
-    .pd-modulos { overflow-y: auto; padding: 12px 10px; border-right: 1px solid var(--border); background: var(--surface2); display: flex; flex-direction: column; gap: 2px; }
+    /* Cuerpo */
+    /* La fila del grid debe poder encogerse (minmax(0,1fr)); sin esto la lista se desborda sobre la barra de guardado. */
+    .pd-cuerpo { flex: 1; min-height: 0; display: grid; grid-template-columns: 210px 1fr; grid-template-rows: minmax(0, 1fr); overflow: hidden; }
+    .pd-modulos { overflow-y: auto; padding: 12px 10px; border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 1px; }
     .pd-modulo {
-      display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; text-align: left; padding: 9px 11px;
-      border: none; background: none; border-radius: 9px; cursor: pointer; font-family: inherit; color: var(--text-2); font-size: 14px; font-weight: 600;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; text-align: left; padding: 8px 12px;
+      border: none; background: none; border-radius: 8px; cursor: pointer; font-family: inherit; color: var(--text-2); font-size: 14px;
     }
-    .pd-modulo:hover { background: var(--surface3); }
-    .pd-modulo.activo { background: var(--accent-soft); color: var(--accent-text); font-weight: 800; }
-    .pd-modulo-cuenta { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-    .pd-punto { width: 8px; height: 8px; border-radius: 50%; background: var(--warn-text); display: inline-block; }
+    .pd-modulo:hover { background: var(--surface2); }
+    .pd-modulo.activo { background: var(--surface3); color: var(--text); font-weight: 700; }
+    .pd-modulo-cuenta { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+    .pd-punto { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-brand); display: inline-block; }
 
     .pd-principal { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-    .pd-barra { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px 22px 8px; }
+    .pd-barra { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px 24px 6px; }
     .pd-buscar {
-      flex: 1 1 260px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1.5px solid var(--border-strong);
-      border-radius: 10px; background: var(--surface); color: var(--text-muted);
+      flex: 1 1 220px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid var(--border-strong);
+      border-radius: 10px; background: var(--surface); color: var(--text-faint);
     }
     .pd-buscar:focus-within { border-color: var(--accent-brand); }
     .pd-buscar input { flex: 1; min-width: 0; border: none; outline: none; background: none; padding: 9px 0; font: inherit; font-size: 14px; color: var(--text); }
-    .pd-filtros { display: inline-flex; border: 1.5px solid var(--border-strong); border-radius: 10px; overflow: hidden; }
-    .pd-filtros button { border: none; border-right: 1px solid var(--border); background: var(--surface); padding: 8px 13px; font: inherit; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; white-space: nowrap; }
-    .pd-filtros button:last-child { border-right: none; }
-    .pd-filtros button.activo { background: var(--accent-brand); color: #fff; }
-    .pd-leyenda { display: flex; flex-wrap: wrap; gap: 14px; padding: 0 22px 8px; font-size: 12.5px; color: var(--text-muted); }
-    .pd-leyenda span { display: inline-flex; align-items: center; gap: 6px; }
-    .pd-pt { width: 10px; height: 10px; border-radius: 50%; display: inline-block; border: 1px solid var(--border-strong); }
+    .pd-filtros { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--surface3); }
+    .pd-filtros button { border: none; background: none; padding: 6px 12px; border-radius: 8px; font: inherit; font-size: 13px; color: var(--text-muted); cursor: pointer; white-space: nowrap; }
+    .pd-filtros button.activo { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
 
-    .pd-lista { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 22px 18px; }
-    .pd-grupo { margin-top: 10px; }
-    .pd-grupo-cab { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 6px 0 8px; border-bottom: 1px solid var(--border); }
-    .pd-grupo-cab h3 { margin: 0; font-size: 15px; font-weight: 800; }
-    .pd-grupo-cab p { margin: 1px 0 0; font-size: 13px; color: var(--text-muted); }
-    .pd-grupo-acc { display: flex; gap: 6px; flex: none; }
-    .pd-grupo-acc button { border: 1px solid var(--border-strong); background: var(--surface); border-radius: 8px; padding: 5px 10px; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--text-2); cursor: pointer; }
-    .pd-grupo-acc button:hover { background: var(--surface3); }
+    /* Lista */
+    .pd-lista { flex: 1; min-height: 0; overflow-y: auto; padding: 0 24px 18px; }
+    .pd-cols { display: grid; grid-template-columns: repeat(3, var(--pd-col, 92px)); flex: none; }
+    .pd-cabecera { position: sticky; top: 0; z-index: 2; display: flex; justify-content: flex-end; padding: 8px 0 6px; background: var(--surface); border-bottom: 1px solid var(--border); }
+    .pd-cab { text-align: center; font-size: 12.5px; font-weight: 600; color: var(--text-muted); cursor: help; }
 
-    .pd-fila { padding: 12px 10px 12px 12px; border-bottom: 1px solid var(--border-soft); border-left: 3px solid transparent; }
-    .pd-fila.cambiada { border-left-color: var(--warn-text); background: color-mix(in srgb, var(--warn-bg) 45%, transparent); }
-    .pd-fila-sup { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
-    .pd-fila-nombre { min-width: 0; flex: 1 1 220px; }
-    .pd-fila-nombre strong { display: block; font-size: 14.5px; font-weight: 700; }
-    .pd-fila-nombre small { display: block; margin-top: 2px; font-size: 13px; color: var(--text-muted); }
-    .pd-hueco { margin: 8px 0 0; font-size: 13px; color: var(--warn-text); }
+    .pd-grupo-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 20px 0 6px; }
+    .pd-grupo-cab h3 { margin: 0; font-size: 15px; font-weight: 700; }
+    .pd-grupo-acc { display: flex; gap: 6px; color: var(--text-faint); font-size: 13px; }
+    .pd-grupo-acc button { border: none; background: none; padding: 0; font: inherit; font-size: 13px; color: var(--text-muted); cursor: pointer; }
+    .pd-grupo-acc button:hover { color: var(--accent-text); text-decoration: underline; }
 
-    .pd-escalera { display: inline-flex; flex: none; border: 1.5px solid var(--border-strong); border-radius: 10px; overflow: hidden; }
-    .pd-escalon {
-      position: relative; border: none; border-right: 1.5px solid var(--border-strong); background: var(--surface); color: var(--text-muted);
-      padding: 8px 14px 8px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+    .pd-ajeno { margin: 0 0 6px; padding: 8px 12px; border-radius: 8px; background: var(--surface2); color: var(--text-muted); font-size: 13px; }
+
+    .pd-fila { padding: 11px 0; border-top: 1px solid var(--border-soft); }
+    .pd-fila.cambiada { box-shadow: inset 3px 0 0 var(--accent-brand); padding-left: 12px; margin-left: -12px; }
+    .pd-fila-sup { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+    .pd-fila-nombre { min-width: 0; flex: 1; }
+    .pd-fila-nombre strong { font-size: 14.5px; font-weight: 600; }
+    .pd-nota { display: block; margin-top: 1px; font-size: 12.5px; color: var(--text-muted); }
+    .pd-hueco { margin: 6px 0 0; font-size: 12.5px; color: var(--warn-text); }
+
+    /* Casillas: el clásico de las tablas de permisos. Marcar un nivel marca también los de abajo. */
+    .pd-check {
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 38px;
+      border: none; background: none; padding: 0; font: inherit; cursor: pointer; color: var(--text-muted);
     }
-    .pd-escalera .pd-escalon:last-child { border-right: none; }
-    .pd-escalon:hover:not(:disabled):not(.activo) { background: var(--surface3); }
-    .pd-escalon.activo { background: var(--nivel-color, var(--accent)); color: #fff; }
-    .pd-escalon.cero.activo { background: #6b7280; }
-    .pd-escalon:disabled { cursor: not-allowed; opacity: .6; }
-    .pd-marca {
-      position: absolute; left: 50%; bottom: -1px; transform: translateX(-50%); font-size: 10.5px; font-weight: 800; letter-spacing: .05em;
-      text-transform: uppercase; padding: 0 6px; border-radius: 6px 6px 0 0; background: var(--text-2); color: var(--surface);
+    .pd-check:disabled { cursor: not-allowed; opacity: .55; }
+    .pd-caja {
+      width: 20px; height: 20px; border-radius: 6px; box-sizing: border-box; display: grid; place-items: center;
+      border: 1.5px solid var(--border-strong); background: var(--surface); color: #fff; transition: background .1s, border-color .1s;
     }
-    .pd-escalon.activo .pd-marca { background: #fff; color: var(--text-2); }
+    .pd-caja svg { opacity: 0; }
+    .pd-check:hover:not(:disabled) .pd-caja { border-color: var(--accent-brand); }
+    .pd-check.on .pd-caja { background: var(--accent-brand); border-color: var(--accent-brand); }
+    .pd-check.on .pd-caja svg { opacity: 1; }
+    .pd-check-vacia { cursor: default; }
+    .pd-cel-txt { font-size: 11px; line-height: 1.1; color: var(--text-faint); text-align: center; }
 
-    .pd-extras { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 6px 18px; }
-    .pd-extras li { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
-    .pd-switch { display: inline-flex; align-items: center; gap: 10px; min-width: 0; border: none; background: none; padding: 4px 0; font: inherit; cursor: pointer; color: var(--text); text-align: left; }
-    .pd-switch:disabled { cursor: not-allowed; opacity: .6; }
-    .pd-switch-pista { flex: none; width: 36px; height: 20px; border-radius: 999px; background: var(--border-strong); position: relative; transition: background .15s; }
-    .pd-switch-bola { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: transform .15s; }
-    .pd-switch.on .pd-switch-pista { background: var(--accent-brand); }
-    .pd-switch.on .pd-switch-bola { transform: translateX(16px); }
-    .pd-switch-texto { font-size: 13.5px; overflow-wrap: anywhere; }
-    .pd-etiqueta { flex: none; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1px solid transparent; }
+    .pd-extras { list-style: none; margin: 4px 0 0; padding: 0; }
+    .pd-extras li { display: flex; align-items: center; gap: 8px; }
+    .pd-check-linea { flex-direction: row; justify-content: flex-start; gap: 10px; min-height: 32px; color: var(--text-2); text-align: left; }
+    .pd-extra-txt { font-size: 13.5px; }
 
     .pd-vacio { padding: 40px 10px; text-align: center; color: var(--text-muted); font-size: 14px; }
 
-    .pd-pie { border-top: 1px solid var(--border); background: var(--surface); padding: 12px 22px; }
+    /* Pie */
+    .pd-pie { border-top: 1px solid var(--border); background: var(--surface); padding: 12px 24px; }
     .pd-pie-fila { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-    .pd-pie-nota { font-size: 13px; color: var(--text-muted); }
+    .pd-pie-nota { font-size: 13px; color: var(--text-faint); }
     .pd-pie-botones { display: flex; gap: 8px; margin-left: auto; }
-    .pd-link { border: none; background: none; padding: 0; font: inherit; font-size: 14px; color: var(--warn-text); cursor: pointer; text-align: left; }
+    .pd-link { border: none; background: none; padding: 0; font: inherit; font-size: 14px; color: var(--text-2); cursor: pointer; text-align: left; }
     .pd-link:hover { text-decoration: underline; }
-    .pd-btn { border: 1.5px solid var(--border-strong); background: var(--surface); color: var(--text-2); border-radius: 10px; padding: 9px 18px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+    .pd-btn { border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); border-radius: 10px; padding: 9px 18px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
     .pd-btn:hover:not(:disabled) { background: var(--surface3); }
     .pd-btn:disabled { opacity: .55; cursor: not-allowed; }
     .pd-btn-primario { background: var(--accent-brand); border-color: var(--accent-brand); color: #fff; }
     .pd-btn-primario:hover:not(:disabled) { background: var(--accent-brand-dark); }
-    .pd-cambios { max-height: 190px; overflow-y: auto; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 10px; }
+    .pd-cambios { max-height: 180px; overflow-y: auto; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 10px; }
     .pd-cambio { display: flex; justify-content: space-between; gap: 12px; padding: 7px 12px; font-size: 13.5px; border-bottom: 1px solid var(--border-soft); }
     .pd-cambio:last-child { border-bottom: none; }
     .pd-cambio-flujo { flex: none; color: var(--text-muted); }
-    .pd-cambio-flujo s { opacity: .8; }
-    .pd-cambio-flujo b { color: var(--text); }
+    .pd-cambio-flujo s { opacity: .75; }
+    .pd-cambio-flujo b { color: var(--text); font-weight: 600; }
 
     button:focus-visible, input:focus-visible { outline: 2px solid var(--accent-brand); outline-offset: 2px; }
 
@@ -414,6 +412,8 @@ interface EstadoServicio {
       .pd-modulos { flex-direction: row; overflow-x: auto; overflow-y: hidden; border-right: none; border-bottom: 1px solid var(--border); }
       .pd-modulo { width: auto; flex: none; white-space: nowrap; }
       .pd-head, .pd-resumen, .pd-pie, .pd-barra, .pd-lista { padding-left: 14px; padding-right: 14px; }
+      .pd-cols { --pd-col: 64px; }
+      .pd-cab { font-size: 11.5px; }
     }
   `],
 })
@@ -439,12 +439,19 @@ export class PermisosDrawerComponent implements OnInit {
 
   /** Servicios que el rol da (filas rol-wide). */
   private readonly delRol = signal<Set<string>>(new Set());
+  /** servicioId → aplicativo del módulo al que pertenece. */
+  private readonly aplicativoPorServicio = new Map<string, string | null>();
   /** Excepciones personales de la cuenta: servicioId → activo. */
   readonly excepciones = signal<Map<string, boolean>>(new Map());
   /** Solo las diferencias contra lo guardado. */
   private readonly draft = signal<Map<string, Decision>>(new Map());
 
-  private static readonly PALETA_NIVEL = ['#8FBF77', '#4E9A4E', '#007832'];
+  /** Columnas de la matriz: marcar una casilla marca también las de su izquierda. */
+  readonly COLUMNAS = [
+    { texto: 'Ver', ayuda: 'Solo consultar. No cambia nada.' },
+    { texto: 'Modificar', ayuda: 'Ver y además crear o editar.' },
+    { texto: 'Eliminar', ayuda: 'Todo lo anterior y además eliminar (o administrar).' },
+  ];
 
   constructor(
     private admin: AdminService,
@@ -456,7 +463,11 @@ export class PermisosDrawerComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     await Promise.all((['roles', 'servicios', 'usuarios'] as const).map(m => this.asegurar(m)));
-    const modulos = construirModulos(this.admin.rawData()['servicios'] ?? []);
+    const servicios: any[] = this.admin.rawData()['servicios'] ?? [];
+    for (const s of servicios) {
+      this.aplicativoPorServicio.set(s.idServicio, s.modulo?.aplicativoId ?? s.modulo?.aplicativo?.idAplicativo ?? null);
+    }
+    const modulos = construirModulos(servicios);
     this.modulos.set(modulos);
     this.moduloActivo.set(modulos[0]?.nombre ?? '');
     await this.cargarEstado();
@@ -476,6 +487,11 @@ export class PermisosDrawerComponent implements OnInit {
     return this.usuarioFila?.rolId
       ?? this.usuarioFila?.rol?.idRol
       ?? roles.find(r => r.nombre === this.usuarioFila?.persona?.cargo)?.idRol;
+  }
+
+  /** Aplicativo al que pertenece la cuenta (de él depende qué módulos le valen por su rol). */
+  private aplicativoCuenta(): string | null {
+    return this.usuarioFila?.aplicativoId ?? this.usuarioFila?.aplicativo?.idAplicativo ?? null;
   }
 
   private rolNombreObjetivo(): string {
@@ -548,17 +564,22 @@ export class PermisosDrawerComponent implements OnInit {
     const delRol = this.delRol();
     const exc = this.excepciones();
     const draft = this.draft();
+    const rolNombre = this.rolNombreObjetivo();
+    const aplicativoCuenta = this.aplicativoCuenta();
     const out = new Map<string, EstadoServicio>();
     for (const m of this.modulos()) {
       for (const s of m.servicios) {
         const id = s.idServicio;
-        const rolTiene = delRol.has(id);
+        // El rol guarda permisos de todos los módulos; a una cuenta solo le valen los de su aplicativo.
+        const rolGuarda = delRol.has(id);
+        const aplica = modoRol || aplicaAlRol(rolNombre, s.nombre, this.aplicativoPorServicio.get(id), aplicativoCuenta);
+        const rolTiene = rolGuarda && aplica;
         const efectivoGuardado = modoRol ? rolTiene : (exc.has(id) ? exc.get(id)! : rolTiene);
         const decisionGuardada = decisionPara(efectivoGuardado, rolTiene, modoRol);
         const decision = draft.get(id) ?? decisionGuardada;
         const efectivo = efectivoDe(decision, rolTiene, modoRol);
         out.set(id, {
-          efectivo, delRol: rolTiene, decision, decisionGuardada, cambiado: draft.has(id),
+          efectivo, delRol: rolTiene, otroAplicativo: rolGuarda && !aplica, decision, decisionGuardada, cambiado: draft.has(id),
           origen: modoRol ? (efectivo ? 'rol' : 'no') : origenDe(efectivo, rolTiene),
           origenAntes: modoRol ? (efectivoGuardado ? 'rol' : 'no') : origenDe(efectivoGuardado, rolTiene),
         });
@@ -568,7 +589,7 @@ export class PermisosDrawerComponent implements OnInit {
   });
 
   private static readonly SIN_ESTADO: EstadoServicio = {
-    efectivo: false, delRol: false, origen: 'no', origenAntes: 'no', decision: 'heredar', decisionGuardada: 'heredar', cambiado: false,
+    efectivo: false, delRol: false, otroAplicativo: false, origen: 'no', origenAntes: 'no', decision: 'heredar', decisionGuardada: 'heredar', cambiado: false,
   };
 
   est(idServicio: string): EstadoServicio {
@@ -589,6 +610,14 @@ export class PermisosDrawerComponent implements OnInit {
     }
     return { tiene, delRol, extras, bloqueados, total };
   });
+
+  /** Módulos con permisos que el rol guarda pero que no valen para esta cuenta por ser de otro aplicativo. */
+  readonly modulosAjenos = computed(() => {
+    const est = this.estados();
+    return new Set(this.modulos().filter(m => m.servicios.some(s => est.get(s.idServicio)?.otroAplicativo)).map(m => m.nombre));
+  });
+
+  readonly aplicativoNombre = computed(() => this.usuarioFila?.aplicativo?.nombre ?? 'de la cuenta');
 
   readonly conteos = computed(() => {
     const est = this.estados();
@@ -639,25 +668,35 @@ export class PermisosDrawerComponent implements OnInit {
   nivelRol(r: RecursoUI): number { return nivelDe(r, this.activoPorRol); }
   huecos(r: RecursoUI): boolean { return tieneHuecos(r, this.activo); }
 
-  /** Pequeña marca «rol» en el peldaño que da el rol cuando la cuenta está en otro. */
-  marcaRol(r: RecursoUI, nivel: number): boolean {
-    return this.modo === 'usuario' && this.nivelRol(r) === nivel && this.nivelActual(r) !== nivel;
+  /** Qué nivel de cada recurso va en cada una de las tres columnas (Ver, Modificar, Control total); `paso` es null si no existe. */
+  private readonly celdasPorRecurso = computed(() => {
+    const out = new Map<string, { col: number; nivel: number; paso: PasoEscalera | null; especial: boolean }[]>();
+    for (const m of this.modulos()) {
+      for (const r of m.recursos) {
+        out.set(r.recurso, [0, 1, 2].map(col => {
+          const i = r.pasos.findIndex(p => p.posicion === col);
+          const paso = i === -1 ? null : r.pasos[i];
+          return { col, nivel: i + 1, paso, especial: !!paso?.especial };
+        }));
+      }
+    }
+    return out;
+  });
+
+  celdas(r: RecursoUI) {
+    return this.celdasPorRecurso().get(r.recurso) ?? [];
   }
 
-  colorNivel(indice: number): string {
-    return PermisosDrawerComponent.PALETA_NIVEL[Math.min(indice, PermisosDrawerComponent.PALETA_NIVEL.length - 1)];
+  /** Lo que significa elegir ese nivel, en una frase: «Ver, editar y eliminar · Catálogo de productos». */
+  tituloNivel(r: RecursoUI, nivel: number): string {
+    return `${textoNivel(r, nivel)} · ${r.label}`;
   }
 
-  titulosPaso(servicios: ServicioCat[]): string {
-    return servicios.map(s => fraseServicio(s.nombre)).join(' + ');
-  }
-
-  textoRecurso(r: RecursoUI): string {
-    const actual = this.nivelActual(r);
-    if (this.modo === 'rol') return textoNivel(r, actual);
+  /** Solo en una cuenta cuyo acceso difiere del que da su rol: «Su rol: ver y modificar». Si es igual, no se dice nada. */
+  notaRol(r: RecursoUI): string {
+    if (this.modo !== 'usuario' || !r.pasos.length) return '';
     const difiere = r.pasos.some(p => p.servicios.some(s => ['extra', 'bloqueado'].includes(this.est(s.idServicio).origen)));
-    if (!difiere) return actual === 0 ? 'Sin acceso' : `${textoNivel(r, actual)} · igual que su rol`;
-    return `Su rol: ${textoNivel(r, this.nivelRol(r))} · Aquí: ${textoNivel(r, actual)}`;
+    return difiere ? `Su rol: ${textoNivel(r, this.nivelRol(r)).toLowerCase()}` : '';
   }
 
   recursoCambiado(r: RecursoUI): boolean {
@@ -697,6 +736,11 @@ export class PermisosDrawerComponent implements OnInit {
     const pares: [string, boolean][] = [];
     r.pasos.forEach((paso, i) => paso.servicios.forEach(s => pares.push([s.idServicio, i < nivel])));
     this.pedir(pares);
+  }
+
+  /** Marcar una casilla da ese nivel (y los de abajo); desmarcarla lo quita (y los de arriba). */
+  alternarColumna(r: RecursoUI, nivel: number): void {
+    this.elegirNivel(r, this.nivelActual(r) >= nivel ? nivel - 1 : nivel);
   }
 
   alternar(servicio: ServicioCat): void {
