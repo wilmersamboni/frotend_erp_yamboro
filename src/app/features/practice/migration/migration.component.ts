@@ -45,7 +45,7 @@ interface EstadoMigracion {
   imports:         [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-<div class="min-h-screen bg-gradient-to-br from-gray-50 via-[var(--accent-soft)] to-gray-50 p-6">
+<div class="p-6">
 
   <!-- ── Encabezado ── -->
   <div class="max-w-4xl mx-auto">
@@ -59,7 +59,7 @@ interface EstadoMigracion {
         </svg>
       </div>
       <div>
-        <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Migración de Base de Datos</h1>
+        <h2 class="text-xl font-bold text-gray-900 tracking-tight">Migración de Base de Datos</h2>
         <p class="text-xs text-gray-500">SENA – Centro Yamboró · El proceso corre en el servidor</p>
       </div>
 
