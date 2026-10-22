@@ -1,0 +1,92 @@
+<section class="chat" [class.compacto]="compacta()" aria-label="Chat con Atlas">
+  <div class="fondo" aria-hidden="true"><span></span><span></span></div>
+
+  <header class="cab">
+    <div class="hueco" aria-hidden="true"></div>
+    <div class="titulos">
+      <h1>
+        Atlas
+        <span class="estado" [class.activo]="cargando()"><i class="punto"></i>{{ estadoTexto() }}</span>
+      </h1>
+      <p>{{ nombre() ? 'Hola, ' + nombre() : 'Asistente virtual' }}</p>
+    </div>
+    <button
+      type="button"
+      class="icono"
+      aria-label="Opciones"
+      aria-haspopup="menu"
+      [attr.aria-expanded]="menuAbierto()"
+      (click)="menuAbierto.set(!menuAbierto())"
+    >
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="currentColor">
+        <circle cx="12" cy="5" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="12" cy="19" r="2" />
+      </svg>
+    </button>
+
+    @if (menuAbierto()) {
+      <div class="velo" (click)="menuAbierto.set(false)"></div>
+      <div class="menu" role="menu">
+        <a role="menuitem" routerLink="/home" (click)="menuAbierto.set(false)">Abrir el sistema completo</a>
+        <button role="menuitem" type="button" (click)="nuevaConversacion()">Nueva conversación</button>
+        <button role="menuitem" type="button" class="salir" (click)="cerrarSesion()">Cerrar sesión</button>
+      </div>
+    }
+  </header>
+
+  <!-- Atlas: grande al empezar, avatar de la cabecera cuando ya hay conversación. -->
+  <app-atlas-mascota class="mascota" [class.compacta]="compacta()" [compacta]="compacta()" />
+
+  <div class="lista" #lista role="log" aria-live="polite" aria-relevant="additions">
+    <div class="heroe-espacio" [class.compacta]="compacta()" aria-hidden="true"></div>
+
+    @for (m of mensajes(); track $index) {
+      <div class="fila" [class.mia]="m.rol === 'usuario'">
+        @if (m.rol === 'asistente') {
+          <div class="burbuja asistente" [innerHTML]="m.html"></div>
+        } @else {
+          <div class="burbuja usuario">{{ m.texto }}</div>
+        }
+      </div>
+    }
+
+    @if (cargando()) {
+      <div class="fila">
+        <div class="burbuja asistente escribiendo" role="status" aria-label="Atlas está escribiendo">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+      @if (lento()) {
+        <p class="aviso">Atlas puede tardar un poco más si estuvo inactivo. Sigue trabajando en tu respuesta…</p>
+      }
+    }
+
+    @if (sugerencias().length) {
+      <div class="chips" aria-label="Preguntas sugeridas">
+        @for (s of sugerencias(); track s) {
+          <button type="button" class="chip" (click)="enviar(s)">{{ s }}</button>
+        }
+      </div>
+    }
+  </div>
+
+  <form class="barra" (submit)="$event.preventDefault(); enviar()">
+    <textarea
+      #campo
+      rows="1"
+      placeholder="Escribe tu pregunta…"
+      aria-label="Mensaje para Atlas"
+      enterkeyhint="send"
+      autocomplete="off"
+      [value]="texto()"
+      (focus)="campoEnfocado.set(true)"
+      (blur)="campoEnfocado.set(false)"
+      (input)="alEscribir($event)"
+      (keydown.enter)="alPulsarEnter($event)"
+    ></textarea>
+    <button type="submit" class="enviar" [disabled]="!puedeEnviar()" aria-label="Enviar mensaje">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="currentColor">
+        <path d="M3.4 20.4 21 12 3.4 3.6 3.3 10l12.6 2-12.6 2z" />
+      </svg>
+    </button>
+  </form>
+</section>

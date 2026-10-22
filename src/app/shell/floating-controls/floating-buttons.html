@@ -1,28 +1,69 @@
-<div class="chat-box" *ngIf="chatAbierto">
-  <div class="chat-header">
-    <span class="chat-header-titulo">
-      <span class="chat-header-nombre">Atlas</span>
-      <span class="chat-header-subtitulo">Asistente virtual</span>
-    </span>
-    <button aria-label="Cerrar" (click)="cerrarChat()">✕</button>
-  </div>
+@if (haAbierto()) {
+  <div class="chat-box" [class.cerrado]="!chatAbierto" [class.compacto]="compacta" role="dialog" aria-label="Chat con Atlas">
+    <div class="fondo" aria-hidden="true"><span></span><span></span></div>
 
-  <div class="chat-messages" #mensajesContainer>
-    <div *ngFor="let msg of mensajes" [class]="'mensaje ' + msg.rol">
-      <div [innerHTML]="formatearMensaje(msg.texto)"></div>
+    <div class="chat-header">
+      <div class="hueco" aria-hidden="true"></div>
+      <span class="chat-header-titulo">
+        <span class="chat-header-nombre">
+          Atlas
+          <span class="estado" [class.activo]="cargando"><i class="punto"></i>{{ cargando ? 'pensando…' : 'en línea' }}</span>
+        </span>
+        <span class="chat-header-subtitulo">Asistente virtual</span>
+      </span>
+      <button type="button" class="cerrar" aria-label="Cerrar" (click)="cerrarChat()">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+          <path d="M6 6l12 12M18 6 6 18" />
+        </svg>
+      </button>
     </div>
-    <div *ngIf="cargando" class="mensaje asistente">Escribiendo...</div>
-  </div>
 
-  <div class="chat-input">
-    <textarea
-      #textareaMensaje
-      [(ngModel)]="mensajeUsuario"
-      (input)="ajustarAlturaTextarea(textareaMensaje)"
-      (keydown.enter)="onEnter($event, textareaMensaje)"
-      rows="1"
-      placeholder="Escribe tu pregunta..."
-    ></textarea>
-    <button (click)="enviar()">Enviar</button>
+    <!-- Atlas: grande al empezar, avatar de la cabecera cuando ya hay conversación. -->
+    <app-atlas-mascota class="mascota" [class.compacta]="compacta" [compacta]="compacta" [activa]="chatAbierto" />
+
+    <div class="chat-messages" #mensajesContainer role="log" aria-live="polite" aria-relevant="additions">
+      <div class="heroe-espacio" [class.compacta]="compacta" aria-hidden="true"></div>
+
+      @for (msg of mensajes; track $index) {
+        <div class="mensaje" [class]="msg.rol">
+          @if (msg.rol === 'asistente') {
+            <div [innerHTML]="msg.html"></div>
+          } @else {
+            {{ msg.texto }}
+          }
+        </div>
+      }
+
+      @if (cargando) {
+        <div class="mensaje asistente escribiendo" role="status" aria-label="Atlas está escribiendo">
+          <span></span><span></span><span></span>
+        </div>
+      }
+
+      @if (sugerencias.length) {
+        <div class="chips" aria-label="Preguntas sugeridas">
+          @for (s of sugerencias; track s) {
+            <button type="button" class="chip" (click)="enviar(s)">{{ s }}</button>
+          }
+        </div>
+      }
+    </div>
+
+    <div class="chat-input">
+      <textarea
+        #textareaMensaje
+        [(ngModel)]="mensajeUsuario"
+        (input)="ajustarAlturaTextarea(textareaMensaje)"
+        (keydown.enter)="onEnter($event, textareaMensaje)"
+        rows="1"
+        placeholder="Escribe tu pregunta…"
+        aria-label="Mensaje para Atlas"
+      ></textarea>
+      <button type="button" class="enviar" [disabled]="!mensajeUsuario.trim() || cargando" aria-label="Enviar mensaje" (click)="enviar()">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="currentColor">
+          <path d="M3.4 20.4 21 12 3.4 3.6 3.3 10l12.6 2-12.6 2z" />
+        </svg>
+      </button>
+    </div>
   </div>
-</div>
+}

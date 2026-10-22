@@ -3,6 +3,7 @@ import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { AprendizContextService } from '../../core/services/aprendiz-context.service';
 import { ContactWidgetService } from '../../core/services/contact-widget.service';
+import { precargarEscenaAtlas } from '../../features/assistant/mascota/atlas-mascota.component';
 import { MaterialesApiService } from '../../features/materiales/data-access/materiales-api.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { SERVICIOS_ADMIN_PANEL } from '../../features/tenant-administration/config/admin.config';
@@ -700,6 +701,9 @@ export class SidebarComponent implements OnChanges, OnInit {
   toggleContacto(ev: Event): void {
     ev.stopPropagation();
     this.contactoAbierto.update((v) => !v);
+    // Al abrir el menú ya se sabe que puede venir el asistente: se baja el código 3D de Atlas ahora, para
+    // que al elegirlo (unos segundos después) solo falte crear la escena. Es una descarga que se hace una vez.
+    if (this.contactoAbierto()) precargarEscenaAtlas().catch(() => undefined);
   }
 
   abrirWhatsApp(): void {
