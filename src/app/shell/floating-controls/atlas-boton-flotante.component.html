@@ -1,0 +1,28 @@
+@if (mostrar()) {
+  <div class="atlas-fab" [class.arrastrando]="arrastrando()" [style.top.px]="top()">
+    <button
+      type="button"
+      class="atlas-fab-btn"
+      aria-label="Abrir el chat con Atlas"
+      title="Hablar con Atlas (arrastra para moverlo)"
+      (pointerdown)="alPresionar($event)"
+      (pointermove)="alMover($event)"
+      (pointerup)="alSoltar($event)"
+      (pointercancel)="alCancelar()"
+      (click)="alClic($event)"
+      (keydown)="alTeclear($event)"
+      (pointerenter)="intencion.emit()"
+      (focus)="intencion.emit()"
+    >
+      <app-atlas-mascota class="atlas-3d" [compacta]="true" />
+      @if (pendiente()) {
+        <span class="pendiente" aria-label="Atlas respondió"></span>
+      }
+    </button>
+    <button type="button" class="ocultar" aria-label="Ocultar el botón de Atlas hasta recargar la página" title="Ocultar hasta recargar la página" (click)="ocultar()">
+      <svg viewBox="0 0 24 24" width="10" height="10" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round">
+        <path d="M6 6l12 12M18 6 6 18" />
+      </svg>
+    </button>
+  </div>
+}

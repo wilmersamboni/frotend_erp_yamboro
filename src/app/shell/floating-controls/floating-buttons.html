@@ -1,3 +1,4 @@
+
 @if (haAbierto()) {
   <div class="chat-box" [class.cerrado]="!chatAbierto" [class.compacto]="compacta" role="dialog" aria-label="Chat con Atlas">
     <div class="fondo" aria-hidden="true"><span></span><span></span></div>
@@ -67,3 +68,4 @@
     </div>
   </div>
 }
+<app-atlas-boton-flotante [visible]="mostrarBoton" [pendiente]="pendiente()" (abrir)="abrirDesdeBoton()" (intencion)="precargar()" />

@@ -4,8 +4,9 @@ import { ChatService } from '../../core/services/chat.service';
 import { ContactWidgetService } from '../../core/services/contact-widget.service';
 import { AuthService } from '../../core/services/auth.service';
 import { formatearMensajeChat } from '../../core/utils/chat-formato';
-import { AtlasMascotaComponent } from '../../features/assistant/mascota/atlas-mascota.component';
+import { AtlasMascotaComponent, precargarEscenaAtlas } from '../../features/assistant/mascota/atlas-mascota.component';
 import { sugerenciasAtlas } from '../../features/assistant/sugerencias-atlas';
+import { AtlasBotonFlotanteComponent } from './atlas-boton-flotante.component';
 
 interface MensajeChat {
   rol: 'usuario' | 'asistente';
@@ -30,7 +31,7 @@ const SALUDO =
 @Component({
   selector: 'app-floating-buttons',
   standalone: true,
-  imports: [FormsModule, AtlasMascotaComponent],
+  imports: [FormsModule, AtlasMascotaComponent, AtlasBotonFlotanteComponent],
   templateUrl: './floating-buttons.html',
   styleUrls: ['./floating-buttons.css'],
 })
@@ -58,6 +59,8 @@ export class FloatingButtons implements AfterViewChecked {
 
   mensajeUsuario = '';
   cargando = false;
+  /** Atlas contestó mientras el chat estaba cerrado: el botón flotante muestra un punto hasta que se abre. */
+  readonly pendiente = signal(false);
 
   // Para no scrollear en CADA ciclo de detección de cambios — ngAfterViewChecked
   // corre muy seguido; solo hace falta reaccionar cuando de verdad cambió algo
@@ -81,6 +84,7 @@ export class FloatingButtons implements AfterViewChecked {
     effect(() => {
       if (this.contactWidget.chatAbierto()) {
         this.haAbierto.set(true);
+        this.pendiente.set(false);
         // Al reabrir sigue siendo la misma conversación de antes y ngAfterViewChecked
         // solo reengancha el scroll cuando cambia la cantidad de mensajes — forzar
         // el conteo a un valor imposible hace que el próximo ciclo lo detecte como
@@ -132,6 +136,20 @@ export class FloatingButtons implements AfterViewChecked {
 
   get chatAbierto(): boolean {
     return this.contactWidget.chatAbierto();
+  }
+
+  /** El botón flotante solo se ofrece con sesión iniciada y mientras el chat está cerrado. */
+  get mostrarBoton(): boolean {
+    return this.auth.isAuthenticated() && !this.chatAbierto;
+  }
+
+  abrirDesdeBoton(): void {
+    this.contactWidget.abrirChat();
+  }
+
+  /** El cursor se acerca al botón: se baja el código 3D para que el chat abra al instante. */
+  precargar(): void {
+    precargarEscenaAtlas().catch(() => undefined);
   }
 
   /** Atlas se muestra grande al empezar y pasa a avatar de la cabecera cuando ya hay conversación. */
@@ -202,11 +220,13 @@ export class FloatingButtons implements AfterViewChecked {
         this.mensajes.push(this.crearMensaje('asistente', res.reply || 'Sin respuesta'));
         this.terminarEspera();
         this.mascota?.celebrar();
+        if (!this.chatAbierto) this.pendiente.set(true);
       },
       error: () => {
         this.mensajes.push(this.crearMensaje('asistente', 'Ocurrió un error, intenta de nuevo.'));
         this.terminarEspera();
         this.mascota?.fallar();
+        if (!this.chatAbierto) this.pendiente.set(true);
       }
     });
   }

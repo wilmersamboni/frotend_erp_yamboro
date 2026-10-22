@@ -1,4 +1,5 @@
-import { signal } from '@angular/core';
+import { computed, signal } from '@angular/core';
+import { Subject } from 'rxjs';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 
@@ -21,7 +22,8 @@ describe('FloatingButtons (chat con Atlas dentro del ERP)', () => {
     resetSession: vi.fn(),
     adoptarSession: vi.fn(),
   };
-  const auth = { user: signal<{ id?: string } | null>(null), cargo, isAdmin: esAdmin };
+  const usuario = signal<{ id?: string } | null>(null);
+  const auth = { user: usuario, cargo, isAdmin: esAdmin, isAuthenticated: computed(() => usuario() !== null) };
 
   beforeEach(async () => {
     cargo.set('aprendiz');
@@ -63,6 +65,62 @@ describe('FloatingButtons (chat con Atlas dentro del ERP)', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  describe('botón flotante de Atlas', () => {
+    beforeEach(() => {
+      sessionStorage.clear();
+      localStorage.clear();
+    });
+
+    it('no se ofrece sin sesión iniciada', () => {
+      expect(el.querySelector('.atlas-fab')).toBeNull();
+    });
+
+    it('con sesión iniciada aparece, y desaparece mientras el chat está abierto', () => {
+      auth.user.set({ id: 'u1' });
+      fixture.detectChanges();
+      expect(el.querySelector('.atlas-fab')).not.toBeNull();
+
+      abrir();
+      expect(el.querySelector('.atlas-fab')).toBeNull();
+
+      widget.cerrarChat();
+      fixture.detectChanges();
+      expect(el.querySelector('.atlas-fab')).not.toBeNull();
+    });
+
+    it('al pulsarlo (con teclado: Enter) abre el chat', () => {
+      auth.user.set({ id: 'u1' });
+      fixture.detectChanges();
+      (el.querySelector('.atlas-fab-btn') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(widget.chatAbierto()).toBe(true);
+      expect(el.querySelector('.chat-box')?.classList.contains('cerrado')).toBe(false);
+    });
+
+    it('si Atlas contesta con el chat cerrado el botón muestra un punto, que se quita al abrir el chat', () => {
+      const respuesta = new Subject<{ reply: string }>();
+      chat.sendMessage.mockReturnValue(respuesta);
+      auth.user.set({ id: 'u1' });
+      fixture.detectChanges();
+      abrir();
+      escribirYEnviar('hola');
+
+      widget.cerrarChat(); // el usuario cierra mientras Atlas piensa
+      fixture.detectChanges();
+      expect(el.querySelector('.pendiente')).toBeNull();
+
+      respuesta.next({ reply: 'listo' });
+      respuesta.complete();
+      fixture.detectChanges();
+      expect(el.querySelector('.pendiente')).not.toBeNull();
+
+      abrir();
+      widget.cerrarChat();
+      fixture.detectChanges();
+      expect(el.querySelector('.pendiente')).toBeNull();
+    });
   });
 
   it('no dibuja nada hasta que se abre desde el sidebar, y la X lo oculta', () => {
