@@ -10,6 +10,7 @@ import {
   formatFechaCorta, getDiaLabel, durHorarioMin, jornadaLabel, Resultado,
 } from '../../../core/utils/horarios.util';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
+import { hoyIsoLocal } from '../../../core/utils/horarios.util';
 
 const RESULTADO_ESTADO_INFO: Record<string, { label: string; bg: string; text: string }> = {
   'sin-fecha':  { label: 'Sin fecha',  bg: 'var(--surface3)', text: 'var(--text-muted)' },
@@ -270,7 +271,7 @@ export class HistorialInstructorModalComponent {
   readonly diaPluralLabel = diaPluralLabel;
   readonly formatFechaCorta = formatFechaCorta;
   readonly getDiaLabel = getDiaLabel;
-  readonly hoyIso = new Date().toISOString().slice(0, 10);
+  readonly hoyIso = hoyIsoLocal();
 
   open        = signal(false);
   histLoading = signal(false);

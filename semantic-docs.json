@@ -86,10 +86,10 @@
   },
   {
     "id": "migracion",
-    "title": "Migracion",
+    "title": "Importar desde SofiaPlus",
     "type": "module",
-    "route": "/migracion",
-    "description": "Herramientas de migración de datos.",
+    "route": "/importar-sofia",
+    "description": "Migración de aprendices y fichas, y reporte de juicios evaluativos para habilitar la etapa práctica.",
     "features": [],
     "files": [
       "migration.component.ts",

@@ -55,6 +55,15 @@ describe('roleGuard', () => {
     expect(await entrar({})).toBe(true);
   });
 
+  it('`excluirRoles`: niega al cargo excluido aunque tenga el servicio, y deja pasar al resto', async () => {
+    preparar({ cargo: 'aprendiz', servicios: ['materiales.solicitudes.crear'] });
+    expect(await entrar({ servicios: ['materiales.solicitudes.crear'], excluirRoles: ['aprendiz'] })).toEqual(redirige('/'));
+
+    TestBed.resetTestingModule();
+    preparar({ cargo: 'instructor', servicios: ['materiales.solicitudes.crear'] });
+    expect(await entrar({ servicios: ['materiales.solicitudes.crear'], excluirRoles: ['aprendiz'] })).toBe(true);
+  });
+
   it('`roles`: pasa el cargo listado y redirige al resto', async () => {
     preparar({ cargo: 'administrador' });
     expect(await entrar({ roles: ['administrador', 'administrador_erp'] })).toBe(true);

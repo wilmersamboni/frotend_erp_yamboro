@@ -5,6 +5,7 @@ import {
   LucideAngularModule, LucideIconData, MapPin, Package, RefreshCw, Search, Sheet, TriangleAlert, UserX, Users, Wrench,
 } from 'lucide-angular';
 import { TableFilterComponent, TableFilterOption } from '../../../shared/components/table-filter.component';
+import { PageSizeSelectComponent } from '../../../shared/components/page-size-select.component';
 import { ToastService } from '../../../core/services/toast.service';
 import { ExportService } from '../../../core/services/export.service';
 import {
@@ -91,7 +92,7 @@ const AYUDA_VISTA: Record<Vista, string> = {
 @Component({
   selector: 'app-reporte-materiales',
   standalone: true,
-  imports: [FormsModule, TableFilterComponent, LucideAngularModule],
+  imports: [FormsModule, TableFilterComponent, PageSizeSelectComponent, LucideAngularModule],
   template: `
     <div class="p-4 sm:p-6 max-w-7xl mx-auto space-y-5">
       <!-- Encabezado -->
@@ -260,7 +261,12 @@ const AYUDA_VISTA: Record<Vista, string> = {
           }
         </div>
 
-        <p class="text-sm" style="color: var(--text-muted)">{{ ayudaVista() }}</p>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <p class="text-sm" style="color: var(--text-muted)">{{ ayudaVista() }}</p>
+          @if (vista() === 'productos' && porProducto().length > 10) {
+            <app-page-size-select [value]="porPaginaProductos()" (valueChange)="cambiarFilasProductos($event)" />
+          }
+        </div>
 
         @switch (vista()) {
           <!-- ── ¿Qué hay? (por producto) ── -->
@@ -280,7 +286,7 @@ const AYUDA_VISTA: Record<Vista, string> = {
                     </tr>
                   </thead>
                   <tbody>
-                    @for (p of porProducto(); track p.clave) {
+                    @for (p of productosPagina(); track p.clave) {
                       <tr class="fila border-t cursor-pointer" style="border-color: var(--border)" tabindex="0"
                         (click)="verProducto(p)" (keydown.enter)="verProducto(p)">
                         <td class="px-4 py-3">
@@ -326,6 +332,27 @@ const AYUDA_VISTA: Record<Vista, string> = {
                   </tbody>
                 </table>
               </div>
+              @if (porProducto().length > 10) {
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t" style="border-color: var(--border); background: var(--surface2)">
+                  <span class="text-sm" style="color: var(--text-muted)">
+                    Mostrando <strong style="color: var(--text)">{{ productosPagina().length }}</strong>
+                    de <strong style="color: var(--text)">{{ n(porProducto().length) }}</strong> materiales
+                  </span>
+                  <div class="flex items-center gap-2">
+                    <button type="button" aria-label="Página anterior" (click)="paginaProductos.set(paginaProductosActual() - 1)" [disabled]="paginaProductosActual() === 1"
+                      class="p-2 rounded-lg border bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all" style="border-color: var(--border)">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                    </button>
+                    <span class="px-4 py-1.5 text-sm font-semibold text-[#39A900] bg-[#39A900]/10 rounded-lg border border-[#39A900]/20">
+                      {{ paginaProductosActual() }} / {{ totalPaginasProductos() }}
+                    </span>
+                    <button type="button" aria-label="Página siguiente" (click)="paginaProductos.set(paginaProductosActual() + 1)" [disabled]="paginaProductosActual() >= totalPaginasProductos()"
+                      class="p-2 rounded-lg border bg-white text-gray-600 hover:bg-[#39A900] hover:text-white hover:border-[#39A900] disabled:opacity-30 disabled:pointer-events-none transition-all" style="border-color: var(--border)">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </button>
+                  </div>
+                </div>
+              }
             </div>
           }
 
@@ -583,6 +610,9 @@ export class ReporteMaterialesComponent implements OnInit {
   filtros = signal<FiltrosReporte>({ ...FILTROS_VACIOS });
   vista = signal<Vista>('productos');
   pagina = signal(1);
+  /** Paginación de la lista de materiales (¿Qué hay?), con el mismo selector de filas que las tablas del sistema. */
+  paginaProductos = signal(1);
+  porPaginaProductos = signal(20);
   private abiertos = signal<Set<string>>(new Set());
 
   readonly opcionesEstado: TableFilterOption[] = [
@@ -646,6 +676,14 @@ export class ReporteMaterialesComponent implements OnInit {
   porProducto = computed(() => agruparPorProducto(this.filtrado().unidades, this.filtrado().lotes));
   porResponsable = computed(() => agruparPorResponsable(this.filtrado().unidades, this.filtrado().lotes));
   porUbicacion = computed(() => agruparPorUbicacion(this.filtrado().unidades, this.filtrado().lotes));
+  totalPaginasProductos = computed(() => Math.max(1, Math.ceil(this.porProducto().length / this.porPaginaProductos())));
+  /** La página pedida, recortada al rango real (si los filtros dejan menos filas, no queda en una página vacía). */
+  paginaProductosActual = computed(() => Math.min(this.paginaProductos(), this.totalPaginasProductos()));
+  productosPagina = computed(() => {
+    const por = this.porPaginaProductos();
+    const desde = (this.paginaProductosActual() - 1) * por;
+    return this.porProducto().slice(desde, desde + por);
+  });
   totalPaginas = computed(() => Math.max(1, Math.ceil(this.filtrado().unidades.length / POR_PAGINA)));
   paginaUnidades = computed(() => {
     const p = Math.min(this.pagina(), this.totalPaginas());
@@ -685,6 +723,12 @@ export class ReporteMaterialesComponent implements OnInit {
   setFiltro<K extends keyof FiltrosReporte>(clave: K, valor: FiltrosReporte[K]): void {
     this.filtros.update((f) => ({ ...f, [clave]: valor }));
     this.pagina.set(1);
+    this.paginaProductos.set(1);
+  }
+
+  cambiarFilasProductos(filas: number): void {
+    this.porPaginaProductos.set(filas);
+    this.paginaProductos.set(1);
   }
 
   setOrigen(v: string): void {
@@ -694,11 +738,13 @@ export class ReporteMaterialesComponent implements OnInit {
   limpiarFiltros(): void {
     this.filtros.set({ ...FILTROS_VACIOS });
     this.pagina.set(1);
+    this.paginaProductos.set(1);
   }
 
   cambiarVista(v: Vista): void {
     this.vista.set(v);
     this.pagina.set(1);
+    this.paginaProductos.set(1);
   }
 
   /** Desde una cifra: abre la vista que la explica, con el estado correspondiente (el resto de filtros se conserva). */

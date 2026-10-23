@@ -67,6 +67,12 @@ export interface MetricasEncuesta {
   semaforo: 'verde' | 'amarillo' | 'rojo';
 }
 
+export interface ComentarioEncuesta {
+  comentario: string;
+  /** YYYY-MM-DD. Sin hora ni identidad: los comentarios son anónimos. */
+  fecha: string;
+}
+
 export interface FormularioEncuesta {
   numeroFicha: string;
   instructorNombre: string;
@@ -129,6 +135,10 @@ export class EncuestasApiService {
 
   // ── Reportes (de una encuesta cerrada puntual) ─────────────────────────────
 
+  getComentarios(id: string): Promise<ComentarioEncuesta[]> {
+    return firstValueFrom(this.http.get<ComentarioEncuesta[]>(`${BASE3}/reportes/encuestas/${id}/comentarios`));
+  }
+
   getMetricas(id: string): Promise<MetricasEncuesta> {
     return firstValueFrom(this.http.get<MetricasEncuesta>(`${BASE3}/reportes/encuestas/${id}/metricas`));
   }
@@ -172,9 +182,13 @@ export class EncuestasApiService {
   getFormulario(token: string): Promise<FormularioEncuesta> {
     return firstValueFrom(this.http.get<FormularioEncuesta>(`${BASE3}/responder/${token}`));
   }
-  responder(token: string, respuestas: { encuestaPreguntaId: string; valor: boolean }[]): Promise<{ message: string }> {
+  responder(
+    token: string,
+    respuestas: { encuestaPreguntaId: string; valor: boolean }[],
+    comentario?: string,
+  ): Promise<{ message: string }> {
     return firstValueFrom(
-      this.http.post<{ message: string }>(`${BASE3}/responder/${token}`, { respuestas }),
+      this.http.post<{ message: string }>(`${BASE3}/responder/${token}`, comentario ? { respuestas, comentario } : { respuestas }),
     );
   }
 }

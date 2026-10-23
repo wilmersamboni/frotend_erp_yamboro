@@ -28,7 +28,7 @@ export class AdminService {
   modalForm:    Record<string, any> = {};
 
   /** Datos crudos sin aplanar (UUIDs reales) — usado en edición y por paneles
-   *  que necesitan cruzar relaciones (ej. app-permisos-panel). */
+   *  que necesitan cruzar relaciones (ej. app-permisos-drawer). */
   rawData = signal<Record<string, any[]>>({});
 
   /** Opciones de selects para el modal activo: { campo → [{label, value}] } */
@@ -213,10 +213,13 @@ export class AdminService {
 
       if (mod === 'matriculas') {
         const personasRaw: any[] = this.rawData()['personas'] ?? [];
+        // Índice por id: con `.find` por cada matrícula el costo era matrículas × personas y bloqueaba la pantalla.
+        const personasPorId = new Map<string, any>();
+        for (const p of personasRaw) if (!personasPorId.has(p.idPersona)) personasPorId.set(p.idPersona, p);
         rows = rows.map((m: any) => {
           const personaId  = m.idPersona ?? (typeof m.persona === 'string' ? m.persona : m.persona?.idPersona) ?? '';
           const cursoId    = m.idCurso   ?? (typeof m.curso   === 'string' ? m.curso   : m.curso?.idCurso)     ?? '';
-          const personaData = personasRaw.find((p: any) => p.idPersona === personaId);
+          const personaData = personasPorId.get(personaId);
           return {
             ...m,
             persona:    personaId,
@@ -234,10 +237,13 @@ export class AdminService {
       // Se ejecuta ANTES del rawData.update para que rawData ya lleve el campo calculado.
       if (mod === 'etapas') {
         const matriculas: any[] = this.rawData()['matriculas'] ?? [];
+        const matriculaPorId = new Map<string, any>();
+        for (const m of matriculas) {
+          const k = String(m.idMatricula ?? '').toLowerCase();
+          if (!matriculaPorId.has(k)) matriculaPorId.set(k, m);
+        }
         rows = rows.map((e: any) => {
-          const mat = matriculas.find(
-            (m: any) => String(m.idMatricula ?? '').toLowerCase() === String(e.matriculaId ?? '').toLowerCase()
-          );
+          const mat = matriculaPorId.get(String(e.matriculaId ?? '').toLowerCase());
           return {
             ...e,
             aprendiz: mat?.persona?.nombre ?? mat?.estudiante ?? '—',
@@ -272,11 +278,14 @@ export class AdminService {
       // Seguimientos: añadir campo 'aprendiz' cruzando etapa → rawData de etapas (ya tienen el aprendiz calculado)
       if (mod === 'seguimientos') {
         const etapas: any[] = this.rawData()['etapas'] ?? [];
+        const etapaPorId = new Map<string, any>();
+        for (const e of etapas) {
+          const k = String(e.id ?? '').toLowerCase();
+          if (!etapaPorId.has(k)) etapaPorId.set(k, e);
+        }
         rows = rows.map((s: any) => {
           const etapaId = s.etapa?.id ?? s.etapaId ?? s.etapa ?? '';
-          const etapa = etapas.find(
-            (e: any) => String(e.id ?? '').toLowerCase() === String(etapaId).toLowerCase()
-          );
+          const etapa = etapaPorId.get(String(etapaId).toLowerCase());
           return { ...s, aprendiz: etapa?.aprendiz ?? '—' };
         });
       }
@@ -381,6 +390,26 @@ export class AdminService {
     const cfg = CONFIG[mod];
     if (!cfg.selectores) return rows;
 
+    // Un índice por selector, armado una sola vez: buscar en la lista relacionada con `.find` por cada fila
+    // costaba filas × relacionados comparaciones de texto y dejaba la pantalla pegada con miles de registros.
+    // Conserva el criterio de antes: gana el primer elemento cuyo valor configurado o cuyo id alterno coincida.
+    const indices = new Map<string, Map<string, any>>();
+    const indiceDe = (selector: { modulo: Modulo; value: string }): Map<string, any> => {
+      const clave = `${selector.modulo}|${selector.value}`;
+      let indice = indices.get(clave);
+      if (!indice) {
+        indice = new Map();
+        for (const item of this.rawData()[selector.modulo] ?? []) {
+          for (const k of [item[selector.value], item['id_municipio'] ?? item['idMunicipio'] ?? item['id']]) {
+            const texto = String(k ?? '').trim().toLowerCase();
+            if (!indice.has(texto)) indice.set(texto, item);
+          }
+        }
+        indices.set(clave, indice);
+      }
+      return indice;
+    };
+
     return rows.map(row => {
       const display: any = { ...row };
       for (const [campo, selector] of Object.entries(cfg.selectores!)) {
@@ -419,16 +448,8 @@ export class AdminService {
         // Si el campo no existe como FK plana, lo salta para que aplanarFila lo procese.
         if (fkVal === null || fkVal === undefined) continue;
 
-        const relItems: any[] = this.rawData()[selector.modulo] ?? [];
-        const fkStr = String(fkVal).trim().toLowerCase();
-        const match = relItems.find((item: any) => {
-          // intenta con el value configurado, luego con variantes snake/camel del PK
-          const primary = String(item[selector.value] ?? '').trim().toLowerCase();
-          if (primary === fkStr) return true;
-          // fallback: prueba id_municipio, idMunicipio, id, etc.
-          const alt = String(item['id_municipio'] ?? item['idMunicipio'] ?? item['id'] ?? '').trim().toLowerCase();
-          return alt === fkStr;
-        });
+        // intenta con el value configurado, luego con variantes snake/camel del PK (id_municipio, idMunicipio, id)
+        const match = indiceDe(selector).get(String(fkVal).trim().toLowerCase());
         display[displayKey] = match
           ? (match[selector.label] ?? String(fkVal))
           : String(fkVal);
@@ -515,6 +536,18 @@ export class AdminService {
         return opciones;
   }
 
+  /**
+   * Calienta en segundo plano los módulos que necesitan los selectores de los modales de «crear» de estos
+   * módulos (personas y cursos para matricular, etc.), para que al hacer clic el modal abra sin esperar la red.
+   * Es la misma carga memoizada de siempre: si ya está hecha o en curso, no repite nada.
+   */
+  precargarDependencias(mods: Modulo[]): void {
+    for (const mod of mods) {
+      const deps = new Set(Object.values(CONFIG[mod].selectores ?? {}).map(s => s.modulo));
+      deps.forEach(d => void this.cargarConDependencias(d));
+    }
+  }
+
   // ── MODAL ─────────────────────────────────────────────
   /**
    * Abre el modal de creación. Espera a que el módulo activo (y los módulos
@@ -525,7 +558,15 @@ export class AdminService {
    */
   async abrirModal(): Promise<void> {
     const mod = this.activeTab();
-    await this.cargarConDependencias(mod);
+    // Para CREAR solo hacen falta los módulos de los selectores (personas, cursos…): la lista del propio módulo
+    // (todas las matrículas, por ejemplo) sigue cargando de fondo y ya no retrasa la apertura. Si el módulo no
+    // declara sus `campos`, sí se necesita su lista para deducir las columnas editables.
+    if (CONFIG[mod].campos) {
+      const deps = new Set(Object.values(CONFIG[mod].selectores ?? {}).map(s => s.modulo));
+      await Promise.all([...deps].map(d => this.cargarConDependencias(d)));
+    } else {
+      await this.cargarConDependencias(mod);
+    }
 
     this.editando.set(null);
     this.modalForm = {};

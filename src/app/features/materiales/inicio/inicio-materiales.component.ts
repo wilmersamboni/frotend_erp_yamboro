@@ -108,17 +108,19 @@ const ICONO_PENDIENTE: Record<string, LucideIconData> = {
               </div>
             }
           </div>
-          <a routerLink="/materiales/escanear"
-            class="relative group inline-flex items-center gap-4 self-start lg:self-auto rounded-2xl border border-gray-200 bg-gray-50 px-5 py-4 text-gray-800 transition hover:border-[#39A900] hover:bg-white hover:shadow-md">
-            <span class="flex h-12 w-12 items-center justify-center rounded-xl text-white" style="background-color: var(--accent-brand)">
-              <lucide-icon [img]="iconos.ScanLine" [size]="26"></lucide-icon>
-            </span>
-            <span>
-              <span class="block text-base font-bold">Escanear placa</span>
-              <span class="block text-xs text-gray-500">Mira qué es un equipo y qué hacer con él</span>
-            </span>
-            <lucide-icon [img]="iconos.ArrowRight" [size]="18" class="text-gray-400 transition group-hover:translate-x-1"></lucide-icon>
-          </a>
+          @if (puedeEscanear()) {
+            <a routerLink="/materiales/escanear"
+              class="relative group inline-flex items-center gap-4 self-start lg:self-auto rounded-2xl border border-gray-200 bg-gray-50 px-5 py-4 text-gray-800 transition hover:border-[#39A900] hover:bg-white hover:shadow-md">
+              <span class="flex h-12 w-12 items-center justify-center rounded-xl text-white" style="background-color: var(--accent-brand)">
+                <lucide-icon [img]="iconos.ScanLine" [size]="26"></lucide-icon>
+              </span>
+              <span>
+                <span class="block text-base font-bold">Escanear placa</span>
+                <span class="block text-xs text-gray-500">Mira qué es un equipo y qué hacer con él</span>
+              </span>
+              <lucide-icon [img]="iconos.ArrowRight" [size]="18" class="text-gray-400 transition group-hover:translate-x-1"></lucide-icon>
+            </a>
+          }
         </div>
       </section>
 
@@ -212,6 +214,9 @@ export class InicioMaterialesComponent implements OnInit {
   })();
   readonly nombre = computed(() => (this.auth.user()?.nombre ?? '').split(' ')[0] || 'bienvenido');
 
+  /** Escanear placa tiene permiso propio (2026-10-21). */
+  readonly puedeEscanear = computed(() => this.auth.tieneServicio('materiales.escaneo.usar'));
+
   readonly conteo = computed(() => {
     const ps = this.pendientes();
     const c = { rojo: 0, amarillo: 0, azul: 0, total: ps.length };
@@ -233,7 +238,7 @@ export class InicioMaterialesComponent implements OnInit {
       { icono: ClipboardCheck, tono: 'azul', titulo: 'Aprobar y entregar pedidos', ayuda: 'Lo que te pidieron prestado', ruta: '/materiales/solicitudes', visible: gestor && s('materiales.solicitudes.ver'), pendientes: ['solicitudes_por_aprobar', 'solicitudes_por_entregar'] },
       { icono: ShoppingCart, tono: 'violeta', titulo: 'Pedir material', ayuda: 'Pide prestado o para gastar', ruta: '/materiales/solicitudes', query: { nuevo: 1 }, visible: s('materiales.solicitudes.crear'), pendientes: ['mis_solicitudes_listas'] },
       { icono: Undo2, tono: 'teal', titulo: 'Me devolvieron algo', ayuda: 'Recibe lo que se había prestado', ruta: '/materiales/devoluciones', visible: gestor && s('materiales.devoluciones.ver'), pendientes: ['prestamos_vencidos'] },
-      { icono: Handshake, tono: 'indigo', titulo: 'Entregar a una ficha', ayuda: 'Material para un grupo de aprendices', ruta: '/materiales/asignaciones', query: { nuevo: 1 }, visible: gestor && (this.auth.isAdmin() || s('materiales.asignaciones.crear')), pendientes: ['asignaciones_vencidas'] },
+      { icono: Handshake, tono: 'indigo', titulo: 'Entregar a una ficha', ayuda: 'Material para un grupo de aprendices', ruta: '/materiales/asignaciones', query: { nuevo: 1 }, visible: gestor && s('materiales.asignaciones.crear') && s('materiales.asignaciones.ver'), pendientes: ['asignaciones_vencidas'] },
     ];
     const controlar: Tarea[] = [
       { icono: Truck, tono: 'naranja', titulo: 'Mover a otra bodega', ayuda: 'Pasa equipos o material entre bodegas', ruta: '/materiales/traslados', query: { nuevo: 1 }, visible: s('materiales.traslados.crear'), pendientes: ['traslados_por_aprobar'] },

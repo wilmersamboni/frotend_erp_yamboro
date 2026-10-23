@@ -1,4 +1,5 @@
-import { Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { Router, Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { roleGuard } from './core/guards/role.guard';
 import { SERVICIOS_ADMIN_PANEL } from './features/tenant-administration/config/admin.config';
@@ -56,6 +57,16 @@ const RUTAS: Routes = [
         canActivate: [authGuard],
         loadComponent: () => import('./features/dashboard/reporte-panel.component').then((m) => m.ReportePanelComponent),
       },
+      // Chat de pantalla completa para el celular (PWA): sin menú ni barra. Es el
+      // mismo asistente y la misma sesión que el widget del ERP (/api2/ia/chat),
+      // solo con otra pantalla. authGuard manda a iniciar sesión y regresa aquí
+      // (returnUrl), así que "instalar" /m abre directo el chat.
+      {
+        path: 'm',
+        title: 'Atlas | ERP',
+        canActivate: [authGuard],
+        loadComponent: () => import('./features/assistant/chat-movil.component').then((m) => m.ChatMovilComponent),
+      },
       {
         path: '',
         // authGuard en el padre cubre todas las rutas internas; corre antes que
@@ -110,7 +121,13 @@ const RUTAS: Routes = [
           // roles y el servicio gatean a la MISMA gente). Con AND, un
           // instructor con el servicio nunca pasaba porque 'roles' ya lo
           // bloqueaba antes de que el servicio tuviera chance de rescatarlo.
-          { path: 'migracion', title: 'Migración | ERP', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['practica.migracion'] }, loadComponent: () => import('./features/practice/migration/migration.component').then((m) => m.MigrationComponent) },
+          // Pantalla única para los dos Excel de SofiaPlus (Migración + Juicios Evaluativos). OR entre cargo y
+          // servicios porque admin y "quien recibió el permiso" son poblaciones distintas; cada pestaña vuelve a
+          // comprobar su propio permiso (practica.migracion / matriculas.gestionar).
+          { path: 'importar-sofia', title: 'Importar desde SofiaPlus | ERP', canActivate: [roleGuard], data: { roles: ['administrador', 'administrador_erp'], servicios: ['practica.migracion', 'matriculas.gestionar'] }, loadComponent: () => import('./features/practice/importar-sofia/importar-sofia.component').then((m) => m.ImportarSofiaComponent) },
+          // Las rutas de antes siguen funcionando: llevan a la pestaña que les corresponde.
+          { path: 'migracion', canActivate: [() => inject(Router).createUrlTree(['/importar-sofia'], { queryParams: { pestana: 'aprendices' } })], children: [] },
+          { path: 'juicios-evaluativos', canActivate: [() => inject(Router).createUrlTree(['/importar-sofia'], { queryParams: { pestana: 'juicios' } })], children: [] },
 
           // ── Horarios (portado de ChronoGest) ──────────────────────────────
           // Solo el servicio elevado gatea la ruta (no 'horarios.ver'/'horarios.competencias':

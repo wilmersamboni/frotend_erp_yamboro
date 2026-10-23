@@ -1,0 +1,144 @@
+/* Botón flotante de Atlas: pestaña pegada al borde derecho que descansa en el margen vacío de la
+   página y no bloquea clics fuera de su contorno (ver el comentario del componente). */
+.atlas-fab {
+  --curva: cubic-bezier(0.2, 0.9, 0.25, 1);
+  --tam: 52px;
+  --asoma: 26px; /* lo que se ve en reposo: cabe en el margen (24 px) + relleno (24 px) de la tarjeta */
+
+  position: fixed;
+  right: 0;
+  z-index: 40; /* por debajo de diálogos y menús, igual que el botón "Escanear" */
+  width: var(--tam);
+  height: var(--tam);
+  /* El contenedor NO recibe el puntero: solo el botón. Sin zonas muertas alrededor. */
+  pointer-events: none;
+}
+
+.atlas-fab-btn {
+  position: relative;
+  display: block;
+  width: var(--tam);
+  height: var(--tam);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface, #fff);
+  box-shadow:
+    0 8px 22px -6px rgba(15, 23, 42, 0.45),
+    0 0 0 3px var(--surface, #fff);
+  cursor: grab;
+  pointer-events: auto;
+  touch-action: none; /* el arrastre vertical no debe hacer scroll de la página */
+  -webkit-tap-highlight-color: transparent;
+  /* En reposo se esconde casi toda: solo asoma la mitad izquierda. */
+  transform: translateX(calc(var(--tam) - var(--asoma)));
+  transition:
+    transform 0.28s var(--curva),
+    box-shadow 0.2s ease;
+}
+
+/* Zona táctil ampliada hacia la izquierda. Cae sobre el margen y el relleno de la tarjeta (sin datos),
+   no sobre su contenido: da un blanco de ~40 px de ancho para el dedo sin tapar nada. */
+.atlas-fab-btn::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  bottom: -8px;
+  left: -14px;
+  width: 14px;
+}
+
+.atlas-fab-btn .atlas-3d {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  user-select: none;
+  pointer-events: none; /* el botón recibe el puntero, no la mascota */
+}
+
+/* Se despliega completa solo con el cursor encima, con el foco del teclado o mientras se arrastra. */
+.atlas-fab:hover .atlas-fab-btn,
+.atlas-fab-btn:focus-visible,
+.atlas-fab.arrastrando .atlas-fab-btn {
+  transform: translateX(0);
+}
+
+.atlas-fab.arrastrando .atlas-fab-btn {
+  cursor: grabbing;
+  transition: none; /* sigue al dedo sin retraso */
+}
+
+.atlas-fab-btn:focus-visible {
+  outline: 3px solid var(--accent-brand, #39a900);
+  outline-offset: 2px;
+}
+
+/* Atlas contestó con el chat cerrado. */
+.pendiente {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #f5a524;
+  box-shadow: 0 0 0 2px var(--surface, #fff);
+  animation: latido 1.6s ease-out infinite;
+}
+
+@keyframes latido {
+  70% {
+    box-shadow:
+      0 0 0 2px var(--surface, #fff),
+      0 0 0 8px rgba(245, 165, 36, 0);
+  }
+  100% {
+    box-shadow:
+      0 0 0 2px var(--surface, #fff),
+      0 0 0 0 rgba(245, 165, 36, 0);
+  }
+}
+
+/* Ocultar hasta recargar: solo aparece con el botón desplegado. */
+.ocultar {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--text, #1b1f26);
+  color: var(--surface, #fff);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease 0.1s;
+}
+
+.atlas-fab:hover .ocultar,
+.atlas-fab:focus-within .ocultar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atlas-fab-btn {
+    transition: none;
+  }
+
+  .pendiente {
+    animation: none;
+  }
+}
+
+@media print {
+  .atlas-fab {
+    display: none;
+  }
+}

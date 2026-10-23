@@ -1,0 +1,274 @@
+/* El tamaño y la posición los pone quien usa el componente; este llena su caja. */
+:host {
+  display: block;
+}
+
+.escenario {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.resplandor {
+  position: absolute;
+  inset: 6%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(92, 214, 0, 0.34), rgba(92, 214, 0, 0) 66%);
+  filter: blur(6px);
+  animation: respirar 4.2s ease-in-out infinite;
+}
+
+/* Relevo orbe CSS → escena 3D: primero entra el 3D (0,25 s) y SOLO DESPUÉS se va el orbe. Si se
+   desvanecían a la vez, a mitad del cambio no se veía ninguno de los dos (un "fantasma" de ~0,1 s). */
+.lienzo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.listo .lienzo {
+  opacity: 1;
+}
+
+.orbe {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.2s ease;
+}
+
+.listo .orbe {
+  opacity: 0;
+  pointer-events: none;
+  transition-delay: 0.25s;
+}
+
+/* Modo avatar: un disco de color detrás para que las partes blancas (orejas, manos, antena) se
+   distingan sobre una cabecera clara y el robot no parezca "cortado". */
+:host(.avatar) .resplandor {
+  inset: -4%;
+  opacity: 1;
+  filter: none;
+  background: radial-gradient(circle, rgba(92, 214, 0, 0.5) 0%, rgba(92, 214, 0, 0.2) 58%, rgba(92, 214, 0, 0) 74%);
+  animation: none;
+}
+
+/* ── Orbe CSS: una esfera con volumen, hecha con degradados ─────────────── */
+.cabeza {
+  position: absolute;
+  left: 17%;
+  right: 17%;
+  top: 20%;
+  bottom: 24%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 26%, #fff 0, #f3f8ef 30%, #cfe6c0 64%, #92c46f 100%);
+  box-shadow:
+    inset -8px -12px 22px rgba(40, 100, 0, 0.32),
+    0 16px 24px -10px rgba(35, 90, 0, 0.5);
+  animation: flotar 3.2s ease-in-out infinite;
+}
+
+.visor {
+  position: absolute;
+  left: 11%;
+  right: 11%;
+  top: 31%;
+  height: 40%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 24%, #34463a 0, #0c1410 66%);
+  box-shadow: inset 0 2px 6px rgba(255, 255, 255, 0.16);
+}
+
+.ojo {
+  position: absolute;
+  top: 24%;
+  width: 11%;
+  height: 40%;
+  border-radius: 999px;
+  background: #7cff3a;
+  box-shadow: 0 0 10px #5cd600;
+  animation: parpadeo 4.6s infinite;
+}
+
+.ojo:nth-of-type(1) {
+  left: 28%;
+}
+
+.ojo:nth-of-type(2) {
+  right: 28%;
+}
+
+.boca {
+  position: absolute;
+  left: 40%;
+  right: 40%;
+  bottom: 14%;
+  height: 14%;
+  border-bottom: 3px solid #7cff3a;
+  border-radius: 0 0 999px 999px;
+}
+
+.antena {
+  position: absolute;
+  left: 49%;
+  top: 8%;
+  width: 2.4%;
+  height: 16%;
+  background: #e6efe0;
+  animation: flotar 3.2s ease-in-out infinite;
+}
+
+.antena::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -34%;
+  width: 360%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(circle at 35% 30%, #f1ffe0, #5cd600 70%);
+  box-shadow: 0 0 12px #5cd600;
+  animation: bombilla 2.2s ease-in-out infinite;
+}
+
+.mano {
+  position: absolute;
+  bottom: 18%;
+  width: 11%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, #fff, #cfe6c0 70%);
+  box-shadow: 0 4px 8px rgba(35, 90, 0, 0.3);
+  animation: flotar 3.2s ease-in-out infinite 0.3s;
+}
+
+.mano-i {
+  left: 8%;
+}
+
+.mano-d {
+  right: 8%;
+}
+
+.sombra {
+  position: absolute;
+  left: 24%;
+  right: 24%;
+  bottom: 8%;
+  height: 5%;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.28);
+  filter: blur(4px);
+  animation: sombra 3.2s ease-in-out infinite;
+}
+
+/* Estados del orbe (en la escena 3D los lleva la propia escena). */
+.orbe[data-estado='pensando'] .cabeza {
+  animation: inclinar 1.6s ease-in-out infinite;
+}
+
+.orbe[data-estado='pensando'] .antena::after {
+  animation-duration: 0.5s;
+}
+
+.orbe[data-estado='feliz'] .cabeza,
+.orbe[data-estado='saludo'] .cabeza {
+  animation: saltar 0.55s ease-in-out 3;
+}
+
+.orbe[data-estado='feliz'] .ojo,
+.orbe[data-estado='saludo'] .ojo {
+  height: 16%;
+  top: 36%;
+}
+
+.orbe[data-estado='error'] .cabeza {
+  animation: temblar 0.4s linear 4;
+}
+
+.orbe[data-estado='error'] .ojo,
+.orbe[data-estado='error'] .boca {
+  background: #ffb020;
+  box-shadow: 0 0 10px #ffb020;
+  border-color: #ffb020;
+}
+
+@keyframes flotar {
+  50% {
+    transform: translateY(-4%);
+  }
+}
+
+@keyframes sombra {
+  50% {
+    transform: scaleX(0.86);
+    opacity: 0.7;
+  }
+}
+
+@keyframes respirar {
+  50% {
+    transform: scale(1.08);
+    opacity: 0.75;
+  }
+}
+
+@keyframes parpadeo {
+  0%,
+  94%,
+  100% {
+    transform: scaleY(1);
+  }
+  97% {
+    transform: scaleY(0.1);
+  }
+}
+
+@keyframes bombilla {
+  50% {
+    filter: brightness(1.35);
+  }
+}
+
+@keyframes inclinar {
+  0%,
+  100% {
+    transform: rotate(-4deg) translateY(-2%);
+  }
+  50% {
+    transform: rotate(4deg) translateY(-3%);
+  }
+}
+
+@keyframes saltar {
+  50% {
+    transform: translateY(-14%) scale(1.03);
+  }
+}
+
+@keyframes temblar {
+  25% {
+    transform: translateX(-3%) rotate(-3deg);
+  }
+  75% {
+    transform: translateX(3%) rotate(3deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .resplandor,
+  .cabeza,
+  .antena,
+  .antena::after,
+  .mano,
+  .sombra,
+  .ojo,
+  .orbe[data-estado] .cabeza {
+    animation: none;
+  }
+}

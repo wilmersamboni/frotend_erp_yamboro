@@ -10,6 +10,7 @@ import {
   InstructorInfo,
   Pregunta,
   MetricasEncuesta,
+  ComentarioEncuesta,
   EstadoEncuesta,
 } from '../data-access/encuestas-api.service';
 import { ErpCatalogoService } from '../../schedules/data-access/erp-catalogo.service';
@@ -231,6 +232,24 @@ type Filtro = 'TODAS' | EstadoEncuesta;
                       <div class="h-3 bg-gray-100 rounded-full overflow-hidden mb-3">
                         <div data-anim="res-barra" class="h-full rounded-full" [class]="colorSemaforo(metricasVisibles()!.promedioGlobal)"
                           [style.width.%]="metricasVisibles()!.promedioGlobal"></div>
+                      </div>
+                      <div class="mb-3">
+                        <p class="text-xs font-semibold text-gray-700 mb-1.5">
+                          Comentarios de los aprendices (anónimos)
+                          <span class="font-normal text-gray-400">· {{ comentariosVisibles().length }}</span>
+                        </p>
+                        @if (comentariosVisibles().length === 0) {
+                          <p class="text-xs text-gray-400">Ningún aprendiz dejó comentarios.</p>
+                        } @else {
+                          <ul class="space-y-2 max-h-64 overflow-y-auto">
+                            @for (c of comentariosVisibles(); track $index) {
+                              <li class="p-2.5 rounded-lg bg-gray-50 border border-gray-100">
+                                <p class="text-xs text-gray-700 whitespace-pre-line break-words">{{ c.comentario }}</p>
+                                <p class="text-[10px] text-gray-400 mt-1">{{ c.fecha }}</p>
+                              </li>
+                            }
+                          </ul>
+                        }
                       </div>
                       <div class="flex justify-end gap-2">
                         <button (click)="descargarExcel(e.id)"
@@ -582,6 +601,7 @@ export class EncuestasComponent implements OnInit, OnDestroy {
 
   linkVisibleId    = signal<string | null>(null);
   metricasVisibles = signal<MetricasEncuesta | null>(null);
+  comentariosVisibles = signal<ComentarioEncuesta[]>([]);
 
   // ── Wizard ──────────────────────────────────────────────────────────────
   wizardAbierto  = signal(false);
@@ -956,10 +976,18 @@ export class EncuestasComponent implements OnInit, OnDestroy {
     this.linkVisibleId.set(null);
     if (this.metricasVisibles()?.encuesta.id === e.id) {
       this.metricasVisibles.set(null);
+      this.comentariosVisibles.set([]);
       return;
     }
     try {
-      const metricas = await this.api.getMetricas(e.id);
+      const [metricas, comentarios] = await Promise.all([
+        this.api.getMetricas(e.id),
+        this.api.getComentarios(e.id).catch((err) => {
+          this.toast.httpError(err, 'No se pudieron cargar los comentarios.');
+          return [] as ComentarioEncuesta[];
+        }),
+      ]);
+      this.comentariosVisibles.set(comentarios);
       this.metricasVisibles.set(metricas);
       if (!this.reducirMovimiento) {
         this.globalAnimado.set(0);

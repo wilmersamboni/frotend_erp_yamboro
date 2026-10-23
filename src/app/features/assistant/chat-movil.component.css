@@ -1,0 +1,536 @@
+/* Chat de pantalla completa para el celular (/m). Usa las variables de tema
+   globales (--bg-app, --surface, --text…, que el modo oscuro redefine); los
+   valores de respaldo son el aspecto claro por defecto. */
+:host {
+  display: block;
+}
+
+.chat {
+  --cab-h: 64px;
+  --heroe: min(232px, 58vw);
+  --marca: var(--accent-brand, #39a900);
+  --marca-osc: var(--accent-brand-dark, #2d8500);
+  --curva: cubic-bezier(0.2, 0.9, 0.25, 1);
+
+  position: fixed;
+  /* --vv-top / --vv-h los fija el componente desde visualViewport: con el
+     teclado abierto el área visible es menor que la ventana. */
+  top: var(--vv-top, 0px);
+  left: 0;
+  right: 0;
+  height: var(--vv-h, 100dvh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-app, #f5f7f6);
+  color: var(--text, #1b1f26);
+  font-family: inherit;
+}
+
+@media (min-width: 700px) {
+  .chat {
+    left: max(0px, calc(50% - 320px));
+    right: max(0px, calc(50% - 320px));
+    border-inline: 1px solid var(--border, #e5e7eb);
+  }
+}
+
+/* Resplandores de fondo: dan profundidad detrás de la mascota. */
+.fondo {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Degradados radiales (no filter: blur): se ven igual y cuestan menos en un celular modesto. */
+.fondo span {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.7;
+  transition: opacity 0.6s ease;
+}
+
+.fondo span:nth-child(1) {
+  top: -120px;
+  left: -120px;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, #8ee34a 0%, rgba(142, 227, 74, 0) 66%);
+}
+
+.fondo span:nth-child(2) {
+  top: -30px;
+  right: -150px;
+  width: 360px;
+  height: 360px;
+  background: radial-gradient(circle, #4fd1b8 0%, rgba(79, 209, 184, 0) 66%);
+  opacity: 0.5;
+}
+
+.compacto .fondo span {
+  opacity: 0.25;
+}
+
+/* ── Cabecera ─────────────────────────────────────────────────────────── */
+.cab {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  box-sizing: border-box;
+  height: calc(env(safe-area-inset-top, 0px) + var(--cab-h));
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: env(safe-area-inset-top, 0px) 12px 0 14px;
+  background: color-mix(in srgb, var(--surface, #fff) 78%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid color-mix(in srgb, var(--border, #e5e7eb) 80%, transparent);
+}
+
+/* Reserva el sitio del avatar (la mascota compacta se coloca encima). Mientras la
+   mascota está grande se cierra, y al encogerse se abre y empuja el título. */
+.hueco {
+  flex: none;
+  width: 54px;
+  height: 54px;
+  transition:
+    width 0.6s var(--curva),
+    margin 0.6s var(--curva);
+}
+
+.chat:not(.compacto) .hueco {
+  width: 0;
+  margin-right: -12px;
+}
+
+.titulos {
+  flex: 1;
+  min-width: 0;
+}
+
+.titulos h1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-muted, #6b7280);
+}
+
+.punto {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #38c172;
+  box-shadow: 0 0 0 0 rgba(56, 193, 114, 0.6);
+  animation: latido 2.4s ease-out infinite;
+}
+
+.estado.activo .punto {
+  background: #f5a524;
+  animation-duration: 0.9s;
+}
+
+.titulos p {
+  margin: 1px 0 0;
+  font-size: 0.75rem;
+  color: var(--text-muted, #6b7280);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.icono {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.icono:active {
+  background: var(--surface2, #eef1ef);
+}
+
+.velo {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+}
+
+.menu {
+  position: absolute;
+  z-index: 11;
+  top: calc(100% - 6px);
+  right: 12px;
+  min-width: 230px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+  transform-origin: top right;
+  animation: abrir 0.18s var(--curva);
+}
+
+.menu a,
+.menu button {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.95rem;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.menu a:active,
+.menu button:active {
+  background: var(--surface2, #eef1ef);
+}
+
+.menu .salir {
+  color: #dc2626;
+}
+
+/* ── Mascota: héroe grande al empezar, avatar en la cabecera después ───── */
+.mascota {
+  position: absolute;
+  z-index: 3;
+  top: calc(env(safe-area-inset-top, 0px) + var(--cab-h) + 2px);
+  left: 50%;
+  width: var(--heroe);
+  height: var(--heroe);
+  margin-left: calc(var(--heroe) / -2);
+  transition:
+    top 0.6s var(--curva),
+    left 0.6s var(--curva),
+    width 0.6s var(--curva),
+    height 0.6s var(--curva),
+    margin-left 0.6s var(--curva);
+}
+
+.mascota.compacta {
+  top: calc(env(safe-area-inset-top, 0px) + 5px);
+  left: 12px;
+  width: 54px;
+  height: 54px;
+  margin-left: 0;
+}
+
+/* ── Mensajes ─────────────────────────────────────────────────────────── */
+.lista {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.heroe-espacio {
+  flex: none;
+  height: var(--heroe);
+  transition:
+    height 0.6s var(--curva),
+    margin 0.6s var(--curva);
+}
+
+.heroe-espacio.compacta {
+  height: 0;
+  margin-bottom: -10px;
+}
+
+.fila {
+  display: flex;
+  animation: aparecer 0.3s var(--curva) both;
+}
+
+.fila.mia {
+  justify-content: flex-end;
+}
+
+.burbuja {
+  max-width: 86%;
+  padding: 10px 14px;
+  border-radius: 20px;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.burbuja.asistente {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-bottom-left-radius: 6px;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 8px 18px -10px rgba(15, 23, 42, 0.22);
+}
+
+.burbuja.usuario {
+  background: linear-gradient(135deg, var(--marca), var(--marca-osc));
+  color: #fff;
+  border-bottom-right-radius: 6px;
+  white-space: pre-wrap;
+  box-shadow: 0 8px 18px -8px rgba(45, 133, 0, 0.6);
+}
+
+/* El HTML de la respuesta entra por [innerHTML]: no lleva el atributo de
+   encapsulación de Angular, de ahí el ::ng-deep. */
+.asistente ::ng-deep ol,
+.asistente ::ng-deep ul {
+  margin: 0.4em 0;
+  padding-left: 1.3em;
+}
+
+/* El reset global de Tailwind (preflight) quita los marcadores de lista. */
+.asistente ::ng-deep ol {
+  list-style: decimal;
+}
+
+.asistente ::ng-deep ul {
+  list-style: disc;
+}
+
+.asistente ::ng-deep li + li {
+  margin-top: 0.25em;
+}
+
+.asistente ::ng-deep > :first-child {
+  margin-top: 0;
+}
+
+.asistente ::ng-deep > :last-child {
+  margin-bottom: 0;
+}
+
+.escribiendo {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  padding: 14px 16px;
+}
+
+.escribiendo span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted, #6b7280);
+  animation: pulso 1.2s ease-in-out infinite;
+}
+
+.escribiendo span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.escribiendo span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.aviso {
+  margin: 0 4px;
+  font-size: 0.78rem;
+  color: var(--text-muted, #6b7280);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.chip {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid color-mix(in srgb, var(--marca) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface, #fff) 86%, transparent);
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 6px 14px -10px rgba(45, 133, 0, 0.6);
+  transition: transform 0.15s ease;
+  animation: aparecer 0.4s var(--curva) both;
+}
+
+.chip:nth-child(2) {
+  animation-delay: 0.08s;
+}
+
+.chip:nth-child(3) {
+  animation-delay: 0.16s;
+}
+
+.chip:active {
+  transform: scale(0.97);
+  background: var(--surface2, #eef1ef);
+}
+
+/* ── Barra de escribir ────────────────────────────────────────────────── */
+.barra {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 12px calc(env(safe-area-inset-bottom, 0px) + 10px);
+}
+
+.barra textarea {
+  flex: 1;
+  min-width: 0;
+  max-height: 120px;
+  padding: 12px 18px;
+  border: 1px solid var(--border-strong, #d1d5db);
+  border-radius: 24px;
+  background: var(--surface, #fff);
+  color: inherit;
+  /* 16 px como mínimo: con menos, iOS hace zoom al enfocar el campo. */
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.35;
+  resize: none;
+  box-shadow: 0 8px 20px -12px rgba(15, 23, 42, 0.3);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.barra textarea:focus-visible {
+  outline: none;
+  border-color: var(--marca);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--marca) 28%, transparent),
+    0 8px 20px -12px rgba(15, 23, 42, 0.3);
+}
+
+.enviar {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--marca), var(--marca-osc));
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 8px 18px -6px rgba(45, 133, 0, 0.65);
+  transition:
+    transform 0.15s ease,
+    opacity 0.2s ease;
+}
+
+.enviar:not(:disabled):active {
+  transform: scale(0.9);
+}
+
+.enviar:disabled {
+  opacity: 0.4;
+  cursor: default;
+  box-shadow: none;
+}
+
+/* ── Animaciones ──────────────────────────────────────────────────────── */
+@keyframes aparecer {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+}
+
+@keyframes abrir {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+@keyframes latido {
+  70% {
+    box-shadow: 0 0 0 7px rgba(56, 193, 114, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(56, 193, 114, 0);
+  }
+}
+
+@keyframes pulso {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fila,
+  .chip,
+  .menu,
+  .punto {
+    animation: none;
+  }
+
+  .mascota,
+  .heroe-espacio,
+  .fondo span {
+    transition: none;
+  }
+
+  .escribiendo span {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+/* ── Modo oscuro ──────────────────────────────────────────────────────── */
+:host-context(:root[data-theme='dark']) .fondo span:nth-child(1) {
+  background: radial-gradient(circle, #2f8a12 0%, rgba(47, 138, 18, 0) 66%);
+  opacity: 0.55;
+}
+
+:host-context(:root[data-theme='dark']) .fondo span:nth-child(2) {
+  background: radial-gradient(circle, #1f8f7d 0%, rgba(31, 143, 125, 0) 66%);
+  opacity: 0.4;
+}
+
+:host-context(:root[data-theme='dark']) .burbuja.asistente {
+  box-shadow: 0 8px 18px -10px rgba(0, 0, 0, 0.7);
+}
