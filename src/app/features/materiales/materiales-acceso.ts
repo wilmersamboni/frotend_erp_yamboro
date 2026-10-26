@@ -55,6 +55,8 @@ export interface PantallaMateriales {
   acceso: AccesoPantalla;
   /** `false` = tiene ruta pero no link propio en el menú (se llega desde otra pantalla). */
   enMenu?: boolean;
+  /** Cargos (`rolNombre`) a los que NO se les ofrece la pantalla aunque tengan el servicio: ni link ni ruta. */
+  ocultaACargos?: string[];
   /** "Mi Bodega" ya la cubre: el link se oculta a un no-admin que administra una bodega. */
   cubiertaPorMiBodega?: boolean;
 }
@@ -128,8 +130,18 @@ export function datosRutaMateriales(id: string): {
   roles?: string[];
   servicios?: string[];
   serviciosRequeridos?: string[];
+  excluirRoles?: string[];
 } {
-  const { acceso } = pantallaMateriales(id);
+  const { acceso, ocultaACargos } = pantallaMateriales(id);
+  const base = ocultaACargos?.length ? { excluirRoles: ocultaACargos } : {};
+  return { ...base, ...datosPorAcceso(acceso) };
+}
+
+function datosPorAcceso(acceso: AccesoPantalla): {
+  roles?: string[];
+  servicios?: string[];
+  serviciosRequeridos?: string[];
+} {
   switch (acceso.tipo) {
     case 'servicio':
       return { serviciosRequeridos: [acceso.servicio] };

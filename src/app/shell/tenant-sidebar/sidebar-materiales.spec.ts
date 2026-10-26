@@ -1,6 +1,6 @@
 import { SidebarComponent } from './sidebar.component';
 import { MATERIALS_ROUTES } from '../../features/materiales/materiales.routes';
-import { PANTALLAS_MATERIALES } from '../../features/materiales/materiales-acceso';
+import { PANTALLAS_MATERIALES, datosRutaMateriales } from '../../features/materiales/materiales-acceso';
 
 /** Lo que trae el aprendiz de fábrica (MATERIALES_APRENDIZ en backend-erp). NO incluye los permisos propios de pantalla. */
 const BASE_APRENDIZ = [

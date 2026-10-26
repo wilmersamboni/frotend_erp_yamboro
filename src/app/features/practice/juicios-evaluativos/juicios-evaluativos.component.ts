@@ -59,7 +59,7 @@ const MAX_BYTES = 10 * 1024 * 1024;
   template: `
     <div class="max-w-5xl mx-auto p-6 space-y-5">
       <div>
-        <h1 class="text-2xl font-bold text-gray-900">Juicios Evaluativos</h1>
+        <h2 class="text-xl font-bold text-gray-900">Juicios Evaluativos</h2>
         <p class="text-sm text-gray-500 mt-1">
           Sube el reporte de juicios evaluativos de una ficha para habilitar la etapa práctica de los aprendices
           que solo tienen pendiente esa competencia.
