@@ -16,6 +16,8 @@ import { HistorialInstructorModalComponent } from './historial-instructor-modal.
 import { NuevaCompetenciaModalComponent } from './nueva-competencia-modal.component';
 import { CompetenciaTooltipComponent } from '../../../shared/components/competencia-tooltip.component';
 import { DialogDirective } from '../../../shared/directives/dialog.directive';
+import { CargasSecundarias } from '../../../shared/carga/cargas-secundarias';
+import { AvisoCargasComponent } from '../../../shared/carga/aviso-cargas.component';
 
 /**
  * Portado de ChronoGest; variante de instructor del dominio Horarios.
@@ -43,7 +45,7 @@ import { DialogDirective } from '../../../shared/directives/dialog.directive';
 @Component({
   selector: 'app-instructor-mis-horarios',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DialogDirective, FormsModule, LucideAngularModule, ConsultarUbicacionComponent, HistorialInstructorModalComponent, NuevaCompetenciaModalComponent, CompetenciaTooltipComponent],
+  imports: [AvisoCargasComponent, DialogDirective, FormsModule, LucideAngularModule, ConsultarUbicacionComponent, HistorialInstructorModalComponent, NuevaCompetenciaModalComponent, CompetenciaTooltipComponent],
   template: `
     <div class="page-header">
       <div><h2 class="text-2xl font-bold text-gray-900 tracking-tight">Mis Horarios</h2><p class="text-muted text-sm">Tu programación semanal (Pantalla Completa)</p></div>
@@ -51,6 +53,8 @@ import { DialogDirective } from '../../../shared/directives/dialog.directive';
         <lucide-icon name="clock" [size]="15"></lucide-icon> Historial de Competencias
       </button>
     </div>
+
+    <app-aviso-cargas class="block mt-4" [cargas]="cargas" (reintentar)="cargarDatos()" />
 
     @if (proximosEventos().length > 0) {
       <div class="proximos-eventos-card mt-4">
@@ -471,6 +475,9 @@ export class InstructorMisHorariosComponent implements OnInit, OnDestroy {
     private toast: ToastService,
   ) {}
 
+  /** Qué no se pudo traer: se avisa en pantalla en vez de mostrar una semana vacía. */
+  readonly cargas = new CargasSecundarias();
+
   async ngOnInit() {
     await this.cargarDatos();
     this.timer = setInterval(async () => {
@@ -483,12 +490,16 @@ export class InstructorMisHorariosComponent implements OnInit, OnDestroy {
         Object.values(this.horariosByDay()).flat().map((h: any) => h.fichaId).filter(Boolean)
       )];
       if (fichaIds.length) {
-        const results = await Promise.all(
-          fichaIds.map((fid: string) => this.horariosApi.getEventosByFicha(fid).catch(() => [])),
-        );
-        const evMap = new Map<string, any>();
-        results.flat().forEach((ev: any) => { if (ev?.id) evMap.set(ev.id, ev); });
-        this.eventos.set([...evMap.values()]);
+        try {
+          const results = await Promise.all(
+            fichaIds.map((fid: string) => this.horariosApi.getEventosByFicha(fid)),
+          );
+          const evMap = new Map<string, any>();
+          results.flat().forEach((ev: any) => { if (ev?.id) evMap.set(ev.id, ev); });
+          this.eventos.set([...evMap.values()]);
+        } catch {
+          // Sondeo en segundo plano: si falla, se conservan los eventos que ya se veían.
+        }
       }
       this.cdr.detectChanges();
     }, 30000);
@@ -616,12 +627,18 @@ export class InstructorMisHorariosComponent implements OnInit, OnDestroy {
     // Cargar horarios + fichas + ambientes + perfil del instructor en paralelo.
     // No existe /instructores/:id — erpCatalogo.getPersona(id) trae los mismos
     // campos de verdad (incl. esTransversal) directamente del ERP.
+    this.cargas.reiniciar();
     const [horarios, fichas, ambientes, instructor] = await Promise.all([
-      this.horariosApi.getHorariosByInstructor(id),
-      this.erpCatalogo.getFichas().catch(() => []),
-      this.erpCatalogo.getAmbientes().catch(() => []),
-      this.erpCatalogo.getPersona(id).catch(() => null),
+      this.cargas.cargar('tus horarios', () => this.horariosApi.getHorariosByInstructor(id)),
+      this.cargas.cargar('fichas', () => this.erpCatalogo.getFichas()),
+      this.cargas.cargar('ambientes', () => this.erpCatalogo.getAmbientes()),
+      this.cargas.cargarUno('tu perfil', () => this.erpCatalogo.getPersona(id), null),
     ]);
+    // Sin horarios no hay nada que pintar: se deja lo que había y el aviso explica por qué.
+    if (this.cargas.fallo('tus horarios')) {
+      this.cdr.detectChanges();
+      return;
+    }
 
     // Establecer esTransversal desde DB — independiente del JWT almacenado
     if (instructor !== null) {
@@ -656,7 +673,7 @@ export class InstructorMisHorariosComponent implements OnInit, OnDestroy {
     this.misFichaIds = new Set(fichaIds.map(String));
     if (fichaIds.length) {
       const results = await Promise.all(
-        fichaIds.map((fid: string) => this.horariosApi.getEventosByFicha(fid).catch(() => [])),
+        fichaIds.map((fid: string) => this.cargas.cargar('eventos', () => this.horariosApi.getEventosByFicha(fid))),
       );
       // Aplanar y deduplicar por id
       const evMap = new Map<string, any>();

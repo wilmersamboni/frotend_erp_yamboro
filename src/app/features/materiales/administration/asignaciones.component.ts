@@ -1,3 +1,4 @@
+import { CargaFallidaComponent } from '../../../shared/carga/carga-fallida.component';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DatePipe } from '@angular/common';
@@ -56,7 +57,7 @@ interface Ficha {
 @Component({
   selector: 'app-materiales-asignaciones',
   standalone: true,
-  imports: [AvisoVenceAntesComponent, BodegasInactivasEtiquetaComponent, BodegasInactivasAvisoComponent, AvisoCargasComponent, EsperaDirective, DialogDirective, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, ElegirPlacasAsignacionModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent, TableFilterComponent],
+  imports: [CargaFallidaComponent, AvisoVenceAntesComponent, BodegasInactivasEtiquetaComponent, BodegasInactivasAvisoComponent, AvisoCargasComponent, EsperaDirective, DialogDirective, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, ElegirPlacasAsignacionModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent, TableFilterComponent],
   template: `
     <div class="p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
@@ -80,6 +81,8 @@ interface Ficha {
 
       @if (loading) {
         <app-loading-skeleton variant="table" [rows]="6" [columns]="5" [showToolbar]="false" label="Cargando asignaciones" />
+      } @else if (errorCarga) {
+        <app-empty-state variante="error" titulo="No se pudo cargar las asignaciones"><button type="button" (click)="reintentarCarga()" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Reintentar</button></app-empty-state>
       } @else if (asignaciones.length === 0) {
         <app-empty-state titulo="No hay asignaciones registradas" />
       } @else {
@@ -310,7 +313,8 @@ interface Ficha {
     <label class="block text-xs font-medium text-gray-600 mb-1">Bodega de la que salen <span class="text-red-500">*</span></label>
     <app-ss [options]="opcionesBodegaAsig" placeholder="— Selecciona la bodega —"
       [(ngModel)]="idSitioAsig" (ngModelChange)="onBodegaAsigChange()"></app-ss>
-    @if (!opcionesBodegaAsig.length) {
+    <app-carga-fallida [cargas]="secundarias" [nombres]="['material disponible', 'bodegas a tu cargo']" etiqueta="el material disponible" (reintentar)="reintentarMaterial()" />
+    @if (!opcionesBodegaAsig.length && !secundarias.falloAlguna(['material disponible', 'bodegas a tu cargo'])) {
       <p class="text-xs text-gray-400 mt-1">No hay material disponible en las bodegas que gestionas.</p>
     }
   </div>
@@ -437,6 +441,9 @@ interface Ficha {
   `,
 })
 export class MaterialesAsignacionesComponent implements OnInit {
+  /** La carga principal falló: la tabla dice «No se pudo cargar», no «No hay…». */
+  errorCarga = false;
+  readonly reintentarCarga = (): void => void this.cargar();
   /** Catálogos auxiliares de la pantalla: si uno falla se avisa, no se muestra vacío. */
   readonly secundarias = new CargasSecundarias();
   readonly recargar = (): void => void this.cargar();
@@ -846,6 +853,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
 
   private async cargar(): Promise<void> {
     this.loading = true;
+    this.errorCarga = false;
     this.secundarias.reiniciar();
     try {
       const [asignaciones, productos, sitios, fichasRaw, ambientes] = await Promise.all([
@@ -861,24 +869,37 @@ export class MaterialesAsignacionesComponent implements OnInit {
       this.fichas = fichasRaw.map((f: any) => ({ idCurso: f.idCurso, codigo: f.codigo, programa: f.programa }));
       this.ambientes = ambientes;
     } catch (e) {
+      this.errorCarga = true;
+      this.secundarias.marcarFallo('asignaciones');
       this.toast.httpError(e, 'No se pudieron cargar las asignaciones.');
     } finally {
       this.loading = false;
     }
   }
 
-  async nuevo(): Promise<void> {
-    // Disponibilidad por bodega + bodegas que gestiono (admin: todas).
+  /** Disponibilidad por bodega + bodegas que gestiono (admin: todas). Lo que falle queda anotado para avisar en el campo. */
+  private async cargarOpciones(): Promise<void> {
+    this.secundarias.olvidar('material disponible');
+    this.secundarias.olvidar('bodegas a tu cargo');
     const [opciones, consumo, aCargo] = await Promise.all([
-      this.api.opcionesDevolutivos().catch(() => [] as OpcionDevolutivo[]),
-      this.api.opcionesConsumoAsignacion().catch(() => [] as OpcionConsumo[]),
-      this.auth.isAdmin() ? Promise.resolve(null) : this.api.sitiosACargo().catch(() => []),
+      this.secundarias.cargar('material disponible', () => this.api.opcionesDevolutivos()),
+      this.secundarias.cargar('material disponible', () => this.api.opcionesConsumoAsignacion()),
+      this.auth.isAdmin() ? Promise.resolve(null) : this.secundarias.cargar('bodegas a tu cargo', () => this.api.sitiosACargo()),
     ]);
     this.opcionesDev = opciones;
     this.opcionesCons = consumo;
     this.bodegasGestionadas = aCargo ? new Set(aCargo.map((x) => x.id_sitio)) : null;
     const bodegas = this.opcionesBodegaAsig;
-    this.idSitioAsig = bodegas.length === 1 ? bodegas[0].value : '';
+    if (!this.idSitioAsig) this.idSitioAsig = bodegas.length === 1 ? bodegas[0].value : '';
+  }
+
+  async reintentarMaterial(): Promise<void> {
+    await this.cargarOpciones();
+  }
+
+  async nuevo(): Promise<void> {
+    this.idSitioAsig = '';
+    await this.cargarOpciones();
     // Dos motivos distintos, dos mensajes (antes uno solo que no decía cuál faltaba).
     if (this.fichas.length === 0) {
       this.toast.warn(
@@ -888,7 +909,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
       );
       return;
     }
-    if (this.opcionesBodegaAsig.length === 0) {
+    if (this.opcionesBodegaAsig.length === 0 && !this.secundarias.falloAlguna(['material disponible', 'bodegas a tu cargo'])) {
       this.toast.warn('Sin material disponible', 'No hay equipos ni material de consumo disponible en las bodegas que gestionas.');
       return;
     }

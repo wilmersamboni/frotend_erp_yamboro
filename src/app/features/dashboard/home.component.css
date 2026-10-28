@@ -559,3 +559,10 @@
 .s-purple       { background: var(--violet-bg); }
 .s-purple-solid { background: var(--violet-text); }
 .fill-green { background: var(--accent-brand); }
+
+/* Bloque que reemplaza a un gráfico cuando su carga falló: se lee como "faltan datos", no como "no hay". */
+.sin-datos {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 160px; border: 1px dashed var(--border-strong, #cbd5e1); border-radius: 12px;
+  font-size: .875rem; color: var(--text-muted, #94a3b8);
+}

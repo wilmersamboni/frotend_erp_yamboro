@@ -150,29 +150,40 @@
   ══════════════════════════════════════════════════════════════════════════ -->
   @if (!esAprendiz()) {
 
+    @if (!cargando) {
+      <app-aviso-cargas [cargas]="cargas" (reintentar)="reintentar()" />
+    }
+
     <!-- ══ Fila 1 · Cifras (tarjetas de color de la versión Spotify) ══════ -->
     <div class="sp-kpis">
       @for (k of kpis; track k.key; let idx = $index) {
         <div class="sp-kpi" [style.--c]="k.color" [style.animation-delay.ms]="idx * 70">
           <div class="sp-kpi-top">
             <span class="sp-kpi-label">{{ k.label }}</span>
-            <span class="sp-pill">
-              <lucide-icon [img]="k.tendencia === 'down' ? icBaja : k.tendencia === 'up' ? icSube : icPlano" [size]="12"></lucide-icon>
-              {{ k.pill }}
-            </span>
+            @if (!sinDatos) {
+              <span class="sp-pill">
+                <lucide-icon [img]="k.tendencia === 'down' ? icBaja : k.tendencia === 'up' ? icSube : icPlano" [size]="12"></lucide-icon>
+                {{ k.pill }}
+              </span>
+            }
           </div>
           @if (cargando) {
             <p-skeleton height="40px" width="110px" styleClass="mt-1"/>
           } @else {
-            <div class="sp-kpi-num">{{ k.mostrado | number }}</div>
+            <div class="sp-kpi-num">{{ sinDatos ? '—' : (k.mostrado | number) }}</div>
           }
           <div class="sp-kpi-foot">
-            <strong>{{ k.titular }}
-              <lucide-icon [img]="k.tendencia === 'down' ? icBaja : k.tendencia === 'up' ? icSube : icPlano" [size]="15"></lucide-icon>
-            </strong>
-            <span>{{ k.detalle }}</span>
+            @if (sinDatos) {
+              <strong>Sin datos</strong>
+              <span>No se pudo cargar</span>
+            } @else {
+              <strong>{{ k.titular }}
+                <lucide-icon [img]="k.tendencia === 'down' ? icBaja : k.tendencia === 'up' ? icSube : icPlano" [size]="15"></lucide-icon>
+              </strong>
+              <span>{{ k.detalle }}</span>
+            }
           </div>
-          @if (k.spark && tieneAccesoPractica()) {
+          @if (k.spark && tieneAccesoPractica() && !sinDatos) {
             <div class="sp-spark">
               <p-chart type="line" [data]="k.spark" [options]="sparkOptions" width="100%" height="58px"/>
             </div>
@@ -205,6 +216,8 @@
           </div>
           @if (!tieneAccesoPractica()) {
             <div class="chart-sin-acceso">Sin acceso a este módulo</div>
+          } @else if (cargas.fallo('etapas prácticas')) {
+            <div class="chart-sin-acceso" role="status">No se pudo cargar</div>
           } @else if (cargando || !chartDataEvolucion) {
             <p-skeleton height="270px" borderRadius="12px"/>
           } @else {
@@ -235,6 +248,8 @@
           </div>
           @if (!tieneAccesoPractica()) {
             <div class="chart-sin-acceso">Sin acceso a este módulo</div>
+          } @else if (cargas.fallo('etapas prácticas')) {
+            <div class="chart-sin-acceso" role="status">No se pudo cargar</div>
           } @else if (cargando) {
             <div class="skel-center"><p-skeleton shape="circle" size="180px"/></div>
           } @else {
@@ -268,6 +283,8 @@
           </div>
           @if (!tieneAccesoPractica()) {
             <div class="chart-sin-acceso">Sin acceso a este módulo</div>
+          } @else if (cargas.fallo('etapas prácticas')) {
+            <div class="chart-sin-acceso" role="status">No se pudo cargar</div>
           } @else if (cargando || !chartDataBarras) {
             <p-skeleton height="250px" borderRadius="12px"/>
           } @else {
@@ -291,6 +308,8 @@
           </div>
           @if (!tieneAccesoPractica()) {
             <div class="chart-sin-acceso">Sin acceso a este módulo</div>
+          } @else if (cargas.fallo('etapas prácticas')) {
+            <div class="chart-sin-acceso" role="status">No se pudo cargar</div>
           } @else if (cargando || !chartDataComparativo) {
             <p-skeleton height="250px" borderRadius="12px"/>
           } @else {
@@ -341,7 +360,7 @@
             } @empty {
               <div class="sp-lista-vacia">
                 <lucide-icon [img]="icCalendario" [size]="22"></lucide-icon>
-                Ninguna etapa termina en los próximos 30 días.
+                {{ cargas.fallo('etapas prácticas') ? 'No se pudo cargar.' : 'Ninguna etapa termina en los próximos 30 días.' }}
               </div>
             }
           </div>
@@ -365,7 +384,7 @@
             } @empty {
               <div class="sp-lista-vacia">
                 <lucide-icon [img]="icEdificio" [size]="22"></lucide-icon>
-                Aún no hay aprendices ubicados en empresas.
+                {{ cargas.fallo('etapas prácticas') ? 'No se pudo cargar.' : 'Aún no hay aprendices ubicados en empresas.' }}
               </div>
             }
           </div>

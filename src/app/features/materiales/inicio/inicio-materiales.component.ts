@@ -25,6 +25,8 @@ import {
 } from 'lucide-angular';
 import { AuthService } from '../../../core/services/auth.service';
 import { MaterialesApiService, PendienteMateriales } from '../data-access/materiales-api.service';
+import { CargasSecundarias } from '../../../shared/carga/cargas-secundarias';
+import { AvisoCargasComponent } from '../../../shared/carga/aviso-cargas.component';
 
 type Tono = 'verde' | 'azul' | 'violeta' | 'ambar' | 'rosa' | 'indigo' | 'naranja' | 'teal' | 'gris';
 
@@ -82,7 +84,7 @@ const ICONO_PENDIENTE: Record<string, LucideIconData> = {
 @Component({
   selector: 'app-materiales-inicio',
   standalone: true,
-  imports: [RouterLink, LucideAngularModule],
+  imports: [RouterLink, LucideAngularModule, AvisoCargasComponent],
   styles: [`
     .tarjeta { transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
     .tarjeta:hover { transform: translateY(-2px); box-shadow: 0 10px 24px -12px rgb(15 23 42 / .25); }
@@ -124,6 +126,8 @@ const ICONO_PENDIENTE: Record<string, LucideIconData> = {
         </div>
       </section>
 
+      <app-aviso-cargas [cargas]="cargas" (reintentar)="reintentar()" />
+
       <!-- ── Tareas ── -->
       @for (grupo of grupos(); track grupo.titulo) {
         @if (grupo.tareas.length) {
@@ -160,6 +164,10 @@ const ICONO_PENDIENTE: Record<string, LucideIconData> = {
         @if (cargando()) {
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             @for (x of [1, 2]; track x) { <div class="h-20 rounded-2xl bg-gray-100 animate-pulse"></div> }
+          </div>
+        } @else if (cargas.fallo('tus pendientes')) {
+          <div class="rounded-2xl border border-dashed border-gray-300 p-5 text-sm text-gray-500" role="status">
+            No se pudo cargar lo que tienes pendiente.
           </div>
         } @else if (pendientes().length === 0) {
           <div class="flex items-center gap-4 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-white p-5">
@@ -203,6 +211,8 @@ export class InicioMaterialesComponent implements OnInit {
   readonly iconos = { ArrowRight, Bell, PartyPopper, ScanLine, Warehouse };
   readonly pendientes = signal<PendienteMateriales[]>([]);
   readonly cargando = signal(true);
+  /** Qué no se pudo traer: se avisa en vez de mostrar «Todo al día» o esconder accesos por un error de red. */
+  readonly cargas = new CargasSecundarias();
   private readonly gestor = signal(false);
   private readonly encargado = signal(false);
   private readonly registraIngresos = signal(false);
@@ -226,6 +236,7 @@ export class InicioMaterialesComponent implements OnInit {
 
   readonly resumenPendientes = computed(() => {
     if (this.cargando()) return 'Revisando lo que tienes pendiente…';
+    if (this.cargas.fallo('tus pendientes')) return 'No se pudo revisar lo que tienes pendiente.';
     const n = this.conteo().total;
     return n === 0 ? 'Todo está al día. ¿Qué quieres hacer hoy?' : `Tienes ${n} asunto${n === 1 ? '' : 's'} pendiente${n === 1 ? '' : 's'}. Empieza por lo rojo.`;
   });
@@ -253,15 +264,21 @@ export class InicioMaterialesComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.cargas.reiniciar();
     void this.cargarRol();
     void this.cargarPendientes();
   }
 
+  reintentar(): void {
+    this.cargando.set(true);
+    this.ngOnInit();
+  }
+
   private async cargarRol(): Promise<void> {
     const [aCargo, lider, ingresos] = await Promise.all([
-      this.api.sitiosACargo().catch(() => []),
-      this.api.puedeGestionarCatalogo().catch(() => false),
-      this.api.accesoIngresos().catch(() => ({ puede: false })),
+      this.cargas.cargar('tus bodegas', () => this.api.sitiosACargo()),
+      this.cargas.cargarUno('tus permisos de catálogo', () => this.api.puedeGestionarCatalogo(), false),
+      this.cargas.cargarUno('tu acceso a ingresos', () => this.api.accesoIngresos(), { puede: false, pleno: false, bodegas: [], areas: [] }),
     ]);
     this.registraIngresos.set(ingresos.puede);
     this.encargado.set(aCargo.length > 0);
@@ -269,13 +286,8 @@ export class InicioMaterialesComponent implements OnInit {
   }
 
   private async cargarPendientes(): Promise<void> {
-    try {
-      this.pendientes.set(await this.api.pendientesMateriales());
-    } catch {
-      this.pendientes.set([]);
-    } finally {
-      this.cargando.set(false);
-    }
+    this.pendientes.set(await this.cargas.cargar('tus pendientes', () => this.api.pendientesMateriales()));
+    this.cargando.set(false);
   }
 
   tono(t: Tarea) {

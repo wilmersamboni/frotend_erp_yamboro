@@ -89,7 +89,9 @@ import { EsperaDirective } from '../../shared/directives/espera.directive';
           los <span class="font-semibold">devolutivos</span> se cuentan por unidad; los <span class="font-semibold">consumibles / perecederos</span>, por el saldo de sus lotes.
         </p>
 
-        @if (filtradas().length === 0) {
+        @if (errorCarga) {
+          <app-empty-state variante="error" titulo="No se pudo cargar las existencias"><button type="button" (click)="reintentarCarga()" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Reintentar</button></app-empty-state>
+        } @else if (filtradas().length === 0) {
           <app-empty-state titulo="Sin existencias para mostrar" />
         } @else {
           <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
@@ -175,6 +177,9 @@ import { EsperaDirective } from '../../shared/directives/espera.directive';
   `,
 })
 export class MaterialesExistenciasComponent implements OnInit {
+  /** La carga principal falló: la tabla dice «No se pudo cargar», no «No hay…». */
+  errorCarga = false;
+  readonly reintentarCarga = (): void => void this.cargar();
   filas = signal<ResumenExistencias[]>([]);
   loading = false;
   q = '';
@@ -286,9 +291,11 @@ export class MaterialesExistenciasComponent implements OnInit {
 
   private async cargar(): Promise<void> {
     this.loading = true;
+    this.errorCarga = false;
     try {
       this.filas.set(await this.api.obtenerExistencias());
     } catch (e) {
+      this.errorCarga = true;
       this.toast.httpError(e, 'No se pudo cargar el panel de existencias.');
     } finally {
       this.loading = false;

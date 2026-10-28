@@ -88,7 +88,7 @@ import { MaterialesScreenPolicy } from './ui/materiales-screen-policy';
 
       <app-bodegas-inactivas-aviso [bodegas]="bodegasInactivas()" [abierto]="avisoBodegasAbierto()" />
 
-      <app-admin-table
+      <app-admin-table [errorCarga]="errorCarga" (reintentar)="reintentarCarga()"
         [addLabel]="puedeCrear() ? 'Nueva ficha' : null"
         (add)="nuevo()"
         [rows]="filas"
@@ -131,6 +131,9 @@ import { MaterialesScreenPolicy } from './ui/materiales-screen-policy';
   `,
 })
 export class MaterialesProductosComponent implements OnInit {
+  /** La carga principal falló: la tabla dice «No se pudo cargar», no «No hay…». */
+  errorCarga = false;
+  readonly reintentarCarga = (): void => void this.cargar();
   /** Catálogos auxiliares de la pantalla: si uno falla se avisa, no se muestra vacío. */
   readonly secundarias = new CargasSecundarias();
   readonly recargar = (): void => void this.cargar();
@@ -235,7 +238,7 @@ export class MaterialesProductosComponent implements OnInit {
    *  'todos' = activas + desactivadas (default), 'activos', 'inactivos'. Los
    *  botones se deciden POR FILA en las tres vistas (2026-10-06): una ficha
    *  activa muestra Editar y Desactivar; una desactivada, Reactivar. Antes
-   *  "Todos" era solo lectura porque `<app-admin-table>` no aceptaba permiso
+   *  "Todos" era solo lectura porque `<app-admin-table [errorCarga]="errorCarga" (reintentar)="reintentarCarga()">` no aceptaba permiso
    *  ni texto por fila, y para editar había que cambiar a "Activos". */
   readonly estadoOpciones = [
     { value: 'todos', label: 'Todos' },
@@ -261,6 +264,7 @@ export class MaterialesProductosComponent implements OnInit {
 
   private async cargar(): Promise<void> {
     this.loading = true;
+    this.errorCarga = false;
     this.secundarias.reiniciar();
     try {
       // Primero: de esto depende si se piden también los desactivados.
@@ -304,6 +308,8 @@ export class MaterialesProductosComponent implements OnInit {
             .solicitudes.filter((x) => x.estado === 'PENDIENTE')
         : [];
     } catch (e) {
+      this.errorCarga = true;
+      this.secundarias.marcarFallo('productos');
       this.toast.httpError(e, 'No se pudieron cargar los productos.');
     } finally {
       this.loading = false;

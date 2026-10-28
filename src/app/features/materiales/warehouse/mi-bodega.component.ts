@@ -1,3 +1,4 @@
+import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -57,7 +58,7 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
 @Component({
   selector: 'app-mi-bodega',
   standalone: true,
-  imports: [TarjetaMaterialComponent, AvisoCargasComponent, FormsModule, RouterLink, AdminTableComponent, AdminModalComponent, ProductoFormModalComponent, AgregarExistenciasModalComponent, FichasPedidasPanelComponent, DialogDirective],
+  imports: [EmptyStateComponent, TarjetaMaterialComponent, AvisoCargasComponent, FormsModule, RouterLink, AdminTableComponent, AdminModalComponent, ProductoFormModalComponent, AgregarExistenciasModalComponent, FichasPedidasPanelComponent, DialogDirective],
   template: `
     <div class="p-6 space-y-5">
       <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
@@ -132,7 +133,9 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
         }
       </div>
 
-      @if (bodegas().length === 0 && !loading()) {
+      @if (errorCarga && !loading()) {
+        <app-empty-state variante="error" titulo="No se pudo cargar las bodegas"><button type="button" (click)="reintentarCarga()" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Reintentar</button></app-empty-state>
+      } @else if (bodegas().length === 0 && !loading()) {
         <div class="rounded-2xl border bg-white p-8 text-center text-gray-500">
           {{ todasLasBodegas ? 'No hay bodegas registradas.' : 'No sos responsable de ninguna bodega.' }}
         </div>
@@ -155,7 +158,7 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
         </div>
 
         @if (tab() === 'productos') {
-          <app-admin-table
+          <app-admin-table [errorCarga]="errorCarga" (reintentar)="reintentarCarga()"
             [addLabel]="puedeAgregar() ? 'Agregar al inventario' : (puedeCrear() ? 'Nueva ficha' : null)"
             (add)="puedeAgregar() ? abrirAgregar(null) : nuevoProd()"
             [rows]="filasProd()"
@@ -180,7 +183,7 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
         }
 
         @if (tab() === 'items') {
-          <app-admin-table
+          <app-admin-table [errorCarga]="errorCarga" (reintentar)="reintentarCarga()"
             [rows]="filasItems()"
             [searchable]="true"
             [searchPlaceholder]="'Buscar por SKU, producto, placa, estado…'"
@@ -274,6 +277,9 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
   `,
 })
 export class MiBodegaComponent implements OnInit {
+  /** La carga principal falló: la tabla dice «No se pudo cargar», no «No hay…». */
+  errorCarga = false;
+  readonly reintentarCarga = (): void => void this.cargar();
   /** Catálogos auxiliares de la pantalla: si uno falla se avisa, no se muestra vacío. */
   readonly secundarias = new CargasSecundarias();
   readonly recargar = (): void => void this.cargar();
@@ -605,6 +611,7 @@ export class MiBodegaComponent implements OnInit {
 
   private async cargar(): Promise<void> {
     this.loading.set(true);
+    this.errorCarga = false;
     this.secundarias.reiniciar();
     try {
       // Primero: de esto depende si se piden también los desactivados.
@@ -641,6 +648,8 @@ export class MiBodegaComponent implements OnInit {
           : [],
       );
     } catch (e) {
+      this.errorCarga = true;
+      this.secundarias.marcarFallo('Mi Bodega');
       this.toast.httpError(e, this.todasLasBodegas ? 'No se pudieron cargar las bodegas.' : 'No se pudo cargar Mi Bodega.');
     } finally {
       this.loading.set(false);

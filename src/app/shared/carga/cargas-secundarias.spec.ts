@@ -63,4 +63,33 @@ describe('CargasSecundarias', () => {
 
     expect(cargas.fallidas()).toEqual([]);
   });
+  it('cargarUno devuelve el respaldo y anota el fallo cuando el valor no llega', async () => {
+    const cargas = new CargasSecundarias();
+
+    const stats = await cargas.cargarUno('estadísticas', falla(500), { total: 0, activos: 0 });
+
+    expect(stats).toEqual({ total: 0, activos: 0 });
+    expect(cargas.fallo('estadísticas')).toBe(true);
+    expect(cargas.fallo('eventos')).toBe(false);
+  });
+
+  it('cargarUno no cuenta como fallo un 403', async () => {
+    const cargas = new CargasSecundarias();
+
+    await cargas.cargarUno('estadísticas', falla(403), null);
+
+    expect(cargas.fallo('estadísticas')).toBe(false);
+  });
+  it('olvidar quita solo el fallo indicado y falloAlguna mira varios nombres', async () => {
+    const cargas = new CargasSecundarias();
+    await cargas.cargar('material', falla(500));
+    await cargas.cargar('bodegas', falla(500));
+
+    expect(cargas.falloAlguna(['personas', 'bodegas'])).toBe(true);
+    expect(cargas.falloAlguna(['personas'])).toBe(false);
+
+    cargas.olvidar('material');
+
+    expect(cargas.fallidas()).toEqual(['bodegas']);
+  });
 });

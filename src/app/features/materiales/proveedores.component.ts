@@ -44,7 +44,7 @@ const VACIO: ProveedorDto = {
         </label>
       </div>
 
-      <app-admin-table
+      <app-admin-table [errorCarga]="errorCarga" (reintentar)="reintentarCarga()"
         addLabel="Nuevo proveedor"
         (add)="nuevo()"
         [rows]="filas"
@@ -139,6 +139,9 @@ const VACIO: ProveedorDto = {
   `,
 })
 export class MaterialesProveedoresComponent implements OnInit {
+  /** La carga principal falló: la tabla dice «No se pudo cargar», no «No hay…». */
+  errorCarga = false;
+  readonly reintentarCarga = (): void => void this.cargar();
   private readonly api = inject(MaterialesApiService);
   private readonly toast = inject(ToastService);
   private readonly confirm = inject(ConfirmService);
@@ -186,6 +189,7 @@ export class MaterialesProveedoresComponent implements OnInit {
 
   async cargar(): Promise<void> {
     this.loading = true;
+    this.errorCarga = false;
     try {
       this.proveedores = await this.api.listarProveedores(this.verInactivos);
       this.filas = this.proveedores.map((p) => ({
@@ -198,6 +202,7 @@ export class MaterialesProveedoresComponent implements OnInit {
         municipio_nombre: p.municipio_nombre ?? '—',
       }));
     } catch (e) {
+      this.errorCarga = true;
       this.toast.httpError(e, 'No se pudieron cargar los proveedores.');
     } finally {
       this.loading = false;

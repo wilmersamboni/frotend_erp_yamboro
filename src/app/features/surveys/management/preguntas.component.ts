@@ -1,3 +1,4 @@
+import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 import { Component, OnInit, signal, inject, ElementRef, Injector, afterNextRender } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -10,7 +11,7 @@ import { ConfirmService } from '../../../core/services/confirm.service';
 @Component({
   selector: 'app-preguntas',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [EmptyStateComponent, FormsModule, RouterLink],
   template: `
 
     <div class="bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-50 p-3 sm:p-4 lg:p-8">
@@ -75,7 +76,10 @@ import { ConfirmService } from '../../../core/services/confirm.service';
           }
 
           <!-- Estado vacío -->
-          @if (!loading() && preguntas().length === 0) {
+          @if (!loading() && errorCarga()) {
+            <app-empty-state variante="error" titulo="No se pudo cargar las preguntas"><button type="button" (click)="cargar()" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Reintentar</button></app-empty-state>
+          }
+          @if (!loading() && !errorCarga() && preguntas().length === 0) {
             <div class="flex flex-col items-center justify-center py-16 text-center">
               <div class="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center text-2xl mb-4">❓</div>
               <p class="text-gray-500 font-medium">Todavía no hay preguntas registradas</p>
@@ -133,6 +137,8 @@ export class PreguntasComponent implements OnInit {
 
   preguntas = signal<Pregunta[]>([]);
   loading   = signal(false);
+  /** La carga falló: se dice «No se pudo cargar», no «Todavía no hay preguntas». */
+  errorCarga = signal(false);
   guardando = signal(false);
   nuevoTexto = '';
 
@@ -144,6 +150,7 @@ export class PreguntasComponent implements OnInit {
    */
   async cargar(silencioso = false): Promise<void> {
     if (!silencioso) this.loading.set(true);
+    this.errorCarga.set(false);
     try {
       this.preguntas.set(await this.api.getPreguntas());
       if (!silencioso && !this.reducirMovimiento) {
@@ -153,6 +160,8 @@ export class PreguntasComponent implements OnInit {
         }, { injector: this.injector });
       }
     } catch (e: any) {
+      this.errorCarga.set(true);
+      this.preguntas.set([]);
       this.toast.httpError(e, 'No se pudieron cargar las preguntas.');
     } finally {
       if (!silencioso) this.loading.set(false);

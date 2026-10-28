@@ -1,3 +1,4 @@
+import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 import { Component, OnInit, signal, computed, inject, viewChild } from '@angular/core';
 
 import { ApiService } from '../../../core/services/api.service';
@@ -31,7 +32,7 @@ const CLAVE_VISTA = 'formatos.vista';
 @Component({
   selector: 'app-formatos',
   standalone: true,
-  imports: [FormatoCardComponent, FormatoVisorComponent, SubirFormatoModalComponent, TableFilterComponent],
+  imports: [EmptyStateComponent, FormatoCardComponent, FormatoVisorComponent, SubirFormatoModalComponent, TableFilterComponent],
   styles: [`
     @keyframes brillo { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
     .esqueleto {
@@ -56,7 +57,7 @@ const CLAVE_VISTA = 'formatos.vista';
               <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Formatos</h1>
               <p class="text-sm text-gray-500 mt-0.5">
                 Plantillas oficiales de la etapa práctica ·
-                <span class="font-semibold text-gray-700">{{ formatos().length }}</span>
+                <span class="font-semibold text-gray-700">{{ errorCarga() ? '—' : formatos().length }}</span>
                 archivo{{ formatos().length !== 1 ? 's' : '' }}
                 @if (nuevos() > 0) {
                   · <span class="font-semibold" style="color: var(--accent-text);">{{ nuevos() }} nuevo{{ nuevos() !== 1 ? 's' : '' }} esta semana</span>
@@ -178,7 +179,10 @@ const CLAVE_VISTA = 'formatos.vista';
         }
 
         <!-- ── Vacío ───────────────────────────────────────────────── -->
-        @if (!loading() && visibles().length === 0) {
+        @if (!loading() && errorCarga()) {
+          <app-empty-state variante="error" titulo="No se pudo cargar los formatos"><button type="button" (click)="cargarFormatos()" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Reintentar</button></app-empty-state>
+        }
+        @if (!loading() && !errorCarga() && visibles().length === 0) {
           <div class="rounded-2xl border border-dashed py-16 px-6 flex flex-col items-center text-center"
             style="border-color: var(--border-strong);">
             <span class="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style="background: var(--surface2);">
@@ -279,6 +283,8 @@ export class FormatosComponent implements OnInit {
 
   formatos    = signal<Formato[]>([]);
   loading     = signal(false);
+  /** La carga falló: se dice «No se pudo cargar», no «Todavía no hay formatos». */
+  errorCarga  = signal(false);
   mostrarForm = signal(false);
   /** El formulario "Nuevo formato" (no es un modal: vive dentro de la página). */
   private formulario = viewChild(SubirFormatoModalComponent);
@@ -355,9 +361,12 @@ export class FormatosComponent implements OnInit {
 
   async cargarFormatos(): Promise<void> {
     this.loading.set(true);
+    this.errorCarga.set(false);
     try {
       this.formatos.set(await this.api.listarFormatos());
     } catch (e: any) {
+      this.errorCarga.set(true);
+      this.formatos.set([]);
       this.toast.httpError(e, 'No se pudieron cargar los formatos.');
     } finally {
       this.loading.set(false);

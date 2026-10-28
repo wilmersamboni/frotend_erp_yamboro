@@ -1,3 +1,5 @@
+import { CargaFallidaComponent } from '../../shared/carga/carga-fallida.component';
+import { CargasSecundarias } from '../../shared/carga/cargas-secundarias';
 import { Component, OnInit, inject } from '@angular/core';
 import { puedeSerCuentadante } from './cuentadante-formato';
 import { ActivatedRoute } from '@angular/router';
@@ -56,7 +58,7 @@ const ESTADO_REPARTO: Record<string, string> = { POR_REPARTIR: 'Por repartir', P
 @Component({
   selector: 'app-materiales-ingresos',
   standalone: true,
-  imports: [FormsModule, AdminTableComponent, DialogDirective, IngresoFormModalComponent, FormatoGilModalComponent, SearchableSelectComponent],
+  imports: [CargaFallidaComponent, FormsModule, AdminTableComponent, DialogDirective, IngresoFormModalComponent, FormatoGilModalComponent, SearchableSelectComponent],
   template: `
     <div class="p-6">
       <div class="flex flex-wrap items-end justify-between gap-3 mb-5">
@@ -73,7 +75,7 @@ const ESTADO_REPARTO: Record<string, string> = { POR_REPARTIR: 'Por repartir', P
         </div>
       </div>
 
-      <app-admin-table
+      <app-admin-table [errorCarga]="errorCarga" (reintentar)="reintentarCarga()"
         addLabel="Compra o donación"
         (add)="formOpen = true"
         [rows]="filas"
@@ -242,6 +244,7 @@ const ESTADO_REPARTO: Record<string, string> = { POR_REPARTIR: 'Por repartir', P
                   <div class="rounded-lg bg-white border border-amber-200 p-2.5">
                     <label class="block text-xs font-medium text-gray-700 mb-1">Cuentadante <span class="text-gray-400 font-normal">(obligatorio si escribes placas SENA)</span></label>
                     <app-ss [options]="opcionesCuentadante" placeholder="— Buscar instructor, administrador o habilitado —" [(ngModel)]="idCuentadanteReparto"></app-ss>
+                    <app-carga-fallida [cargas]="cargas" [nombres]="['personas']" etiqueta="la lista de personas" (reintentar)="cargarCuentadantes()" />
                     <p class="text-[11px] text-gray-400 mt-1">El formato no tiene cuentadante. Quien elijas queda a cargo de los equipos con placa y se guarda en el formato.</p>
                   </div>
                 }
@@ -310,6 +313,9 @@ const ESTADO_REPARTO: Record<string, string> = { POR_REPARTIR: 'Por repartir', P
   `,
 })
 export class MaterialesIngresosComponent implements OnInit {
+  /** La carga principal falló: la tabla dice «No se pudo cargar», no «No hay…». */
+  errorCarga = false;
+  readonly reintentarCarga = (): void => void this.cargar();
   private readonly api = inject(MaterialesApiService);
   private readonly toast = inject(ToastService);
   private readonly exporter = inject(TableExportService);
@@ -340,6 +346,7 @@ export class MaterialesIngresosComponent implements OnInit {
   /** Cuentadante elegido al repartir, cuando el formato no trae uno y van equipos con placa. */
   idCuentadanteReparto = '';
   opcionesCuentadante: SSOption[] = [];
+  readonly cargas = new CargasSecundarias();
   private readonly personaApi = inject(PersonaService);
   readonly campoChico = 'w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]';
 
@@ -413,10 +420,12 @@ export class MaterialesIngresosComponent implements OnInit {
 
   async cargar(): Promise<void> {
     this.loading = true;
+    this.errorCarga = false;
     try {
       this.ingresos = await this.api.listarIngresos();
       this.armarFilas();
     } catch (e) {
+      this.errorCarga = true;
       this.toast.httpError(e, 'No se pudieron cargar los ingresos.');
     } finally {
       this.loading = false;
@@ -477,9 +486,10 @@ export class MaterialesIngresosComponent implements OnInit {
   }
 
   /** Misma regla que el formato: instructor o habilitado en Usuarios. Se carga una sola vez. */
-  private async cargarCuentadantes(): Promise<void> {
+  async cargarCuentadantes(): Promise<void> {
     if (this.opcionesCuentadante.length) return;
-    const personas: any[] = await this.personaApi.listarResponsablesBodega().catch(() => []);
+    this.cargas.olvidar('personas');
+    const personas: any[] = await this.cargas.cargar('personas', () => this.personaApi.listarResponsablesBodega());
     this.opcionesCuentadante = personas
       .filter((u) => puedeSerCuentadante(u))
       .map((u) => ({

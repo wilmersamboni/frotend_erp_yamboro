@@ -92,7 +92,7 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
 
       <app-bodegas-inactivas-aviso [bodegas]="bodegasInactivas()" [abierto]="avisoBodegasAbierto()" />
 
-      <app-admin-table
+      <app-admin-table [errorCarga]="errorCarga" (reintentar)="reintentarCarga()"
         [rows]="filas"
         [searchable]="true"
         [searchPlaceholder]="'Buscar por SKU, producto, sitio, estado…'"
@@ -215,6 +215,9 @@ const OPCIONES_FILTRO_ESTADO: OpcionSelect[] = [
   `,
 })
 export class MaterialesItemsComponent implements OnInit {
+  /** La carga principal falló: la tabla dice «No se pudo cargar», no «No hay…». */
+  errorCarga = false;
+  readonly reintentarCarga = (): void => void this.cargar();
   /** Catálogos auxiliares de la pantalla: si uno falla se avisa, no se muestra vacío. */
   readonly secundarias = new CargasSecundarias();
   readonly recargar = (): void => void this.cargar();
@@ -467,6 +470,7 @@ export class MaterialesItemsComponent implements OnInit {
 
   private async cargar(): Promise<void> {
     this.loading = true;
+    this.errorCarga = false;
     this.secundarias.reiniciar();
     try {
       // Sin permiso para leer /sitios no se pide — antes un 403 ahí tumbaba
@@ -481,6 +485,8 @@ export class MaterialesItemsComponent implements OnInit {
       this.productos = productos;
 
     } catch (e) {
+      this.errorCarga = true;
+      this.secundarias.marcarFallo('ítems');
       this.toast.httpError(e, 'No se pudieron cargar los ítems.');
     } finally {
       this.loading = false;
@@ -529,14 +535,18 @@ export class MaterialesItemsComponent implements OnInit {
       this.toast.warn('Faltan datos', 'Solo los productos devolutivos se manejan por ítems. Para consumibles registrá un lote.');
       return;
     }
+    this.secundarias.olvidar('bodegas para agregar');
     this.bodegasParaAgregar = this.auth.isAdmin()
-      ? (this.sitios.length ? this.sitios : await this.api.listarSitios().catch(() => [] as Sitio[]))
-      : await this.api.sitiosACargo().catch(() => [] as Sitio[]);
+      ? (this.sitios.length ? this.sitios : await this.secundarias.cargar('bodegas para agregar', () => this.api.listarSitios()))
+      : await this.secundarias.cargar('bodegas para agregar', () => this.api.sitiosACargo());
     const primera = devolutivos[0];
     const activas = this.bodegasParaAgregar.filter((s) => s.estado);
     const bodegaInicial = activas.length === 1 ? activas[0].id_sitio : '';
     this.agregarForm = { id_producto: primera.id_producto, id_sitio: bodegaInicial, placa_sena: '' };
-    this.agregarError = null;
+    // Si las bodegas no cargaron el modal abre igual, pero dice por qué el selector de bodega está vacío.
+    this.agregarError = this.secundarias.fallo('bodegas para agregar')
+      ? 'No se pudieron cargar las bodegas. Cierra esta ventana y vuelve a intentarlo.'
+      : null;
     this.agregarOpen = true;
   }
 

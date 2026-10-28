@@ -53,7 +53,7 @@ import { EsperaDirective } from '../../shared/directives/espera.directive';
         </app-stat-card>
       </div>
 
-      <app-admin-table
+      <app-admin-table [errorCarga]="errorCarga" (reintentar)="reintentarCarga()"
         [rows]="filas"
         [searchable]="true"
         [searchPlaceholder]="'Buscar por solicitud…'"
@@ -78,6 +78,9 @@ import { EsperaDirective } from '../../shared/directives/espera.directive';
   `,
 })
 export class MaterialesActasComponent implements OnInit {
+  /** La carga principal falló: la tabla dice «No se pudo cargar», no «No hay…». */
+  errorCarga = false;
+  readonly reintentarCarga = (): void => void this.cargar();
   actas: Acta[] = [];
   loading = false;
   descargando = false;
@@ -149,9 +152,11 @@ export class MaterialesActasComponent implements OnInit {
 
   private async cargar(): Promise<void> {
     this.loading = true;
+    this.errorCarga = false;
     try {
       this.actas = await this.api.listarActas();
     } catch (e) {
+      this.errorCarga = true;
       this.toast.httpError(e, 'No se pudieron cargar las actas.');
     } finally {
       this.loading = false;

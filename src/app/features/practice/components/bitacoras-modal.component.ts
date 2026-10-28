@@ -1,3 +1,4 @@
+import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges,
          signal, OnInit, ViewChild, ElementRef, HostListener, computed, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -20,7 +21,7 @@ import { ACCEPT_DOCUMENTOS, problemaDocumento } from '../../../shared/utils/arch
 @Component({
   selector: 'app-bitacoras-modal',
   standalone: true,
-  imports: [DialogDirective, FormsModule, PdfViewerModule, DecimalPipe],
+  imports: [EmptyStateComponent, DialogDirective, FormsModule, PdfViewerModule, DecimalPipe],
   template: `
     <!-- Input oculto FUERA de cualquier bloque @if — accesible via ViewChild -->
     <input #pdfInput type="file" [accept]="acceptDocumentos" style="display:none"
@@ -72,6 +73,8 @@ import { ACCEPT_DOCUMENTOS, problemaDocumento } from '../../../shared/utils/arch
                   </div>
                 }
               </div>
+            } @else if (errorCarga()) {
+              <app-empty-state variante="error" titulo="No se pudo cargar las bitácoras"><button type="button" (click)="cargarBitacoras()" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Reintentar</button></app-empty-state>
             } @else if (bitacoras().length === 0) {
               <div class="flex flex-col items-center justify-center py-12">
                 <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
@@ -352,6 +355,8 @@ export class BitacorasModalComponent implements OnChanges, OnInit {
 
   bitacoras = signal<any[]>([]);
   loading   = signal(false);
+  /** La carga falló: se dice «No se pudo cargar», no «No hay bitácoras registradas». */
+  errorCarga = signal(false);
 
   detalleOpen          = signal(false);
   bitacoraSeleccionada = signal<any>(null);
@@ -455,10 +460,12 @@ onDocumentClick(): void {
     const id = this.seguimiento?.id ?? this.seguimiento?.id_seguimiento;
     if (!id) return;
     this.loading.set(true);
+    this.errorCarga.set(false);
     try {
       const data = await this.seguimientoSvc.obtenerBitacoras(id);
       this.bitacoras.set(data || []);
     } catch (e) {
+      this.errorCarga.set(true);
       this.bitacoras.set([]);
     } finally {
       this.loading.set(false);

@@ -1,3 +1,4 @@
+import { EmptyStateComponent } from '../../../../shared/components/empty-state.component';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -22,7 +23,7 @@ const ESTADO: Record<Dominio['estado'], { label: string; bg: string; fg: string 
 @Component({
   selector: 'app-dominio-list',
   standalone: true,
-  imports: [AdminCopiarComponent, EsperaDirective, RouterLink, FormsModule, AdminLoadingSpinnerComponent, SearchableSelectComponent],
+  imports: [EmptyStateComponent, AdminCopiarComponent, EsperaDirective, RouterLink, FormsModule, AdminLoadingSpinnerComponent, SearchableSelectComponent],
   styleUrl: '../../../dashboard/home.component.css',
   styles: [`
     .dm-fila {
@@ -67,7 +68,7 @@ const ESTADO: Record<Dominio['estado'], { label: string; bg: string; fg: string 
             <span class="kpi-badge badge-green">{{ centrosConDominio() }} centro(s)</span>
           </div>
           <p class="kpi-label">Dominios registrados</p>
-          <h3 class="kpi-num">{{ dominios().length }}</h3>
+          <h3 class="kpi-num">{{ errorCarga() ? '—' : dominios().length }}</h3>
         </div>
         <div class="kpi-card">
           <div class="kpi-head">
@@ -75,7 +76,7 @@ const ESTADO: Record<Dominio['estado'], { label: string; bg: string; fg: string 
             <span class="kpi-badge badge-blue">{{ porcentajeSsl() }}%</span>
           </div>
           <p class="kpi-label">Activos con SSL</p>
-          <h3 class="kpi-num">{{ conSSL() }}</h3>
+          <h3 class="kpi-num">{{ errorCarga() ? '—' : conSSL() }}</h3>
         </div>
         <div class="kpi-card">
           <div class="kpi-head">
@@ -83,7 +84,7 @@ const ESTADO: Record<Dominio['estado'], { label: string; bg: string; fg: string 
             <span class="kpi-badge badge-orange">{{ pendientes() ? 'Por activar' : 'Al día' }}</span>
           </div>
           <p class="kpi-label">Pendientes</p>
-          <h3 class="kpi-num">{{ pendientes() }}</h3>
+          <h3 class="kpi-num">{{ errorCarga() ? '—' : pendientes() }}</h3>
         </div>
         <div class="kpi-card">
           <div class="kpi-head">
@@ -91,7 +92,7 @@ const ESTADO: Record<Dominio['estado'], { label: string; bg: string; fg: string 
             <span class="kpi-badge badge-purple">Sin dirección</span>
           </div>
           <p class="kpi-label">Centros activos sin dominio</p>
-          <h3 class="kpi-num">{{ centrosSinDominio().length }}</h3>
+          <h3 class="kpi-num">{{ errorCarga() ? '—' : centrosSinDominio().length }}</h3>
         </div>
       </div>
 
@@ -113,6 +114,8 @@ const ESTADO: Record<Dominio['estado'], { label: string; bg: string; fg: string 
 
         @if (cargando()) {
           <app-admin-loading-spinner mensaje="Cargando dominios..." />
+        } @else if (errorCarga()) {
+          <app-empty-state variante="error" titulo="No se pudo cargar los dominios"><button type="button" (click)="cargarDominios()" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Reintentar</button></app-empty-state>
         } @else if (!dominios().length) {
           <div class="py-14 text-center">
             <i class="pi pi-globe text-3xl text-gray-300"></i>
@@ -195,6 +198,8 @@ export class DominioListComponent {
   private readonly toast          = inject(AdminToastService);
 
   readonly cargando     = signal(true);
+  /** La carga falló: se dice «No se pudo cargar», no «No hay…». */
+  readonly errorCarga = signal(false);
   readonly dominios     = signal<Dominio[]>([]);
   readonly tenants      = signal<Tenant[]>([]);
   readonly filtroTexto  = signal('');
@@ -236,9 +241,15 @@ export class DominioListComponent {
 
   constructor() {
     this.tenantService.obtenerTodos().subscribe({ next: (t) => this.tenants.set(t) });
+    this.cargarDominios();
+  }
+
+  cargarDominios(): void {
+    this.cargando.set(true);
+    this.errorCarga.set(false);
     this.dominioService.obtenerTodos().subscribe({
       next: (data) => { this.dominios.set(data); this.cargando.set(false); },
-      error: (err) => { this.cargando.set(false); this.toast.httpError(err, 'No se pudieron cargar los dominios.'); },
+      error: (err) => { this.cargando.set(false); this.errorCarga.set(true); this.toast.httpError(err, 'No se pudieron cargar los dominios.'); },
     });
   }
 

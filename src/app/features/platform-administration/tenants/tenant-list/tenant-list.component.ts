@@ -1,3 +1,4 @@
+import { EmptyStateComponent } from '../../../../shared/components/empty-state.component';
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -20,7 +21,7 @@ import { EsperaDirective } from '../../../../shared/directives/espera.directive'
 @Component({
   selector: 'app-tenant-list',
   standalone: true,
-  imports: [RouterLink, TenantNuevoModalComponent, AdminCopiarComponent, EsperaDirective, FormsModule, AdminConfirmDialogComponent, AdminBadgeEstadoComponent, AdminConexionComponent, AdminEmptyStateComponent, AdminLoadingSpinnerComponent, AdminCredencialesModalComponent],
+  imports: [EmptyStateComponent, RouterLink, TenantNuevoModalComponent, AdminCopiarComponent, EsperaDirective, FormsModule, AdminConfirmDialogComponent, AdminBadgeEstadoComponent, AdminConexionComponent, AdminEmptyStateComponent, AdminLoadingSpinnerComponent, AdminCredencialesModalComponent],
   template: `
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
       <div>
@@ -75,6 +76,8 @@ import { EsperaDirective } from '../../../../shared/directives/espera.directive'
 
       @if (cargando()) {
         <app-admin-loading-spinner mensaje="Cargando centros..." />
+      } @else if (errorCarga()) {
+        <app-empty-state variante="error" titulo="No se pudo cargar los centros"><button type="button" (click)="cargarTenants()" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Reintentar</button></app-empty-state>
       } @else if (tenantsFiltrados().length === 0) {
         <app-admin-empty-state
           [mensaje]="busqueda() ? 'No se encontraron centros para &quot;' + busqueda() + '&quot;.' : 'Aún no hay centros registrados. Crea el primero.'" />
@@ -198,6 +201,8 @@ export class TenantListComponent {
   readonly vacio = new Set<string>();
   readonly tenants           = signal<Tenant[]>([]);
   readonly cargando          = signal(true);
+  /** La carga falló: se dice «No se pudo cargar», no «No hay…». */
+  readonly errorCarga = signal(false);
   readonly busqueda          = signal('');
   readonly seleccion         = signal<Set<string>>(this.vacio);
   readonly procesando        = signal(false);
@@ -232,9 +237,10 @@ export class TenantListComponent {
 
   cargarTenants(): void {
     this.cargando.set(true);
+    this.errorCarga.set(false);
     this.tenantService.obtenerTodos().subscribe({
       next: (data) => { this.tenants.set(data); this.cargando.set(false); },
-      error: (err) => { this.cargando.set(false); this.toast.httpError(err, 'No se pudieron cargar los centros.'); },
+      error: (err) => { this.cargando.set(false); this.errorCarga.set(true); this.toast.httpError(err, 'No se pudieron cargar los centros.'); },
     });
   }
 

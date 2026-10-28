@@ -1,6 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // table-info.component.ts  — Orquestador (datos + estado + coordinación)
 // ─────────────────────────────────────────────────────────────────────────────
+import { EmptyStateComponent } from '../../../../shared/components/empty-state.component';
 import { Component, OnInit, signal, computed } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../../../core/services/api.service';
@@ -24,7 +25,7 @@ import { log } from '../../../../core/utils/log';
 @Component({
   selector: 'app-table-info',
   standalone: true,
-  imports: [
+  imports: [EmptyStateComponent, 
     SeguimientosModalComponent,
     ObservacionModalComponent,
     CrearPracticaModalComponent,
@@ -60,6 +61,8 @@ import { log } from '../../../../core/utils/log';
       <div class="overflow-x-auto min-h-[260px]" style="scrollbar-width:none">
         @if (loading()) {
           <app-loading-skeleton variant="table" [rows]="6" [columns]="6" [showToolbar]="false" label="Cargando seguimientos" />
+        } @else if (errorCarga()) {
+          <app-empty-state variante="error" titulo="No se pudo cargar los seguimientos"><button type="button" (click)="cargar()" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Reintentar</button></app-empty-state>
         } @else {
           <table class="w-full text-sm border-collapse">
 
@@ -97,11 +100,13 @@ import { log } from '../../../../core/utils/log';
       </div>
 
       <!-- Paginación -->
-      <app-table-pagination
-        [page]="page()"
-        [pages]="pages()"
-        (pageChange)="page.set($event)"
-      />
+      @if (!errorCarga()) {
+        <app-table-pagination
+          [page]="page()"
+          [pages]="pages()"
+          (pageChange)="page.set($event)"
+        />
+      }
 
     </div>
     </div>
@@ -146,6 +151,8 @@ export class TableInfoComponent implements OnInit {
   // ── Estado ─────────────────────────────────────────────────────────────────
   data      = signal<Aprendiz[]>([]);
   loading   = signal(true);
+  /** La carga falló: se dice «No se pudo cargar», no «No hay registros» (que parecería que no hay aprendices). */
+  errorCarga = signal(false);
   areas     = signal<string[]>([]);
 
   filterValue      = signal('');
@@ -257,9 +264,11 @@ export class TableInfoComponent implements OnInit {
   // ── Carga de datos ─────────────────────────────────────────────────────────
   async cargar(): Promise<void> {
     this.loading.set(true);
+    this.errorCarga.set(false);
     try {
       const [base, areasData] = await Promise.all([
-        this.api.listarAprendicesConPractica(),
+        // `estricto`: un servidor caído no puede leerse como «ningún aprendiz tiene práctica».
+        this.api.listarAprendicesConPractica({ estricto: true }),
         this.api.listarAreas(),
       ]);
 
@@ -298,6 +307,7 @@ export class TableInfoComponent implements OnInit {
 
     } catch (e: any) {
       log.error('[TableInfo] Error:', e?.message ?? e);
+      this.errorCarga.set(true);
       this.data.set([]);
     } finally {
       this.loading.set(false);

@@ -35,6 +35,8 @@ import { ACCEPT_DOCUMENTOS, problemaDocumento } from '../../../shared/utils/arch
 
             @if (loading()) {
               <app-loading-skeleton variant="detail" [rows]="3" label="Cargando seguimientos" />
+            } @else if (errorCarga()) {
+              <app-empty-state variante="error" titulo="No se pudo cargar los seguimientos"><button type="button" (click)="cargarSeguimientos()" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Reintentar</button></app-empty-state>
             } @else if (seguimientos().length === 0) {
               <app-empty-state titulo="No hay seguimientos registrados" />
             } @else {
@@ -207,6 +209,8 @@ export class SeguimientosModalComponent implements OnChanges {
   // ── Estado ─────────────────────────────────────────────────────────────────
   seguimientos = signal<any[]>([]);
   loading      = signal(false);
+  /** La carga falló: se dice «No se pudo cargar», no «No hay seguimientos registrados». */
+  errorCarga   = signal(false);
   openMenu     = signal<string | null>(null);
 
   editOpen              = signal(false);
@@ -245,13 +249,14 @@ export class SeguimientosModalComponent implements OnChanges {
   async cargarSeguimientos(): Promise<void> {
     if (!this.alumno) return;
     this.loading.set(true);
+    this.errorCarga.set(false);
     try {
       const etapaId = this.alumno.id_practica ?? this.alumno.idPractica ?? null;
       const data = etapaId
         ? await this.seguimientoSvc.obtenerSeguimientosPorEtapa(etapaId)
         : await this.seguimientoSvc.obtenerSeguimientos(this.alumno.id);
       this.seguimientos.set(data);
-    } catch (e) { log.error(e); }
+    } catch (e) { log.error(e); this.errorCarga.set(true); this.seguimientos.set([]); }
     finally { this.loading.set(false); }
   }
 
