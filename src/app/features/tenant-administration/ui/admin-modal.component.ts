@@ -139,6 +139,9 @@ import { hoyIsoLocal } from '../../../core/utils/horarios.util';
                       peer-checked:after:translate-x-4"></span>
                     <span class="text-sm text-gray-700">{{ form[col] ? 'Sí' : 'No' }}</span>
                   </label>
+                  @if (ayudas[col]) {
+                    <p class="mt-1.5 text-xs text-gray-400">{{ ayudas[col] }}</p>
+                  }
 
                 } @else {
                   <!-- INPUT normal -->
@@ -214,6 +217,8 @@ export class AdminModalComponent {
    * (Ronda 6). Los `<select>` (`app-ss`) no lo necesitan.
    */
   @Input() placeholders: Record<string, string> = {};
+  /** Texto de ayuda bajo un campo del formulario (hoy, bajo los interruptores): se ve al editarlo, no en el encabezado de la tabla. */
+  @Input() ayudas: Record<string, string> = {};
 
   /** Campos que se llenan subiendo un archivo (ver `ModuloConfig.archivos`). */
   @Input() archivos: Record<string, { endpoint: string; clave: string; tipo: 'documento' | 'foto' }> = {};

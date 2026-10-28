@@ -85,6 +85,8 @@ export interface ModuloConfig {
   columnLabels?: Record<string, string>;
   /** Placeholder de ejemplo opcional por campo, para el `<input>` normal del modal. */
   placeholders?: Record<string, string>;
+  /** Ayuda bajo el campo en el formulario (no aparece en la tabla). */
+  ayudas?: Record<string, string>;
   /**
    * Campos que se llenan subiendo un archivo en vez de escribir texto. El modal sube el archivo a
    * `endpoint` (multipart, campo `file`) y guarda en el campo lo que el backend devuelve en `clave`.
@@ -507,8 +509,9 @@ export const CONFIG: Record<Modulo, ModuloConfig> = {
       persona: 'Persona', apellido: 'Apellido',aplicativo: 'Aplicativo', login: 'Login', rol: 'Rol',
       personaId: 'Persona', aplicativoId: 'Aplicativo', rolId: 'Rol',
       password: 'Contraseña (vacío = no cambiar)',
-      puedeSerCuentadante: 'Puede ser cuentadante',
+      puedeSerCuentadante: 'Cuentadante',
     },
+    ayudas: { puedeSerCuentadante: 'Habilita a esta cuenta como cuentadante. No hace falta en instructores ni administradores.' },
   },
 
   // Config heredada, ya no se usa como pestaña (ver 'usuarios' arriba) —
