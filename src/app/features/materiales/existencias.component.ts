@@ -2,7 +2,8 @@ import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ToastService } from '../../core/services/toast.service';
-import { MaterialesApiService, ResumenExistencias } from './data-access/materiales-api.service';
+import { AuthService } from '../../core/services/auth.service';
+import { MaterialesApiService, MaterialMiFicha, ResumenExistencias } from './data-access/materiales-api.service';
 import { StatCardComponent } from '../../shared/components/stat-card.component';
 import { LoadingSkeletonComponent } from '../../shared/components/loading-skeleton.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state.component';
@@ -44,7 +45,54 @@ import { EsperaDirective } from '../../shared/directives/espera.directive';
         <p class="text-sm text-gray-400">Vista de solo lectura. El stock se mueve con solicitudes, traslados, novedades y devoluciones.</p>
       </div>
 
-      @if (loading) {
+      @if (esAprendiz()) {
+        <div class="mb-4 inline-flex rounded-xl border border-gray-200 bg-white p-1 text-sm" role="tablist">
+          <button type="button" role="tab" [attr.aria-selected]="vista() === 'bodegas'" (click)="vista.set('bodegas')"
+            class="rounded-lg px-4 py-1.5 font-medium transition-colors"
+            [class]="vista() === 'bodegas' ? 'bg-[#39A900] text-white' : 'text-gray-600 hover:bg-gray-50'">En las bodegas</button>
+          <button type="button" role="tab" [attr.aria-selected]="vista() === 'ficha'" (click)="vista.set('ficha')"
+            class="rounded-lg px-4 py-1.5 font-medium transition-colors"
+            [class]="vista() === 'ficha' ? 'bg-[#39A900] text-white' : 'text-gray-600 hover:bg-gray-50'">Material de mi ficha</button>
+        </div>
+      }
+
+      @if (vista() === 'ficha') {
+        @if (cargandoFicha) {
+          <app-loading-skeleton variant="table" [rows]="4" [columns]="4" [showToolbar]="false" label="Cargando el material de tu ficha" />
+        } @else if (errorFicha) {
+          <app-empty-state variante="error" titulo="No se pudo cargar el material de tu ficha"><button type="button" (click)="cargarFicha()" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Reintentar</button></app-empty-state>
+        } @else if (materialFicha().length === 0) {
+          <app-empty-state titulo="Tu ficha no tiene material entregado" />
+        } @else {
+          <div class="bg-white rounded-2xl border border-gray-200/60 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
+                  <tr>
+                    <th class="px-4 py-3 text-left font-semibold">Producto</th>
+                    <th class="px-3 py-3 text-right font-semibold">Cantidad</th>
+                    <th class="px-3 py-3 text-left font-semibold">Entregado</th>
+                    <th class="px-3 py-3 text-left font-semibold">Devolver antes del</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  @for (m of materialFicha(); track m.id_producto + '·' + m.ficha_codigo) {
+                    <tr class="hover:bg-gray-50/80 transition-colors">
+                      <td class="px-4 py-3">
+                        <div class="text-gray-800 font-medium">{{ m.producto }}</div>
+                        <div class="text-xs text-gray-400">@if (m.ficha_codigo) { Ficha {{ m.ficha_codigo }} · } {{ m.tipo_material }}</div>
+                      </td>
+                      <td class="px-3 py-3 text-right font-semibold text-gray-700">{{ m.cantidad }} <span class="text-xs font-normal text-gray-400">{{ m.unidad_medida }}</span></td>
+                      <td class="px-3 py-3 text-gray-600">{{ m.fecha_asignacion }}</td>
+                      <td class="px-3 py-3 text-gray-600">{{ m.fecha_devolucion || '—' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+      } @else if (loading) {
         <app-loading-skeleton variant="table" [rows]="6" [columns]="5" [showToolbar]="false" label="Cargando existencias" />
       } @else {
         <!-- Tarjetas resumen -->
@@ -73,6 +121,13 @@ import { EsperaDirective } from '../../shared/directives/espera.directive';
           <input appEspera type="text" [(ngModel)]="q" (ngModelChange)="onBuscar($event)"
             placeholder="Buscar por producto, SKU o bodega…"
             class="w-full md:w-96 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900] bg-white" />
+          @if (bodegas().length > 1) {
+            <select [ngModel]="bodegaFiltro()" (ngModelChange)="onBodega($event)" aria-label="Filtrar por bodega o ambiente"
+              class="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#39A900]/30 focus:border-[#39A900]">
+              <option value="">Todas las bodegas y ambientes</option>
+              @for (b of bodegas(); track b) { <option [value]="b">{{ b }}</option> }
+            </select>
+          }
           <button type="button" (click)="exportarExcel()" class="px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:border-[#39A900] hover:text-[#267700]" aria-label="Exportar existencias a Excel">Excel</button>
           <button type="button" (click)="exportarPdf()" class="px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:border-[#39A900] hover:text-[#267700]" aria-label="Exportar existencias a PDF">PDF</button>
           <app-page-size-select [value]="pageSize()" (valueChange)="seleccionarPageSize($event)" />
@@ -182,6 +237,20 @@ export class MaterialesExistenciasComponent implements OnInit {
   readonly reintentarCarga = (): void => void this.cargar();
   filas = signal<ResumenExistencias[]>([]);
   loading = false;
+
+  /** El aprendiz ve dos cosas: el stock de las bodegas que le tocan y lo que tiene su ficha. */
+  readonly esAprendiz = computed(() => this.auth.cargo() === 'aprendiz');
+  vista = signal<'bodegas' | 'ficha'>('bodegas');
+  materialFicha = signal<MaterialMiFicha[]>([]);
+  cargandoFicha = false;
+  errorFicha = false;
+  readonly cargarFicha = (): void => void this.cargarMaterialFicha();
+
+  /** Bodega o ambiente elegido en el selector ('' = todas). */
+  bodegaFiltro = signal('');
+  bodegas = computed(() =>
+    [...new Set(this.filas().map((r) => r.sitio_nombre).filter((n): n is string => !!n))].sort((a, b) => a.localeCompare(b, 'es')),
+  );
   q = '';
   filtro = signal('');
 
@@ -204,7 +273,9 @@ export class MaterialesExistenciasComponent implements OnInit {
   filtradas = computed(() => {
     const t = this.filtro().trim().toLowerCase();
     const idProducto = this.idProductoFiltro();
-    const rows = idProducto ? this.filas().filter((r) => r.id_producto === idProducto) : this.filas();
+    const bodega = this.bodegaFiltro();
+    let rows = idProducto ? this.filas().filter((r) => r.id_producto === idProducto) : this.filas();
+    if (bodega) rows = rows.filter((r) => r.sitio_nombre === bodega);
     if (!t) return rows;
     return rows.filter((r) =>
       [r.nombre, r.sku, r.sitio_nombre, r.marca, r.modelo]
@@ -249,11 +320,17 @@ export class MaterialesExistenciasComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private exporter: TableExportService,
+    private auth: AuthService,
   ) {}
 
   /** Al buscar, volver a la primera página. */
   onBuscar(v: string): void {
     this.filtro.set(v);
+    this.pagina.set(1);
+  }
+
+  onBodega(v: string): void {
+    this.bodegaFiltro.set(v);
     this.pagina.set(1);
   }
 
@@ -264,6 +341,7 @@ export class MaterialesExistenciasComponent implements OnInit {
   ngOnInit(): void {
     this.idProductoFiltro.set(this.route.snapshot.queryParamMap.get('id_producto'));
     this.cargar();
+    if (this.esAprendiz()) void this.cargarMaterialFicha();
   }
 
   quitarFiltroProducto(): void {
@@ -288,6 +366,19 @@ export class MaterialesExistenciasComponent implements OnInit {
 
   exportarExcel(): void { void this.exporter.excel('existencias', 'Existencias', this.exportColumns, this.filtradas()); }
   exportarPdf(): void { void this.exporter.pdf('existencias', 'Existencias', this.exportColumns, this.filtradas()); }
+
+  private async cargarMaterialFicha(): Promise<void> {
+    this.cargandoFicha = true;
+    this.errorFicha = false;
+    try {
+      this.materialFicha.set(await this.api.obtenerMaterialMiFicha());
+    } catch (e) {
+      this.errorFicha = true;
+      this.toast.httpError(e, 'No se pudo cargar el material de tu ficha.');
+    } finally {
+      this.cargandoFicha = false;
+    }
+  }
 
   private async cargar(): Promise<void> {
     this.loading = true;

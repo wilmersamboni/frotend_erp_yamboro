@@ -586,6 +586,20 @@ export interface CreateProductoDto {
   usa_placa_sena?: boolean;
 }
 
+/** Material entregado a la ficha del aprendiz (`GET /api2/existencias/mi-ficha`); no trae la bodega de origen. */
+export interface MaterialMiFicha {
+  ficha_codigo: string | null;
+  id_producto: string;
+  producto: string;
+  tipo_material: TipoMaterial;
+  unidad_medida: string;
+  cantidad: number;
+  /** AAAA-MM-DD de la entrega más reciente. */
+  fecha_asignacion: string;
+  /** AAAA-MM-DD de la devolución pactada más próxima, si la hay. */
+  fecha_devolucion: string | null;
+}
+
 /** Fila del panel de existencias de solo lectura (Tier SigMat M6, `GET /api2/existencias`). */
 export interface ResumenExistencias {
   id_producto: string;
@@ -1613,6 +1627,10 @@ export class MaterialesApiService {
 
   // ── Existencias (solo lectura) ──────────────────────────────────────
   /** Panel de existencias (Tier SigMat M6) — calculado desde `item`/`lote`, recortado por programa/bodega. Sin CRUD propio: no hay altas/bajas de "existencia", solo de ítems/lotes. */
+  /** Lo entregado a las fichas donde el usuario tiene matrícula (autoservicio, solo lectura). */
+  obtenerMaterialMiFicha() {
+    return this.unwrap(this.http.get<Envelope<MaterialMiFicha[]>>(`${BASE}/existencias/mi-ficha`));
+  }
   obtenerExistencias() {
     return this.unwrap(this.http.get<Envelope<ResumenExistencias[]>>(`${BASE}/existencias`));
   }
