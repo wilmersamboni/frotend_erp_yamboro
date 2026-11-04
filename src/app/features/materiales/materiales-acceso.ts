@@ -110,7 +110,7 @@ export const PANTALLAS_MATERIALES: PantallaMateriales[] = [
   { id: 'bodegas', label: 'Bodegas', path: 'materiales/bodegas', seccion: 'Catálogo', acceso: { tipo: 'admin', servicio: 'materiales.sitios.ver' } },
   { id: 'novedades', label: 'Daños y problemas', path: 'materiales/novedades', seccion: 'Operación', acceso: servicio('materiales.novedades.ver') },
   { id: 'traslados', label: 'Mover entre bodegas', path: 'materiales/traslados', seccion: 'Operación', acceso: servicio('materiales.traslados.ver') },
-  // Solo por permiso (2026-10-21): antes `admin-o-servicio` dejaba entrar a cualquier cargo administrador sin el servicio.
+  // Solo por permiso: lo reciben el líder de área, el encargado de una bodega de Sitios y administrador_erp (2026-11-04).
   { id: 'asignaciones', label: 'Entregas a fichas', path: 'materiales/asignaciones', seccion: 'Operación', acceso: servicio('materiales.asignaciones.ver') },
   { id: 'kardex', label: 'Historial de movimientos', path: 'materiales/kardex', seccion: 'Inventario', acceso: servicio('materiales.kardex.ver') },
   // Solo para quien gestiona (administrador, encargado de bodega o líder de área): con `sitios.ver` suelto el backend recorta
