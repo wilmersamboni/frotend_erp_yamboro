@@ -1,3 +1,4 @@
+import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 import { Component, ElementRef, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -72,7 +73,7 @@ const MEDIOS = ['Automóvil', 'Camioneta', 'Camión', 'Bus', 'Moto', 'Otro'];
 @Component({
   selector: 'app-materiales-salidas',
   standalone: true,
-  imports: [AvisoVenceAntesComponent, DialogDirective, FormsModule, SearchableSelectComponent],
+  imports: [EmptyStateComponent, AvisoVenceAntesComponent, DialogDirective, FormsModule, SearchableSelectComponent],
   template: `
     <div class="p-4 md:p-6 space-y-4">
       <!-- Encabezado -->
@@ -100,7 +101,7 @@ const MEDIOS = ['Automóvil', 'Camioneta', 'Camión', 'Bus', 'Moto', 'Otro'];
             class="text-left rounded-2xl border px-4 py-3 transition-colors"
             [class]="filtro() === k.valor ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-200 bg-white hover:border-gray-300'">
             <p class="text-[11px] font-semibold uppercase tracking-wide" [class]="filtro() === k.valor ? 'text-white/70' : 'text-gray-400'">{{ k.label }}</p>
-            <p class="text-2xl font-bold leading-tight mt-0.5">{{ conteos()[k.valor] }}</p>
+            <p class="text-2xl font-bold leading-tight mt-0.5">{{ error() ? '—' : conteos()[k.valor] }}</p>
             <p class="text-[11px] mt-0.5" [class]="filtro() === k.valor ? 'text-white/70' : 'text-gray-400'">{{ k.ayuda }}</p>
           </button>
         }
@@ -130,10 +131,7 @@ const MEDIOS = ['Automóvil', 'Camioneta', 'Camión', 'Bus', 'Moto', 'Otro'];
           @for (i of [1, 2, 3]; track i) { <div class="h-[74px] rounded-2xl bg-gray-100 animate-pulse"></div> }
         </div>
       } @else if (error()) {
-        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center justify-between">
-          <span>{{ error() }}</span>
-          <button type="button" (click)="cargar()" class="font-semibold underline">Reintentar</button>
-        </div>
+        <app-empty-state variante="error" titulo="No se pudo cargar las salidas"><button type="button" (click)="cargar()" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Reintentar</button></app-empty-state>
       } @else if (visibles().length === 0) {
         <div class="rounded-2xl border border-dashed border-gray-300 bg-white py-12 px-4 text-center">
           @if (salidas().length === 0) {

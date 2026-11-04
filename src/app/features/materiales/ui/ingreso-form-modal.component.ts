@@ -1,3 +1,5 @@
+import { CargaFallidaComponent } from '../../../shared/carga/carga-fallida.component';
+import { CargasSecundarias } from '../../../shared/carga/cargas-secundarias';
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
 import { puedeSerCuentadante } from '../cuentadante-formato';
 import { FormsModule } from '@angular/forms';
@@ -102,7 +104,7 @@ export function tamanoLegible(bytes: number): string {
 @Component({
   selector: 'app-ingreso-form-modal',
   standalone: true,
-  imports: [DialogDirective, FormsModule, SearchableSelectComponent, LucideAngularModule, DateInputComponent],
+  imports: [CargaFallidaComponent, DialogDirective, FormsModule, SearchableSelectComponent, LucideAngularModule, DateInputComponent],
   styles: [`
     .boton-primario { background-color: var(--accent-brand); }
     .boton-primario:hover { filter: brightness(.96); }
@@ -282,6 +284,7 @@ export function tamanoLegible(bytes: number): string {
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Cuentadante <span class="text-gray-400 font-normal text-xs">(opcional)</span></label>
                     <app-ss [options]="opcionesCuentadante" placeholder="— Buscar instructor, administrador o habilitado —" [(ngModel)]="idCuentadante"></app-ss>
+                    <app-carga-fallida [cargas]="cargas" [nombres]="['personas']" etiqueta="la lista de personas" (reintentar)="cargar()" />
                     <p class="text-[11px] text-gray-400 mt-1">Responde por los equipos que se repartan con placa SENA; si no lo eliges, se pide al repartir.</p>
                   </div>
                 } @else {
@@ -380,6 +383,7 @@ export function tamanoLegible(bytes: number): string {
                 <div class="mt-4 rounded-2xl border border-amber-200 bg-amber-50/40 p-4">
                   <label class="block text-sm font-medium text-gray-700 mb-1">Cuentadante <span class="text-red-500">*</span></label>
                   <app-ss [options]="opcionesCuentadante" placeholder="— Buscar instructor, administrador o habilitado —" [(ngModel)]="idCuentadante"></app-ss>
+                  <app-carga-fallida [cargas]="cargas" [nombres]="['personas']" etiqueta="la lista de personas" (reintentar)="cargar()" />
                   <p class="text-[11px] text-gray-500 mt-1">Escribiste placas SENA: quien elijas queda a cargo de esos equipos. Los que entran sin placa no llevan cuentadante.</p>
                 </div>
               }
@@ -489,6 +493,7 @@ export class IngresoFormModalComponent implements OnChanges {
   idCuentadante = '';
   /** Misma regla que la pantalla de cuentadante: instructor, administrador o habilitado en Usuarios. */
   opcionesCuentadante: SSOption[] = [];
+  readonly cargas = new CargasSecundarias();
   tipoSoporte: TipoSoporte | '' = 'FACTURA';
   numeroSoporte = '';
   fechaSoporte = '';
@@ -640,13 +645,14 @@ export class IngresoFormModalComponent implements OnChanges {
     this.error = null;
   }
 
-  private async cargar(): Promise<void> {
+  async cargar(): Promise<void> {
     this.cargandoCatalogo = true;
+    this.cargas.reiniciar();
     try {
       const [catalogo, proveedores, personas] = await Promise.all([
         this.api.catalogoProductos(),
         this.api.listarProveedores(),
-        this.personaApi.listarResponsablesBodega().catch(() => [] as any[]),
+        this.cargas.cargar('personas', () => this.personaApi.listarResponsablesBodega()),
       ]);
       this.catalogo = catalogo;
       this.proveedores = proveedores;

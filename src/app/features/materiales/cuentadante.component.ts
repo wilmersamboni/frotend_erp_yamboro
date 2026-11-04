@@ -1,3 +1,4 @@
+import { EmptyStateComponent } from '../../shared/components/empty-state.component';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
@@ -35,7 +36,7 @@ type Pestana = 'mis-bienes' | 'cuentadantes' | 'ingresos' | 'anterior';
 @Component({
   selector: 'app-materiales-cuentadante',
   standalone: true,
-  imports: [FormsModule, SearchableSelectComponent],
+  imports: [EmptyStateComponent, FormsModule, SearchableSelectComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="p-4 md:p-6 space-y-4">
@@ -48,23 +49,23 @@ type Pestana = 'mis-bienes' | 'cuentadantes' | 'ingresos' | 'anterior';
         <button type="button" (click)="pestana.set('mis-bienes')"
           class="px-4 py-2 text-sm font-semibold border-b-2 -mb-px"
           [class]="pestana() === 'mis-bienes' ? 'border-[var(--accent-brand)] text-gray-900' : 'border-transparent text-gray-500'">
-          Mis bienes a cargo ({{ bienes().length }})
+          Mis bienes a cargo ({{ error() ? '—' : bienes().length }})
         </button>
         @if (puedeAsignar()) {
           <button type="button" (click)="pestana.set('cuentadantes')"
             class="px-4 py-2 text-sm font-semibold border-b-2 -mb-px"
             [class]="pestana() === 'cuentadantes' ? 'border-[var(--accent-brand)] text-gray-900' : 'border-transparent text-gray-500'">
-            Por cuentadante ({{ cuentadantes().length }})
+            Por cuentadante ({{ error() ? '—' : cuentadantes().length }})
           </button>
           <button type="button" (click)="pestana.set('ingresos')"
             class="px-4 py-2 text-sm font-semibold border-b-2 -mb-px"
             [class]="pestana() === 'ingresos' ? 'border-[var(--accent-brand)] text-gray-900' : 'border-transparent text-gray-500'">
-            Asignar por ingreso ({{ ingresos().length }})
+            Asignar por ingreso ({{ error() ? '—' : ingresos().length }})
           </button>
           <button type="button" (click)="pestana.set('anterior')"
             class="px-4 py-2 text-sm font-semibold border-b-2 -mb-px"
             [class]="pestana() === 'anterior' ? 'border-[var(--accent-brand)] text-gray-900' : 'border-transparent text-gray-500'">
-            Material anterior ({{ sinIngreso().length }})
+            Material anterior ({{ error() ? '—' : sinIngreso().length }})
           </button>
         }
       </div>
@@ -72,10 +73,7 @@ type Pestana = 'mis-bienes' | 'cuentadantes' | 'ingresos' | 'anterior';
       @if (cargando()) {
         <p class="text-sm text-gray-500">Cargando…</p>
       } @else if (error()) {
-        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center justify-between">
-          <span>{{ error() }}</span>
-          <button type="button" (click)="cargar()" class="font-semibold underline">Reintentar</button>
-        </div>
+        <app-empty-state variante="error" titulo="No se pudo cargar la información del cuentadante"><button type="button" (click)="cargar()" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Reintentar</button></app-empty-state>
       } @else if (pestana() === 'mis-bienes') {
         @if (bienes().length === 0) {
           <p class="text-sm text-gray-500 py-8 text-center">No tienes bienes a tu cargo todavía.</p>

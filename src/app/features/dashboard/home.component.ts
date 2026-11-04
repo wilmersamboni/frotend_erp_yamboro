@@ -1,5 +1,6 @@
 import { Component, OnInit, ViewChild, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { firstValueFrom } from 'rxjs';
 import { Card } from 'primeng/card';
 import { UIChart } from 'primeng/chart';
 import { ProgressBar } from 'primeng/progressbar';
@@ -13,6 +14,8 @@ import { ExportService } from '../../core/services/export.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { HorariosHomeComponent } from './horarios-home.component';
+import { CargasSecundarias } from '../../shared/carga/cargas-secundarias';
+import { AvisoCargasComponent } from '../../shared/carga/aviso-cargas.component';
 import { cargarPracticasPanel } from './panel-datos';
 import { RouterLink } from '@angular/router';
 import {
@@ -51,7 +54,7 @@ const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'O
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, Card, UIChart, ProgressBar, SplitButton, Skeleton, Tag, HorariosHomeComponent, LucideAngularModule, RouterLink],
+  imports: [CommonModule, Card, UIChart, ProgressBar, SplitButton, Skeleton, Tag, HorariosHomeComponent, LucideAngularModule, RouterLink, AvisoCargasComponent],
   templateUrl: './home.component.html',
   // El tema Spotify del panel va aparte: cada hoja tiene su propio presupuesto de 16 kB.
   styleUrls: ['./home.component.css', './home-spotify.css']
@@ -81,6 +84,10 @@ export class HomeComponent implements OnInit {
   readonly aprendizTieneEtapa = signal<boolean | null>(null);
 
   cargando        = true;
+
+  /** Qué no se pudo traer: se avisa en pantalla y se muestra «—», no ceros que parezcan datos reales. */
+  readonly cargas = new CargasSecundarias();
+  get sinDatos(): boolean { return this.cargas.fallidas().length > 0; }
   exportando      = false;
   practicas: any[] = [];
 
@@ -754,20 +761,37 @@ export class HomeComponent implements OnInit {
       return;
     }
 
-    this.statsService.getDashboardData().subscribe({
-      next: ({ stats, etapaActiva, etapaCertificada }) => {
-        this.stats            = stats;
-        this.etapaActiva      = etapaActiva;
-        this.etapaCertificada = etapaCertificada;
-        this.cargando         = false;
+    this.cargarDatos();
+  }
+
+  reintentar(): void {
+    this.cargando = true;
+    this.cargarDatos();
+  }
+
+  private cargarDatos(): void {
+    this.cargas.reiniciar();
+
+    this.cargas.cargarUno('indicadores', () => firstValueFrom(this.statsService.getDashboardData()), null).then((datos) => {
+      if (datos) {
+        this.stats            = datos.stats;
+        this.etapaActiva      = datos.etapaActiva;
+        this.etapaCertificada = datos.etapaCertificada;
         this.buildCharts();
         this.buildKpis();
-      },
-      error: () => { this.cargando = false; }
+      }
+      this.cargando = false;
     });
 
-    cargarPracticasPanel(this.apiService, this.auth).then((practicas) => {
-      this.practicas = practicas;
+    this.cargas.cargarUno('etapas prácticas', () => cargarPracticasPanel(this.apiService, this.auth), null).then((practicas) => {
+      if (practicas === null && this.cargas.fallo('etapas prácticas')) {
+        // Para el aprendiz, no poder determinar su etapa no es un error
+        // visible — simplemente se le muestra el home de Horarios.
+        if (this.esAprendiz()) this.aprendizTieneEtapa.set(false);
+        else this.buildKpis();
+        return;
+      }
+      this.practicas = practicas ?? [];
 
       if (this.esAprendiz()) {
         this.aprendizTieneEtapa.set(this.practicas.length > 0);
@@ -782,16 +806,6 @@ export class HomeComponent implements OnInit {
         this.buildListas();
         this.buildCharts();
         this.buildKpis();
-      }
-
-    }).catch((err) => {
-      log.error('Error cargando datos para home:', err);
-      if (this.esAprendiz()) {
-        // Para el aprendiz, no poder determinar su etapa no es un error
-        // visible — simplemente se le muestra el home de Horarios.
-        this.aprendizTieneEtapa.set(false);
-      } else {
-        this.toast.httpError(err, 'No se pudieron cargar los datos del panel.');
       }
     });
   }

@@ -6,6 +6,8 @@ import { Skeleton } from 'primeng/skeleton';
 import { AuthService } from '../../core/services/auth.service';
 import { HorariosApiService } from '../schedules/data-access/horarios-api.service';
 import { ErpCatalogoService } from '../schedules/data-access/erp-catalogo.service';
+import { CargasSecundarias } from '../../shared/carga/cargas-secundarias';
+import { AvisoCargasComponent } from '../../shared/carga/aviso-cargas.component';
 
 const DIAS_SEMANA = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
 const DIAS_SEMANA_CORTOS: Record<string, string> = {
@@ -21,13 +23,16 @@ const JORNADA_LABELS: Record<string, string> = { manana: 'Mañana', tarde: 'Tard
 @Component({
   selector: 'app-horarios-home',
   standalone: true,
-  imports: [CommonModule, Card, UIChart, Skeleton],
+  imports: [CommonModule, Card, UIChart, Skeleton, AvisoCargasComponent],
   templateUrl: './horarios-home.component.html',
   styleUrls: ['./horarios-home.component.css', './home.component.css'],
 })
 export class HorariosHomeComponent implements OnInit {
 
   cargando = true;
+
+  /** Qué no se pudo traer del backend: se avisa en pantalla en vez de mostrar ceros inventados. */
+  readonly cargas = new CargasSecundarias();
 
   fecha = new Date().toLocaleDateString('es-CO', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
@@ -98,12 +103,22 @@ export class HorariosHomeComponent implements OnInit {
     private erpCatalogo:      ErpCatalogoService,
   ) {}
 
-  async ngOnInit(): Promise<void> {
+  ngOnInit(): Promise<void> {
+    return this.cargarTodo();
+  }
+
+  reintentar(): Promise<void> {
+    this.cargando = true;
+    return this.cargarTodo();
+  }
+
+  private async cargarTodo(): Promise<void> {
+    this.cargas.reiniciar();
     try {
       const [fichas, ambientes, instructores] = await Promise.all([
-        this.erpCatalogo.getFichas().catch(() => []),
-        this.erpCatalogo.getAmbientes().catch(() => []),
-        this.erpCatalogo.getInstructores().catch(() => []),
+        this.cargas.cargar('fichas', () => this.erpCatalogo.getFichas()),
+        this.cargas.cargar('ambientes', () => this.erpCatalogo.getAmbientes()),
+        this.cargas.cargar('instructores', () => this.erpCatalogo.getInstructores()),
       ]);
       this.fichasMap       = new Map(fichas.map((f: any) => [f.id, f.codigo]));
       this.ambientesMap    = new Map(ambientes.map((a: any) => [a.id, a.nombre]));
@@ -121,10 +136,10 @@ export class HorariosHomeComponent implements OnInit {
 
   private async cargarAdmin(): Promise<void> {
     const [statsH, disponiblesAhora, eventos, horarios] = await Promise.all([
-      this.horariosApi.getHorariosStats().catch(() => ({ total: 0, activos: 0 })),
-      this.horariosApi.getHorariosDisponiblesAhora().catch(() => []),
-      this.horariosApi.getEventos().catch(() => []),
-      this.horariosApi.getHorarios().catch(() => []),
+      this.cargas.cargarUno('estadísticas', () => this.horariosApi.getHorariosStats(), { total: 0, activos: 0 }),
+      this.cargas.cargar('clases en curso', () => this.horariosApi.getHorariosDisponiblesAhora()),
+      this.cargas.cargar('eventos', () => this.horariosApi.getEventos()),
+      this.cargas.cargar('horarios', () => this.horariosApi.getHorarios()),
     ]);
 
     this.statsHorarios = statsH;
@@ -136,6 +151,14 @@ export class HorariosHomeComponent implements OnInit {
       const f = e.fechaInicio ? new Date(`${String(e.fechaInicio).slice(0, 10)}T00:00:00`) : null;
       return !!f && f >= hoy;
     }).length;
+
+    // Si los horarios no llegaron, no se pintan porcentajes ni gráficos: la vista muestra «—».
+    this.chartDataDias = null;
+    this.chartDataJornada = null;
+    if (this.cargas.fallo('horarios')) {
+      this.porcentajeActivos = this.porcentajeConAmbiente = this.porcentajeConInstructor = 0;
+      return;
+    }
 
     const total = Math.max(horarios.length, 1);
     this.porcentajeActivos       = Math.round((horarios.filter((h: any) => h.activo).length / total) * 100);
@@ -150,7 +173,7 @@ export class HorariosHomeComponent implements OnInit {
     const id = this.auth.user()?.personaId;
     if (!id) return;
 
-    const horarios = await this.horariosApi.getHorariosByInstructor(id).catch(() => []);
+    const horarios = await this.cargas.cargar('tus horarios', () => this.horariosApi.getHorariosByInstructor(id));
 
     this.misHorariosActivos = horarios.filter((h: any) => h.activo).length;
 
@@ -166,12 +189,12 @@ export class HorariosHomeComponent implements OnInit {
     const personaId = this.auth.user()?.personaId;
     if (!personaId) return;
 
-    const matriculas = await this.erpCatalogo.getMatriculasDePersona(personaId).catch(() => []);
+    const matriculas = await this.cargas.cargar('tu matrícula', () => this.erpCatalogo.getMatriculasDePersona(personaId));
     const activa = matriculas.find((m: any) => m.ficha) ?? null;
     if (!activa?.ficha) return;
     this.miFicha = activa.ficha;
 
-    const horarios = await this.horariosApi.getHorariosByFicha(activa.ficha.id).catch(() => []);
+    const horarios = await this.cargas.cargar('tu horario', () => this.horariosApi.getHorariosByFicha(activa.ficha.id));
     this.horarioSemanal = [...horarios].sort((a: any, b: any) =>
       DIAS_SEMANA.indexOf(a.diaSemana) - DIAS_SEMANA.indexOf(b.diaSemana) ||
       (a.horaInicio ?? '').localeCompare(b.horaInicio ?? ''));

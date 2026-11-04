@@ -12,9 +12,10 @@ export async function cargarPracticasPanel(api: ApiService, auth: AuthService): 
   // nivel recibía 403 y, dentro del Promise.all, tumbaba la carga de todo.
   const puedeVerEmpresas = auth.tieneServicio('practica.empresas.gestionar');
   const [practicas, empresas, matriculas]: [any[], any[], any[]] = await Promise.all([
-    api.listarPracticas(),
-    puedeVerEmpresas ? api.listarEmpresas() : Promise.resolve([]),
-    api.listarTodasMatriculas(),
+    // `estricto`: un servidor caído no se confunde con «no hay etapas»; solo el 403 sigue dando [].
+    api.listarPracticas({ estricto: true }),
+    puedeVerEmpresas ? api.listarEmpresas({ estricto: true }) : Promise.resolve([]),
+    api.listarTodasMatriculas({ estricto: true }),
   ]);
 
   const empresaMap = new Map<string, string>(

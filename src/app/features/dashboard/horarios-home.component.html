@@ -12,6 +12,10 @@
     </div>
   </div>
 
+  @if (!cargando) {
+    <app-aviso-cargas [cargas]="cargas" (reintentar)="reintentar()" />
+  }
+
   <!-- ══════════════════════════════════════════════════════════════════════
        VISTA ADMIN
   ══════════════════════════════════════════════════════════════════════════ -->
@@ -28,11 +32,11 @@
         @if (cargando) {
           <p-skeleton height="38px" width="80px" styleClass="mb-2"/>
         } @else {
-          <h3 class="kpi-num">{{ statsHorarios.activos | number }}</h3>
+          <h3 class="kpi-num">{{ cargas.fallo('estadísticas') ? '—' : (statsHorarios.activos | number) }}</h3>
         }
         <div class="kpi-ctx kpi-ctx-green">
           <i class="pi pi-list"></i>
-          <span>de {{ statsHorarios.total | number }} horarios</span>
+          <span>{{ cargas.fallo('estadísticas') ? 'sin datos' : 'de ' + (statsHorarios.total | number) + ' horarios' }}</span>
         </div>
       </div>
 
@@ -45,11 +49,11 @@
         @if (cargando) {
           <p-skeleton height="38px" width="70px" styleClass="mb-2"/>
         } @else {
-          <h3 class="kpi-num">{{ enCursoAhora | number }}</h3>
+          <h3 class="kpi-num">{{ cargas.fallo('clases en curso') ? '—' : (enCursoAhora | number) }}</h3>
         }
         <div class="kpi-ctx kpi-ctx-blue">
           <i class="pi pi-clock"></i>
-          <span>clases en este momento</span>
+          <span>{{ cargas.fallo('clases en curso') ? 'sin datos' : 'clases en este momento' }}</span>
         </div>
       </div>
 
@@ -62,11 +66,11 @@
         @if (cargando) {
           <p-skeleton height="38px" width="60px" styleClass="mb-2"/>
         } @else {
-          <h3 class="kpi-num">{{ eventosProximos | number }}</h3>
+          <h3 class="kpi-num">{{ cargas.fallo('eventos') ? '—' : (eventosProximos | number) }}</h3>
         }
         <div class="kpi-ctx kpi-ctx-purple">
           <i class="pi pi-map-marker"></i>
-          <span>programados</span>
+          <span>{{ cargas.fallo('eventos') ? 'sin datos' : 'programados' }}</span>
         </div>
       </div>
 
@@ -81,8 +85,10 @@
             <p class="chart-panel-sub">Cantidad de horarios asignados según el día de la semana</p>
           </div>
         </div>
-        @if (cargando || !chartDataDias) {
+        @if (cargando || (!chartDataDias && !cargas.fallo('horarios'))) {
           <p-skeleton height="240px" borderRadius="12px"/>
+        } @else if (cargas.fallo('horarios')) {
+          <div class="sin-datos" role="status">No se pudo cargar</div>
         } @else {
           <div class="bar-chart-wrap">
             <p-chart type="bar" [data]="chartDataDias" [options]="chartOptionsBar"
@@ -107,7 +113,7 @@
                     transform="rotate(-90 100 100)"/>
           </svg>
           <div class="circle-center">
-            <span class="circle-pct">{{ porcentajeActivos }}%</span>
+            <span class="circle-pct">{{ cargas.fallo('horarios') ? '—' : porcentajeActivos + '%' }}</span>
             <span class="circle-label">Activos</span>
           </div>
         </div>
@@ -117,7 +123,7 @@
             <div class="t-bar-info">
               <span class="t-dot dot-blue"></span>
               <span class="t-label">Con ambiente asignado</span>
-              <span class="t-val">{{ porcentajeConAmbiente }}%</span>
+              <span class="t-val">{{ cargas.fallo('horarios') ? '—' : porcentajeConAmbiente + '%' }}</span>
             </div>
             <div class="t-track">
               <div class="t-fill fill-blue" [style.width.%]="porcentajeConAmbiente"></div>
@@ -127,7 +133,7 @@
             <div class="t-bar-info">
               <span class="t-dot dot-orange"></span>
               <span class="t-label">Con instructor asignado</span>
-              <span class="t-val">{{ porcentajeConInstructor }}%</span>
+              <span class="t-val">{{ cargas.fallo('horarios') ? '—' : porcentajeConInstructor + '%' }}</span>
             </div>
             <div class="t-track">
               <div class="t-fill fill-orange" [style.width.%]="porcentajeConInstructor"></div>
@@ -147,6 +153,8 @@
         </div>
         @if (cargando) {
           <div class="skel-center"><p-skeleton shape="circle" size="160px"/></div>
+        } @else if (cargas.fallo('horarios')) {
+          <div class="sin-datos" role="status">No se pudo cargar</div>
         } @else {
           <div class="chart-container">
             <p-chart type="doughnut" [data]="chartDataJornada" [options]="chartOptions"
@@ -157,17 +165,17 @@
           <div class="legend-item">
             <span class="legend-dot dot-green"></span>
             <span class="legend-text">Mañana</span>
-            <span class="legend-val">{{ chartDataJornada?.datasets?.[0]?.data?.[0] ?? 0 }}</span>
+            <span class="legend-val">{{ cargas.fallo('horarios') ? '—' : (chartDataJornada?.datasets?.[0]?.data?.[0] ?? 0) }}</span>
           </div>
           <div class="legend-item">
             <span class="legend-dot dot-blue"></span>
             <span class="legend-text">Tarde</span>
-            <span class="legend-val">{{ chartDataJornada?.datasets?.[0]?.data?.[1] ?? 0 }}</span>
+            <span class="legend-val">{{ cargas.fallo('horarios') ? '—' : (chartDataJornada?.datasets?.[0]?.data?.[1] ?? 0) }}</span>
           </div>
           <div class="legend-item">
             <span class="legend-dot" style="background:#a855f7"></span>
             <span class="legend-text">Noche</span>
-            <span class="legend-val">{{ chartDataJornada?.datasets?.[0]?.data?.[2] ?? 0 }}</span>
+            <span class="legend-val">{{ cargas.fallo('horarios') ? '—' : (chartDataJornada?.datasets?.[0]?.data?.[2] ?? 0) }}</span>
           </div>
         </div>
       </div>

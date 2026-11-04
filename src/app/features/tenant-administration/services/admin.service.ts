@@ -21,6 +21,8 @@ export class AdminService {
   activeTab     = signal<Modulo>('personas');
   data          = signal<Record<string, any[]>>({});
   loading       = signal(false);
+  /** Módulos cuya última carga falló: la tabla dice «No se pudo cargar», no «No hay registros». */
+  erroresCarga  = signal<Record<string, boolean>>({});
   modalOpen     = signal(false);
   editando      = signal<any | null>(null);
   saving        = signal(false);
@@ -205,6 +207,7 @@ export class AdminService {
    * cargarConDependencias, que gestiona `loading` de forma centralizada).
    */
   private async cargarDatos(mod: Modulo): Promise<void> {
+    this.erroresCarga.update(m => ({ ...m, [mod]: false }));
     try {
       const result: any = await firstValueFrom(
         this.http.get(CONFIG[mod].listar, { withCredentials: true })
@@ -366,6 +369,7 @@ export class AdminService {
       const status = e?.status ?? '?';
       const detail = e?.error?.message ?? e?.error?.mensaje ?? e?.message ?? 'Error desconocido';
       log.error(`[Admin] Error cargando ${mod} (${status}):`, detail);
+      this.erroresCarga.update(m => ({ ...m, [mod]: true }));
       this.msg.add({
         severity: 'warn',
         summary: `No se pudo cargar ${CONFIG[mod].label}`,

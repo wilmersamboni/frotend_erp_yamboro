@@ -80,6 +80,8 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
 
       @if (loading) {
         <app-loading-skeleton variant="table" [rows]="6" [columns]="5" [showToolbar]="false" label="Cargando devoluciones" />
+      } @else if (errorCarga) {
+        <app-empty-state variante="error" titulo="No se pudo cargar las devoluciones"><button type="button" (click)="reintentarCarga()" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Reintentar</button></app-empty-state>
       } @else if (devoluciones.length === 0) {
         <app-empty-state titulo="No hay devoluciones registradas" />
       } @else {
@@ -372,6 +374,9 @@ interface FilaDevolucion extends ItemPendienteDevolucion {
   `,
 })
 export class MaterialesDevolucionesComponent implements OnInit {
+  /** La carga principal falló: la tabla dice «No se pudo cargar», no «No hay…». */
+  errorCarga = false;
+  readonly reintentarCarga = (): void => void this.cargar();
   /** Catálogos auxiliares de la pantalla: si uno falla se avisa, no se muestra vacío. */
   readonly secundarias = new CargasSecundarias();
   readonly recargar = (): void => void this.cargar();
@@ -553,6 +558,7 @@ export class MaterialesDevolucionesComponent implements OnInit {
 
   private async cargar(): Promise<void> {
     this.loading = true;
+    this.errorCarga = false;
     this.secundarias.reiniciar();
     try {
       // M9 — solo `listarDevoluciones()` es crítico; una secundaria que falle
@@ -576,6 +582,8 @@ export class MaterialesDevolucionesComponent implements OnInit {
       this.chequeo = chequeo;
       this.item_chequeo = item_chequeo;
     } catch (e) {
+      this.errorCarga = true;
+      this.secundarias.marcarFallo('devoluciones');
       this.toast.httpError(e, 'No se pudieron cargar las devoluciones.');
     } finally {
       this.loading = false;

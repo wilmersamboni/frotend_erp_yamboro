@@ -17,6 +17,8 @@ import { HistorialCompetenciasModalComponent } from './historial-competencias-mo
 import { DisponibilidadAmbientesComponent } from './disponibilidad-ambientes.component';
 import { NuevoHorarioWizardComponent } from './nuevo-horario-wizard.component';
 import { CompetenciaTooltipComponent } from '../../../shared/components/competencia-tooltip.component';
+import { CargasSecundarias } from '../../../shared/carga/cargas-secundarias';
+import { AvisoCargasComponent } from '../../../shared/carga/aviso-cargas.component';
 import { EditarHorarioModalComponent } from './editar-horario-modal.component';
 import { ConfirmService } from '../../../core/services/confirm.service';
 
@@ -70,7 +72,7 @@ import { ConfirmService } from '../../../core/services/confirm.service';
 @Component({
   selector: 'app-admin-horarios',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, LucideAngularModule, HistorialCompetenciasModalComponent, DisponibilidadAmbientesComponent, NuevoHorarioWizardComponent, CompetenciaTooltipComponent, EditarHorarioModalComponent],
+  imports: [AvisoCargasComponent, FormsModule, LucideAngularModule, HistorialCompetenciasModalComponent, DisponibilidadAmbientesComponent, NuevoHorarioWizardComponent, CompetenciaTooltipComponent, EditarHorarioModalComponent],
   template: `
 
     <div class="page-header" style="display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:16px;">
@@ -108,6 +110,8 @@ import { ConfirmService } from '../../../core/services/confirm.service';
         <button class="bg-sena-gradient hover:opacity-90 text-white font-semibold rounded-lg transition-all" style="padding:9px 16px; white-space:nowrap;" (click)="wiz.abrir()">+ Nuevo Horario</button>
       </div>
     </div>
+
+    <app-aviso-cargas class="block mt-4" [cargas]="cargas" (reintentar)="loadAll()" />
 
     <div class="matrix-wrap mt-4">
 
@@ -396,6 +400,8 @@ export class AdminHorariosComponent implements OnInit, OnDestroy {
   cargando = signal(true);
   /** GET /horarios falló — se muestra un aviso con "Reintentar" en vez de una matriz vacía engañosa. */
   errorCarga = signal(false);
+  /** Lo secundario (fichas, ambientes, instructores, eventos) que no se pudo traer: se avisa en vez de dejar filtros vacíos. */
+  readonly cargas = new CargasSecundarias();
 
   readonly LABELS = DIAS_LABELS;
   readonly getDiaLabel = getDiaLabel;
@@ -620,18 +626,13 @@ export class AdminHorariosComponent implements OnInit, OnDestroy {
     this.manualOverrides.clear();
 
     this.errorCarga.set(false);
+    this.cargas.reiniciar();
     let horariosFallo = false;
     const horariosP = this.horariosApi.getHorarios().catch(() => { horariosFallo = true; return []; });
-    const fichasP = this.erpCatalogo.getFichas().catch(() => []);
-    const ambientesP = this.erpCatalogo.getAmbientes().catch((e) => {
-      this.toast.httpError(e, 'No se pudieron cargar los ambientes. Verifica tu sesión.', 'Sin datos');
-      return [];
-    });
-    const instructoresP = this.erpCatalogo.getInstructores().catch((e) => {
-      this.toast.httpError(e, 'No se pudieron cargar los instructores. Verifica tu sesión.', 'Sin datos');
-      return [];
-    });
-    const eventosP = this.horariosApi.getEventos().catch(() => []);
+    const fichasP = this.cargas.cargar('fichas', () => this.erpCatalogo.getFichas());
+    const ambientesP = this.cargas.cargar('ambientes', () => this.erpCatalogo.getAmbientes());
+    const instructoresP = this.cargas.cargar('instructores', () => this.erpCatalogo.getInstructores());
+    const eventosP = this.cargas.cargar('eventos', () => this.horariosApi.getEventos());
 
     const [horarios, fichas, ambientes, instructores, eventos] = await Promise.all([
       horariosP, fichasP, ambientesP, instructoresP, eventosP,

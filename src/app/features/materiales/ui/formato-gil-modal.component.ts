@@ -8,6 +8,8 @@ import { DateInputComponent } from '../../../shared/components/date-input.compon
 import { TuiDayCache } from '../../../shared/utils/tui-day.util';
 import { ToastService, mensajeDeError } from '../../../core/services/toast.service';
 import { PersonaService } from '../../../core/services/persona.service';
+import { CargasSecundarias } from '../../../shared/carga/cargas-secundarias';
+import { AvisoCargasComponent } from '../../../shared/carga/aviso-cargas.component';
 import { ErpCatalogoService } from '../../schedules/data-access/erp-catalogo.service';
 import { hoyLocal } from '../../../shared/utils/informe-pdf';
 import { AreaIngreso, IngresoMaterialDetalle, MaterialesApiService, Producto } from '../data-access/materiales-api.service';
@@ -35,7 +37,7 @@ interface LineaFormato {
 @Component({
   selector: 'app-formato-gil-modal',
   standalone: true,
-  imports: [FormsModule, DialogDirective, SearchableSelectComponent, DateInputComponent],
+  imports: [AvisoCargasComponent, FormsModule, DialogDirective, SearchableSelectComponent, DateInputComponent],
   template: `
     @if (open) {
       <div appDialog class="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 overflow-y-auto p-2 sm:p-4" (click)="cerrar()">
@@ -49,6 +51,7 @@ interface LineaFormato {
           </div>
 
           <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-2 sm:px-6 space-y-5">
+            <app-aviso-cargas [cargas]="cargas" (reintentar)="cargarListas()" />
             <section class="space-y-3">
               <h3 class="text-xs font-bold uppercase tracking-wide text-gray-400">Datos del formato</h3>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -211,6 +214,8 @@ export class FormatoGilModalComponent implements OnChanges {
   cargando = false;
   guardando = false;
   error: string | null = null;
+  /** Qué lista no cargó: se avisa en el formulario en vez de dejar selectores vacíos sin explicación. */
+  readonly cargas = new CargasSecundarias();
 
   get opcionesArea(): SSOption[] {
     return this.areas.map((a) => ({ value: a.id_area, label: `${a.nombre} (${a.bodegas.length} bodega${a.bodegas.length === 1 ? '' : 's'})` }));
@@ -247,12 +252,13 @@ export class FormatoGilModalComponent implements OnChanges {
     void this.cargarListas();
   }
 
-  private async cargarListas(): Promise<void> {
+  async cargarListas(): Promise<void> {
     this.cargando = true;
+    this.cargas.reiniciar();
     const [catalogo, personas, fichas] = await Promise.all([
-      this.api.catalogoProductos().catch(() => [] as Producto[]),
-      this.personaApi.listarResponsablesBodega().catch(() => [] as any[]),
-      this.erpCatalogo.getFichas().catch(() => [] as any[]),
+      this.cargas.cargar('catálogo de productos', () => this.api.catalogoProductos()),
+      this.cargas.cargar('personas', () => this.personaApi.listarResponsablesBodega()),
+      this.cargas.cargar('fichas', () => this.erpCatalogo.getFichas()),
     ]);
     this.catalogo = catalogo.filter((p) => p.activo !== false);
     const opcion = (u: any): SSOption => ({

@@ -4,6 +4,8 @@ import { LucideAngularModule } from 'lucide-angular';
 import { ErpCatalogoService } from '../data-access/erp-catalogo.service';
 import { SearchableSelectComponent, SSOption } from '../../../shared/components/searchable-select.component';
 import { DIAS_LABELS } from '../../../core/utils/horarios.util';
+import { CargasSecundarias } from '../../../shared/carga/cargas-secundarias';
+import { AvisoCargasComponent } from '../../../shared/carga/aviso-cargas.component';
 
 /**
  * Panel "Consultar Disponibilidad de Ambientes" — extraído de horarios.component.ts.
@@ -13,7 +15,7 @@ import { DIAS_LABELS } from '../../../core/utils/horarios.util';
 @Component({
   selector: 'app-disponibilidad-ambientes',
   standalone: true,
-  imports: [FormsModule, LucideAngularModule, SearchableSelectComponent],
+  imports: [FormsModule, LucideAngularModule, SearchableSelectComponent, AvisoCargasComponent],
   template: `
     <div class="matrix-disp-header" style="display:flex; align-items:center; gap:10px; padding:12px 16px; background:var(--surface2); border-bottom:1px solid var(--border); flex-wrap:wrap;">
       <div style="min-width:130px; flex:1; max-width:160px;">
@@ -34,6 +36,8 @@ import { DIAS_LABELS } from '../../../core/utils/horarios.util';
         </button>
       }
     </div>
+
+    <app-aviso-cargas class="block" style="padding:8px 16px 0" [cargas]="cargas" (reintentar)="checkDisp()" />
 
     @if (dispResult().length > 0) {
       <div style="padding:6px 16px; background:var(--surface2); border-bottom:1px solid var(--border); font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
@@ -97,6 +101,8 @@ export class DisponibilidadAmbientesComponent {
   dispJornada = '';
   dispArea    = '';
   dispResult  = signal<any[]>([]);
+  /** Si la consulta falla se avisa, en vez de dejar la pantalla igual que si no se hubiera consultado. */
+  readonly cargas = new CargasSecundarias();
 
   constructor(private erpCatalogo: ErpCatalogoService) {}
 
@@ -135,9 +141,10 @@ export class DisponibilidadAmbientesComponent {
    * que expone erpCatalogo.
    */
   async checkDisp() {
-    const result = await this.erpCatalogo
-      .getAmbientesDisponibilidad(this.dispDia, this.dispJornada)
-      .catch(() => []);
+    this.cargas.reiniciar();
+    const result = await this.cargas.cargar('ambientes disponibles', () =>
+      this.erpCatalogo.getAmbientesDisponibilidad(this.dispDia, this.dispJornada));
+    if (this.cargas.fallo('ambientes disponibles')) return;
     this.dispResult.set((result ?? []).map((a: any) => ({
       ...a,
       area_nombre: a.area ?? null,

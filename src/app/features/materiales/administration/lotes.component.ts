@@ -64,7 +64,7 @@ import { resumenCaracteristicas } from '../caracteristicas-equipo.util';
 
       <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
 
-      <app-admin-table
+      <app-admin-table [errorCarga]="errorCarga" (reintentar)="reintentarCarga()"
         [addLabel]="puedeCrear() ? 'Nuevo lote' : null"
         (add)="nuevo()"
         [rows]="filas"
@@ -125,6 +125,9 @@ import { resumenCaracteristicas } from '../caracteristicas-equipo.util';
   `,
 })
 export class MaterialesLotesComponent implements OnInit {
+  /** La carga principal falló: la tabla dice «No se pudo cargar», no «No hay…». */
+  errorCarga = false;
+  readonly reintentarCarga = (): void => void this.cargar();
   /** Catálogos auxiliares de la pantalla: si uno falla se avisa, no se muestra vacío. */
   readonly secundarias = new CargasSecundarias();
   readonly recargar = (): void => void this.cargar();
@@ -339,6 +342,7 @@ export class MaterialesLotesComponent implements OnInit {
 
   private async cargar(): Promise<void> {
     this.loading = true;
+    this.errorCarga = false;
     this.secundarias.reiniciar();
     try {
       // Lo que el usuario no puede leer (caso típico: /sitios para un
@@ -357,6 +361,8 @@ export class MaterialesLotesComponent implements OnInit {
       this.sitiosGestionables = sitiosGestionables;
       this.sitios = sitios.length ? sitios : sitiosGestionables;
     } catch (e) {
+      this.errorCarga = true;
+      this.secundarias.marcarFallo('lotes');
       this.toast.httpError(e, 'No se pudieron cargar los lotes.');
     } finally {
       this.loading = false;
