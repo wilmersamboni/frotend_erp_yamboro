@@ -31,7 +31,7 @@ import { Marca, MaterialesApiService } from './data-access/materiales-api.servic
         </label>
       </div>
 
-      <app-admin-table
+      <app-admin-table [errorCarga]="errorCarga" (reintentar)="reintentarCarga()"
         [addLabel]="gestiona ? 'Nueva marca' : null"
         (add)="nueva()"
         [rows]="filas"
@@ -84,6 +84,9 @@ import { Marca, MaterialesApiService } from './data-access/materiales-api.servic
   `,
 })
 export class MaterialesMarcasComponent implements OnInit {
+  /** La carga principal falló: la tabla dice «No se pudo cargar», no «No hay…». */
+  errorCarga = false;
+  readonly reintentarCarga = (): void => void this.cargar();
   private readonly api = inject(MaterialesApiService);
   private readonly toast = inject(ToastService);
   private readonly confirm = inject(ConfirmService);
@@ -111,10 +114,12 @@ export class MaterialesMarcasComponent implements OnInit {
 
   async cargar(): Promise<void> {
     this.loading = true;
+    this.errorCarga = false;
     try {
       this.marcas = await this.api.listarMarcas(this.verInactivas);
       this.filas = this.marcas.map((m) => ({ ...m, estado_txt: m.activo ? 'Activa' : 'Desactivada' }));
     } catch (e) {
+      this.errorCarga = true;
       this.toast.httpError(e, 'No se pudieron cargar las marcas.');
     } finally {
       this.loading = false;

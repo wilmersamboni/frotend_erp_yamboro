@@ -1,3 +1,4 @@
+import { CargaFallidaComponent } from '../../../shared/carga/carga-fallida.component';
 import { Component, DestroyRef, OnInit, signal, inject, effect, untracked } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -69,7 +70,7 @@ interface LineaForm {
 @Component({
   selector: 'app-materiales-solicitudes-usuario',
   standalone: true,
-  imports: [AvisoVenceAntesComponent, BodegasInactivasEtiquetaComponent, BodegasInactivasAvisoComponent, AvisoCargasComponent, EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent, TableFilterComponent],
+  imports: [CargaFallidaComponent, AvisoVenceAntesComponent, BodegasInactivasEtiquetaComponent, BodegasInactivasAvisoComponent, AvisoCargasComponent, EsperaDirective, DialogDirective, AlertComponent, EmptyStateComponent, FormsModule, DatePipe, StatusBadgeComponent, DateInputComponent, SearchableSelectComponent, EntregarSolicitudModalComponent, LoadingSkeletonComponent, PageSizeSelectComponent, TableFilterComponent],
   template: `
     <div class="p-4 sm:p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
@@ -110,6 +111,8 @@ interface LineaForm {
 
       @if (loading) {
         <app-loading-skeleton variant="table" [rows]="6" [columns]="6" [showToolbar]="false" label="Cargando solicitudes" />
+      } @else if (errorCarga) {
+        <app-empty-state variante="error" titulo="No se pudo cargar las solicitudes"><button type="button" (click)="reintentarCarga()" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Reintentar</button></app-empty-state>
       } @else if (solicitudes.length === 0) {
         <app-empty-state titulo="No hay solicitudes registradas" />
       } @else {
@@ -312,6 +315,7 @@ interface LineaForm {
                 <label class="block text-xs font-medium text-gray-600 mb-1">Bodega</label>
                 <app-ss [options]="opcionesSitio" placeholder="— Selecciona una bodega —"
                   [(ngModel)]="idSitioSeleccionado" (ngModelChange)="onSitioChange($event)"></app-ss>
+                <app-carga-fallida [cargas]="secundarias" [nombres]="['material disponible']" etiqueta="las bodegas y el material disponible" (reintentar)="reintentarMaterial()" />
                 <p class="text-xs text-gray-400 mt-1">Todas las líneas de una solicitud tienen que ser de la misma bodega.</p>
               </div>
             }
@@ -327,7 +331,8 @@ interface LineaForm {
                   </button>
                 </div>
 
-                @if (opciones().length === 0) {
+                <app-carga-fallida [cargas]="secundarias" [nombres]="['material disponible']" etiqueta="el material disponible" (reintentar)="reintentarMaterial()" />
+                @if (opciones().length === 0 && !secundarias.fallo('material disponible')) {
                   <p class="text-xs text-gray-400 py-2">Esta bodega no tiene productos ni lotes disponibles.</p>
                 }
 
@@ -522,6 +527,9 @@ interface LineaForm {
   `,
 })
 export class MaterialesSolicitudesUsuarioComponent implements OnInit {
+  /** La carga principal falló: la tabla dice «No se pudo cargar», no «No hay…». */
+  errorCarga = false;
+  readonly reintentarCarga = (): void => void this.cargar();
   /** Catálogos auxiliares de la pantalla: si uno falla se avisa, no se muestra vacío. */
   readonly secundarias = new CargasSecundarias();
   readonly recargar = (): void => void this.cargar();
@@ -1025,6 +1033,7 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
 
   private async cargar(): Promise<void> {
     this.loading = true;
+    this.errorCarga = false;
     this.secundarias.reiniciar();
     try {
       if (!this.red.alcanzable() && (await this.cargarListaGuardada())) return;
@@ -1065,6 +1074,8 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
       await this.cargarStocks();
     } catch (e) {
       if ((e as { status?: number })?.status === 0 && (await this.cargarListaGuardada())) return;
+      this.errorCarga = true;
+      this.secundarias.marcarFallo('solicitudes');
       this.toast.httpError(e, 'No se pudieron cargar las solicitudes.');
     } finally {
       this.loading = false;
@@ -1142,10 +1153,20 @@ export class MaterialesSolicitudesUsuarioComponent implements OnInit {
     return this.stocksPorSolicitud[s.id_solicitud] ?? null;
   }
 
+  private async cargarOpcionesDev(): Promise<void> {
+    this.secundarias.olvidar('material disponible');
+    this.opcionesDev = await this.secundarias.cargar('material disponible', () => this.api.opcionesDevolutivos());
+  }
+
+  async reintentarMaterial(): Promise<void> {
+    await this.cargarOpcionesDev();
+  }
+
   async nuevo(): Promise<void> {
     // Disponibilidad fresca por bodega al abrir (puede haber cambiado desde la carga).
-    this.opcionesDev = await this.api.opcionesDevolutivos().catch(() => [] as OpcionDevolutivo[]);
-    if (this.opcionesDev.length === 0 && this.lotes.length === 0) {
+    await this.cargarOpcionesDev();
+    // Si la consulta falló no se dice «sin material»: el formulario abre y el campo avisa del fallo.
+    if (this.opcionesDev.length === 0 && this.lotes.length === 0 && !this.secundarias.fallo('material disponible')) {
       this.toast.warn('Sin material disponible', 'No hay productos ni lotes disponibles en las bodegas a las que podés pedir.');
       return;
     }

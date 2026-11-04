@@ -1,3 +1,5 @@
+import { CargasSecundarias } from '../data-access/cargas-secundarias';
+import { AvisoCargasComponent } from '../ui/aviso-cargas.component';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -31,12 +33,13 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
 @Component({
   selector: 'app-materiales-kardex',
   standalone: true,
-  imports: [EsperaDirective, FormsModule, AdminTableComponent, StatCardComponent, TableFilterComponent],
+  imports: [AvisoCargasComponent, EsperaDirective, FormsModule, AdminTableComponent, StatCardComponent, TableFilterComponent],
   template: `
     <div class="p-4 sm:p-6">
       <nav aria-label="Migas de pan" class="mb-4 flex items-center gap-2 text-sm text-gray-500">
         <span>Materiales</span><span aria-hidden="true">/</span><span>Inventario</span><span aria-hidden="true">/</span><span aria-current="page" class="font-semibold text-gray-800">Kardex</span>
       </nav>
+      <app-aviso-cargas [cargas]="cargas" (reintentar)="reintentar()" />
       <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
         <h1 class="text-xl font-bold text-gray-800">Historial de Movimientos<span class="block text-xs font-normal text-gray-400">antes «Kardex»</span></h1>
         <div class="flex flex-wrap gap-2 border-gray-200">
@@ -67,7 +70,7 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
         </app-stat-card>
       </div>
 
-      <app-admin-table
+      <app-admin-table [errorCarga]="errorCarga" (reintentar)="reintentarCarga()"
         [rows]="filas"
         [searchable]="true"
         [searchPlaceholder]="'Buscar por ítem, tipo, observación…'"
@@ -81,6 +84,9 @@ import { EsperaDirective } from '../../../shared/directives/espera.directive';
   `,
 })
 export class MaterialesKardexComponent implements OnInit {
+  /** La carga principal falló: la tabla dice «No se pudo cargar», no «No hay…». */
+  errorCarga = false;
+  readonly reintentarCarga = (): void => void this.cargar();
   kardex: Kardex[] = [];
   private lotesPorId = new Map<string, Lote>();
   loading = false;
@@ -179,17 +185,25 @@ export class MaterialesKardexComponent implements OnInit {
   exportarExcel(): void { void this.exporter.excel('kardex', 'Kardex', this.exportColumns, this.filas); }
   exportarPdf(): void { void this.exporter.pdf('kardex', 'Kardex', this.exportColumns, this.filas); }
 
+  /** Qué no se pudo traer: sin los lotes el historial se ve, pero sin el nombre del consumible. */
+  readonly cargas = new CargasSecundarias();
+
+  reintentar(): void { void this.cargar(); }
+
   private async cargar(): Promise<void> {
     this.loading = true;
+    this.errorCarga = false;
+    this.cargas.reiniciar();
     try {
       // Los lotes solo ponen nombre a los movimientos de consumo; si fallan, el kardex igual se muestra.
       const [kardex, lotes] = await Promise.all([
         this.api.listarKardex(),
-        this.api.listarLotes().catch(() => [] as Lote[]),
+        this.cargas.cargar('nombres de los lotes', () => this.api.listarLotes()),
       ]);
       this.lotesPorId = new Map(lotes.map((l) => [l.id_lote, l]));
       this.kardex = kardex;
     } catch (e) {
+      this.errorCarga = true;
       this.toast.httpError(e, 'No se pudo cargar el kardex.');
     } finally {
       this.loading = false;
