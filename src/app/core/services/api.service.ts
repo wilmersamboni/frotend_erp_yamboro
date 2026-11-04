@@ -9,6 +9,14 @@ import { log } from '../utils/log';
 const BASE  = environment.apiUrl;          // → http://localhost:3000 vía proxy
 const BASE2 = environment.apiPracticaUrl;  // → http://localhost:3001 vía proxy
 
+/** Opciones de las listas que degradan a `[]`: con `estricto` un fallo real (red, 5xx) se propaga y solo el 401/403 sigue dando `[]`. */
+export interface OpcionesListaTolerante { estricto?: boolean }
+
+function esSinAcceso(e: unknown): boolean {
+  const status = (e as { status?: unknown } | null)?.status;
+  return status === 401 || status === 403;
+}
+
 /** Ficha (`cursos`, esquema real con uuid) de la que alguien es líder. */
 export interface CursoLiderado {
   idCurso: string;
@@ -134,7 +142,7 @@ export class ApiService {
     } catch { return []; }
   }
 
-  async listarTodasMatriculas(): Promise<any[]> {
+  async listarTodasMatriculas(opts: OpcionesListaTolerante = {}): Promise<any[]> {
     try {
       const resp: any = await firstValueFrom(this.http.get(`${BASE}/matriculas`));
       if (Array.isArray(resp)) return resp;
@@ -143,6 +151,7 @@ export class ApiService {
       return [];
     } catch (error) {
       log.error('Error listando todas las matrículas:', error);
+      if (opts.estricto && !esSinAcceso(error)) throw error;
       return [];
     }
   }
@@ -157,7 +166,7 @@ export class ApiService {
    * el toast global para no interrumpir con una alerta sobre algo que la
    * pantalla ya maneja en silencio.
    */
-  async listarPracticas(): Promise<any[]> {
+  async listarPracticas(opts: OpcionesListaTolerante = {}): Promise<any[]> {
     try {
       const resp: any = await firstValueFrom(this.http.get(`${BASE2}/etapa-practica?soloActivas=true`, {
         context: new HttpContext().set(SILENCIAR_TOAST_ERROR, true),
@@ -166,7 +175,10 @@ export class ApiService {
       if (resp?.data      && Array.isArray(resp.data))      return resp.data;
       if (resp?.practicas && Array.isArray(resp.practicas)) return resp.practicas;
       return [];
-    } catch { return []; }
+    } catch (e) {
+      if (opts.estricto && !esSinAcceso(e)) throw e;
+      return [];
+    }
   }
   async crearPractica(datos: {
     matriculaId: string; modalidadId: string;
@@ -204,11 +216,11 @@ export class ApiService {
    * en ambos módulos. Excluye personas inactivas o con la matrícula cancelada/
    * retirada/trasladada — ver ESTADOS_MATRICULA_OCULTOS.
    */
-  async listarAprendicesConPractica(): Promise<any[]> {
+  async listarAprendicesConPractica(opts: OpcionesListaTolerante = {}): Promise<any[]> {
     const [aprendices, practicas, todasMatriculas] = await Promise.all([
       this.listarAprendices(),
-      this.listarPracticas(),
-      this.listarTodasMatriculas(),
+      this.listarPracticas(opts),
+      this.listarTodasMatriculas(opts),
     ]);
 
     const practicaMap = new Map<any, any>();
@@ -432,13 +444,14 @@ async subirEvidenciaObservacion(file: File): Promise<string> {
   async listarModalidades(): Promise<any[]> {
     return firstValueFrom(this.http.get<any[]>(`${BASE2}/modalidad`));
   }
-  async listarEmpresas(): Promise<any[]> {
+  async listarEmpresas(opts: OpcionesListaTolerante = {}): Promise<any[]> {
     // Igual que listarPracticas/listarTodasMatriculas: quien no tenga
     // 'practica.empresas.gestionar' recibe 403 acá — sin este catch, un solo
     // 403 tumbaba el Promise.all completo del home (ver home.component.ts).
     try {
       return await firstValueFrom(this.http.get<any[]>(`${BASE2}/empresas`));
-    } catch {
+    } catch (e) {
+      if (opts.estricto && !esSinAcceso(e)) throw e;
       return [];
     }
   }

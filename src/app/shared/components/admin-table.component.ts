@@ -102,6 +102,13 @@ export interface TableRowLink {
       @if (loading) {
         <app-loading-skeleton variant="table" [rows]="6" [columns]="skeletonColumnCount"
           [showToolbar]="searchable" label="Cargando registros" />
+      } @else if (errorCarga) {
+        <app-empty-state variante="error" titulo="No se pudo cargar">
+          @if (reintentar.observed) {
+            <button type="button" (click)="reintentar.emit()"
+              class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Reintentar</button>
+          }
+        </app-empty-state>
       } @else if (rows.length === 0) {
         <app-empty-state titulo="No hay registros" ayuda="Cuando se agregue información aparecerá aquí." />
       } @else if (filasVisibles.length === 0) {
@@ -219,6 +226,10 @@ export class AdminTableComponent implements DoCheck {
   @Input() rows:      any[]    = [];
   @Input() columns:   string[] = [];
   @Input() loading  = false;
+  /** La carga falló: se dice «No se pudo cargar» en vez de «No hay registros». */
+  @Input() errorCarga = false;
+  /** Si alguien escucha, el aviso de error ofrece «Reintentar». */
+  @Output() reintentar = new EventEmitter<void>();
   /** Booleano para toda la tabla, o `(row) => boolean` cuando la tabla mezcla
    *  filas en distinto estado (ej. fichas activas y desactivadas: solo las
    *  activas se editan). */

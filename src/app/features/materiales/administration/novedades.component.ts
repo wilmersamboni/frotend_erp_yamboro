@@ -103,6 +103,8 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
 
       @if (loading) {
         <app-loading-skeleton variant="table" [rows]="6" [columns]="6" [showToolbar]="false" label="Cargando novedades" />
+      } @else if (errorCarga) {
+        <app-empty-state variante="error" titulo="No se pudo cargar las novedades"><button type="button" (click)="reintentarCarga()" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Reintentar</button></app-empty-state>
       } @else if (novedadesFiltradas.length === 0) {
         <app-empty-state titulo="No hay novedades {{ idItemFiltro ? 'para este ítem' : 'registradas' }}" />
       } @else {
@@ -281,6 +283,9 @@ const TIPOS_REQUIEREN_ITEM = ['DAÑO', 'PERDIDA', 'MANTENIMIENTO'];
   `,
 })
 export class MaterialesNovedadesComponent implements OnInit {
+  /** La carga principal falló: la tabla dice «No se pudo cargar», no «No hay…». */
+  errorCarga = false;
+  readonly reintentarCarga = (): void => void this.cargar();
   /** Catálogos auxiliares de la pantalla: si uno falla se avisa, no se muestra vacío. */
   readonly secundarias = new CargasSecundarias();
   readonly recargar = (): void => void this.cargar();
@@ -453,6 +458,7 @@ export class MaterialesNovedadesComponent implements OnInit {
   private async cargar(): Promise<void> {
     this.idItemFiltro = this.route.snapshot.queryParamMap.get('id_item');
     this.loading = true;
+    this.errorCarga = false;
     this.secundarias.reiniciar();
     try {
       // M9 — solo `listarNovedades()` es crítico; una secundaria que falle no
@@ -470,6 +476,8 @@ export class MaterialesNovedadesComponent implements OnInit {
       this.sitios = sitios;
       this.usuarios = usuarios;
     } catch (e) {
+      this.errorCarga = true;
+      this.secundarias.marcarFallo('novedades');
       this.toast.httpError(e, 'No se pudieron cargar las novedades.');
     } finally {
       this.loading = false;

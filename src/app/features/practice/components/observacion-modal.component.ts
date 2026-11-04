@@ -54,6 +54,11 @@ import { hoyIsoLocal } from '../../../core/utils/horarios.util';
                   </svg>
                   Cargando seguimientos...
                 </div>
+              } @else if (errorCarga()) {
+                <div class="rounded-xl bg-red-50 border border-red-100 px-4 py-3 flex items-center justify-between gap-3" role="alert">
+                  <p class="text-xs text-red-700">No se pudo cargar los seguimientos de esta etapa.</p>
+                  <button type="button" (click)="cargarSeguimientos()" class="text-xs font-semibold text-red-700 underline">Reintentar</button>
+                </div>
               } @else if (seguimientos().length === 0) {
                 <div class="rounded-xl bg-amber-50 border border-amber-100 px-4 py-3">
                   <p class="text-xs text-amber-600">
@@ -240,6 +245,8 @@ export class ObservacionModalComponent implements OnChanges {
   seguimientos         = signal<any[]>([]);
   historial            = signal<any[]>([]);
   cargandoSeguimientos = signal(false);
+  /** La carga falló: se dice «No se pudo cargar», no «No hay seguimientos registrados». */
+  errorCarga = signal(false);
   cargandoHistorial    = signal(false);
   fotoArchivo          = signal<File | null>(null);
   fotoPreview          = signal<string | null>(null);
@@ -275,8 +282,9 @@ export class ObservacionModalComponent implements OnChanges {
     this.quitarFoto();
   }
 
-  private async cargarSeguimientos(): Promise<void> {
+  async cargarSeguimientos(): Promise<void> {
     this.cargandoSeguimientos.set(true);
+    this.errorCarga.set(false);
     try {
       const lista = await this.seguimientoSvc.obtenerSeguimientosPorEtapa(
         String(this.alumno.id_practica)
@@ -286,6 +294,7 @@ export class ObservacionModalComponent implements OnChanges {
       );
       this.seguimientos.set(lista);
     } catch {
+      this.errorCarga.set(true);
       this.seguimientos.set([]);
     } finally {
       this.cargandoSeguimientos.set(false);

@@ -1,3 +1,4 @@
+import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 import { Component, OnInit, OnDestroy, signal, computed, inject, ElementRef, Injector, afterNextRender } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -30,7 +31,7 @@ type Filtro = 'TODAS' | EstadoEncuesta;
 @Component({
   selector: 'app-encuestas',
   standalone: true,
-  imports: [EsperaDirective, DialogDirective, FormsModule, RouterLink, DatePipe, TablePaginationComponent, SearchableSelectComponent, DateInputComponent, TimeInputComponent],
+  imports: [EmptyStateComponent, EsperaDirective, DialogDirective, FormsModule, RouterLink, DatePipe, TablePaginationComponent, SearchableSelectComponent, DateInputComponent, TimeInputComponent],
   template: `
 
     <div class="bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-50 p-3 sm:p-4 lg:p-8">
@@ -49,7 +50,7 @@ type Filtro = 'TODAS' | EstadoEncuesta;
             <div class="min-w-0">
               <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Encuestas de Satisfacción Docente</h1>
               <p class="text-muted text-sm">
-                {{ filtradas().length }} encuesta{{ filtradas().length !== 1 ? 's' : '' }}
+                {{ errorCarga() ? '—' : filtradas().length }} encuesta{{ filtradas().length !== 1 ? 's' : '' }}
               </p>
             </div>
           </div>
@@ -124,7 +125,10 @@ type Filtro = 'TODAS' | EstadoEncuesta;
           @if (loading()) {
             <div class="flex justify-center py-16 text-sm text-gray-400">Cargando encuestas...</div>
           }
-          @if (!loading() && filtradas().length === 0) {
+          @if (!loading() && errorCarga()) {
+            <app-empty-state variante="error" titulo="No se pudo cargar las encuestas"><button type="button" (click)="cargar()" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Reintentar</button></app-empty-state>
+          }
+          @if (!loading() && !errorCarga() && filtradas().length === 0) {
             <div class="flex flex-col items-center justify-center py-16 text-center">
               <div class="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center text-2xl mb-4">📊</div>
               <p class="text-gray-500 font-medium">No hay encuestas que coincidan</p>
@@ -552,6 +556,8 @@ export class EncuestasComponent implements OnInit, OnDestroy {
 
   encuestas = signal<Encuesta[]>([]);
   loading   = signal(false);
+  /** La carga de la lista falló: se dice «No se pudo cargar», no «No hay encuestas». */
+  errorCarga = signal(false);
   filtro    = signal<Filtro>('TODAS');
 
   // ── Búsqueda + filtros por ficha/instructor + paginación ──────────────────
@@ -720,6 +726,7 @@ export class EncuestasComponent implements OnInit, OnDestroy {
 
   async cargar(animar = true): Promise<void> {
     this.loading.set(true);
+    this.errorCarga.set(false);
     this.linkVisibleId.set(null);
     this.metricasVisibles.set(null);
     try {
@@ -728,6 +735,8 @@ export class EncuestasComponent implements OnInit, OnDestroy {
       this.encuestas.set(await this.api.getEncuestas(estado));
       if (animar) this.animarLista();
     } catch (e: any) {
+      this.errorCarga.set(true);
+      this.encuestas.set([]);
       this.toast.httpError(e, 'No se pudieron cargar las encuestas.');
     } finally {
       this.loading.set(false);

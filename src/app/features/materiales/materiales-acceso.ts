@@ -32,6 +32,9 @@ export type SeccionMateriales = 'Operación' | 'Inventario' | 'Catálogo' | 'Act
  *   datos personales de terceros, como el Reporte de materiales.
  * - `cualquiera`: alguno de los servicios (OR) — pantallas de entrada que usa
  *   todo el que trabaja con Materiales (Inicio, Escanear placa).
+ * - `catalogo`: alimentar el catálogo (Marcas, Categorías): administrador_erp, líder de área o
+ *   quien tenga `materiales.catalogo.gestionar` (`gestorCatalogoGuard`). Un encargado de bodega no,
+ *   ni un administrador común sin el permiso.
  * - `ingresos`: proveedores y llegada de material (2026-10-06): solo
  *   administrador_erp, líderes de área o quien tenga la excepción personal
  *   `materiales.ingresos.gestionar` (`gestorIngresosGuard`; lo decide el
@@ -44,6 +47,7 @@ export type AccesoPantalla =
   | { tipo: 'responsable-bodega' }
   | { tipo: 'gestor'; servicio: string }
   | { tipo: 'cualquiera'; servicios: string[] }
+  | { tipo: 'catalogo' }
   | { tipo: 'ingresos' };
 
 export interface PantallaMateriales {
@@ -106,15 +110,15 @@ export const PANTALLAS_MATERIALES: PantallaMateriales[] = [
   { id: 'bodegas', label: 'Bodegas', path: 'materiales/bodegas', seccion: 'Catálogo', acceso: { tipo: 'admin', servicio: 'materiales.sitios.ver' } },
   { id: 'novedades', label: 'Daños y problemas', path: 'materiales/novedades', seccion: 'Operación', acceso: servicio('materiales.novedades.ver') },
   { id: 'traslados', label: 'Mover entre bodegas', path: 'materiales/traslados', seccion: 'Operación', acceso: servicio('materiales.traslados.ver') },
-  // Solo por permiso (2026-10-21): antes `admin-o-servicio` dejaba entrar a cualquier cargo administrador sin el servicio.
+  // Solo por permiso: lo reciben el líder de área, el encargado de una bodega de Sitios y administrador_erp (2026-11-04).
   { id: 'asignaciones', label: 'Entregas a fichas', path: 'materiales/asignaciones', seccion: 'Operación', acceso: servicio('materiales.asignaciones.ver') },
   { id: 'kardex', label: 'Historial de movimientos', path: 'materiales/kardex', seccion: 'Inventario', acceso: servicio('materiales.kardex.ver') },
   // Solo para quien gestiona (administrador, encargado de bodega o líder de área): con `sitios.ver` suelto el backend recorta
   // la lista a casi nada y la pantalla quedaba vacía y sin poder crear (2026-10-21).
   { id: 'sitios', label: 'Sitios', path: 'materiales/sitios', seccion: 'Catálogo', acceso: { tipo: 'gestor', servicio: 'materiales.sitios.ver' } },
-  { id: 'marcas', label: 'Marcas', path: 'materiales/marcas', seccion: 'Catálogo', acceso: { tipo: 'gestor', servicio: 'materiales.productos.ver' } },
+  { id: 'marcas', label: 'Marcas', path: 'materiales/marcas', seccion: 'Catálogo', acceso: { tipo: 'catalogo' } },
   { id: 'proveedores', label: 'Proveedores', path: 'materiales/proveedores', seccion: 'Catálogo', acceso: { tipo: 'ingresos' } },
-  { id: 'categorias', label: 'Categorías', path: 'materiales/categorias', seccion: 'Catálogo', acceso: servicio('materiales.categorias.ver') },
+  { id: 'categorias', label: 'Categorías', path: 'materiales/categorias', seccion: 'Catálogo', acceso: { tipo: 'catalogo' } },
   { id: 'actas', label: 'Actas', path: 'materiales/actas', seccion: 'Actas', acceso: servicio('materiales.actas.ver') },
   { id: 'importar', label: 'Importar productos', path: 'materiales/importar', seccion: 'Catálogo', acceso: servicio('materiales.productos.crear'), enMenu: false },
 ];
@@ -150,6 +154,7 @@ function datosPorAcceso(acceso: AccesoPantalla): {
     case 'admin-o-servicio':
       return { roles: CARGOS_ADMIN, servicios: [acceso.servicio] };
     case 'responsable-bodega':
+    case 'catalogo':
     case 'ingresos':
       return {};
     case 'gestor':

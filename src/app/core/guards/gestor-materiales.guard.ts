@@ -28,6 +28,17 @@ export const gestorMaterialesGuard: CanActivateFn = async () => {
 };
 
 /**
+ * Marcas y Categorías: quien alimenta el catálogo (`materiales.catalogo.gestionar`).
+ * Sin el atajo de `isAdmin()`: un administrador común sin el permiso tampoco entra.
+ */
+export const gestorCatalogoGuard: CanActivateFn = async () => {
+  const api = inject(MaterialesApiService);
+  const router = inject(Router);
+  const puede = await api.puedeGestionarCatalogo().catch(() => false);
+  return puede ? true : router.createUrlTree(['/']);
+};
+
+/**
  * Proveedores y Llegada de material (2026-10-06): administrador_erp, líder de
  * área o excepción personal `materiales.ingresos.gestionar`. Ser encargado de
  * una bodega ya no basta. La regla vive en el backend

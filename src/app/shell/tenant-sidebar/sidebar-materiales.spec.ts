@@ -64,14 +64,14 @@ describe('Sidebar: menú de Materiales según permisos efectivos', () => {
     ]);
   });
 
-  it('aprendiz encargado de bodega: ve las pantallas que le da el bundle (antes no tenía link de Traslados, Novedades, Kardex ni Categorías)', () => {
+  it('aprendiz encargado de bodega: ve las pantallas que le da el bundle (antes no tenía link de Traslados, Novedades ni Kardex)', () => {
     const menu = menuMateriales({
       cargo: 'aprendiz',
       servicios: [...BASE_INSTRUCTOR, ...BUNDLE_ENCARGADO],
       responsableBodega: true,
     });
 
-    expect(menu).toEqual(expect.arrayContaining(['Inicio', 'Mi Bodega', 'Mover entre bodegas', 'Daños y problemas', 'Historial de movimientos', 'Categorías', 'Entregas a fichas', 'Equipos con placa', 'Material que se gasta']));
+    expect(menu).toEqual(expect.arrayContaining(['Inicio', 'Mi Bodega', 'Mover entre bodegas', 'Daños y problemas', 'Historial de movimientos', 'Entregas a fichas', 'Equipos con placa', 'Material que se gasta']));
     // El reporte (nombres y cédulas de terceros) es para quien gestiona: el encargado sí lo ve.
     expect(menu).toContain('Reporte de materiales');
     // "Mi Bodega" ya cubre el catálogo de productos; "Bodegas" es la consola del administrador.
@@ -88,6 +88,12 @@ describe('Sidebar: menú de Materiales según permisos efectivos', () => {
       expect(menu).not.toContain('Fechas por vencer');
       expect(menu).toContain('¿Qué hay y dónde?');
     }
+  });
+
+  it('un encargado de bodega no ve el Catálogo, pero quien además alimenta el catálogo sí (2026-11-04)', () => {
+    const permisos = ['materiales.catalogo.ver', 'materiales.productos.ver'];
+    expect(menuMateriales({ cargo: 'instructor', servicios: permisos, responsableBodega: true })).not.toContain('Catálogo de productos');
+    expect(menuMateriales({ cargo: 'instructor', servicios: permisos, responsableBodega: true, gestorCatalogo: true })).toContain('Catálogo de productos');
   });
 
   it('aprendiz común: sin Escanear placa, Salidas, Cuentadante ni Catálogo de productos (2026-10-21)', () => {
@@ -121,12 +127,22 @@ describe('Sidebar: menú de Materiales según permisos efectivos', () => {
 
   it('administrador ERP: todo el menú, con "Bodegas" y sin "Mi Bodega"', () => {
     const menu = menuMateriales({
-      cargo: 'administrador_erp', servicios: TODOS, aplicativo: 'Materiales', responsableBodega: true, gestorIngresos: true,
+      cargo: 'administrador_erp', servicios: TODOS, aplicativo: 'Materiales', responsableBodega: true, gestorIngresos: true, gestorCatalogo: true,
     });
 
     expect(menu).toEqual(
       PANTALLAS_MATERIALES.filter((p) => p.enMenu !== false && p.id !== 'mi-bodega').map((p) => p.label),
     );
+  });
+
+  it('Marcas y Categorías: solo quien alimenta el catálogo; un encargado o un administrador común no (2026-11-05)', () => {
+    const encargado = menuMateriales({ cargo: 'instructor', servicios: [...BASE_INSTRUCTOR, ...BUNDLE_ENCARGADO], responsableBodega: true });
+    expect(encargado).not.toContain('Marcas');
+    expect(encargado).not.toContain('Categorías');
+    const admin = menuMateriales({ cargo: 'administrador', servicios: TODOS, aplicativo: 'Materiales' });
+    expect(admin).not.toContain('Categorías');
+    const lider = menuMateriales({ cargo: 'instructor', servicios: BASE_INSTRUCTOR, gestorCatalogo: true });
+    expect(lider).toEqual(expect.arrayContaining(['Marcas', 'Categorías']));
   });
 
   it('Llegada de material y Proveedores: solo si el backend dice que gestiona ingresos (2026-10-06)', () => {

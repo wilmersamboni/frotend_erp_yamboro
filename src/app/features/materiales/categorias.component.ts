@@ -28,7 +28,7 @@ import { Categoria, MaterialesApiService } from './data-access/materiales-api.se
     <div class="p-6">
       <h1 class="text-xl font-bold text-gray-800 mb-5">Categorías de Materiales</h1>
 
-      <app-admin-table
+      <app-admin-table [errorCarga]="errorCarga" (reintentar)="reintentarCarga()"
         [addLabel]="puedeCrear() ? 'Nueva categoría' : null"
         (add)="nuevo()"
         [rows]="categorias"
@@ -56,6 +56,9 @@ import { Categoria, MaterialesApiService } from './data-access/materiales-api.se
   `,
 })
 export class MaterialesCategoriasComponent implements OnInit {
+  /** La carga principal falló: la tabla dice «No se pudo cargar», no «No hay…». */
+  errorCarga = false;
+  readonly reintentarCarga = (): void => void this.cargar();
   private readonly confirm = inject(ConfirmService);
 
   categorias: Categoria[] = [];
@@ -67,9 +70,10 @@ export class MaterialesCategoriasComponent implements OnInit {
   editando: Categoria | null = null;
   form: Record<string, any> = {};
 
-  puedeCrear = computed(() => this.auth.tieneServicio('materiales.categorias.crear'));
-  puedeEditar = computed(() => this.auth.tieneServicio('materiales.categorias.editar'));
-  puedeEliminar = computed(() => this.auth.tieneServicio('materiales.categorias.eliminar'));
+  // A esta pantalla solo llega quien alimenta el catálogo (`gestorCatalogoGuard`).
+  puedeCrear = computed(() => true);
+  puedeEditar = computed(() => true);
+  puedeEliminar = computed(() => true);
 
   constructor(private api: MaterialesApiService, private toast: ToastService, private auth: AuthService) {}
 
@@ -79,9 +83,11 @@ export class MaterialesCategoriasComponent implements OnInit {
 
   private async cargar(): Promise<void> {
     this.loading = true;
+    this.errorCarga = false;
     try {
       this.categorias = await this.api.listarCategorias();
     } catch (e) {
+      this.errorCarga = true;
       this.toast.httpError(e, 'No se pudieron cargar las categorías.');
     } finally {
       this.loading = false;

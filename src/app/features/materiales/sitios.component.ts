@@ -93,7 +93,7 @@ interface FilaInventario {
 
       <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
 
-      <app-admin-table
+      <app-admin-table [errorCarga]="errorCarga" (reintentar)="reintentarCarga()"
         [addLabel]="puedeCrear() ? 'Nuevo sitio' : null"
         (add)="nuevo()"
         [rows]="filas"
@@ -217,6 +217,9 @@ interface FilaInventario {
   `,
 })
 export class MaterialesSitiosComponent implements OnInit {
+  /** La carga principal falló: la tabla dice «No se pudo cargar», no «No hay…». */
+  errorCarga = false;
+  readonly reintentarCarga = (): void => void this.cargar();
   /** Catálogos auxiliares de la pantalla: si uno falla se avisa, no se muestra vacío. */
   readonly secundarias = new CargasSecundarias();
   readonly recargar = (): void => void this.cargar();
@@ -475,6 +478,7 @@ export class MaterialesSitiosComponent implements OnInit {
 
   private async cargar(): Promise<void> {
     this.loading = true;
+    this.errorCarga = false;
     this.secundarias.reiniciar();
     try {
       const [sitios, responsables, centros, areas, items, existencias] = await Promise.all([
@@ -499,6 +503,8 @@ export class MaterialesSitiosComponent implements OnInit {
       this.items = items;
       this.existencias = existencias;
     } catch (e) {
+      this.errorCarga = true;
+      this.secundarias.marcarFallo('sitios');
       this.toast.httpError(e, 'No se pudieron cargar los sitios.');
     } finally {
       this.loading = false;

@@ -1,3 +1,4 @@
+import { EmptyStateComponent } from '../../../../shared/components/empty-state.component';
 import { Component, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
@@ -10,7 +11,7 @@ import { LoadingSkeletonComponent } from '../../../../shared/components/loading-
 @Component({
   selector: 'app-root-user-list',
   standalone: true,
-  imports: [LoadingSkeletonComponent, DatePipe, AdminConfirmDialogComponent],
+  imports: [EmptyStateComponent, LoadingSkeletonComponent, DatePipe, AdminConfirmDialogComponent],
   template: `
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
       <div>
@@ -30,6 +31,8 @@ import { LoadingSkeletonComponent } from '../../../../shared/components/loading-
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       @if (cargando()) {
         <div class="p-4"><app-loading-skeleton variant="table" [rows]="6" [columns]="4" [showToolbar]="false" label="Cargando usuarios" /></div>
+      } @else if (errorCarga()) {
+        <app-empty-state variante="error" titulo="No se pudo cargar los usuarios root"><button type="button" (click)="cargarUsuarios()" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Reintentar</button></app-empty-state>
       } @else if (usuarios().length === 0) {
         <div class="flex flex-col items-center justify-center py-16 text-gray-400">
           <p class="text-sm">Aún no hay usuarios root registrados.</p>
@@ -93,15 +96,18 @@ export class RootUserListComponent {
 
   readonly usuarios        = signal<RootUser[]>([]);
   readonly cargando        = signal(true);
+  /** La carga falló: se dice «No se pudo cargar», no «No hay…». */
+  readonly errorCarga = signal(false);
   readonly usuarioAEliminar = signal<RootUser | null>(null);
 
   constructor() { this.cargarUsuarios(); }
 
   cargarUsuarios(): void {
     this.cargando.set(true);
+    this.errorCarga.set(false);
     this.rootUserService.obtenerTodos().subscribe({
       next: (data) => { this.usuarios.set(data); this.cargando.set(false); },
-      error: (err) => { this.cargando.set(false); this.toast.httpError(err, 'No se pudieron cargar los usuarios root.'); },
+      error: (err) => { this.cargando.set(false); this.errorCarga.set(true); this.toast.httpError(err, 'No se pudieron cargar los usuarios root.'); },
     });
   }
 

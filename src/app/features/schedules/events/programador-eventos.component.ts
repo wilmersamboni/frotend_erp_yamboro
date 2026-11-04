@@ -9,6 +9,8 @@ import { to12h as to12hUtil } from '../../../core/utils/horarios.util';
 import { CalendarioEventosComponent } from './calendario-eventos.component';
 import { EventoModalComponent } from './evento-modal.component';
 import { ConfirmService } from '../../../core/services/confirm.service';
+import { CargasSecundarias } from '../../../shared/carga/cargas-secundarias';
+import { AvisoCargasComponent } from '../../../shared/carga/aviso-cargas.component';
 
 const TIPO_COLORS: Record<string, { bg: string; text: string }> = {
   formativo:     { bg: 'var(--info-bg)', text: 'var(--info-text)' },
@@ -19,7 +21,7 @@ const TIPO_COLORS: Record<string, { bg: string; text: string }> = {
 
 @Component({
   selector: 'app-programador-eventos',
-  imports: [FormsModule, LucideAngularModule, SearchableSelectComponent, CalendarioEventosComponent, EventoModalComponent],
+  imports: [FormsModule, LucideAngularModule, SearchableSelectComponent, CalendarioEventosComponent, EventoModalComponent, AvisoCargasComponent],
   template: `
 
     <div class="page-header">
@@ -32,6 +34,8 @@ const TIPO_COLORS: Record<string, { bg: string; text: string }> = {
         Nuevo Evento
       </button>
     </div>
+
+    <app-aviso-cargas class="block mt-4" [cargas]="cargas" (reintentar)="load()" />
 
     <!-- Filtros -->
     <div class="card p-4 mt-4">
@@ -63,7 +67,7 @@ const TIPO_COLORS: Record<string, { bg: string; text: string }> = {
     <div class="table-card mt-4">
       <div class="table-card-header">
         <lucide-icon name="calendar" [size]="15" style="color:var(--text-muted)"></lucide-icon>
-        <h3 class="text-sm font-semibold text-gray-700">Eventos <span class="font-normal text-gray-400">— {{ filteredEventos().length }} {{ filteredEventos().length === 1 ? 'registro' : 'registros' }}</span></h3>
+        <h3 class="text-sm font-semibold text-gray-700">Eventos <span class="font-normal text-gray-400">— {{ cargas.fallo('eventos') ? 'no se pudo cargar' : filteredEventos().length + (filteredEventos().length === 1 ? ' registro' : ' registros') }}</span></h3>
       </div>
       <div class="table-scroll">
         <table class="data-table">
@@ -74,9 +78,9 @@ const TIPO_COLORS: Record<string, { bg: string; text: string }> = {
           <tbody>
             @if (filteredEventos().length === 0) {
               <tr><td colspan="8" style="padding:0;border-bottom:none">
-                <div class="empty-state">
-                  <lucide-icon name="calendar-x" [size]="30"></lucide-icon>
-                  <span>Sin eventos registrados</span>
+                <div class="empty-state" role="status">
+                  <lucide-icon [name]="cargas.fallo('eventos') ? 'cloud-off' : 'calendar-x'" [size]="30"></lucide-icon>
+                  <span>{{ cargando() ? 'Cargando eventos…' : cargas.fallo('eventos') ? 'No se pudo cargar' : 'Sin eventos registrados' }}</span>
                 </div>
               </td></tr>
             }
@@ -155,6 +159,9 @@ export class ProgramadorEventosComponent implements OnInit {
   // ── Filtros de lista (signals → computed reactivo) ─────────────
   searchQ   = signal('');
   filterTipo = signal('');
+  cargando = signal(true);
+  /** Qué no se pudo traer: se avisa en pantalla en vez de mostrar «Sin eventos registrados». */
+  readonly cargas = new CargasSecundarias();
   filterMes  = signal('');
 
   meses = [
@@ -205,14 +212,16 @@ export class ProgramadorEventosComponent implements OnInit {
   ngOnInit() { this.load(); }
 
   async load() {
+    this.cargas.reiniciar();
     const [eventos, fichas, horarios] = await Promise.all([
-      this.horariosApi.getEventos().catch(() => []),
-      this.erpCatalogo.getFichas().catch(() => []),
-      this.horariosApi.getHorarios().catch(() => []),
+      this.cargas.cargar('eventos', () => this.horariosApi.getEventos()),
+      this.cargas.cargar('fichas', () => this.erpCatalogo.getFichas()),
+      this.cargas.cargar('horarios', () => this.horariosApi.getHorarios()),
     ]);
     this.eventos.set(eventos ?? []);
     this.fichas.set(fichas ?? []);
     this.horarios.set(horarios ?? []);
+    this.cargando.set(false);
   }
 
   /** Al elegir un mes en el filtro, el calendario salta a ese mes (mismo año visible) */

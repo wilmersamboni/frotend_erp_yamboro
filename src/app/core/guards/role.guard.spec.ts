@@ -15,6 +15,7 @@ function preparar(opciones: {
   servicios?: string[];
   tieneEtapa?: boolean | null;
   bodegasACargo?: unknown[] | 'falla';
+  gestionaCatalogo?: boolean;
 }) {
   const esAdmin = opciones.cargo === 'administrador' || opciones.cargo === 'administrador_erp';
   TestBed.configureTestingModule({
@@ -36,6 +37,7 @@ function preparar(opciones: {
       {
         provide: MaterialesApiService,
         useValue: {
+          puedeGestionarCatalogo: () => Promise.resolve(!!opciones.gestionaCatalogo),
           sitiosACargo: () =>
             opciones.bodegasACargo === 'falla'
               ? Promise.reject(new Error('sin red'))
@@ -139,6 +141,11 @@ describe('productosGuard', () => {
   it('manda a "Mi Bodega" a quien administra una bodega', async () => {
     preparar({ cargo: 'instructor', bodegasACargo: [{ id_sitio: 's1' }] });
     expect(await entrarProductos()).toEqual(redirige('/mi-bodega'));
+  });
+
+  it('deja pasar a quien alimenta el catálogo aunque tenga bodegas a cargo (líder de área)', async () => {
+    preparar({ cargo: 'instructor', bodegasACargo: [{ id_sitio: 's1' }], gestionaCatalogo: true });
+    expect(await entrarProductos()).toBe(true);
   });
 
   it('deja pasar al administrador, a quien no administra ninguna, y si no se pudo consultar', async () => {

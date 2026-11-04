@@ -1,3 +1,4 @@
+import { EmptyStateComponent } from '../../../../shared/components/empty-state.component';
 import { Component, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -17,7 +18,7 @@ const ACCIONES: AuditAccion[] = ['CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT'
 @Component({
   selector: 'app-audit-log-list',
   standalone: true,
-  imports: [EsperaDirective, LoadingSkeletonComponent, FormsModule, DatePipe, SearchableSelectComponent, DateInputComponent],
+  imports: [EmptyStateComponent, EsperaDirective, LoadingSkeletonComponent, FormsModule, DatePipe, SearchableSelectComponent, DateInputComponent],
   template: `
     <div class="mb-6">
       <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Registro de Auditoría</h1>
@@ -92,6 +93,8 @@ const ACCIONES: AuditAccion[] = ['CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT'
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       @if (cargando()) {
         <div class="p-4"><app-loading-skeleton variant="table" [rows]="8" [columns]="5" [showToolbar]="false" label="Cargando registros" /></div>
+      } @else if (errorCarga()) {
+        <app-empty-state variante="error" titulo="No se pudo cargar los registros de auditoría"><button type="button" (click)="cargarLogs()" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Reintentar</button></app-empty-state>
       } @else if (visibles().length === 0) {
         <div class="flex flex-col items-center justify-center py-16 text-gray-400">
           <p class="text-sm">No hay registros de auditoría para los filtros seleccionados.</p>
@@ -145,6 +148,8 @@ export class AuditLogListComponent {
   readonly logs          = signal<AuditLog[]>([]);
   readonly tenants       = signal<Tenant[]>([]);
   readonly cargando      = signal(true);
+  /** La carga falló: se dice «No se pudo cargar», no «No hay…». */
+  readonly errorCarga = signal(false);
 
   readonly filtroTenantId = signal('');
   readonly filtroDesde    = signal<TuiDay | null>(null);
@@ -199,8 +204,9 @@ export class AuditLogListComponent {
     this.cargarLogs();
   }
 
-  private cargarLogs(): void {
+  cargarLogs(): void {
     this.cargando.set(true);
+    this.errorCarga.set(false);
     this.auditLogService.obtenerLogs({
       tenantId: this.filtroTenantId() || undefined,
       desde:    this.tuiDayToISO(this.filtroDesde()),
@@ -209,7 +215,7 @@ export class AuditLogListComponent {
       limite:   this.limite,
     }).subscribe({
       next: (logs) => { this.logs.set(logs); this.cargando.set(false); },
-      error: (err) => { this.cargando.set(false); this.toast.httpError(err, 'No se pudieron cargar los registros de auditoría.'); },
+      error: (err) => { this.cargando.set(false); this.errorCarga.set(true); this.toast.httpError(err, 'No se pudieron cargar los registros de auditoría.'); },
     });
   }
 

@@ -31,6 +31,8 @@ interface NavLink  {
   /** Solo para quien gestiona Materiales: admin, encargado de ≥1 bodega o
    * líder de área (mismo criterio que `gestorMaterialesGuard`). */
   soloGestorMateriales?: boolean;
+  /** Solo para quien alimenta el catálogo (mismo criterio que `gestorCatalogoGuard`). */
+  soloGestorCatalogo?: boolean;
   /** Solo para quien registra llegadas/proveedores (mismo criterio que `gestorIngresosGuard`). */
   soloGestorIngresos?: boolean;
   /** Cargos que no ven este link aunque tengan el servicio (misma regla que `excluirRoles` de la ruta). */
@@ -294,7 +296,7 @@ const ICONOS_MATERIALES: Record<string, string> = {
 export class SidebarComponent implements OnChanges, OnInit {
   /** ¿El usuario es responsable de ≥1 bodega? Gate del link "Mi Bodega". */
   esResponsableBodega = signal(false);
-  /** ¿Puede alimentar el catálogo (administrador_erp o líder de área)? Gate del Reporte de materiales. */
+  /** ¿Puede alimentar el catálogo (permiso `materiales.catalogo.gestionar`)? Quien puede no pierde el link del Catálogo por tener bodegas. */
   esGestorCatalogo = signal(false);
   /** ¿Registra llegadas de material y proveedores? Gate de esas dos pantallas. */
   esGestorIngresos = signal(false);
@@ -546,6 +548,8 @@ export class SidebarComponent implements OnChanges, OnInit {
         return { ...base, soloResponsableBodega: true };
       case 'gestor':
         return { ...base, servicios: [p.acceso.servicio], soloGestorMateriales: true };
+      case 'catalogo':
+        return { ...base, soloGestorCatalogo: true };
       case 'ingresos':
         return { ...base, soloGestorIngresos: true };
       case 'cualquiera':
@@ -616,7 +620,8 @@ export class SidebarComponent implements OnChanges, OnInit {
           if (esAprendiz && l.soloAprendizSinEtapa && tieneEtapa !== false) return false;
           if (l.ocultarACargos?.includes(cargo)) return false;
           if (l.soloResponsableBodega && (this.auth.isAdmin() || !this.esResponsableBodega())) return false;
-          if (l.ocultarSiResponsableBodega && !this.auth.isAdmin() && this.esResponsableBodega()) return false;
+          if (l.ocultarSiResponsableBodega && !this.auth.isAdmin() && this.esResponsableBodega() && !this.esGestorCatalogo()) return false;
+          if (l.soloGestorCatalogo && !this.esGestorCatalogo()) return false;
           if (l.soloGestorMateriales && !this.auth.isAdmin() && !this.esResponsableBodega() && !this.esGestorCatalogo()) return false;
           if (l.soloGestorIngresos && !this.esGestorIngresos()) return false;
           return true;
