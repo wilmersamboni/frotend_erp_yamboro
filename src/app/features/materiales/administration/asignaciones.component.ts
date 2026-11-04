@@ -39,7 +39,7 @@ const idDe = (valor: string, tipo: 'p' | 'l'): string | null => (valor.startsWit
 interface Ficha {
   idCurso: string;
   codigo: string;
-  programa: string;
+  programa: string | null;
 }
 
 /**
@@ -560,7 +560,9 @@ export class MaterialesAsignacionesComponent implements OnInit {
     for (const o of this.opcionesDev) {
       if (!this.bodegasGestionadas || this.bodegasGestionadas.has(o.id_sitio)) vistas.set(o.id_sitio, o.sitio_nombre);
     }
-    for (const o of this.opcionesCons) vistas.set(o.id_sitio, o.sitio_nombre);
+    for (const o of this.opcionesCons) {
+      if (!this.bodegasGestionadas || this.bodegasGestionadas.has(o.id_sitio)) vistas.set(o.id_sitio, o.sitio_nombre);
+    }
     return [...vistas.entries()].sort((a, b) => a[1].localeCompare(b[1])).map(([value, label]) => ({ value, label }));
   }
 
@@ -881,14 +883,15 @@ export class MaterialesAsignacionesComponent implements OnInit {
   private async cargarOpciones(): Promise<void> {
     this.secundarias.olvidar('material disponible');
     this.secundarias.olvidar('bodegas a tu cargo');
-    const [opciones, consumo, aCargo] = await Promise.all([
+    const [opciones, consumo, entrega] = await Promise.all([
       this.secundarias.cargar('material disponible', () => this.api.opcionesDevolutivos()),
       this.secundarias.cargar('material disponible', () => this.api.opcionesConsumoAsignacion()),
-      this.auth.isAdmin() ? Promise.resolve(null) : this.secundarias.cargar('bodegas a tu cargo', () => this.api.sitiosACargo()),
+      this.secundarias.cargarUno('bodegas a tu cargo', () => this.api.opcionesEntregaFicha(), { fichas: [], id_sitios: [] as string[] | null }),
     ]);
     this.opcionesDev = opciones;
     this.opcionesCons = consumo;
-    this.bodegasGestionadas = aCargo ? new Set(aCargo.map((x) => x.id_sitio)) : null;
+    this.bodegasGestionadas = entrega.id_sitios ? new Set(entrega.id_sitios) : null;
+    if (entrega.fichas.length) this.fichas = entrega.fichas;
     const bodegas = this.opcionesBodegaAsig;
     if (!this.idSitioAsig) this.idSitioAsig = bodegas.length === 1 ? bodegas[0].value : '';
   }
@@ -901,12 +904,16 @@ export class MaterialesAsignacionesComponent implements OnInit {
     this.idSitioAsig = '';
     await this.cargarOpciones();
     // Dos motivos distintos, dos mensajes (antes uno solo que no decía cuál faltaba).
-    if (this.fichas.length === 0) {
+    if (this.bodegasGestionadas?.size === 0 && !this.secundarias.falloAlguna(['bodegas a tu cargo'])) {
       this.toast.warn(
-        'No ves ninguna ficha',
-        'Solo puedes asignar material a las fichas que lideras o dictas. Para una ficha de otro instructor, que él haga una solicitud «para ficha» y tú la apruebas y entregas.',
+        'No puedes entregar a fichas',
+        'Las entregas a fichas salen de bodegas creadas en Sitios. Si tienes a cargo un ambiente, las hace el líder de su área o el administrador.',
         8000,
       );
+      return;
+    }
+    if (this.fichas.length === 0) {
+      this.toast.warn('No hay fichas', 'No hay fichas registradas en el centro para entregarles material.');
       return;
     }
     if (this.opcionesBodegaAsig.length === 0 && !this.secundarias.falloAlguna(['material disponible', 'bodegas a tu cargo'])) {

@@ -1262,6 +1262,12 @@ export class MaterialesApiService {
     return this.unwrap(this.http.get<Envelope<Sitio[]>>(`${BASE}/sitios`));
   }
   /** Bodegas de las que el usuario logueado es responsable — pantalla "Mi Bodega". */
+  /** Fichas y bodegas del formulario de nueva entrega (`id_sitios` null = todas). */
+  opcionesEntregaFicha() {
+    return this.unwrap(
+      this.http.get<Envelope<{ fichas: { idCurso: string; codigo: string; programa: string | null }[]; id_sitios: string[] | null }>>(`${BASE}/asignaciones/opciones/entrega`),
+    );
+  }
   sitiosACargo() {
     return this.unwrap(this.http.get<Envelope<Sitio[]>>(`${BASE}/sitios/a-cargo`));
   }

@@ -1,6 +1,6 @@
 import { Route, Routes } from '@angular/router';
 import { miBodegaGuard } from '../../core/guards/mi-bodega.guard';
-import { gestorIngresosGuard, gestorMaterialesGuard } from '../../core/guards/gestor-materiales.guard';
+import { gestorCatalogoGuard, gestorIngresosGuard, gestorMaterialesGuard } from '../../core/guards/gestor-materiales.guard';
 import { productosGuard } from '../../core/guards/productos.guard';
 import { roleGuard } from '../../core/guards/role.guard';
 import { datosRutaMateriales, pantallaMateriales } from './materiales-acceso';
@@ -31,12 +31,12 @@ export const MATERIALS_ROUTES: Routes = [
   ruta('escanear', () => import('./inicio/escanear.component').then((m) => m.EscanearComponent)),
   ruta('mi-bodega', () => import('./warehouse/mi-bodega.component').then((m) => m.MiBodegaComponent), { canActivate: [miBodegaGuard] }),
   ruta('bodegas', () => import('./warehouse/mi-bodega.component').then((m) => m.MiBodegaComponent), { data: { todasLasBodegas: true } }),
-  ruta('categorias', () => import('./categorias.component').then((m) => m.MaterialesCategoriasComponent)),
+  ruta('categorias', () => import('./categorias.component').then((m) => m.MaterialesCategoriasComponent), { canActivate: [roleGuard, gestorCatalogoGuard] }),
   ruta('sitios', () => import('./sitios.component').then((m) => m.MaterialesSitiosComponent), { canActivate: [roleGuard, gestorMaterialesGuard] }),
   ruta('productos', () => import('./productos.component').then((m) => m.MaterialesProductosComponent), { canActivate: [roleGuard, productosGuard] }),
   ruta('existencias', () => import('./existencias.component').then((m) => m.MaterialesExistenciasComponent)),
   ruta('ingresos', () => import('./ingresos.component').then((m) => m.MaterialesIngresosComponent), { canActivate: [roleGuard, gestorIngresosGuard] }),
-  ruta('marcas', () => import('./marcas.component').then((m) => m.MaterialesMarcasComponent), { canActivate: [roleGuard, gestorMaterialesGuard] }),
+  ruta('marcas', () => import('./marcas.component').then((m) => m.MaterialesMarcasComponent), { canActivate: [roleGuard, gestorCatalogoGuard] }),
   ruta('proveedores', () => import('./proveedores.component').then((m) => m.MaterialesProveedoresComponent), { canActivate: [roleGuard, gestorIngresosGuard] }),
   ruta('reporte', () => import('./reporte/reporte-materiales.component').then((m) => m.ReporteMaterialesComponent), { canActivate: [roleGuard, gestorMaterialesGuard] }),
   ruta('items', () => import('./items.component').then((m) => m.MaterialesItemsComponent)),

@@ -70,9 +70,10 @@ export class MaterialesCategoriasComponent implements OnInit {
   editando: Categoria | null = null;
   form: Record<string, any> = {};
 
-  puedeCrear = computed(() => this.auth.tieneServicio('materiales.categorias.crear'));
-  puedeEditar = computed(() => this.auth.tieneServicio('materiales.categorias.editar'));
-  puedeEliminar = computed(() => this.auth.tieneServicio('materiales.categorias.eliminar'));
+  // A esta pantalla solo llega quien alimenta el catálogo (`gestorCatalogoGuard`).
+  puedeCrear = computed(() => true);
+  puedeEditar = computed(() => true);
+  puedeEliminar = computed(() => true);
 
   constructor(private api: MaterialesApiService, private toast: ToastService, private auth: AuthService) {}
 
