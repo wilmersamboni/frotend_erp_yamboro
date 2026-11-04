@@ -107,6 +107,7 @@ const SERVICIO_LABELS: Record<string, string> = {
   'materiales.salidas.ver': 'Ver salidas de material', 'materiales.salidas.crear': 'Pedir y gestionar salidas de material',
   'materiales.cuentadante.ver': 'Ver cuentadantes y bienes a cargo', 'materiales.escaneo.usar': 'Escanear placas de equipos',
   'materiales.catalogo.ver': 'Ver la pantalla Catálogo de productos (necesita también «Ver productos»)',
+  'materiales.catalogo.gestionar': 'Alimentar el catálogo: crear, editar y desactivar fichas de productos',
   'horarios.competencias.ver': 'Ver competencias', 'horarios.competencias.gestionar': 'Crear y editar competencias',
   'horarios.eventos.ver': 'Ver eventos del calendario', 'horarios.eventos.gestionar': 'Crear y editar eventos del calendario',
   // Encuestas
