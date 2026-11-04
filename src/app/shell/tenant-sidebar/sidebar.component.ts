@@ -31,6 +31,8 @@ interface NavLink  {
   /** Solo para quien gestiona Materiales: admin, encargado de ≥1 bodega o
    * líder de área (mismo criterio que `gestorMaterialesGuard`). */
   soloGestorMateriales?: boolean;
+  /** Solo para quien alimenta el catálogo (mismo criterio que `gestorCatalogoGuard`). */
+  soloGestorCatalogo?: boolean;
   /** Solo para quien registra llegadas/proveedores (mismo criterio que `gestorIngresosGuard`). */
   soloGestorIngresos?: boolean;
   /** Cargos que no ven este link aunque tengan el servicio (misma regla que `excluirRoles` de la ruta). */
@@ -546,6 +548,8 @@ export class SidebarComponent implements OnChanges, OnInit {
         return { ...base, soloResponsableBodega: true };
       case 'gestor':
         return { ...base, servicios: [p.acceso.servicio], soloGestorMateriales: true };
+      case 'catalogo':
+        return { ...base, soloGestorCatalogo: true };
       case 'ingresos':
         return { ...base, soloGestorIngresos: true };
       case 'cualquiera':
@@ -617,6 +621,7 @@ export class SidebarComponent implements OnChanges, OnInit {
           if (l.ocultarACargos?.includes(cargo)) return false;
           if (l.soloResponsableBodega && (this.auth.isAdmin() || !this.esResponsableBodega())) return false;
           if (l.ocultarSiResponsableBodega && !this.auth.isAdmin() && this.esResponsableBodega() && !this.esGestorCatalogo()) return false;
+          if (l.soloGestorCatalogo && !this.esGestorCatalogo()) return false;
           if (l.soloGestorMateriales && !this.auth.isAdmin() && !this.esResponsableBodega() && !this.esGestorCatalogo()) return false;
           if (l.soloGestorIngresos && !this.esGestorIngresos()) return false;
           return true;

@@ -96,7 +96,7 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
                       [class.font-medium]="bodegaSel() === b.id_sitio"
                       [class.text-gray-600]="bodegaSel() !== b.id_sitio"
                       [class.hover:bg-gray-50]="bodegaSel() !== b.id_sitio">
-                      <span class="truncate">{{ b.nombre }}</span>
+                      <span class="truncate">{{ b.nombre }}@if (b.id_ambiente_origen) { <span class="text-xs font-normal text-gray-400">· ambiente</span> }</span>
                       @if (bodegaSel() === b.id_sitio) {
                         <svg class="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
