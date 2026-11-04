@@ -6,7 +6,8 @@ import { MaterialesApiService } from '../../features/materiales/data-access/mate
 /**
  * Redirige a `/mi-bodega` a cualquier encargado de bodega (cualquier cargo)
  * que intente entrar a `/materiales/productos` — la vista genérica sigue
- * siendo la que usan admin y líder de área.
+ * siendo la que usan admin y quien alimenta el catálogo (permiso
+ * `materiales.catalogo.gestionar`), aunque además tenga bodegas a cargo.
  *
  * No alcanza con quitarle el link del sidebar: el encargado de bodega SIGUE
  * teniendo el servicio `materiales.productos.ver` (lo necesita para que Mi
@@ -22,6 +23,7 @@ export const productosGuard: CanActivateFn = async () => {
   const api = inject(MaterialesApiService);
   const router = inject(Router);
   try {
+    if (await api.puedeGestionarCatalogo()) return true;
     const aCargo = await api.sitiosACargo();
     if (aCargo.length > 0) return router.createUrlTree(['/mi-bodega']);
   } catch {

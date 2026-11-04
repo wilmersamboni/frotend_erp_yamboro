@@ -90,6 +90,12 @@ describe('Sidebar: menú de Materiales según permisos efectivos', () => {
     }
   });
 
+  it('un encargado de bodega no ve el Catálogo, pero quien además alimenta el catálogo sí (2026-11-04)', () => {
+    const permisos = ['materiales.catalogo.ver', 'materiales.productos.ver'];
+    expect(menuMateriales({ cargo: 'instructor', servicios: permisos, responsableBodega: true })).not.toContain('Catálogo de productos');
+    expect(menuMateriales({ cargo: 'instructor', servicios: permisos, responsableBodega: true, gestorCatalogo: true })).toContain('Catálogo de productos');
+  });
+
   it('aprendiz común: sin Escanear placa, Salidas, Cuentadante ni Catálogo de productos (2026-10-21)', () => {
     expect(menuMateriales({ cargo: 'aprendiz', servicios: BASE_APRENDIZ })).toEqual([
       'Inicio', 'Pedidos y préstamos', 'Devoluciones', 'Fechas por vencer', '¿Qué hay y dónde?', 'Actas',

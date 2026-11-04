@@ -294,7 +294,7 @@ const ICONOS_MATERIALES: Record<string, string> = {
 export class SidebarComponent implements OnChanges, OnInit {
   /** ¿El usuario es responsable de ≥1 bodega? Gate del link "Mi Bodega". */
   esResponsableBodega = signal(false);
-  /** ¿Puede alimentar el catálogo (administrador_erp o líder de área)? Gate del Reporte de materiales. */
+  /** ¿Puede alimentar el catálogo (permiso `materiales.catalogo.gestionar`)? Quien puede no pierde el link del Catálogo por tener bodegas. */
   esGestorCatalogo = signal(false);
   /** ¿Registra llegadas de material y proveedores? Gate de esas dos pantallas. */
   esGestorIngresos = signal(false);
@@ -616,7 +616,7 @@ export class SidebarComponent implements OnChanges, OnInit {
           if (esAprendiz && l.soloAprendizSinEtapa && tieneEtapa !== false) return false;
           if (l.ocultarACargos?.includes(cargo)) return false;
           if (l.soloResponsableBodega && (this.auth.isAdmin() || !this.esResponsableBodega())) return false;
-          if (l.ocultarSiResponsableBodega && !this.auth.isAdmin() && this.esResponsableBodega()) return false;
+          if (l.ocultarSiResponsableBodega && !this.auth.isAdmin() && this.esResponsableBodega() && !this.esGestorCatalogo()) return false;
           if (l.soloGestorMateriales && !this.auth.isAdmin() && !this.esResponsableBodega() && !this.esGestorCatalogo()) return false;
           if (l.soloGestorIngresos && !this.esGestorIngresos()) return false;
           return true;
