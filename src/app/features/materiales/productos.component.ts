@@ -428,27 +428,32 @@ export class MaterialesProductosComponent implements OnInit {
       return;
     }
 
-    // ¿Fue un error de registro (bodega equivocada, cantidad mal digitada)? Sin
-    // historia se puede borrar de verdad, con lo que generó; si no, solo desactivar.
-    if (await this.confirm.ask(
-      `¿"${nombre}" se registró por error (bodega equivocada, cantidad mal digitada)? Se puede eliminar por completo, junto con las unidades y lotes que generó, solo si todavía no tiene placas, préstamos, traslados, novedades ni movimientos. Si eliges "Solo desactivar" se conserva el histórico.`,
-      { header: 'Registro por error', acceptLabel: 'Eliminar definitivamente', rejectLabel: 'Solo desactivar' },
-    )) {
-      if (!(await this.confirm.ask(`Esto borra "${nombre}" y todo lo que se generó con él, y no se puede deshacer. ¿Continuar?`, { acceptLabel: 'Sí, eliminar' }))) return;
+    // 2026-11-12: antes "¿se registró por error?" tenía dos acciones y ningún
+    // Cancelar, y "Eliminar definitivamente" se llevaba las existencias de
+    // TODAS las bodegas. Acá solo se decide sobre la ficha (catálogo de todo el
+    // centro); lo agregado en una bodega equivocada se quita en Mi Bodega.
+    const opcion = await this.confirm.elegir(
+      `Afecta al catálogo de todo el centro.\n\nDesactivar: sale de las listas; el historial queda y se puede reactivar.\nEliminar: solo si la ficha no tiene existencias en ninguna bodega.\n\nSi solo se agregó en una bodega equivocada, elimina esas unidades o lotes desde Mi Bodega (botón «Desactivar» de la fila): la ficha se conserva.`,
+      [
+        { id: 'desactivar', label: 'Desactivar ficha', detalle: 'Sale de las listas; el historial queda y se puede reactivar.' },
+        { id: 'eliminar', label: 'Eliminar ficha', detalle: 'Solo si no tiene existencias en ninguna bodega ni historial.', danger: true },
+      ],
+      { header: `Ficha «${nombre}»` },
+    );
+    if (!opcion) return;
+
+    if (opcion === 'eliminar') {
+      if (!(await this.confirm.ask(`Se borra la ficha «${nombre}» del catálogo y no se puede deshacer. ¿Continuar?`, { acceptLabel: 'Sí, eliminar ficha' }))) return;
       try {
         await this.api.eliminarProductoDefinitivo(fila.id_producto);
-        this.toast.ok('Producto eliminado definitivamente');
+        this.toast.ok('Ficha eliminada');
         await this.cargar();
       } catch (e) {
-        this.toast.httpError(e, 'No se pudo eliminar el producto.');
+        this.toast.httpError(e, 'No se pudo eliminar la ficha.');
       }
       return;
     }
 
-    if (!(await this.confirm.ask(
-      `¿Desactivar el producto "${nombre}"? Sale de las listas y los selects; su histórico (kardex, préstamos, lotes) queda intacto y puedes reactivarlo.`,
-      { acceptLabel: 'Desactivar' },
-    ))) return;
     try {
       await this.api.eliminarProducto(fila.id_producto);
       this.toast.ok('Producto desactivado');

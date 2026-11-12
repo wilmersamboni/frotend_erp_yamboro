@@ -15,6 +15,28 @@ export type EstadoLote = 'ACTIVO' | 'AGOTADO' | 'VENCIDO' | 'DADO_DE_BAJA';
 export type TipoNovedad = 'DAÑO' | 'PERDIDA' | 'MANTENIMIENTO' | 'DISCREPANCIA' | 'OTRO';
 export type EstadoNovedad = 'PENDIENTE' | 'EN_PROCESO' | 'RESUELTA';
 
+/**
+ * Unidad (devolutivo) o lote (consumo/perecedero) de una ficha en una bodega,
+ * para el modal "Desactivar" de Mi Bodega: si se puede eliminar (registro por
+ * error) o desactivar, y si no, por qué.
+ */
+export interface ElementoExistencia {
+  tipo: 'unidad' | 'lote';
+  id: string;
+  referencia: string;
+  detalle: string;
+  eliminable: boolean;
+  motivo_no_eliminar: string | null;
+  desactivable: boolean;
+  motivo_no_desactivar: string | null;
+}
+
+export interface ExistenciasDeBodega {
+  tipo_material: string;
+  unidad_medida: string | null;
+  elementos: ElementoExistencia[];
+}
+
 export interface Categoria {
   id_categoria: string;
   nombre: string;
@@ -1545,9 +1567,37 @@ export class MaterialesApiService {
   eliminarProducto(id: string) {
     return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/productos/${id}`));
   }
-  /** Borra un producto registrado por error y lo que generó; el backend lo rechaza (400) si ya tiene historia. */
+  /**
+   * Borra la FICHA. Desde 2026-11-12 el backend la rechaza (400) si todavía
+   * tiene existencias en alguna bodega o historia: lo mal ubicado se quita con
+   * `eliminarExistenciasDeBodega` (Mi Bodega), que conserva la ficha.
+   */
   eliminarProductoDefinitivo(id: string) {
     return this.unwrap(this.http.delete<Envelope<null>>(`${BASE}/productos/${id}/definitivo`));
+  }
+  /** Unidades/lotes de la ficha en esa bodega, con qué se puede hacer con cada uno. */
+  listarExistenciasDeBodega(idProducto: string, idSitio: string) {
+    return this.unwrap(
+      this.http.get<Envelope<ExistenciasDeBodega>>(`${BASE}/productos/${idProducto}/existencias/${idSitio}`),
+    );
+  }
+  /** Registro por error: borra los elegidos sin dejar rastro; la ficha se conserva. */
+  eliminarExistenciasDeBodega(idProducto: string, idSitio: string, ids: string[]) {
+    return this.unwrap(
+      this.http.post<Envelope<{ unidades: number; lotes: number }>>(
+        `${BASE}/productos/${idProducto}/existencias/${idSitio}/eliminar`,
+        { ids },
+      ),
+    );
+  }
+  /** Desactiva unidades y da de baja lotes elegidos, con motivo: quedan en el historial. */
+  desactivarExistenciasDeBodega(idProducto: string, idSitio: string, ids: string[], motivo: string) {
+    return this.unwrap(
+      this.http.post<Envelope<{ unidades: number; lotes: number }>>(
+        `${BASE}/productos/${idProducto}/existencias/${idSitio}/desactivar`,
+        { ids, motivo },
+      ),
+    );
   }
   /** B1 — reactiva un producto desactivado. */
   activarProducto(id: string) {

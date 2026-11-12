@@ -21,8 +21,12 @@ import { AvisoCargasComponent } from '../ui/aviso-cargas.component';
 import { MaterialesScreenPolicy } from '../ui/materiales-screen-policy';
 import { TarjetaMaterialComponent } from '../ui/tarjeta-material.component';
 import { PlantillasCaracteristicasService } from '../ui/caracteristicas-equipo.component';
+import { ExistenciasBodegaModalComponent } from '../ui/existencias-bodega-modal.component';
 
 type Tab = 'productos' | 'items';
+
+/** Un ambiente todavía sin materializar (`amb-…`) no tiene existencias propias. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
   { label: 'Disponible', value: 'DISPONIBLE' },
@@ -58,7 +62,7 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
 @Component({
   selector: 'app-mi-bodega',
   standalone: true,
-  imports: [EmptyStateComponent, TarjetaMaterialComponent, AvisoCargasComponent, FormsModule, RouterLink, AdminTableComponent, AdminModalComponent, ProductoFormModalComponent, AgregarExistenciasModalComponent, FichasPedidasPanelComponent, DialogDirective],
+  imports: [EmptyStateComponent, TarjetaMaterialComponent, AvisoCargasComponent, FormsModule, RouterLink, AdminTableComponent, AdminModalComponent, ProductoFormModalComponent, AgregarExistenciasModalComponent, ExistenciasBodegaModalComponent, FichasPedidasPanelComponent, DialogDirective],
   template: `
     <div class="p-6 space-y-5">
       <app-aviso-cargas [cargas]="secundarias" (reintentar)="recargar()" />
@@ -261,6 +265,16 @@ const OPCIONES_ESTADO_ITEM: OpcionSelect[] = [
       (guardado)="onExistenciasAgregadas()"
       (crearFicha)="crearFichaDesdeAgregar()" />
 
+    <!-- "Desactivar" de la fila: eliminar o desactivar unidades/lotes de esta bodega (2026-11-12). -->
+    <app-existencias-bodega-modal
+      [open]="!!existenciasModal()"
+      [idProducto]="existenciasModal()?.idProducto ?? null"
+      [nombre]="existenciasModal()?.nombre ?? ''"
+      [idSitio]="bodegaSel()"
+      [bodegaNombre]="bodegaActual()?.nombre ?? ''"
+      (closed)="existenciasModal.set(null)"
+      (cambio)="onExistenciasCambiadas()" />
+
     <!-- Ítem: sigue en el modal genérico (placa SENA + estado, nada que unificar). -->
     <app-admin-modal
       [open]="modalKind() === 'item' && modalOpen()"
@@ -310,11 +324,29 @@ export class MiBodegaComponent implements OnInit {
     this.auth.tieneServicio('materiales.items.crear') || this.auth.tieneServicio('materiales.lotes.crear'),
   );
 
-  /** Desactivar/Activar afecta la ficha en TODAS las bodegas (para una unidad: desactivar POR ÍTEM en "Ítems"). */
-  puedeGestionarActivoProd = (row: any): boolean => this.puedeEliminar() && !!row;
+  /**
+   * Eliminar (registro por error) o desactivar unidades/lotes de ESTA bodega:
+   * quien agrega existencias o edita ítems/lotes (encargado incluido).
+   */
+  puedeGestionarExistencias = computed(
+    () =>
+      this.puedeAgregar() ||
+      this.auth.tieneServicio('materiales.items.editar') ||
+      this.auth.tieneServicio('materiales.lotes.editar'),
+  );
+  /**
+   * Botón de la fila (2026-11-12, boceto del dueño). Ficha activa → "Desactivar":
+   * abre el modal de sus unidades/lotes en esta bodega (nunca toca la ficha).
+   * Ficha desactivada → "Reactivar" (gestor del catálogo).
+   */
+  puedeGestionarActivoProd = (row: any): boolean =>
+    !!row &&
+    (row.activo === false ? this.puedeEliminar() : this.puedeGestionarExistencias() && UUID_RE.test(this.bodegaSel()));
   /** Por fila, como en `/materiales/productos`: activa → Editar y Desactivar; desactivada → Reactivar. */
   puedeEditarProd = (row: any): boolean => this.puedeEditar() && row?.activo !== false;
   etiquetaActivoProd = (row: any): string => (row?.activo === false ? 'Reactivar' : 'Desactivar');
+  /** Ficha cuyas existencias se están desactivando/eliminando en el modal. */
+  existenciasModal = signal<{ idProducto: string; nombre: string } | null>(null);
   columnasProd = computed(() => [
     'nombre', 'categoria_nombre', 'tipo_material', 'unidad_medida', 'SKU', 'minimo_txt', 'stock_txt',
     ...(this.puedeEliminar() ? ['estado_ficha'] : []),
@@ -707,13 +739,19 @@ export class MiBodegaComponent implements OnInit {
     await this.cargar();
   }
 
+  /** Se eliminaron o desactivaron unidades/lotes desde el modal de la fila. */
+  async onExistenciasCambiadas(): Promise<void> {
+    await this.cargar();
+  }
+
   /** B1 — el botón de la derecha es "Desactivar" (soft-delete) o "Reactivar" según el modo. */
   async eliminarProd(fila: any): Promise<void> {
-    if (!this.puedeEliminar()) return;
+    if (!this.puedeGestionarActivoProd(fila)) return;
     const p = this.productos().find((x) => x.id_producto === fila.id_producto);
     const nombre = p?.nombre ?? 'este producto';
 
     if (p?.activo === false || fila.activo === false) {
+      if (!this.puedeEliminar()) return;
       if (!(await this.confirm.ask(`¿Reactivar el producto "${nombre}"?`, { danger: false, acceptLabel: 'Reactivar' }))) return;
       try {
         await this.api.activarProducto(fila.id_producto);
@@ -725,34 +763,11 @@ export class MiBodegaComponent implements OnInit {
       return;
     }
 
-    // ¿Fue un error de registro? Sin historia se puede borrar de verdad, con lo
-    // que generó; si no, solo desactivar (mismo flujo que Productos).
-    if (await this.confirm.ask(
-      `¿"${nombre}" se registró por error (bodega equivocada, cantidad mal digitada)? Se puede eliminar por completo, junto con las unidades y lotes que generó, solo si todavía no tiene placas, préstamos, traslados, novedades ni movimientos. Si eliges "Solo desactivar" se conserva el histórico.`,
-      { header: 'Registro por error', acceptLabel: 'Eliminar definitivamente', rejectLabel: 'Solo desactivar' },
-    )) {
-      if (!(await this.confirm.ask(`Esto borra "${nombre}" y todo lo que se generó con él, y no se puede deshacer. ¿Continuar?`, { acceptLabel: 'Sí, eliminar' }))) return;
-      try {
-        await this.api.eliminarProductoDefinitivo(fila.id_producto);
-        this.toast.ok('Producto eliminado definitivamente');
-        await this.cargar();
-      } catch (e) {
-        this.toast.httpError(e, 'No se pudo eliminar el producto.');
-      }
-      return;
-    }
-
-    if (!(await this.confirm.ask(
-      `¿Desactivar el producto "${nombre}"? Sale de las listas y los selects; su histórico (kardex, préstamos, lotes) queda intacto y puedes reactivarlo.`,
-      { acceptLabel: 'Desactivar' },
-    ))) return;
-    try {
-      await this.api.eliminarProducto(fila.id_producto);
-      this.toast.ok('Producto desactivado');
-      await this.cargar();
-    } catch (e) {
-      this.toast.httpError(e, 'No se pudo desactivar el producto.');
-    }
+    // 2026-11-12 (boceto aprobado por el dueño): el botón abre el modal de las
+    // unidades/lotes de esta ficha EN ESTA bodega para eliminarlos (registro por
+    // error) o desactivarlos. Nunca toca la ficha. Antes ofrecía borrar la ficha
+    // con las existencias de TODAS las bodegas, y el diálogo no tenía Cancelar.
+    this.existenciasModal.set({ idProducto: fila.id_producto, nombre });
   }
 
   // ── Ítems ──

@@ -1,7 +1,11 @@
 import { Injectable, inject } from '@angular/core';
 import { BrnDialogService } from '@spartan-ng/brain/dialog';
 import { firstValueFrom } from 'rxjs';
-import { ConfirmDialogComponent, type ConfirmDialogContext } from '../../shared/ui/confirm-dialog.component';
+import {
+  ConfirmDialogComponent,
+  type ConfirmDialogContext,
+  type OpcionConfirm,
+} from '../../shared/ui/confirm-dialog.component';
 
 /**
  * Forma "PrimeNG" de una confirmación con callbacks. Se conserva para que las
@@ -49,6 +53,37 @@ export class ConfirmService {
       panelClass: 'confirm-dialog-panel',
     });
     return firstValueFrom(ref.closed$, { defaultValue: undefined }).then((r) => r === true);
+  }
+
+  /**
+   * Elegir entre varias acciones, siempre con "Cancelar" (2026-11-12). Antes una
+   * pregunta de tres salidas se armaba con `ask` usando el botón de cancelar
+   * como segunda acción ("Solo desactivar"), y el diálogo no tenía forma de
+   * salir sin hacer nada. Devuelve el `id` elegido, o `null` si se canceló.
+   */
+  elegir(
+    message: string,
+    opciones: OpcionConfirm[],
+    opts: { header?: string; cancelLabel?: string; danger?: boolean } = {},
+  ): Promise<string | null> {
+    const contexto: ConfirmDialogContext = {
+      message,
+      header: opts.header ?? 'Elige una opción',
+      acceptLabel: '',
+      rejectLabel: opts.cancelLabel ?? 'Cancelar',
+      danger: opts.danger ?? opciones.some((o) => o.danger),
+      opciones,
+    };
+    const ref = this.dialogs.open<ConfirmDialogContext, string | null>(ConfirmDialogComponent, undefined, contexto, {
+      role: 'alertdialog',
+      closeOnOutsidePointerEvents: false,
+      autoFocus: 'first-tabbable',
+      backdropClass: ['bg-black/50', 'backdrop-blur-[1px]'],
+      panelClass: 'confirm-dialog-panel',
+    });
+    return firstValueFrom(ref.closed$, { defaultValue: undefined }).then((r) =>
+      typeof r === 'string' && opciones.some((o) => o.id === r) ? r : null,
+    );
   }
 
   /** Misma forma que `ConfirmationService.confirm` de PrimeNG (ver `ConfirmacionCallbacks`). */

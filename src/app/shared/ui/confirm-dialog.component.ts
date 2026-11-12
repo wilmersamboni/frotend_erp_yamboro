@@ -8,6 +8,20 @@ export interface ConfirmDialogContext {
   rejectLabel: string;
   /** Acción destructiva: ícono y botón de aceptar en rojo. */
   danger: boolean;
+  /**
+   * Varias acciones a elegir (`ConfirmService.elegir`): un botón por opción,
+   * apilados, y debajo siempre "Cancelar" (`rejectLabel`). Cada opción cierra
+   * el diálogo con su `id`; Cancelar y Esc, sin nada.
+   */
+  opciones?: OpcionConfirm[];
+}
+
+export interface OpcionConfirm {
+  id: string;
+  label: string;
+  /** Una línea debajo del texto del botón: qué hace exactamente. */
+  detalle?: string;
+  danger?: boolean;
 }
 
 type IconoConfirm = 'papelera' | 'alerta' | 'info';
@@ -30,7 +44,7 @@ type IconoConfirm = 'papelera' | 'alerta' | 'info';
       aria-modal="true"
       aria-labelledby="confirm-dialog-title"
       aria-describedby="confirm-dialog-desc"
-      class="w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl animate-in fade-in-0 zoom-in-95 duration-200"
+      class="relative w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl animate-in fade-in-0 zoom-in-95 duration-200"
     >
       <div class="flex flex-col items-center px-6 pb-6 pt-6 text-center">
         <span [class]="cajaIcono" aria-hidden="true">
@@ -55,6 +69,22 @@ type IconoConfirm = 'papelera' | 'alerta' | 'info';
         <h2 id="confirm-dialog-title" class="mt-4 text-base font-semibold text-gray-900">{{ ctx.header }}</h2>
         <p id="confirm-dialog-desc" class="mt-2 text-sm leading-relaxed text-gray-500 whitespace-pre-line">{{ ctx.message }}</p>
       </div>
+      @if (ctx.opciones?.length) {
+        <!-- elegir(): se cancela con la X (arriba a la derecha) o Esc; las opciones van en una fila. -->
+        <button
+          type="button"
+          aria-label="Cerrar"
+          (click)="ctx.close(null)"
+          class="absolute right-3 top-3 rounded-lg p-1.5 text-xl leading-none text-gray-400 hover:bg-gray-100"
+        >×</button>
+        <div class="flex gap-3 border-t border-gray-100 bg-gray-50/70 px-6 py-4">
+          @for (o of ctx.opciones; track o.id) {
+            <button type="button" (click)="ctx.close(o.id)" [title]="o.detalle ?? ''" [class]="o.danger ? botonPeligro : botonNeutro">
+              {{ o.label }}
+            </button>
+          }
+        </div>
+      } @else {
       <div class="flex gap-3 border-t border-gray-100 bg-gray-50/70 px-6 py-4">
         <button
           type="button"
@@ -67,6 +97,7 @@ type IconoConfirm = 'papelera' | 'alerta' | 'info';
           {{ ctx.acceptLabel }}
         </button>
       </div>
+      }
     </div>
   `,
 })
@@ -89,4 +120,5 @@ export class ConfirmDialogComponent {
     'inline-flex h-10 flex-1 items-center justify-center rounded-lg px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1';
   protected readonly botonPeligro = `${this.botonBase} bg-red-100 text-red-600 hover:bg-red-200 focus-visible:ring-red-300`;
   protected readonly botonPrimario = `${this.botonBase} bg-[#39A900]/15 text-[#2f8a00] hover:bg-[#39A900]/25 focus-visible:ring-[#39A900]`;
+  protected readonly botonNeutro = `${this.botonBase} border border-gray-200 bg-white text-gray-800 hover:bg-gray-50 focus-visible:ring-gray-300`;
 }
