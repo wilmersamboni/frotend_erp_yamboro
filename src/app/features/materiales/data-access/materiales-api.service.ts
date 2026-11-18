@@ -1004,7 +1004,11 @@ export interface OpcionConsumo {
 
 export interface Asignacion {
   id_asignacion: string;
-  id_curso: string;
+  /** Ficha destinataria; null si la entrega fue a un instructor (`id_instructor`). */
+  id_curso: string | null;
+  /** Instructor destinatario (2026-11-18) y su nombre, resuelto por el backend. */
+  id_instructor?: string | null;
+  instructor_nombre?: string | null;
   id_producto: string;
   cantidad: number;
   fecha_asignacion: string;
@@ -1024,7 +1028,9 @@ export interface Asignacion {
 }
 
 export interface CreateAsignacionDto {
-  id_curso: string;
+  /** Destinatario: una ficha o un instructor del área de la bodega (exactamente uno). */
+  id_curso?: string;
+  id_instructor?: string;
   /** Bodega de la que salen las unidades (catálogo único). */
   id_sitio?: string;
   /** `id_producto` = unidades devolutivas; `id_lote` = consumo de ese lote. */
@@ -1301,7 +1307,12 @@ export class MaterialesApiService {
   /** Fichas y bodegas del formulario de nueva entrega (`id_sitios` null = todas). */
   opcionesEntregaFicha() {
     return this.unwrap(
-      this.http.get<Envelope<{ fichas: { idCurso: string; codigo: string; programa: string | null }[]; id_sitios: string[] | null }>>(`${BASE}/asignaciones/opciones/entrega`),
+      this.http.get<Envelope<{
+        fichas: { idCurso: string; codigo: string; programa: string | null }[];
+        id_sitios: string[] | null;
+        /** Instructores elegibles por bodega: los del área de esa bodega. */
+        instructores_por_sitio: Record<string, { id_usuario: string; nombre: string; cedula: string | null }[]>;
+      }>>(`${BASE}/materiales/asignaciones/opciones/entrega`),
     );
   }
   sitiosACargo() {

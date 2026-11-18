@@ -96,7 +96,7 @@ interface Ficha {
                 </svg>
               </div>
               <input appEspera type="text" [(ngModel)]="filtroTexto" (ngModelChange)="page = 0"
-                placeholder="Buscar por ficha o producto..."
+                placeholder="Buscar por ficha, instructor o producto..."
                 class="w-full pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:border-[#39A900] focus:bg-white transition-all text-gray-900 placeholder:text-gray-400" />
               @if (filtroTexto) {
                 <button aria-label="Limpiar búsqueda" (click)="filtroTexto = ''; page = 0" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
@@ -176,16 +176,16 @@ interface Ficha {
           <div class="space-y-3 p-3 md:hidden">
             @for (a of asignacionesPaginadas; track a.id_asignacion) {
               <article class="rounded-xl border border-gray-200 p-3 text-sm">
-                <div class="flex items-start justify-between gap-3"><strong class="text-gray-800">{{ nombreFicha(a) }}</strong><app-status-badge [value]="a.estado" /></div>
+                <div class="flex items-start justify-between gap-3"><strong class="text-gray-800">{{ nombreDestino(a) }}</strong><app-status-badge [value]="a.estado" /></div>
                 <p class="mt-2 text-gray-700">{{ descripcionLineas(a) }}</p>
                 <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs"><dt class="text-gray-500">Cantidad</dt><dd class="text-right">{{ a.cantidad }}</dd><dt class="text-gray-500">Fecha</dt><dd class="text-right">{{ a.fecha_asignacion | date: 'short' }}</dd></dl>
                 <div class="mt-3 flex flex-wrap justify-end gap-2">
-                  <button (click)="toggleUbicacion(a)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600">Ambiente</button>
+                  @if (a.id_curso) { <button (click)="toggleUbicacion(a)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600">Ambiente</button> }
                   @if (puedeReintegrarEn(a)) { <button (click)="abrirReintegro(a)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-600">Reintegrar sobrante</button> }
                   @if (a.estado === 'ACTIVA' && puedeAnular) { <button (click)="anular(a)" class="px-3 py-1.5 rounded-full text-xs font-semibold border border-amber-200 text-amber-700">Anular</button> }
                 </div>
                 @if (filaAbierta === a.id_asignacion) {
-                  <p class="mt-2 text-xs text-gray-500">{{ ubicacionCargando.has(a.id_curso) ? 'Consultando ambiente...' : ((ubicacionesFicha.get(a.id_curso) ?? []).join(', ') || 'Esta ficha no tiene ambiente asignado.') }}</p>
+                  <p class="mt-2 text-xs text-gray-500">{{ ubicacionCargando.has(a.id_curso ?? '') ? 'Consultando ambiente...' : ((ubicacionesFicha.get(a.id_curso ?? '') ?? []).join(', ') || 'Esta ficha no tiene ambiente asignado.') }}</p>
                 }
               </article>
             }
@@ -194,7 +194,7 @@ interface Ficha {
           <table class="w-full text-sm">
             <thead class="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
               <tr>
-                <th class="px-4 py-3 text-left font-semibold">Ficha</th>
+                <th class="px-4 py-3 text-left font-semibold">Entregado a</th>
                 <th class="px-4 py-3 text-left font-semibold">Producto</th>
                 <th class="px-4 py-3 text-left font-semibold">Cantidad</th>
                 <th class="px-4 py-3 text-left font-semibold">Estado</th>
@@ -206,12 +206,13 @@ interface Ficha {
             <tbody class="divide-y divide-gray-100">
               @for (a of asignacionesPaginadas; track a.id_asignacion) {
                 <tr class="hover:bg-gray-50/80 transition-colors">
-                  <td class="px-4 py-3 text-gray-700">{{ nombreFicha(a) }}</td>
+                  <td class="px-4 py-3 text-gray-700">{{ nombreDestino(a) }}</td>
                   <td class="px-4 py-3 text-gray-700">{{ descripcionLineas(a) }}</td>
                   <td class="px-4 py-3 text-gray-700">{{ a.cantidad }}</td>
                   <td class="px-4 py-3"><app-status-badge [value]="a.estado" /></td>
                   <td class="px-4 py-3 text-gray-500 text-xs">{{ a.fecha_asignacion | date: 'short' }}</td>
                   <td class="px-4 py-3 text-center">
+                    @if (a.id_curso) {
                     <button aria-label="Ver ambiente de la ficha" (click)="toggleUbicacion(a)" title="Ver ambiente de la ficha"
                       class="inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors"
                       [class.bg-green-50]="filaAbierta === a.id_asignacion"
@@ -223,6 +224,7 @@ interface Ficha {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
                       </svg>
                     </button>
+                    }
                   </td>
                   <td class="px-4 py-3">
                     <div class="flex justify-end gap-2">
@@ -244,12 +246,12 @@ interface Ficha {
                 @if (filaAbierta === a.id_asignacion) {
                   <tr class="bg-gray-50/60">
                     <td colspan="7" class="px-4 py-3">
-                      @if (ubicacionCargando.has(a.id_curso)) {
+                      @if (ubicacionCargando.has(a.id_curso ?? '')) {
                         <span class="text-xs text-gray-400">Consultando ambiente...</span>
-                      } @else if ((ubicacionesFicha.get(a.id_curso) ?? []).length === 0) {
+                      } @else if ((ubicacionesFicha.get(a.id_curso ?? '') ?? []).length === 0) {
                         <span class="text-xs text-gray-400">Esta ficha no tiene ambiente asignado todavía.</span>
                       } @else {
-                        @for (nombre of ubicacionesFicha.get(a.id_curso); track nombre) {
+                        @for (nombre of ubicacionesFicha.get(a.id_curso ?? ''); track nombre) {
                           <span class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full mr-1.5"
                             style="background-color: color-mix(in srgb, var(--accent-brand) 10%, transparent); color: var(--accent-text);">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -296,14 +298,29 @@ interface Ficha {
       <div appDialog class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" (click)="cerrarModal()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
           <div class="flex items-center justify-between mb-5">
-            <h2 class="text-lg font-bold text-gray-800">Nueva entrega a ficha</h2>
+            <h2 class="text-lg font-bold text-gray-800">Nueva entrega</h2>
             <button aria-label="Cerrar" (click)="cerrarModal()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
 
           <div class="space-y-3">
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Ficha</label>
-              <app-ss [options]="opcionesFicha" placeholder="Seleccioná una ficha…" [(ngModel)]="form['id_curso']"></app-ss>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Entregar a</label>
+              <div class="inline-flex rounded-xl border border-gray-200 p-0.5 bg-gray-50 mb-2" role="group" aria-label="Destinatario de la entrega">
+                <button type="button" (click)="cambiarDestino('ficha')"
+                  [class]="destinoTipo === 'ficha' ? 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-white shadow-sm text-gray-800' : 'px-3 py-1.5 rounded-lg text-xs font-medium text-gray-500'">Una ficha</button>
+                <button type="button" (click)="cambiarDestino('instructor')"
+                  [class]="destinoTipo === 'instructor' ? 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-white shadow-sm text-gray-800' : 'px-3 py-1.5 rounded-lg text-xs font-medium text-gray-500'">Un instructor</button>
+              </div>
+              @if (destinoTipo === 'ficha') {
+                <app-ss [options]="opcionesFicha" placeholder="Seleccioná una ficha…" [(ngModel)]="form['id_curso']"></app-ss>
+              } @else {
+                <app-ss [options]="opcionesInstructor" [placeholder]="idSitioAsig ? '— Selecciona un instructor —' : '— Elige primero la bodega —'" [(ngModel)]="form['id_instructor']"></app-ss>
+                @if (idSitioAsig && !opcionesInstructor.length) {
+                  <p class="text-xs text-amber-600 mt-1">Esta bodega no tiene área asignada o ningún instructor del área, así que no se le puede entregar a un instructor.</p>
+                } @else {
+                  <p class="text-xs text-gray-400 mt-1">Solo instructores del área de la bodega elegida.</p>
+                }
+              }
             </div>
 
             <div>
@@ -399,7 +416,7 @@ interface Ficha {
             <h2 class="text-lg font-bold text-gray-800">Reintegrar sobrante</h2>
             <button aria-label="Cerrar" (click)="reintegroDe = null" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 text-xl leading-none">×</button>
           </div>
-          <p class="text-sm text-gray-500 mb-4">Ficha {{ nombreFicha(r) }}. Escribe cuánto vuelve sin usar: regresa al mismo lote de la bodega.</p>
+          <p class="text-sm text-gray-500 mb-4">{{ r.id_instructor ? '' : 'Ficha ' }}{{ nombreDestino(r) }}. Escribe cuánto vuelve sin usar: regresa al mismo lote de la bodega.</p>
           <div class="space-y-2">
             @for (c of consumosPendientes(r); track c.id_asignacion_consumo) {
               <div class="flex items-center gap-3 rounded-xl border border-gray-200 px-3 py-2">
@@ -454,6 +471,22 @@ export class MaterialesAsignacionesComponent implements OnInit {
   productos: Producto[] = [];
   sitios: Sitio[] = [];
   fichas: Ficha[] = [];
+  /** A quién se entrega: una ficha o un instructor del área de la bodega (2026-11-18). */
+  destinoTipo: 'ficha' | 'instructor' = 'ficha';
+  /** Instructores elegibles por bodega (los del área de la bodega). */
+  instructoresPorSitio: Record<string, { id_usuario: string; nombre: string; cedula: string | null }[]> = {};
+
+  get opcionesInstructor() {
+    return (this.instructoresPorSitio[this.idSitioAsig] ?? []).map((i) => ({
+      value: i.id_usuario,
+      label: i.cedula ? `${i.nombre} — C.C. ${i.cedula}` : i.nombre,
+    }));
+  }
+
+  cambiarDestino(tipo: 'ficha' | 'instructor'): void {
+    this.destinoTipo = tipo;
+    this.form['id_instructor'] = '';
+  }
 
   get opcionesFicha() {
     return this.fichas.map((f) => ({ value: f.idCurso, label: `${f.codigo}${f.programa ? ' — ' + f.programa : ''}` }));
@@ -500,7 +533,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
       if (this.idAsignacionFiltro) return a.id_asignacion === this.idAsignacionFiltro;
       if (this.filtroEstado && a.estado !== this.filtroEstado) return false;
       if (!q) return true;
-      return this.nombreFicha(a).toLowerCase().includes(q) || this.descripcionLineas(a).toLowerCase().includes(q);
+      return this.nombreDestino(a).toLowerCase().includes(q) || this.descripcionLineas(a).toLowerCase().includes(q);
     });
   }
   get totalPaginas(): number {
@@ -568,6 +601,8 @@ export class MaterialesAsignacionesComponent implements OnInit {
 
   onBodegaAsigChange(): void {
     this.lineas = [{ valor: '', cantidad: 1 }];
+    // El instructor tiene que ser del área de la bodega: al cambiarla se vuelve a elegir.
+    this.form['id_instructor'] = '';
   }
 
   private opcionDe(idProducto: string): OpcionDevolutivo | undefined {
@@ -756,7 +791,8 @@ export class MaterialesAsignacionesComponent implements OnInit {
 
 
   puedeGuardar(): boolean {
-    if (!this.form['id_curso'] || !this.idSitioAsig || this.lineas.length === 0) return false;
+    const destino = this.destinoTipo === 'ficha' ? this.form['id_curso'] : this.form['id_instructor'];
+    if (!destino || !this.idSitioAsig || this.lineas.length === 0) return false;
     if (this.bodegaDelProductoInactiva()) return false;
 
     return this.lineas.every((l)=>{
@@ -793,9 +829,15 @@ export class MaterialesAsignacionesComponent implements OnInit {
    * viendo). Cae al lookup local solo para asignaciones creadas antes de este
    * fix (respuesta vieja en caché) o si el backend no pudo resolverla.
    */
-  nombreFicha(a: { id_curso: string; ficha_codigo?: string | null; ficha_programa?: string | null }): string {
+  /** "Instructor: Nombre" o la ficha — a quién se le entregó. */
+  nombreDestino(a: { id_curso: string | null; id_instructor?: string | null; instructor_nombre?: string | null; ficha_codigo?: string | null; ficha_programa?: string | null }): string {
+    if (a.id_instructor) return `Instructor: ${a.instructor_nombre ?? 'sin nombre disponible'}`;
+    return this.nombreFicha(a);
+  }
+
+  nombreFicha(a: { id_curso: string | null; ficha_codigo?: string | null; ficha_programa?: string | null }): string {
     if (a.ficha_codigo) return `${a.ficha_codigo}${a.ficha_programa ? ' — ' + a.ficha_programa : ''}`;
-    const f = this.fichas.find((x) => x.idCurso === a.id_curso);
+    const f = a.id_curso ? this.fichas.find((x) => x.idCurso === a.id_curso) : undefined;
     return f ? `${f.codigo}${f.programa ? ' — ' + f.programa : ''}` : 'Ficha no disponible';
   }
 
@@ -832,6 +874,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
       this.filaAbierta = null;
       return;
     }
+    if (!a.id_curso) return; // entrega a un instructor: no hay ficha de la que traer el ambiente
     this.filaAbierta = a.id_asignacion;
     if (this.ubicacionesFicha.has(a.id_curso)) return;
 
@@ -886,12 +929,13 @@ export class MaterialesAsignacionesComponent implements OnInit {
     const [opciones, consumo, entrega] = await Promise.all([
       this.secundarias.cargar('material disponible', () => this.api.opcionesDevolutivos()),
       this.secundarias.cargar('material disponible', () => this.api.opcionesConsumoAsignacion()),
-      this.secundarias.cargarUno('bodegas a tu cargo', () => this.api.opcionesEntregaFicha(), { fichas: [], id_sitios: [] as string[] | null }),
+      this.secundarias.cargarUno('bodegas a tu cargo', () => this.api.opcionesEntregaFicha(), { fichas: [], id_sitios: [] as string[] | null, instructores_por_sitio: {} }),
     ]);
     this.opcionesDev = opciones;
     this.opcionesCons = consumo;
     this.bodegasGestionadas = entrega.id_sitios ? new Set(entrega.id_sitios) : null;
     if (entrega.fichas.length) this.fichas = entrega.fichas;
+    this.instructoresPorSitio = entrega.instructores_por_sitio ?? {};
     const bodegas = this.opcionesBodegaAsig;
     if (!this.idSitioAsig) this.idSitioAsig = bodegas.length === 1 ? bodegas[0].value : '';
   }
@@ -906,22 +950,24 @@ export class MaterialesAsignacionesComponent implements OnInit {
     // Dos motivos distintos, dos mensajes (antes uno solo que no decía cuál faltaba).
     if (this.bodegasGestionadas?.size === 0 && !this.secundarias.falloAlguna(['bodegas a tu cargo'])) {
       this.toast.warn(
-        'No puedes entregar a fichas',
-        'Las entregas a fichas salen de bodegas creadas en Sitios. Si tienes a cargo un ambiente, las hace el líder de su área o el administrador.',
+        'No puedes hacer entregas',
+        'Las entregas a fichas o instructores salen de bodegas creadas en Sitios. Si tienes a cargo un ambiente, las hace el líder de su área o el administrador.',
         8000,
       );
       return;
     }
-    if (this.fichas.length === 0) {
-      this.toast.warn('No hay fichas', 'No hay fichas registradas en el centro para entregarles material.');
+    if (this.fichas.length === 0 && Object.keys(this.instructoresPorSitio).length === 0) {
+      this.toast.warn('No hay a quién entregar', 'No hay fichas registradas ni instructores en el área de tus bodegas para entregarles material.');
       return;
     }
     if (this.opcionesBodegaAsig.length === 0 && !this.secundarias.falloAlguna(['material disponible', 'bodegas a tu cargo'])) {
       this.toast.warn('Sin material disponible', 'No hay equipos ni material de consumo disponible en las bodegas que gestionas.');
       return;
     }
+    this.destinoTipo = this.fichas.length > 0 ? 'ficha' : 'instructor';
     this.form = {
-      id_curso: this.fichas[0].idCurso,
+      id_curso: this.fichas[0]?.idCurso ?? '',
+      id_instructor: '',
       //id_producto: this.productosAsignables[0].id_producto,
       //cantidad: 1,
       fecha_devolucion: '',
@@ -963,7 +1009,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
   this.error = null;
   try {
     const dto: CreateAsignacionDto = {
-      id_curso: this.form['id_curso'],
+      ...(this.destinoTipo === 'ficha' ? { id_curso: this.form['id_curso'] } : { id_instructor: this.form['id_instructor'] }),
       id_sitio: this.idSitioAsig,
       lineas: this.lineas.map((l) => {
         const idLote = idDe(l.valor, 'l');
@@ -992,7 +1038,7 @@ export class MaterialesAsignacionesComponent implements OnInit {
 
   async anular(a: Asignacion): Promise<void> {
     const conConsumo = this.consumosPendientes(a).length > 0;
-    const msg = `¿Anular la entrega de ${this.resumenLineas(a)} a la ficha ${this.nombreFicha(a)}? Los equipos que sigan prestados volverán al inventario${conConsumo ? ' y el material de consumo que no se haya reintegrado volverá a su lote' : ''}.`;
+    const msg = `¿Anular la entrega de ${this.resumenLineas(a)} ${a.id_instructor ? 'a' : 'a la ficha'} ${this.nombreDestino(a)}? Los equipos que sigan prestados volverán al inventario${conConsumo ? ' y el material de consumo que no se haya reintegrado volverá a su lote' : ''}.`;
     if (!(await this.confirm.ask(msg))) return;
     try {
       await this.api.anularAsignacion(a.id_asignacion);
