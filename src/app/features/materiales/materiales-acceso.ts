@@ -102,6 +102,8 @@ export const PANTALLAS_MATERIALES: PantallaMateriales[] = [
   // que use Materiales —un instructor cuentadante no trae `items.ver`—; las pestañas de
   // gestión las decide `puedeGestionarCatalogo` dentro de la pantalla.
   { id: 'cuentadante', label: 'Cuentadante', path: 'materiales/cuentadante', seccion: 'Inventario', acceso: servicio('materiales.cuentadante.ver') },
+  // Lo que se le entregó al instructor desde "Entregas a fichas" (2026-11-18). Sin permiso propio: solo muestra filas del usuario.
+  { id: 'mis-materiales', label: 'Mis materiales a cargo', path: 'materiales/mis-materiales', seccion: 'Operación', acceso: { tipo: 'cualquiera', servicios: SERVICIOS_ENTRADA }, ocultaACargos: ['aprendiz'] },
   { id: 'items', label: 'Equipos con placa', path: 'materiales/items', seccion: 'Inventario', acceso: servicio('materiales.items.ver') },
   { id: 'lotes', label: 'Material que se gasta', path: 'materiales/lotes', seccion: 'Inventario', acceso: servicio('materiales.lotes.ver') },
   // La pantalla tiene permiso propio; el DATO (listar productos) sigue protegido por `productos.ver`, que el aprendiz conserva para pedir material.

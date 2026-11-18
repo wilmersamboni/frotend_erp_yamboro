@@ -1002,6 +1002,19 @@ export interface OpcionConsumo {
   disponibles: number;
 }
 
+/** Una entrega vigente a mí como instructor (`GET materiales/asignaciones/mias`). */
+export interface EntregaAInstructor {
+  id_asignacion: string;
+  fecha_asignacion: string;
+  fecha_devolucion: string | null;
+  estado: string;
+  observacion: string | null;
+  bodega_nombre: string | null;
+  entregado_por: string | null;
+  unidades: { id_item: string; producto_nombre: string | null; placa_sena: string | null; codigo_sku: string | null; estado: string | null }[];
+  consumos: { producto_nombre: string | null; codigo_lote: string | null; unidad_medida: string | null; cantidad: number; cantidad_reintegrada: number }[];
+}
+
 export interface Asignacion {
   id_asignacion: string;
   /** Ficha destinataria; null si la entrega fue a un instructor (`id_instructor`). */
@@ -1865,6 +1878,11 @@ export class MaterialesApiService {
   }
   opcionesConsumoAsignacion() {
     return this.unwrap(this.http.get<Envelope<OpcionConsumo[]>>(`${BASE}/materiales/asignaciones/opciones/consumo`));
+  }
+
+  /** "Mis materiales a cargo": lo que se me entregó como instructor. */
+  misEntregas() {
+    return this.unwrap(this.http.get<Envelope<EntregaAInstructor[]>>(`${BASE}/materiales/asignaciones/mias`));
   }
   reintegrarConsumo(id: string, dto: { lineas: { id_asignacion_consumo: string; cantidad: number }[]; observacion?: string }) {
     return this.unwrap(this.http.post<Envelope<Asignacion>>(`${BASE}/materiales/asignaciones/${id}/reintegro`, dto));
